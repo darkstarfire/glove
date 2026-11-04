@@ -160,10 +160,8 @@ data/              sessão: glove-session, glove.desktop, instalar-sessao.sh
 
 ## Próximas etapas
 
-1. Terceira leva de apps: Música, Vídeo, Contatos, Correio
-2. Wi-Fi, Bluetooth, som, usuários e energia nas Preferências
-3. Sessão: vários monitores ao mesmo tempo, apagar a tela quando parado, tampa do notebook,
-   brilho e volume pelas teclas, apps X11 (XWayland)
+O plano completo, em fases e etapas (cada uma com seu commit), está em [docs/PLANO.md](docs/PLANO.md),
+com as análises detalhadas de cada área em [docs/analise/](docs/analise/).
 
 ## Neovim com Nerd Font
 
