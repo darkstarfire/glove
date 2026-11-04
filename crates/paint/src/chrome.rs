@@ -358,8 +358,9 @@ pub struct DockLayout {
     pub shelf: (f32, f32, f32, f32),
 }
 
-/// Posição de cada ícone. `hover_x` é relativo ao Dock.
-pub fn dock_layout(items: &[DockItem], hover_x: Option<f32>, base: f32, max: f32) -> DockLayout {
+/// Posição de cada ícone. `hover_x` é relativo ao Dock; `zoom` (0 a 1) é a força
+/// da ampliação, animada ao entrar e sair do Dock para não pular de uma vez.
+pub fn dock_layout(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f32, max: f32) -> DockLayout {
     let n = items.len() as f32;
     let seps = items.iter().filter(|i| i.separator_before).count() as f32;
     let base_w = n * (base + DOCK_GAP) - DOCK_GAP + seps * DOCK_SEP;
@@ -384,7 +385,7 @@ pub fn dock_layout(items: &[DockItem], hover_x: Option<f32>, base: f32, max: f32
         .map(|c| match hover_x {
             Some(hx) if max > base => {
                 let d = ((hx - c).abs() / range).min(1.0);
-                base + (max - base) * 0.5 * (1.0 + (std::f32::consts::PI * d).cos())
+                base + (max - base) * zoom.clamp(0.0, 1.0) * 0.5 * (1.0 + (std::f32::consts::PI * d).cos())
             }
             _ => base,
         })

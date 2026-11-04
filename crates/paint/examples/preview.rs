@@ -56,8 +56,8 @@ fn main() {
     .into_iter()
     .map(|(icon, label, running)| DockItem { icon, label: label.into(), letter: None, running, separator_before: false })
     .collect();
-    let base = dock_layout(&dock_items, None, DOCK_BASE, DOCK_MAX);
-    let layout = dock_layout(&dock_items, Some(base.items[1].0 + 24.0), DOCK_BASE, DOCK_MAX);
+    let base = dock_layout(&dock_items, None, 0.0, DOCK_BASE, DOCK_MAX);
+    let layout = dock_layout(&dock_items, Some(base.items[1].0 + 24.0), 1.0, DOCK_BASE, DOCK_MAX);
     let d = dock(&fonts, &theme, &dock_items, &layout, Some(1), scale).unwrap();
     screen.draw_canvas(&d, ((w as u32 - layout.width) / 2) as f32, h - layout.height as f32);
     screen.pm.save_png(&out).unwrap();

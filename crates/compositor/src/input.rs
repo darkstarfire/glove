@@ -306,6 +306,8 @@ impl Glove {
             Hit::Dock(i) => {
                 let x = (pos.x - self.chrome.dock_pos().x as f64) as f32;
                 self.chrome.dock_hover_x = Some(x);
+                self.chrome.dock_last_x = x;
+                self.chrome.animate_dock_zoom(1.0);
                 // Recalcula já para o item sob o mouse ficar certo.
                 self.prepare_dock();
                 let d = self.chrome.dock_pos();
@@ -321,6 +323,7 @@ impl Glove {
             _ => {
                 if self.chrome.dock_hover_x.take().is_some() {
                     self.chrome.dock_hover = None;
+                    self.chrome.animate_dock_zoom(0.0);
                     self.dirty = true;
                 }
             }

@@ -205,9 +205,14 @@ pub struct Chrome {
     pub dock_actions: Vec<DockAction>,
     pub dock_layout: Option<DockLayout>,
     pub dock_hover_x: Option<f32>,
+    /// Última posição do mouse no Dock (a ampliação some a partir dela ao sair).
+    pub dock_last_x: f32,
+    /// Força da ampliação (0 a 1) e a animação em curso: (de, para, início).
+    pub dock_zoom: f32,
+    pub dock_zoom_anim: Option<(f32, f32, std::time::Instant)>,
     pub dock_hover: Option<usize>,
     pub dock_pressed: Option<usize>,
-    dock_key: Option<(Vec<DockItem>, Option<i32>, Option<usize>, u64)>,
+    dock_key: Option<(Vec<DockItem>, Option<i32>, i32, Option<usize>, u64)>,
     pub dock: Option<Tex>,
     /// Escala usada no último desenho (mudou → refaz tudo).
     pub last_scale: f64,
@@ -225,7 +230,18 @@ pub struct Chrome {
     pub swallow_release: bool,
 }
 
+/// Duração da entrada e da saída da ampliação do Dock.
+pub const DOCK_ZOOM_SECS: f32 = 0.16;
+
 impl Chrome {
+    /// Começa a animar a ampliação até `to` (1 ao entrar no Dock, 0 ao sair).
+    pub fn animate_dock_zoom(&mut self, to: f32) {
+        let current_to = self.dock_zoom_anim.map(|a| a.1).unwrap_or(self.dock_zoom);
+        if current_to != to {
+            self.dock_zoom_anim = Some((self.dock_zoom, to, std::time::Instant::now()));
+        }
+    }
+
     pub fn dock_pos(&self) -> Point<i32, Logical> {
         let (w, h) = self.out_size;
         match &self.dock_layout {
@@ -798,8 +814,22 @@ impl Glove {
         let d = &self.config.dock;
         let base = d.size.clamp(24, 128) as f32;
         let max = if d.magnification { (d.max_size as f32).max(base) } else { base };
-        let layout = chrome::dock_layout(&items, self.chrome.dock_hover_x, base, max);
-        let key = (items.clone(), self.chrome.dock_hover_x.map(|x| x.round() as i32), self.chrome.dock_hover, self.theme_gen ^ ((base as u64) << 32) ^ ((max as u64) << 44));
+        // Animação da ampliação: avança pelo relógio e pede outro quadro até acabar.
+        if let Some((from, to, start)) = self.chrome.dock_zoom_anim {
+            let t = (start.elapsed().as_secs_f32() / DOCK_ZOOM_SECS).min(1.0);
+            // Começa e termina devagar.
+            let e = t * t * (3.0 - 2.0 * t);
+            self.chrome.dock_zoom = from + (to - from) * e;
+            if t >= 1.0 {
+                self.chrome.dock_zoom_anim = None;
+            } else {
+                self.dirty = true;
+            }
+        }
+        let zoom = self.chrome.dock_zoom;
+        let hover_x = self.chrome.dock_hover_x.or((zoom > 0.0).then_some(self.chrome.dock_last_x));
+        let layout = chrome::dock_layout(&items, hover_x, zoom, base, max);
+        let key = (items.clone(), hover_x.map(|x| x.round() as i32), (zoom * 1000.0) as i32, self.chrome.dock_hover, self.theme_gen ^ ((base as u64) << 32) ^ ((max as u64) << 44));
         if self.chrome.dock_key.as_ref() != Some(&key) {
             self.chrome.dock = chrome::dock(&self.fonts, &self.theme, &items, &layout, self.chrome.dock_hover, self.scale() as f32).map(to_tex);
             self.chrome.dock_key = Some(key);
