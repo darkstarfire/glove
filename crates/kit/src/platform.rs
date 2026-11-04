@@ -169,6 +169,10 @@ struct Runner<A: App> {
     menu_shortcuts: std::collections::HashMap<String, String>,
     /// Já há um timer de "acordar" pendente (ui.wake_after).
     wake_pending: bool,
+    /// Mudança de tamanho pedida pelo app, animada: (de, para, início, duração).
+    size_anim: Option<((u32, u32), (u32, u32), std::time::Instant, Duration)>,
+    /// Algum quadro já foi para a tela (antes disso o tamanho muda sem animar).
+    shown: bool,
 }
 
 const TEXT_MIMES: [&str; 5] = ["text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "STRING", "TEXT"];
@@ -307,6 +311,8 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         menu_sent: String::new(),
         menu_shortcuts: std::collections::HashMap::new(),
         wake_pending: false,
+        size_anim: None,
+        shown: false,
     };
     runner.connect_menus();
     if let Some(fd) = runner.app.watch_fd() {
@@ -343,6 +349,7 @@ impl<A: App> Runner<A> {
         if !self.configured || !self.dirty || self.frame_pending {
             return;
         }
+        self.step_size_anim();
         // Até 3 passadas seguidas se a interface pedir (ex.: pop-up que acabou de abrir).
         for pass in 0..3 {
             self.dirty = false;
@@ -361,18 +368,19 @@ impl<A: App> Runner<A> {
             // Um clique muda o estado no meio do quadro (ex.: o visor já foi
             // desenhado antes do botão). Mais uma passada, sem eventos, mostra
             // o resultado na hora. Só a última passada vai para a tela.
-            self.after_frame();
+            let resized = self.after_frame();
             let had_events = self.input.has_events();
             self.input.end_frame();
             if close {
                 self.exit = true;
             }
-            if (redraw || had_events) && pass < 2 {
+            if (redraw || had_events || resized) && pass < 2 {
                 self.canvas = Some(canvas);
                 self.dirty = true;
                 continue;
             }
             self.present(&canvas);
+            self.shown = true;
             self.canvas = Some(canvas);
             break;
         }
@@ -451,7 +459,53 @@ impl<A: App> Runner<A> {
     }
 
     /// Pedidos que os widgets deixaram durante o quadro.
-    fn after_frame(&mut self) {
+    /// Aplica o tamanho da janela (o canto de cima fica parado; o compositor ancora
+    /// a janela pelo canto superior esquerdo).
+    fn set_size(&mut self, w: u32, h: u32) {
+        if (w, h) == (self.width, self.height) {
+            return;
+        }
+        self.width = w;
+        self.height = h;
+        if self.fixed {
+            self.window.set_min_size(Some((w, h)));
+            self.window.set_max_size(Some((w, h)));
+        }
+    }
+
+    /// Avança a animação de tamanho e pede o próximo quadro enquanto ela durar.
+    fn step_size_anim(&mut self) {
+        let Some((from, to, start, dur)) = self.size_anim else { return };
+        let t = (start.elapsed().as_secs_f32() / dur.as_secs_f32()).min(1.0);
+        // Começa rápido e freia no fim.
+        let e = 1.0 - (1.0 - t).powi(3);
+        let lerp = |a: u32, b: u32| (a as f32 + (b as f32 - a as f32) * e).round() as u32;
+        self.set_size(lerp(from.0, to.0), lerp(from.1, to.1));
+        if t >= 1.0 {
+            self.size_anim = None;
+        } else {
+            self.mem.wake_after = Some(self.mem.wake_after.map_or(Duration::from_millis(16), |w| w.min(Duration::from_millis(16))));
+        }
+    }
+
+    /// Devolve verdadeiro se o tamanho mudou na hora (o quadro precisa ser refeito).
+    fn after_frame(&mut self) -> bool {
+        let mut resized = false;
+        if let Some((w, h, animate)) = self.mem.size_req.take() {
+            let target = self.size_anim.map(|a| a.1).unwrap_or((self.width, self.height));
+            if (w, h) != target {
+                if animate && self.shown {
+                    let d = (w as f32 - self.width as f32).abs().max((h as f32 - self.height as f32).abs());
+                    let dur = Duration::from_millis((d * 0.8).clamp(120.0, 300.0) as u64);
+                    self.size_anim = Some(((self.width, self.height), (w, h), std::time::Instant::now(), dur));
+                    self.step_size_anim();
+                } else {
+                    self.size_anim = None;
+                    self.set_size(w, h);
+                    resized = true;
+                }
+            }
+        }
         self.send_menus();
         for cmd in std::mem::take(&mut self.mem.glove_cmds) {
             use std::io::Write;
@@ -492,6 +546,7 @@ impl<A: App> Runner<A> {
         if let Some(id) = self.mem.paste_req.take() {
             self.request_paste(id);
         }
+        resized
     }
 
     /// Lê a área de transferência sem travar (o texto chega por um pipe).

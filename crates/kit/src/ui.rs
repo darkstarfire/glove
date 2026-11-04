@@ -350,6 +350,8 @@ pub struct Memory {
     /// Comandos para o Glove (pelo canal dos menus).
     pub(crate) glove_cmds: Vec<String>,
     pub(crate) minimize_req: bool,
+    /// Novo tamanho da janela pedido pelo app: (largura, altura, animar).
+    pub(crate) size_req: Option<(u32, u32, bool)>,
     /// Pedido para redesenhar daqui a pouco (animações, repetição de setas).
     pub(crate) wake_after: Option<std::time::Duration>,
     /// Ícone do app (alertas), descoberto pelo app_id.
@@ -513,6 +515,12 @@ impl<'a> Ui<'a> {
         self.child(false, r.x, r.y, r.w, f);
     }
 
+    /// Como `area`, mas devolve o tamanho usado pelo conteúdo (para a janela se
+    /// ajustar a ele com `set_window_size`).
+    pub fn area_size(&mut self, r: Rect, f: impl FnOnce(&mut Self)) -> (f32, f32) {
+        self.child(false, r.x, r.y, r.w, f)
+    }
+
     /// Coluna com largura fixa (para formulários "rótulo: controle").
     pub fn column(&mut self, width: f32, f: impl FnOnce(&mut Self)) {
         let (x, y) = self.cursor();
@@ -537,6 +545,13 @@ impl<'a> Ui<'a> {
     /// Itens de menu (sem atalho) escolhidos neste quadro.
     pub fn menu_actions(&self) -> &[String] {
         &self.input.menu_actions
+    }
+
+    /// Muda o tamanho da janela (em pontos). Com `animate`, ela cresce ou encolhe
+    /// suave, com o topo parado, como as Preferências da era ao trocar de painel.
+    /// Pode ser chamado a cada quadro: só age quando o tamanho pedido muda.
+    pub fn set_window_size(&mut self, w: f32, h: f32, animate: bool) {
+        self.mem.size_req = Some((w.round().max(1.0) as u32, h.round().max(1.0) as u32, animate));
     }
 
     pub fn minimize(&mut self) {
@@ -1298,6 +1313,25 @@ impl<'a> Ui<'a> {
             }
             _ => false,
         }
+    }
+
+    /// Seção que abre e fecha (10.2–10.4): triângulo e título em negrito; clicar em
+    /// qualquer um dos dois alterna. Devolve verdadeiro quando muda. O app desenha o
+    /// conteúdo logo depois, se `open`.
+    pub fn disclosure(&mut self, open: &mut bool, title: &str) -> bool {
+        let id = self.next_id();
+        let tw = self.fonts.measure(title, 12.0, true);
+        let r = self.alloc(18.0 + tw, 18.0);
+        let (hover, down, clicked) = self.interact(id, r);
+        let _ = hover;
+        if clicked {
+            *open = !*open;
+            self.redraw = true;
+        }
+        let color = if down { rgba(30, 30, 34, 255) } else { rgba(90, 90, 96, 255) };
+        disclosure_triangle(self.c, r.x + 6.0, r.y + 9.0, *open, color);
+        self.fonts.draw(self.c, title, r.x + 16.0, r.y + 13.5, 12.0, true, ink());
+        clicked
     }
 
     /// Caixa clara com borda suave, de altura fixa, para agrupar controles.

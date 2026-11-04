@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use glove_config::{Config, OutputsInfo, ACTIONS};
+use glove_config::{Config, OutputsInfo};
 use glove_kit::{
     paint::{draw::*, icons::Icon, Variant},
     run, App, Rect, Ticks, Ui, WindowOptions,
@@ -79,7 +79,16 @@ struct Prefs {
     confirm: Option<(String, String, Instant)>,
     /// Aba aberta no painel Teclado.
     kbd_tab: usize,
+    /// Grupos abertos no painel Atalhos.
+    open_groups: [bool; 3],
 }
+
+/// Grupos de atalhos (como no painel de atalhos do 10.4).
+const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
+    ("Janelas", &["close", "minimize", "zoom", "cycle"]),
+    ("Aplicativos", &["terminal", "preferences"]),
+    ("Sistema", &["screenshot", "quit"]),
+];
 
 impl Prefs {
     fn new() -> Self {
@@ -106,7 +115,7 @@ impl Prefs {
             Some("terminal") => Pane::Terminal,
             _ => Pane::Aparencia,
         };
-        Self { config: Config::load(), pane, images, outputs: OutputsInfo::load(), confirm: None, kbd_tab: 0 }
+        Self { config: Config::load(), pane, images, outputs: OutputsInfo::load(), confirm: None, kbd_tab: 0, open_groups: [true, false, false] }
     }
 
     fn save(&self) {
@@ -460,23 +469,33 @@ impl Prefs {
     fn atalhos(&mut self, ui: &mut Ui) {
         ui.heading("Atalhos de teclado");
         ui.small("Clique num atalho e pressione a nova combinação (Esc cancela).");
-        ui.space(6.0);
-        for (action, label) in ACTIONS {
-            let mut keys = self.config.shortcut(action).unwrap_or("").to_string();
-            let mut changed = false;
-            ui.push_id(action, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label_right(label, 200.0);
-                    changed = ui.shortcut_field(&mut keys, 220.0);
-                });
+        ui.space(4.0);
+        for (gi, (group, actions)) in SHORTCUT_GROUPS.iter().enumerate() {
+            ui.push_id(group, |ui| {
+                ui.disclosure(&mut self.open_groups[gi], group);
             });
-            if changed {
-                match self.config.shortcuts.iter_mut().find(|s| s.action == *action) {
-                    Some(s) => s.keys = keys,
-                    None => self.config.shortcuts.push(glove_config::Shortcut { action: action.to_string(), keys }),
-                }
-                self.save();
+            if !self.open_groups[gi] {
+                continue;
             }
+            for action in actions.iter() {
+                let label = glove_config::action_label(action);
+                let mut keys = self.config.shortcut(action).unwrap_or("").to_string();
+                let mut changed = false;
+                ui.push_id(action, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label_right(label, 200.0);
+                        changed = ui.shortcut_field(&mut keys, 220.0);
+                    });
+                });
+                if changed {
+                    match self.config.shortcuts.iter_mut().find(|s| s.action == *action) {
+                        Some(s) => s.keys = keys,
+                        None => self.config.shortcuts.push(glove_config::Shortcut { action: action.to_string(), keys }),
+                    }
+                    self.save();
+                }
+            }
+            ui.space(2.0);
         }
         ui.space(6.0);
         if ui.button("Restaurar padrões") {
@@ -525,7 +544,7 @@ impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
         self.toolbar(ui);
         let (w, h) = (ui.c.w, ui.c.h);
-        ui.area(Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0), |ui| match self.pane {
+        let (_, used) = ui.area_size(Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0), |ui| match self.pane {
             Pane::Aparencia => self.aparencia(ui),
             Pane::Monitor => self.monitor(ui),
             Pane::Trackpad => self.trackpad(ui),
@@ -535,6 +554,8 @@ impl App for Prefs {
             Pane::Atalhos => self.atalhos(ui),
             Pane::Terminal => self.terminal(ui),
         });
+        // A janela fica da altura do painel (cresce e encolhe suave, como na era).
+        ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, 720.0), true);
     }
 
     fn config_changed(&mut self) {
@@ -571,5 +592,16 @@ fn main() {
     let opts = WindowOptions { title: "Preferências".into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true };
     if let Err(e) = run(opts, Prefs::new()) {
         eprintln!("glove-prefs: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Todo atalho do Glove aparece em algum grupo do painel Atalhos.
+    #[test]
+    fn grupos_cobrem_todos_os_atalhos() {
+        for (action, _) in glove_config::ACTIONS {
+            assert!(super::SHORTCUT_GROUPS.iter().any(|(_, a)| a.contains(action)), "{action} sem grupo");
+        }
     }
 }
