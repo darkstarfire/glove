@@ -8,12 +8,12 @@ use glove_kit::{
     paint::{draw::*, icons::{self, Icon}, Color},
     run,
     ui::Key,
-    App, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W, SEARCH_H, SEGMENT_H, SEGMENT_W,
+    App, Column, Glyph, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, Ui, WindowOptions, SCROLLBAR_W, SEARCH_H, SEGMENT_H, SEGMENT_W,
 };
 
 const TOOLBAR_H: f32 = 62.0;
 const STATUS_H: f32 = 20.0;
-const ROW_H: f32 = 19.0;
+const ROW_H: f32 = 18.0;
 const COL_W: f32 = 200.0;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -221,6 +221,8 @@ struct Files {
     scroll: HashMap<PathBuf, f32>,
     message: Option<String>,
     last_title: String,
+    /// A seleção mudou pelo teclado: rolar a lista até ela.
+    reveal: bool,
 }
 
 impl Files {
@@ -238,6 +240,7 @@ impl Files {
             scroll: HashMap::new(),
             message: None,
             last_title: String::new(),
+            reveal: false,
         }
     }
 
@@ -542,62 +545,32 @@ impl Files {
                 return;
             }
         };
-        let header = 20.0;
-        let cols = [("Nome", 0.0), ("Data de modificação", 0.45), ("Tamanho", 0.7), ("Tipo", 0.82)];
-        ui.c.fill_rect(area.x, area.y, area.w, header, &vgrad(area.y, area.y + header, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(214, 216, 222, 255))]));
-        ui.c.hline(area.x, area.y + header - 1.0, area.w, rgba(150, 150, 156, 255));
-        for (i, (t, f)) in cols.iter().enumerate() {
-            let x = area.x + area.w * f;
-            if i > 0 {
-                ui.c.vline(x, area.y + 3.0, header - 6.0, rgba(160, 160, 166, 255));
-            }
-            ui.fonts.draw(ui.c, t, x + 8.0, area.y + 14.0, 11.0, false, rgba(30, 30, 30, 255));
+        // Ordenar e abrir pastas no lugar vêm na etapa 6.8: por ora o cabeçalho é fixo.
+        let cols = [
+            Column::new("Nome", 0.45).fixed(),
+            Column::new("Data de modificação", 0.25).fixed(),
+            Column::new("Tamanho", 0.12).right().fixed(),
+            Column::new("Tipo", 0.18).fixed(),
+        ];
+        let rows: Vec<TableRow> = entries
+            .iter()
+            .map(|e| TableRow {
+                cells: vec![e.name.clone(), human_date(e.modified), if e.kind == Kind::Folder { "--".into() } else { human_size(e.size) }, e.type_name().to_string()],
+                icon: Some(e.icon()),
+                ..TableRow::default()
+            })
+            .collect();
+        let sel = self.selected.as_ref().and_then(|s| entries.iter().position(|e| &e.path == s));
+        let mut state = TableState::default();
+        state.scroll = *self.scroll.get(&dir).unwrap_or(&0.0);
+        // O Arquivos não usa linhas alternadas (como o Finder).
+        let r = ui.table(area, &cols, &rows, sel, &mut state, &TableStyle { row_h: ROW_H, px: 12.0, zebra: false });
+        if let (Some(i), true) = (sel, std::mem::take(&mut self.reveal)) {
+            state.reveal(i);
+            ui.redraw = true;
         }
-        let content = entries.len() as f32 * ROW_H;
-        let mut off = *self.scroll.get(&dir).unwrap_or(&0.0);
-        let body = ui.scroll_area(Rect::new(area.x, area.y + header, area.w, area.h - header), &mut off, content, ROW_H);
-        self.scroll.insert(dir.clone(), off);
-        let first = (off / ROW_H).floor() as usize;
-        let count = (body.h / ROW_H).ceil() as usize + 1;
-        let mut action: Option<(Entry, bool)> = None;
-        for (i, e) in entries.iter().enumerate().skip(first).take(count) {
-            let y = body.y + i as f32 * ROW_H - off;
-            let (top, bot) = (y.max(body.y), (y + ROW_H).min(body.y + body.h));
-            if bot > top {
-                let resp = ui.hit(Rect::new(body.x, top, body.w, bot - top));
-                if resp.pressed {
-                    action = Some((e.clone(), resp.double));
-                }
-            }
-        }
-        let sel = self.selected.clone();
-        let accent = ui.theme.accent;
-        ui.clipped(91, body, |c, fonts| {
-            c.clear(Color::WHITE);
-            for (i, e) in entries.iter().enumerate().skip(first).take(count) {
-                let y = i as f32 * ROW_H - off;
-                let on = sel.as_ref() == Some(&e.path);
-                if on {
-                    c.fill_rect(0.0, y, body.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(accent, 0.15)), (1.0, accent)]));
-                } else if i % 2 == 1 {
-                    c.fill_rect(0.0, y, body.w, ROW_H, &solid(rgba(237, 243, 254, 255)));
-                }
-                let ink = if on { Color::WHITE } else { rgba(20, 20, 20, 255) };
-                icons::draw(c, fonts, e.icon(), 6.0, y + 1.5, 16.0, None);
-                let cells = [
-                    e.name.clone(),
-                    human_date(e.modified),
-                    if e.kind == Kind::Folder { "—".into() } else { human_size(e.size) },
-                    e.type_name().to_string(),
-                ];
-                for (j, (_, f)) in cols.iter().enumerate() {
-                    let x = body.w * f + if j == 0 { 26.0 } else { 8.0 };
-                    let next = cols.get(j + 1).map(|c| body.w * c.1).unwrap_or(body.w);
-                    let t = fonts.ellipsize(&cells[j], 12.0, false, next - x - 6.0);
-                    fonts.draw(c, &t, x, y + 14.0, 12.0, false, ink);
-                }
-            }
-        });
+        self.scroll.insert(dir.clone(), state.scroll);
+        let action = r.pressed.map(|i| (entries[i].clone(), r.double == Some(i)));
         if let Some((e, double)) = action {
             self.selected = Some(e.path.clone());
             if double {
@@ -766,6 +739,7 @@ impl Files {
                 } else {
                     self.selected = Some(e.path);
                 }
+                self.reveal = true;
             }
             "sel-right" if self.view == View::Columns => {
                 if let Some(e) = self.selected_entry().filter(|e| e.kind == Kind::Folder) {

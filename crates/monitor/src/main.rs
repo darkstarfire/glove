@@ -1,20 +1,21 @@
 //! Monitor: uso de CPU, memória e lista de processos (lidos de /proc).
 
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use glove_kit::{
-    paint::{draw::*, tiny_skia::PathBuilder, Color},
-    run, AlertKind, App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    paint::{draw::*, tiny_skia::PathBuilder},
+    run, AlertKind, App, Column, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, Ui, WindowOptions,
 };
 
 const HISTORY: usize = 60;
-const ROW_H: f32 = 19.0;
 const TOP_H: f32 = 120.0;
 
 #[derive(Clone)]
 struct Proc {
     pid: i32,
+    ppid: i32,
     name: String,
     user: String,
     cpu: f32,
@@ -63,7 +64,13 @@ struct Monitor {
     cpu_now: f32,
     mem: (u64, u64),
     selected: Option<i32>,
-    scroll: f32,
+    table: TableState,
+    /// Mostrar: 0 = todos os processos, 1 = os meus, 2 = em hierarquia.
+    show: usize,
+    /// Processos com os filhos recolhidos (na hierarquia).
+    collapsed: HashSet<i32>,
+    /// Usuário da sessão (para "Meus processos").
+    me: String,
     users: HashMap<u32, String>,
     ncpu: f32,
     message: Option<String>,
@@ -83,12 +90,18 @@ impl Monitor {
             cpu_now: 0.0,
             mem: mem_info(),
             selected: None,
-            scroll: 0.0,
+            // Começa ordenado por % CPU, do maior para o menor.
+            table: TableState::sorted_by(3, false),
+            show: 0,
+            collapsed: HashSet::new(),
+            me: String::new(),
             users: users(),
             ncpu,
             message: None,
             confirm_kill: None,
         };
+        let uid = unsafe { libc::getuid() };
+        m.me = m.users.get(&uid).cloned().unwrap_or_else(|| uid.to_string());
         m.refresh();
         m
     }
@@ -115,6 +128,7 @@ impl Monitor {
             let (Some(a), Some(b)) = (stat.find('('), stat.rfind(')')) else { continue };
             let name = stat[a + 1..b].to_string();
             let rest: Vec<&str> = stat[b + 2..].split_whitespace().collect();
+            let ppid = rest.get(1).and_then(|v| v.parse::<i32>().ok()).unwrap_or(0);
             let t = rest.get(11).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) + rest.get(12).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             let rss_pages: u64 = rest.get(21).and_then(|v| v.parse().ok()).unwrap_or(0);
             let prev = self.last_ticks.get(&pid).copied().unwrap_or(t);
@@ -126,9 +140,8 @@ impl Monitor {
                 e.metadata().map(|m| m.uid()).unwrap_or(0)
             };
             let user = self.users.get(&uid).cloned().unwrap_or_else(|| uid.to_string());
-            procs.push(Proc { pid, name, user, cpu, mem_kb: rss_pages * 4 });
+            procs.push(Proc { pid, ppid, name, user, cpu, mem_kb: rss_pages * 4 });
         }
-        procs.sort_by(|a, b| b.cpu.partial_cmp(&a.cpu).unwrap_or(std::cmp::Ordering::Equal).then(b.mem_kb.cmp(&a.mem_kb)));
         self.procs = procs;
         self.last_ticks = ticks;
         self.last_total = total;
@@ -193,53 +206,99 @@ impl Monitor {
         ui.fonts.draw(ui.c, &l2, mx, 94.0, 11.0, false, rgba(90, 90, 90, 255));
     }
 
+    /// Compara dois processos pela coluna da ordenação.
+    fn compare(&self, a: &Proc, b: &Proc) -> Ordering {
+        let (col, asc) = self.table.sort.unwrap_or((3, false));
+        let o = match col {
+            0 => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+            1 => a.pid.cmp(&b.pid),
+            2 => a.user.cmp(&b.user),
+            3 => a.cpu.partial_cmp(&b.cpu).unwrap_or(Ordering::Equal),
+            _ => a.mem_kb.cmp(&b.mem_kb),
+        };
+        let o = o.then(a.pid.cmp(&b.pid));
+        if asc { o } else { o.reverse() }
+    }
+
+    /// Linhas visíveis, já ordenadas: (pid, linha da tabela).
+    fn rows(&self) -> Vec<(i32, TableRow)> {
+        let cells = |p: &Proc| vec![p.name.clone(), p.pid.to_string(), p.user.clone(), format!("{:.1}", p.cpu).replace('.', ","), human_kb(p.mem_kb)];
+        let mut out = Vec::new();
+        if self.show == 2 {
+            // Hierarquia: cada processo embaixo do pai, irmãos na ordem escolhida.
+            let pids: HashSet<i32> = self.procs.iter().map(|p| p.pid).collect();
+            let mut kids: HashMap<i32, Vec<&Proc>> = HashMap::new();
+            for p in &self.procs {
+                let parent = if pids.contains(&p.ppid) && p.ppid != p.pid { p.ppid } else { 0 };
+                kids.entry(parent).or_default().push(p);
+            }
+            for v in kids.values_mut() {
+                v.sort_by(|a, b| self.compare(a, b));
+            }
+            let mut stack: Vec<(&Proc, u16)> = kids.get(&0).map(|v| v.iter().rev().map(|p| (*p, 0)).collect()).unwrap_or_default();
+            while let Some((p, depth)) = stack.pop() {
+                let children = kids.get(&p.pid);
+                let open = !self.collapsed.contains(&p.pid);
+                out.push((p.pid, TableRow { cells: cells(p), icon: None, depth, children: children.map(|_| open) }));
+                if let (Some(ch), true) = (children, open) {
+                    stack.extend(ch.iter().rev().map(|c| (*c, depth + 1)));
+                }
+            }
+        } else {
+            let mut v: Vec<&Proc> = self.procs.iter().filter(|p| self.show == 0 || p.user == self.me).collect();
+            v.sort_by(|a, b| self.compare(a, b));
+            out.extend(v.into_iter().map(|p| (p.pid, TableRow { cells: cells(p), ..TableRow::default() })));
+        }
+        out
+    }
+
     fn table(&mut self, ui: &mut Ui, area: Rect) {
-        let header = 20.0;
-        let cols = [("Processo", 0.0), ("PID", 0.42), ("Usuário", 0.54), ("% CPU", 0.72), ("Memória", 0.84)];
-        ui.c.fill_rect(area.x, area.y, area.w, header, &vgrad(area.y, area.y + header, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(214, 216, 222, 255))]));
-        ui.c.hline(area.x, area.y + header - 1.0, area.w, rgba(150, 150, 156, 255));
-        for (i, (t, f)) in cols.iter().enumerate() {
-            let x = area.x + area.w * f;
-            if i > 0 {
-                ui.c.vline(x, area.y + 3.0, header - 6.0, rgba(160, 160, 166, 255));
-            }
-            ui.fonts.draw(ui.c, t, x + 8.0, area.y + 14.0, 11.0, false, rgba(30, 30, 30, 255));
-        }
-        let content = self.procs.len() as f32 * ROW_H;
-        let body = ui.scroll_area(Rect::new(area.x, area.y + header, area.w, area.h - header), &mut self.scroll, content, ROW_H);
-        let first = (self.scroll / ROW_H).floor() as usize;
-        let count = (body.h / ROW_H).ceil() as usize + 1;
-        for (i, p) in self.procs.iter().enumerate().skip(first).take(count) {
-            let y = body.y + i as f32 * ROW_H - self.scroll;
-            let (top, bot) = (y.max(body.y), (y + ROW_H).min(body.y + body.h));
-            if bot > top && ui.hit(Rect::new(body.x, top, body.w, bot - top)).pressed {
-                self.selected = Some(p.pid);
-            }
-        }
-        let procs = &self.procs;
-        let sel = self.selected;
-        let off = self.scroll;
-        let accent = ui.theme.accent;
-        ui.clipped(5, body, |c, fonts| {
-            c.clear(Color::WHITE);
-            for (i, p) in procs.iter().enumerate().skip(first).take(count) {
-                let y = i as f32 * ROW_H - off;
-                let on = sel == Some(p.pid);
-                if on {
-                    c.fill_rect(0.0, y, body.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(accent, 0.15)), (1.0, accent)]));
-                } else if i % 2 == 1 {
-                    c.fill_rect(0.0, y, body.w, ROW_H, &solid(rgba(237, 243, 254, 255)));
+        let cols = [
+            Column::new("Processo", 0.42),
+            Column::new("PID", 0.1).right(),
+            Column::new("Usuário", 0.18),
+            Column::new("% CPU", 0.12).right(),
+            Column::new("Memória", 0.18).right(),
+        ];
+        let list = self.rows();
+        // Setas mudam a seleção; ← e → recolhem e abrem na hierarquia.
+        let cur = self.selected.and_then(|s| list.iter().position(|(pid, _)| *pid == s));
+        let keys = if self.confirm_kill.is_some() { Vec::new() } else { ui.keys().to_vec() };
+        for k in keys {
+            let n = list.len();
+            match k.combo.as_str() {
+                "Up" | "Down" if n > 0 => {
+                    let i = match (cur, k.combo == "Up") {
+                        (Some(i), true) => i.saturating_sub(1),
+                        (Some(i), false) => (i + 1).min(n - 1),
+                        (None, _) => 0,
+                    };
+                    self.selected = Some(list[i].0);
+                    self.table.reveal(i);
                 }
-                let ink = if on { Color::WHITE } else { rgba(20, 20, 20, 255) };
-                let cells = [p.name.clone(), p.pid.to_string(), p.user.clone(), format!("{:.1}", p.cpu).replace('.', ","), human_kb(p.mem_kb)];
-                for (j, (_, f)) in cols.iter().enumerate() {
-                    let x = body.w * f + 8.0;
-                    let next = cols.get(j + 1).map(|c| body.w * c.1).unwrap_or(body.w);
-                    let t = fonts.ellipsize(&cells[j], 12.0, false, next - x - 6.0);
-                    fonts.draw(c, &t, x, y + 14.0, 12.0, false, ink);
+                "Left" | "Right" if self.show == 2 => {
+                    if let Some(i) = cur {
+                        if list[i].1.children.is_some() {
+                            if k.combo == "Left" { self.collapsed.insert(list[i].0); } else { self.collapsed.remove(&list[i].0); }
+                        }
+                    }
                 }
+                _ => {}
             }
-        });
+        }
+        let sel = self.selected.and_then(|s| list.iter().position(|(pid, _)| *pid == s));
+        let rows: Vec<TableRow> = list.iter().map(|(_, r)| r.clone()).collect();
+        let r = ui.table(area, &cols, &rows, sel, &mut self.table, &TableStyle::default());
+        if let Some(i) = r.pressed {
+            self.selected = Some(list[i].0);
+        }
+        if let Some(i) = r.toggled {
+            let pid = list[i].0;
+            if !self.collapsed.remove(&pid) {
+                self.collapsed.insert(pid);
+            }
+            ui.redraw = true;
+        }
     }
 }
 
@@ -277,8 +336,14 @@ impl App for Monitor {
         let fy = h - 34.0;
         ui.c.fill_rect(0.0, fy, w, 34.0, &vgrad(fy, h, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(216, 216, 220, 255))]));
         ui.c.hline(0.0, fy, w, rgba(150, 150, 156, 255));
+        let shows = ["Todos os processos".to_string(), "Meus processos".to_string(), "Em hierarquia".to_string()];
+        ui.area(Rect::new(14.0, fy + 6.0, 170.0, 22.0), |ui| {
+            if ui.popup(&mut self.show, &shows, 170.0) {
+                self.table.scroll = 0.0;
+            }
+        });
         let info = self.message.clone().unwrap_or_else(|| format!("{} processos", self.procs.len()));
-        ui.fonts.draw(ui.c, &info, 14.0, fy + 21.0, 11.0, false, rgba(60, 60, 60, 255));
+        ui.fonts.draw(ui.c, &info, 198.0, fy + 21.0, 11.0, false, rgba(60, 60, 60, 255));
         let has = self.selected.is_some();
         if has && ui.gel_button(Rect::new(w - 170.0, fy + 6.0, 150.0, 22.0), "Encerrar processo", rgba(240, 240, 243, 255), 12.0, false) {
             self.kill(libc::SIGTERM);

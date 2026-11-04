@@ -83,6 +83,114 @@ enum SegLabel<'a> {
     Text(&'a str),
 }
 
+/// Altura do cabeçalho das tabelas e recuo de cada nível da árvore.
+pub const TABLE_HEADER_H: f32 = 17.0;
+pub const TABLE_INDENT: f32 = 16.0;
+
+/// Coluna de uma tabela. `width` é relativa (as larguras dividem a área na proporção).
+/// `right` alinha à direita (números) e faz a primeira ordenação ser decrescente.
+pub struct Column<'a> {
+    pub title: &'a str,
+    pub width: f32,
+    pub right: bool,
+    pub sortable: bool,
+}
+
+impl<'a> Column<'a> {
+    pub fn new(title: &'a str, width: f32) -> Self {
+        Self { title, width, right: false, sortable: true }
+    }
+    /// Alinhada à direita (números).
+    pub fn right(mut self) -> Self {
+        self.right = true;
+        self
+    }
+    pub fn fixed(mut self) -> Self {
+        self.sortable = false;
+        self
+    }
+}
+
+/// Linha de uma tabela. `children`: `None` = folha, `Some(aberta)` = tem filhos
+/// (mostra o triângulo). `depth` é o nível na árvore (recuo).
+#[derive(Clone, Default)]
+pub struct TableRow {
+    pub cells: Vec<String>,
+    pub icon: Option<Icon>,
+    pub depth: u16,
+    pub children: Option<bool>,
+}
+
+/// Estado da tabela guardado pelo app: rolagem e ordenação (coluna, crescente).
+#[derive(Clone, Debug, Default)]
+pub struct TableState {
+    pub scroll: f32,
+    pub sort: Option<(usize, bool)>,
+    view_h: f32,
+    row_h: f32,
+}
+
+impl TableState {
+    pub fn sorted_by(col: usize, ascending: bool) -> Self {
+        Self { sort: Some((col, ascending)), ..Self::default() }
+    }
+    /// Rola o mínimo para a linha `i` ficar visível (ex.: depois das setas).
+    pub fn reveal(&mut self, i: usize) {
+        if self.row_h <= 0.0 {
+            return;
+        }
+        let y = i as f32 * self.row_h;
+        if y < self.scroll {
+            self.scroll = y;
+        } else if y + self.row_h > self.scroll + self.view_h {
+            self.scroll = y + self.row_h - self.view_h;
+        }
+    }
+}
+
+/// Aparência da tabela.
+pub struct TableStyle {
+    pub row_h: f32,
+    pub px: f32,
+    /// Linhas alternadas em azul-claro (Monitor); o Arquivos não usa.
+    pub zebra: bool,
+}
+
+impl Default for TableStyle {
+    fn default() -> Self {
+        Self { row_h: 18.0, px: 11.0, zebra: true }
+    }
+}
+
+/// O que aconteceu na tabela neste quadro.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TableResponse {
+    /// Linha clicada (selecionar).
+    pub pressed: Option<usize>,
+    /// Clique duplo numa linha (abrir).
+    pub double: Option<usize>,
+    /// Triângulo clicado (abrir/fechar).
+    pub toggled: Option<usize>,
+    /// A ordenação mudou (o app reordena as linhas).
+    pub sorted: bool,
+}
+
+/// Triângulo de abrir/fechar (▸ fechado, ▾ aberto), centrado em (cx, cy).
+pub fn disclosure_triangle(c: &mut Canvas, cx: f32, cy: f32, open: bool, color: Color) {
+    let mut pb = glove_paint::tiny_skia::PathBuilder::new();
+    if open {
+        pb.move_to(cx - 4.5, cy - 2.5);
+        pb.line_to(cx + 4.5, cy - 2.5);
+        pb.line_to(cx, cy + 3.5);
+    } else {
+        pb.move_to(cx - 2.5, cy - 4.5);
+        pb.line_to(cx + 3.5, cy);
+        pb.line_to(cx - 2.5, cy + 4.5);
+    }
+    pb.close();
+    c.fill(pb.finish(), &solid(color));
+}
+
 /// Altura do campo de busca.
 pub const SEARCH_H: f32 = 22.0;
 /// Tamanho de cada parte do controle segmentado.
@@ -1533,6 +1641,179 @@ impl<'a> Ui<'a> {
             }
         }
         changed
+    }
+
+    // -----------------------------------------------------------------------
+    // Tabela
+    // -----------------------------------------------------------------------
+
+    /// Tabela da era (10.4): cabeçalho em gel claro com divisórias, a coluna ordenada
+    /// em azul com ▲/▼, linhas alternadas opcionais, seleção chapada (cinza quando a
+    /// janela não está ativa), recuo e triângulos de expansão para árvores e barra de
+    /// rolagem em gel. O app guarda as linhas já ordenadas: o kit só troca
+    /// `state.sort` quando um cabeçalho é clicado e avisa em `sorted`.
+    pub fn table(&mut self, area: Rect, cols: &[Column], rows: &[TableRow], selected: Option<usize>, state: &mut TableState, style: &TableStyle) -> TableResponse {
+        let id = self.next_id();
+        let mut resp = TableResponse::default();
+        let hh = TABLE_HEADER_H;
+        let rh = style.row_h;
+
+        // Corpo com a barra de rolagem
+        let content = rows.len() as f32 * rh;
+        let body = self.scroll_area(Rect::new(area.x, area.y + hh, area.w, area.h - hh), &mut state.scroll, content, rh);
+        state.view_h = body.h;
+        state.row_h = rh;
+        let total_w: f32 = cols.iter().map(|c| c.width).sum::<f32>().max(1.0);
+        let xs: Vec<f32> = cols.iter().scan(0.0, |acc, c| {
+            let x = *acc;
+            *acc += c.width / total_w * body.w;
+            Some(x.round())
+        }).collect();
+        let col_end = |j: usize| xs.get(j + 1).copied().unwrap_or(body.w);
+        let tree = rows.iter().any(|r| r.children.is_some() || r.depth > 0);
+
+        // Cabeçalho: clique ordena (de novo na mesma coluna inverte).
+        for (j, col) in cols.iter().enumerate() {
+            let cid = self.next_id();
+            let r = Rect::new(area.x + xs[j], area.y, col_end(j) - xs[j], hh);
+            let (_, _, clicked) = if col.sortable { self.interact(cid, r) } else { (false, false, false) };
+            if clicked {
+                state.sort = Some(match state.sort {
+                    Some((c, asc)) if c == j => (j, !asc),
+                    _ => (j, !col.right),
+                });
+                resp.sorted = true;
+                state.scroll = 0.0;
+            }
+        }
+
+        // Linhas: clique seleciona, duplo ativa, triângulo abre/fecha.
+        let first = (state.scroll / rh).floor().max(0.0) as usize;
+        let count = (body.h / rh).ceil() as usize + 1;
+        if self.hovered(body) && self.input.pressed {
+            let i = ((self.input.pos.1 - body.y + state.scroll) / rh).floor();
+            if i >= 0.0 && (i as usize) < rows.len() {
+                let i = i as usize;
+                let row = &rows[i];
+                let tx = body.x + xs.first().copied().unwrap_or(0.0) + 4.0 + row.depth as f32 * TABLE_INDENT;
+                if tree && row.children.is_some() && self.input.pos.0 >= tx - 2.0 && self.input.pos.0 < tx + TABLE_INDENT {
+                    resp.toggled = Some(i);
+                } else {
+                    resp.pressed = Some(i);
+                    if self.input.clicks >= 2 {
+                        resp.double = Some(i);
+                    }
+                }
+                self.redraw = true;
+            }
+        }
+
+        // Desenho do cabeçalho (inclui o canto sobre a barra de rolagem).
+        let a = self.theme.accent;
+        let normal = [(0.0, rgba(255, 255, 255, 255)), (0.4, rgba(245, 245, 245, 255)), (0.5, rgba(236, 236, 236, 255)), (0.56, rgba(243, 243, 243, 255)), (1.0, rgba(255, 255, 255, 255))];
+        let lit = [(0.0, lighten(a, 0.82)), (0.4, lighten(a, 0.58)), (0.5, lighten(a, 0.42)), (0.56, lighten(a, 0.5)), (1.0, lighten(a, 0.8))];
+        let (hy, hb) = (area.y, area.y + hh);
+        self.c.fill_rect(area.x, hy, area.w, hh, &vgrad(hy, hb, &normal));
+        let sorted_col = state.sort.map(|(c, _)| c);
+        for (j, col) in cols.iter().enumerate() {
+            let (x0, x1) = (area.x + xs[j], area.x + col_end(j));
+            let on = sorted_col == Some(j);
+            if on {
+                self.c.fill_rect(x0, hy, x1 - x0, hh, &vgrad(hy, hb, &lit));
+            }
+            if j > 0 {
+                self.c.vline(x0, hy + 1.0, hh - 2.0, rgba(196, 196, 200, 255));
+            }
+            let ink = rgba(25, 25, 28, 255);
+            let tw = self.fonts.measure(col.title, 11.0, false);
+            let arrow_w = if on { 13.0 } else { 0.0 };
+            let avail = x1 - x0 - 12.0 - arrow_w;
+            let t = self.fonts.ellipsize(col.title, 11.0, false, avail);
+            let tw = tw.min(avail);
+            let base = hy + 12.5;
+            // Seta de ordenação do lado oposto ao texto.
+            let (tx, ax) = if col.right { (x1 - 6.0 - tw, x0 + 9.0) } else { (x0 + 6.0, x1 - 9.0) };
+            self.fonts.draw(self.c, &t, tx, base, 11.0, false, ink);
+            if on {
+                let asc = state.sort.is_some_and(|(_, asc)| asc);
+                let cy = hy + hh / 2.0;
+                let d = if asc { -1.0 } else { 1.0 };
+                let mut pb = glove_paint::tiny_skia::PathBuilder::new();
+                pb.move_to(ax - 3.5, cy - 2.0 * d);
+                pb.line_to(ax + 3.5, cy - 2.0 * d);
+                pb.line_to(ax, cy + 2.5 * d);
+                pb.close();
+                self.c.fill(pb.finish(), &solid(darken(a, 0.35)));
+            }
+        }
+        if let Some(j) = sorted_col.filter(|&j| j < cols.len()) {
+            self.c.hline(area.x + xs[j], hy, col_end(j) - xs[j], darken(a, 0.2));
+        }
+        self.c.hline(area.x, hb - 1.0, area.w, rgba(160, 160, 166, 255));
+        if let Some(j) = sorted_col.filter(|&j| j < cols.len()) {
+            self.c.hline(area.x + xs[j], hb - 1.0, col_end(j) - xs[j], darken(a, 0.05));
+        }
+        self.c.vline(body.x + body.w, hy + 1.0, hh - 2.0, rgba(196, 196, 200, 255));
+
+        // Corpo, desenhado numa superfície recortada.
+        let active = self.input.active;
+        let off = state.scroll;
+        let fonts = self.fonts;
+        let px = style.px;
+        let zebra = style.zebra;
+        self.clipped(id, body, |c, _| {
+            c.clear(Color::WHITE);
+            if zebra {
+                // Listras também abaixo da última linha, como na era.
+                let n = (off / rh).floor() as usize;
+                let mut i = n;
+                loop {
+                    let y = i as f32 * rh - off;
+                    if y >= body.h {
+                        break;
+                    }
+                    if i % 2 == 1 {
+                        c.fill_rect(0.0, y, body.w, rh, &solid(rgba(241, 246, 254, 255)));
+                    }
+                    i += 1;
+                }
+            }
+            for (i, row) in rows.iter().enumerate().skip(first).take(count) {
+                let y = i as f32 * rh - off;
+                let sel = selected == Some(i);
+                if sel {
+                    c.fill_rect(0.0, y, body.w, rh, &solid(if active { a } else { rgba(212, 212, 216, 255) }));
+                }
+                let ink = if sel && active { Color::WHITE } else { rgba(20, 20, 20, 255) };
+                let base = y + (rh + px) / 2.0 - 1.5;
+                for (j, col) in cols.iter().enumerate() {
+                    let Some(cell) = row.cells.get(j) else { continue };
+                    let (mut x0, x1) = (xs[j] + 6.0, col_end(j) - 6.0);
+                    if j == 0 {
+                        if tree {
+                            x0 += row.depth as f32 * TABLE_INDENT;
+                            if let Some(open) = row.children {
+                                let tc = if sel && active { Color::WHITE } else { rgba(100, 100, 106, 255) };
+                                disclosure_triangle(c, x0 + 4.0, y + rh / 2.0, open, tc);
+                            }
+                            x0 += TABLE_INDENT;
+                        }
+                        if let Some(icon) = row.icon {
+                            let s = (rh - 2.0).min(16.0);
+                            icons::draw(c, fonts, icon, x0, y + (rh - s) / 2.0, s, None);
+                            x0 += s + 4.0;
+                        }
+                    }
+                    if x1 <= x0 {
+                        continue;
+                    }
+                    let t = fonts.ellipsize(cell, px, false, x1 - x0);
+                    let x = if col.right { x1 - fonts.measure(&t, px, false) } else { x0 };
+                    fonts.draw(c, &t, x, base, px, false, ink);
+                }
+            }
+        });
+        resp
     }
 
     // -----------------------------------------------------------------------
