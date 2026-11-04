@@ -12,6 +12,16 @@ use glove_paint::{
 
 pub type Id = u64;
 
+/// Altura da barra de progresso.
+pub const PROGRESS_H: f32 = 12.0;
+
+/// Fase de uma animação de `period_ms` (0 a 1), pelo relógio: todas andam juntas
+/// e não precisam guardar estado.
+fn anim_phase(period_ms: u64) -> f32 {
+    let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+    (ms % period_ms) as f32 / period_ms as f32
+}
+
 /// Largura da barra de rolagem (15 pt, como na era).
 pub const SCROLLBAR_W: f32 = 15.0;
 const SCROLL_ARROW_H: f32 = 15.0;
@@ -849,6 +859,40 @@ impl<'a> Ui<'a> {
     /// Pede um novo quadro daqui a `d` (sem eventos), para animações.
     pub fn wake_after(&mut self, d: std::time::Duration) {
         self.mem.wake_after = Some(self.mem.wake_after.map_or(d, |w| w.min(d)));
+    }
+
+    // -----------------------------------------------------------------------
+    // Progresso e espera
+    // -----------------------------------------------------------------------
+
+    /// Barra de progresso (12 pt de altura). `value` de 0 a 1; `None` = indeterminada,
+    /// com listras que andam (só pede novos quadros enquanto aparece).
+    pub fn progress(&mut self, value: Option<f32>, width: f32) {
+        let r = self.alloc(width, PROGRESS_H);
+        self.progress_in(r, value);
+    }
+
+    /// Barra de progresso num retângulo livre.
+    pub fn progress_in(&mut self, r: Rect, value: Option<f32>) {
+        let phase = if value.is_none() {
+            self.wake_after(std::time::Duration::from_millis(50));
+            anim_phase(900)
+        } else {
+            0.0
+        };
+        progress_bar(self.c, r.x, r.y, r.w, r.h, value, phase, self.theme.accent);
+    }
+
+    /// Giratório de espera de `size` pt (12 raios, uma volta por segundo).
+    pub fn spinner(&mut self, size: f32) {
+        let r = self.alloc(size, size);
+        self.spinner_at(r.x + size / 2.0, r.y + size / 2.0, size);
+    }
+
+    /// Giratório centrado em (cx, cy).
+    pub fn spinner_at(&mut self, cx: f32, cy: f32, size: f32) {
+        self.wake_after(std::time::Duration::from_millis(1000 / 12));
+        spinner(self.c, cx, cy, size / 2.0, anim_phase(1000), rgba(60, 60, 64, 255));
     }
 
     // -----------------------------------------------------------------------

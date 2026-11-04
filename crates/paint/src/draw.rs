@@ -280,6 +280,24 @@ impl Canvas {
         }
     }
 
+    /// Preenche `path` só dentro de `clip` (recorte com borda suave).
+    pub fn fill_clipped(&mut self, path: Option<Path>, paint: &Paint, clip: Option<Path>) {
+        let (Some(p), Some(cl)) = (path, clip) else { return };
+        let Some(mut mask) = tiny_skia::Mask::new(self.pm.width(), self.pm.height()) else { return };
+        let t = self.t();
+        mask.fill_path(&cl, FillRule::Winding, true, t);
+        self.pm.fill_path(&p, paint, FillRule::Winding, t, Some(&mask));
+    }
+
+    /// Traço com pontas arredondadas.
+    pub fn stroke_round(&mut self, path: Option<Path>, paint: &Paint, width: f32) {
+        if let Some(p) = path {
+            let t = self.t();
+            let s = Stroke { width, line_cap: tiny_skia::LineCap::Round, ..Default::default() };
+            self.pm.stroke_path(&p, paint, &s, t, None);
+        }
+    }
+
     /// Copia outro canvas (mesma escala) na posição lógica (x, y).
     pub fn draw_canvas(&mut self, other: &Canvas, x: f32, y: f32) {
         let s = self.scale;
@@ -362,4 +380,112 @@ pub fn gel_rect(c: &mut Canvas, x: f32, y: f32, w: f32, h: f32, r: f32, base: Co
         rrect4(ix + 2.0, iy + 1.0, iw - 4.0, hh, [rr, rr, 2.0, 2.0]),
         &vgrad(iy, iy + hh, &[(0.0, rgba(255, 255, 255, 230)), (1.0, rgba(255, 255, 255, 40))]),
     );
+}
+
+// ---------------------------------------------------------------------------
+// Progresso
+// ---------------------------------------------------------------------------
+
+/// Barra de progresso da era: trilho em gel cinza claro e preenchimento em gel azul.
+/// `value` de 0 a 1; `None` = indeterminada, com listras diagonais que andam conforme
+/// `phase` (0 a 1 = um período).
+pub fn progress_bar(c: &mut Canvas, x: f32, y: f32, w: f32, h: f32, value: Option<f32>, phase: f32, accent: Color) {
+    let r = (h / 4.0).min(3.0);
+    c.fill(rrect(x, y, w, h, r), &solid(rgba(150, 150, 156, 255)));
+    let (ix, iy, iw, ih) = (x + 1.0, y + 1.0, w - 2.0, h - 2.0);
+    let inner = || rrect(ix, iy, iw, ih, (r - 1.0).max(0.0));
+    c.fill(
+        inner(),
+        &vgrad(iy, iy + ih, &[(0.0, rgba(233, 233, 233, 255)), (0.3, rgba(226, 226, 226, 255)), (0.55, rgba(236, 236, 236, 255)), (0.75, rgba(248, 248, 248, 255)), (1.0, rgba(228, 228, 228, 255))]),
+    );
+    // Gel azul do 10.4: claro em cima, faixa mais forte no meio, bem claro embaixo.
+    let blue = vgrad(iy, iy + ih, &[(0.0, lighten(accent, 0.45)), (0.4, lighten(accent, 0.3)), (0.5, lighten(accent, 0.12)), (1.0, lighten(accent, 0.65))]);
+    match value {
+        Some(v) => {
+            let fw = (iw * v.clamp(0.0, 1.0)).round();
+            if fw >= 1.0 {
+                let fill = rrect(ix, iy, fw, ih, (r - 1.0).max(0.0));
+                c.fill_clipped(fill, &blue, inner());
+                // Textura leve de faixas verticais, como no original.
+                let mut sx = ix + 3.0;
+                while sx < ix + fw - 1.0 {
+                    c.vline(sx, iy, ih, rgba(255, 255, 255, 22));
+                    sx += 6.0;
+                }
+            }
+        }
+        None => {
+            // "Poste de barbeiro": listras diagonais azuis sobre azul bem claro.
+            c.fill_clipped(inner(), &vgrad(iy, iy + ih, &[(0.0, lighten(accent, 0.9)), (1.0, lighten(accent, 0.78))]), inner());
+            let period = (ih * 2.0).max(8.0);
+            let stripe = period / 2.0;
+            let shift = phase.fract() * period;
+            let mut sx = ix - ih - period + shift;
+            let mut pb = tiny_skia::PathBuilder::new();
+            while sx < ix + iw + ih {
+                pb.move_to(sx, iy + ih);
+                pb.line_to(sx + ih, iy);
+                pb.line_to(sx + ih + stripe, iy);
+                pb.line_to(sx + stripe, iy + ih);
+                pb.close();
+                sx += period;
+            }
+            c.fill_clipped(pb.finish(), &blue, inner());
+        }
+    }
+    // Brilho em cima (vale para trilho e preenchimento).
+    c.fill_clipped(
+        rrect(ix, iy, iw, ih * 0.45, 0.0),
+        &vgrad(iy, iy + ih * 0.45, &[(0.0, rgba(255, 255, 255, 110)), (1.0, rgba(255, 255, 255, 20))]),
+        inner(),
+    );
+}
+
+/// Giratório de 12 raios (espera). `phase` de 0 a 1 = uma volta; o raio mais forte
+/// é o da vez e os seguintes vão sumindo.
+pub fn spinner(c: &mut Canvas, cx: f32, cy: f32, r: f32, phase: f32, color: Color) {
+    let head = (phase.fract() * 12.0).floor() as i32;
+    let width = (r * 0.2).max(1.5);
+    for i in 0..12 {
+        let k = (head - i).rem_euclid(12) as f32;
+        let alpha = 1.0 - k / 12.0 * 0.85;
+        let a = i as f32 / 12.0 * std::f32::consts::TAU - std::f32::consts::FRAC_PI_2;
+        let (s, co) = a.sin_cos();
+        let mut pb = tiny_skia::PathBuilder::new();
+        pb.move_to(cx + co * r * 0.5, cy + s * r * 0.5);
+        pb.line_to(cx + co * (r - width / 2.0), cy + s * (r - width / 2.0));
+        c.stroke_round(pb.finish(), &solid(with_alpha(color, color.alpha() * alpha)), width);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn px(c: &Canvas, x: u32, y: u32) -> (u8, u8, u8) {
+        let i = ((y * c.px_width() + x) * 4) as usize;
+        let d = c.data();
+        (d[i], d[i + 1], d[i + 2])
+    }
+
+    #[test]
+    fn progresso_pela_metade() {
+        let mut c = Canvas::new(100.0, 12.0, 1.0).unwrap();
+        c.clear(Color::WHITE);
+        progress_bar(&mut c, 0.0, 0.0, 100.0, 12.0, Some(0.5), 0.0, rgba(45, 120, 230, 255));
+        let (r, _, b) = px(&c, 25, 7);
+        assert!(b > r + 40, "metade cheia deve ser azul: {r} {b}");
+        let (r, g, b) = px(&c, 75, 7);
+        assert!(r.abs_diff(b) < 10 && g.abs_diff(b) < 10, "metade vazia deve ser cinza: {r} {g} {b}");
+    }
+
+    #[test]
+    fn listras_andam_com_a_fase() {
+        let accent = rgba(45, 120, 230, 255);
+        let mut a = Canvas::new(60.0, 12.0, 1.0).unwrap();
+        let mut b = Canvas::new(60.0, 12.0, 1.0).unwrap();
+        progress_bar(&mut a, 0.0, 0.0, 60.0, 12.0, None, 0.0, accent);
+        progress_bar(&mut b, 0.0, 0.0, 60.0, 12.0, None, 0.5, accent);
+        assert_ne!(a.data(), b.data());
+    }
 }

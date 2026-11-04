@@ -62,7 +62,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 - [x] 2.0 Referências do Tiger em `referencias/tiger/` (512pixels) e análise das diferenças ([6-tiger.md](analise/6-tiger.md)) (M)
 - [x] 2.1 Barra de rolagem em gel genérica (listas, tabelas, colunas) (M)
-- [ ] 2.2 Barra de progresso com listras animadas (indeterminada) e giratório (M)
+- [x] 2.2 Barra de progresso com listras animadas (indeterminada) e giratório (M)
 - [ ] 2.3 Alerta padrão com ícones originais de Pare/Cuidado/Nota e botão padrão pulsante (M)
 - [ ] 2.4 Controle segmentado com glifos; barra de ferramentas com ícone + rótulo; campo de busca em cápsula (M)
 - [ ] 2.5 Formulário com rótulos à direita (`form_row`), caixa com abas (`tab_box`), slider com marcas e polegar em gota (M)

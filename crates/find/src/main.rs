@@ -272,7 +272,14 @@ impl App for Find {
         } else {
             format!("{n} {}{}", if n == 1 { "item encontrado" } else { "itens encontrados" }, if n >= MAX_RESULTS { " (limite)" } else { "" })
         };
-        ui.fonts.draw(ui.c, &status, 14.0, sy + 15.0, 11.0, false, rgba(60, 60, 60, 255));
+        // Enquanto busca, o giratório gira ao lado do texto.
+        let tx = if self.searching {
+            ui.spinner_at(21.0, sy + 11.0, 14.0);
+            34.0
+        } else {
+            14.0
+        };
+        ui.fonts.draw(ui.c, &status, tx, sy + 15.0, 11.0, false, rgba(60, 60, 60, 255));
 
         for a in acts {
             match a.as_str() {
