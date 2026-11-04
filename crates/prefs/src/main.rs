@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use glove_config::{Config, OutputsInfo, ACTIONS};
 use glove_kit::{
     paint::{draw::*, icons::Icon, Variant},
-    run, App, Rect, Ui, WindowOptions,
+    run, App, Rect, Ticks, Ui, WindowOptions,
 };
 
 const W: u32 = 660;
@@ -77,6 +77,8 @@ struct Prefs {
     outputs: Option<OutputsInfo>,
     /// Resolução nova esperando confirmação: (monitor e resolução anteriores, prazo).
     confirm: Option<(String, String, Instant)>,
+    /// Aba aberta no painel Teclado.
+    kbd_tab: usize,
 }
 
 impl Prefs {
@@ -104,7 +106,7 @@ impl Prefs {
             Some("terminal") => Pane::Terminal,
             _ => Pane::Aparencia,
         };
-        Self { config: Config::load(), pane, images, outputs: OutputsInfo::load(), confirm: None }
+        Self { config: Config::load(), pane, images, outputs: OutputsInfo::load(), confirm: None, kbd_tab: 0 }
     }
 
     fn save(&self) {
@@ -172,87 +174,89 @@ impl Prefs {
     }
 
     fn dock(&mut self, ui: &mut Ui) {
-        ui.heading("Tamanho");
-        let mut size = self.config.dock.size as f32;
-        ui.indent(16.0, |ui| {
-            ui.horizontal(|ui| {
-                ui.small("Pequeno");
-                if ui.slider(&mut size, 32.0, 72.0, 320.0) {
-                    self.config.dock.size = size.round() as u32;
-                    self.config.dock.max_size = self.config.dock.max_size.max(self.config.dock.size);
-                    self.save();
-                }
-                ui.small("Grande");
-            });
-        });
+        // Formulário da era: rótulos à direita, controles numa coluna comum.
+        const LW: f32 = 190.0;
         ui.space(8.0);
+        let mut size = self.config.dock.size as f32;
+        ui.form_row("Tamanho do Dock", LW, |ui| {
+            let t = Ticks { count: 2, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };
+            if ui.slider_ticks(&mut size, 32.0, 72.0, 240.0, &t, true) {
+                self.config.dock.size = size.round() as u32;
+                self.config.dock.max_size = self.config.dock.max_size.max(self.config.dock.size);
+                self.save();
+            }
+        });
+        ui.space(6.0);
         let mut mag = self.config.dock.magnification;
-        if ui.checkbox(&mut mag, "Ampliar ícones ao passar o mouse") {
-            self.config.dock.magnification = mag;
-            self.save();
-        }
         let mut max = self.config.dock.max_size as f32;
-        ui.indent(16.0, |ui| {
-            ui.horizontal(|ui| {
-                ui.small("Mínimo");
-                if ui.slider(&mut max, self.config.dock.size as f32, 128.0, 320.0) && mag {
-                    self.config.dock.max_size = max.round() as u32;
-                    self.save();
-                }
-                ui.small("Máximo");
-            });
+        let min = self.config.dock.size as f32;
+        ui.form_row("Ampliação", LW, |ui| {
+            let t = Ticks { count: 2, labels: &[(0.0, "Mínima"), (1.0, "Máxima")], snap: false };
+            if ui.slider_ticks(&mut max, min, 128.0, 240.0, &t, mag) {
+                self.config.dock.max_size = max.round() as u32;
+                self.save();
+            }
+        });
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut mag, "Ampliar ícones ao passar o mouse") {
+                self.config.dock.magnification = mag;
+                self.save();
+            }
         });
     }
 
     fn teclado(&mut self, ui: &mut Ui) {
-        ui.heading("Layout do teclado");
-        let names: Vec<String> = LAYOUTS.iter().map(|(_, _, n)| n.to_string()).collect();
-        let mut cur = LAYOUTS
-            .iter()
-            .position(|(l, v, _)| *l == self.config.keyboard.layout && *v == self.config.keyboard.variant)
-            .unwrap_or(0);
-        ui.indent(16.0, |ui| {
-            if ui.popup(&mut cur, &names, 300.0) {
-                self.config.keyboard.layout = LAYOUTS[cur].0.into();
-                self.config.keyboard.variant = LAYOUTS[cur].1.into();
-                self.save();
+        let mut tab = self.kbd_tab;
+        let shown = tab;
+        ui.space(4.0);
+        ui.tab_box(&mut tab, &["Repetição", "Layout"], 300.0, |ui| match shown {
+            0 => {
+                const LW: f32 = 170.0;
+                let mut delay = self.config.keyboard.repeat_delay as f32;
+                let mut rate = self.config.keyboard.repeat_rate as f32;
+                ui.form_row("Velocidade de repetição", LW, |ui| {
+                    let t = Ticks { count: 8, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+                    if ui.slider_ticks(&mut rate, 2.0, 60.0, 220.0, &t, true) {
+                        self.config.keyboard.repeat_rate = rate.round() as u32;
+                        self.save();
+                    }
+                });
+                ui.space(6.0);
+                ui.form_row("Atraso até repetir", LW, |ui| {
+                    // Invertido: à direita = atraso menor.
+                    let mut inv = 1000.0 - delay;
+                    let t = Ticks { count: 6, labels: &[(0.0, "Longo"), (1.0, "Curto")], snap: false };
+                    if ui.slider_ticks(&mut inv, 0.0, 850.0, 220.0, &t, true) {
+                        delay = 1000.0 - inv;
+                        self.config.keyboard.repeat_delay = delay.round() as u32;
+                        self.save();
+                    }
+                });
+                ui.space(10.0);
+                ui.form_row("Teste aqui", LW, |ui| {
+                    let mut test = TEST.with(|t| t.borrow().clone());
+                    if ui.text_field(&mut test, 220.0) {
+                        TEST.with(|t| *t.borrow_mut() = test);
+                    }
+                });
+            }
+            _ => {
+                let names: Vec<String> = LAYOUTS.iter().map(|(_, _, n)| n.to_string()).collect();
+                let mut cur = LAYOUTS
+                    .iter()
+                    .position(|(l, v, _)| *l == self.config.keyboard.layout && *v == self.config.keyboard.variant)
+                    .unwrap_or(0);
+                ui.form_row("Layout do teclado", 150.0, |ui| {
+                    if ui.popup(&mut cur, &names, 260.0) {
+                        self.config.keyboard.layout = LAYOUTS[cur].0.into();
+                        self.config.keyboard.variant = LAYOUTS[cur].1.into();
+                        self.save();
+                    }
+                });
+                ui.form_note(150.0, "Vale na hora para todos os apps.");
             }
         });
-        ui.space(10.0);
-        ui.separator();
-        ui.space(6.0);
-        ui.heading("Repetição de teclas");
-        let mut delay = self.config.keyboard.repeat_delay as f32;
-        let mut rate = self.config.keyboard.repeat_rate as f32;
-        ui.indent(16.0, |ui| {
-            ui.horizontal(|ui| {
-                ui.label_right("Atraso:", 80.0);
-                ui.small("Longo");
-                // Invertido: à direita = atraso menor.
-                let mut inv = 1000.0 - delay;
-                if ui.slider(&mut inv, 0.0, 850.0, 260.0) {
-                    delay = 1000.0 - inv;
-                    self.config.keyboard.repeat_delay = delay.round() as u32;
-                    self.save();
-                }
-                ui.small("Curto");
-            });
-            ui.horizontal(|ui| {
-                ui.label_right("Velocidade:", 80.0);
-                ui.small("Lenta");
-                if ui.slider(&mut rate, 2.0, 60.0, 260.0) {
-                    self.config.keyboard.repeat_rate = rate.round() as u32;
-                    self.save();
-                }
-                ui.small("Rápida");
-            });
-            ui.space(6.0);
-            ui.small("Teste aqui:");
-            let mut test = TEST.with(|t| t.borrow().clone());
-            if ui.text_field(&mut test, 400.0) {
-                TEST.with(|t| *t.borrow_mut() = test);
-            }
-        });
+        self.kbd_tab = tab;
     }
 
     fn nested(&self) -> bool {

@@ -41,6 +41,48 @@ fn wrap_lines(fonts: &Fonts, text: &str, px: f32, bold: bool, max: f32) -> Vec<S
     out
 }
 
+/// Marcas de um slider: quantas, rótulos (posição de 0 a 1, texto) e se o valor
+/// pula de marca em marca.
+pub struct Ticks<'a> {
+    pub count: usize,
+    pub labels: &'a [(f32, &'a str)],
+    pub snap: bool,
+}
+
+/// Trilho fino e afundado dos sliders.
+fn slider_track(c: &mut Canvas, t: Rect) {
+    c.fill(rrect(t.x, t.y, t.w, t.h, t.h / 2.0), &vgrad(t.y, t.y + t.h, &[(0.0, rgba(120, 120, 126, 255)), (1.0, rgba(190, 190, 196, 255))]));
+    c.hline(t.x + 2.0, t.y + t.h, t.w - 4.0, rgba(255, 255, 255, 200));
+}
+
+/// Polegar em escudo apontando para baixo (15×18 pt), centrado em `cx`, topo em `y`.
+fn slider_thumb_down(c: &mut Canvas, cx: f32, y: f32, base: Color) {
+    let shape = |inset: f32| {
+        let (l, r, t) = (cx - 7.5 + inset, cx + 7.5 - inset, y + inset);
+        let (shoulder, tip) = (y + 11.0, y + 18.0 - inset * 1.4);
+        let mut pb = glove_paint::tiny_skia::PathBuilder::new();
+        pb.move_to(l + 2.5, t);
+        pb.line_to(r - 2.5, t);
+        pb.quad_to(r, t, r, t + 2.5);
+        pb.line_to(r, shoulder);
+        pb.line_to(cx, tip);
+        pb.line_to(l, shoulder);
+        pb.line_to(l, t + 2.5);
+        pb.quad_to(l, t, l + 2.5, t);
+        pb.close();
+        pb.finish()
+    };
+    c.fill(shape(0.0), &solid(darken(base, 0.45)));
+    c.fill(shape(1.0), &vgrad(y, y + 18.0, &[(0.0, darken(base, 0.04)), (0.5, base), (1.0, lighten(base, 0.5))]));
+    c.fill_clipped(rrect(cx - 7.5, y, 15.0, 7.0, 0.0), &vgrad(y + 1.0, y + 7.0, &[(0.0, rgba(255, 255, 255, 220)), (1.0, rgba(255, 255, 255, 50))]), shape(1.5));
+}
+
+/// Conteúdo de uma parte do segmentado.
+enum SegLabel<'a> {
+    Glyph(Glyph),
+    Text(&'a str),
+}
+
 /// Altura do campo de busca.
 pub const SEARCH_H: f32 = 22.0;
 /// Tamanho de cada parte do controle segmentado.
@@ -695,13 +737,71 @@ impl<'a> Ui<'a> {
                 self.mem.slider_grab = None;
             }
         }
-        // Trilho afundado
-        self.c.fill(rrect(track.x, track.y, track.w, track.h, 2.5), &vgrad(track.y, track.y + track.h, &[(0.0, rgba(150, 150, 155, 255)), (1.0, rgba(215, 215, 220, 255))]));
+        // Trilho fino afundado, sem preenchimento (10.4) e polegar redondo em gel.
+        slider_track(self.c, track);
         let t = ((*value - min) / (max - min)).clamp(0.0, 1.0);
-        self.c.fill(rrect(track.x, track.y, track.w * t, track.h, 2.5), &vgrad(track.y, track.y + track.h, &[(0.0, darken(self.theme.accent, 0.2)), (1.0, lighten(self.theme.accent, 0.3))]));
         let kx = track.x + track.w * t;
         let grabbed = self.mem.slider_grab == Some(id);
-        gel_circle(self.c, kx, r.y + 10.5, 8.0, if grabbed { self.theme.accent } else { rgba(242, 242, 245, 255) });
+        let a = self.theme.accent;
+        gel_circle(self.c, kx, r.y + 10.5, 7.5, if grabbed { lighten(a, 0.2) } else { lighten(a, 0.5) });
+        changed
+    }
+
+    /// Slider com marcas de graduação e rótulos embaixo (10.3/10.4): polegar azul em
+    /// forma de escudo apontando para as marcas. `labels` são (posição de 0 a 1, texto).
+    /// Com `snap`, o valor pula de marca em marca. Apagado (`enabled` falso) não responde.
+    pub fn slider_ticks(&mut self, value: &mut f32, min: f32, max: f32, width: f32, ticks: &Ticks, enabled: bool) -> bool {
+        let id = self.next_id();
+        // O trilho fica na altura do texto do rótulo do formulário.
+        let h = if ticks.labels.is_empty() { 29.0 } else { 41.0 };
+        let r = self.alloc(width, h);
+        let track = Rect::new(r.x + 8.0, r.y + 9.0, r.w - 16.0, 4.0);
+        let mut changed = false;
+        if enabled {
+            if self.hovered(Rect::new(r.x, r.y, r.w, 25.0)) && self.input.pressed {
+                self.mem.slider_grab = Some(id);
+            }
+            if self.mem.slider_grab == Some(id) {
+                if self.input.down || self.input.pressed {
+                    let mut t = ((self.input.pos.0 - track.x) / track.w).clamp(0.0, 1.0);
+                    if ticks.snap && ticks.count > 1 {
+                        let n = (ticks.count - 1) as f32;
+                        t = (t * n).round() / n;
+                    }
+                    let v = min + t * (max - min);
+                    if (v - *value).abs() > f32::EPSILON {
+                        *value = v;
+                        changed = true;
+                    }
+                }
+                if self.input.released {
+                    self.mem.slider_grab = None;
+                }
+            }
+        }
+        slider_track(self.c, track);
+        // Marcas
+        let mark = if enabled { rgba(110, 110, 116, 255) } else { rgba(170, 170, 176, 255) };
+        if ticks.count > 1 {
+            for i in 0..ticks.count {
+                let x = (track.x + track.w * i as f32 / (ticks.count - 1) as f32).round() + 0.5;
+                self.c.fill_rect(x - 0.5, r.y + 22.0, 1.0, 4.0, &solid(mark));
+            }
+        }
+        // Rótulos (presos dentro da largura do controle)
+        let ink_l = if enabled { rgba(40, 40, 44, 255) } else { rgba(150, 150, 156, 255) };
+        for (pos, label) in ticks.labels {
+            let tw = self.fonts.measure(label, 10.0, false);
+            let x = (track.x + track.w * pos - tw / 2.0).clamp(r.x, r.x + r.w - tw);
+            self.fonts.draw(self.c, label, x, r.y + 37.0, 10.0, false, ink_l);
+        }
+        // Polegar em escudo
+        let t = ((*value - min) / (max - min)).clamp(0.0, 1.0);
+        let kx = (track.x + track.w * t).round();
+        let grabbed = self.mem.slider_grab == Some(id);
+        let a = self.theme.accent;
+        let base = if !enabled { rgba(238, 238, 240, 255) } else if grabbed { lighten(a, 0.2) } else { lighten(a, 0.45) };
+        slider_thumb_down(self.c, kx, r.y + 3.0, base);
         changed
     }
 
@@ -927,15 +1027,34 @@ impl<'a> Ui<'a> {
     /// Segmentado num retângulo livre (as partes dividem a largura igualmente).
     pub fn segmented_in(&mut self, r: Rect, glyphs: &[Glyph], selected: Option<usize>, enabled: &[bool]) -> Option<usize> {
         let n = glyphs.len().max(1);
-        let sw = r.w / n as f32;
+        let widths = vec![r.w / n as f32; n];
+        let labels: Vec<SegLabel> = glyphs.iter().map(|g| SegLabel::Glyph(*g)).collect();
+        self.segments(r, &labels, &widths, selected, enabled)
+    }
+
+    /// Segmentado com textos (abas do 10.3/10.4), centrado na largura disponível.
+    pub fn segmented_text(&mut self, labels: &[&str], selected: Option<usize>) -> Option<usize> {
+        let avail = self.available_width();
+        let (x0, y0) = self.cursor();
+        self.alloc(avail, SEGMENT_H);
+        let widths: Vec<f32> = labels.iter().map(|l| (self.fonts.measure(l, 12.0, false) + 24.0).round()).collect();
+        let total: f32 = widths.iter().sum();
+        let r = Rect::new((x0 + (avail - total) / 2.0).round(), y0, total, SEGMENT_H);
+        let segs: Vec<SegLabel> = labels.iter().map(|l| SegLabel::Text(l)).collect();
+        self.segments(r, &segs, &widths, selected, &[])
+    }
+
+    fn segments(&mut self, r: Rect, labels: &[SegLabel], widths: &[f32], selected: Option<usize>, enabled: &[bool]) -> Option<usize> {
         let rad = 4.0;
         self.c.fill(rrect(r.x, r.y, r.w, r.h, rad), &solid(rgba(132, 132, 138, 255)));
         let inner = || rrect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, rad - 1.0);
         let mut out = None;
         let a = self.theme.accent;
-        for (i, g) in glyphs.iter().enumerate() {
+        let mut x = r.x;
+        for (i, label) in labels.iter().enumerate() {
             let id = self.next_id();
-            let seg = Rect::new((r.x + i as f32 * sw).round(), r.y, sw.round(), r.h);
+            let seg = Rect::new(x.round(), r.y, (x + widths[i]).round() - x.round(), r.h);
+            x += widths[i];
             let on = enabled.get(i).copied().unwrap_or(true);
             let (_, down, clicked) = if on { self.interact(id, seg) } else { (false, false, false) };
             if clicked {
@@ -952,10 +1071,59 @@ impl<'a> Ui<'a> {
             if i > 0 {
                 self.c.vline(seg.x, r.y + 1.0, r.h - 2.0, rgba(150, 150, 156, 255));
             }
-            let color = if on { rgba(45, 45, 50, 255) } else { rgba(165, 165, 170, 255) };
-            icons::glyph(self.c, *g, (seg.x + seg.w / 2.0).round(), (r.y + r.h / 2.0).round(), 12.0, color);
+            let color = if on { rgba(30, 30, 34, 255) } else { rgba(165, 165, 170, 255) };
+            match label {
+                SegLabel::Glyph(g) => icons::glyph(self.c, *g, (seg.x + seg.w / 2.0).round(), (r.y + r.h / 2.0).round(), 12.0, color),
+                SegLabel::Text(t) => {
+                    let tw = self.fonts.measure(t, 12.0, false);
+                    self.fonts.draw(self.c, t, seg.x + (seg.w - tw) / 2.0, r.y + 15.5, 12.0, false, color);
+                }
+            }
         }
         out
+    }
+
+    // -----------------------------------------------------------------------
+    // Formulário e caixa com abas
+    // -----------------------------------------------------------------------
+
+    /// Linha de formulário da era: rótulo alinhado à direita numa coluna de `label_w`
+    /// (termina em ":" se tiver texto) e os controles à esquerda numa coluna comum.
+    pub fn form_row(&mut self, label: &str, label_w: f32, f: impl FnOnce(&mut Self)) {
+        self.horizontal(|ui| {
+            let t = if label.is_empty() || label.ends_with(':') { label.to_string() } else { format!("{label}:") };
+            ui.label_right(&t, label_w);
+            ui.column(ui.available_width(), f);
+        });
+    }
+
+    /// Nota pequena embaixo de um controle de formulário, alinhada com a coluna dos controles.
+    pub fn form_note(&mut self, label_w: f32, text: &str) {
+        let sp = self.stack.last().map(|l| l.spacing).unwrap_or(8.0);
+        self.indent(label_w + sp, |ui| ui.small(text));
+    }
+
+    /// Caixa em relevo com abas (segmentado de texto) centradas na borda de cima.
+    /// Devolve verdadeiro quando a aba muda.
+    pub fn tab_box(&mut self, value: &mut usize, labels: &[&str], height: f32, f: impl FnOnce(&mut Self)) -> bool {
+        let w = self.available_width();
+        let (x0, y0) = self.cursor();
+        let r = self.alloc(w, height);
+        let b = Rect::new(r.x, r.y + SEGMENT_H / 2.0, r.w, r.h - SEGMENT_H / 2.0);
+        self.c.fill(rrect(b.x, b.y, b.w, b.h, 6.0), &solid(rgba(0, 0, 0, 12)));
+        self.c.stroke(rrect(b.x + 0.5, b.y + 0.5, b.w - 1.0, b.h - 1.0, 6.0), &solid(rgba(0, 0, 0, 55)), 1.0);
+        self.c.fill_clipped(rrect(b.x, b.y, b.w, 5.0, 0.0), &vgrad(b.y + 1.0, b.y + 5.0, &[(0.0, rgba(0, 0, 0, 22)), (1.0, rgba(0, 0, 0, 0))]), rrect(b.x + 1.0, b.y + 1.0, b.w - 2.0, b.h - 2.0, 5.0));
+        let mut changed = false;
+        self.area(Rect::new(x0, y0, w, SEGMENT_H), |ui| {
+            if let Some(i) = ui.segmented_text(labels, Some(*value)) {
+                if i != *value {
+                    *value = i;
+                    changed = true;
+                }
+            }
+        });
+        self.area(Rect::new(b.x + 18.0, b.y + SEGMENT_H / 2.0 + 14.0, b.w - 36.0, b.h - SEGMENT_H / 2.0 - 24.0), f);
+        changed
     }
 
     /// Item de barra de ferramentas: ícone com o nome embaixo (Arquivos, Preferências).
@@ -1013,39 +1181,15 @@ impl<'a> Ui<'a> {
     // Abas (segmentadas) e caixa de grupo
     // -----------------------------------------------------------------------
 
+    /// Abas soltas (segmentado de texto centrado). Para abas sobre uma caixa, use `tab_box`.
     pub fn tabs(&mut self, value: &mut usize, labels: &[&str]) -> bool {
-        let widths: Vec<f32> = labels.iter().map(|l| self.fonts.measure(l, TEXT, false) + 28.0).collect();
-        let total: f32 = widths.iter().sum();
-        let avail = self.available_width();
-        let (x0, y0) = self.cursor();
-        let r = self.alloc(avail, CONTROL_H);
-        let mut x = x0 + (avail - total) / 2.0;
-        let mut changed = false;
-        for (i, (l, w)) in labels.iter().zip(&widths).enumerate() {
-            let id = self.next_id();
-            let tr = Rect::new(x, y0, *w, CONTROL_H);
-            let (_, _, clicked) = self.interact(id, tr);
-            if clicked && *value != i {
+        match self.segmented_text(labels, Some(*value)) {
+            Some(i) if i != *value => {
                 *value = i;
-                changed = true;
+                true
             }
-            let sel = *value == i;
-            let rad = [
-                if i == 0 { 11.0 } else { 0.0 },
-                if i + 1 == labels.len() { 11.0 } else { 0.0 },
-                if i + 1 == labels.len() { 11.0 } else { 0.0 },
-                if i == 0 { 11.0 } else { 0.0 },
-            ];
-            let base = if sel { self.theme.accent } else { rgba(242, 242, 244, 255) };
-            self.c.fill(rrect4(tr.x, tr.y, tr.w, tr.h, rad), &solid(darken(base, 0.4)));
-            self.c.fill(rrect4(tr.x + 0.5, tr.y + 1.0, tr.w - 1.0, tr.h - 2.0, rad.map(|v| (v - 1.0_f32).max(0.0))), &vgrad(tr.y, tr.y + tr.h, &[(0.0, darken(base, 0.04)), (0.5, base), (1.0, lighten(base, 0.6))]));
-            self.c.fill(rrect4(tr.x + 2.0, tr.y + 2.0, tr.w - 4.0, tr.h * 0.42, rad.map(|v| (v - 2.0_f32).max(0.0))), &solid(rgba(255, 255, 255, 120)));
-            let tw = self.fonts.measure(l, TEXT, false);
-            self.fonts.draw(self.c, l, tr.x + (tr.w - tw) / 2.0, tr.y + 15.5, TEXT, false, ink());
-            x += w;
+            _ => false,
         }
-        let _ = r;
-        changed
     }
 
     /// Caixa clara com borda suave, de altura fixa, para agrupar controles.
