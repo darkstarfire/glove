@@ -39,7 +39,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 ## Fase 1 — Acabamento visual rápido (o que mais salta aos olhos)
 
-- [ ] 1.1 Rótulo do Dock: texto branco em negrito com contorno escuro, sem pílula (P)
+- [x] 1.1 Rótulo do Dock: texto branco em negrito com contorno escuro, sem pílula (P)
 - [ ] 1.2 Prateleira do Dock listrada e encostada na borda; ícones sem a sombra elíptica (P)
 - [ ] 1.3 Papel de parede: tirar a faixa clara (emenda do degradê) (P)
 - [ ] 1.4 Menus: listras opacas, cantos retos, sombra forte, itens de 19 pt, atalhos em 2 colunas (P)

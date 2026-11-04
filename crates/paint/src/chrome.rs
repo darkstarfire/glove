@@ -424,6 +424,16 @@ pub fn dock_contains(layout: &DockLayout, x: f32, y: f32) -> bool {
     x >= sx && x < sx + sw && y >= top && y < layout.height as f32
 }
 
+/// Nome do app sobre o Dock, como na era: branco em negrito com contorno escuro
+/// (cópias deslocadas em volta) e uma sombra leve, sem fundo.
+fn outlined_label(fonts: &Fonts, c: &mut Canvas, text: &str, x: f32, y: f32, px: f32) {
+    fonts.draw(c, text, x + 0.5, y + 1.6, px, true, rgba(0, 0, 0, 90));
+    for (dx, dy) in [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0), (-0.8, -0.8), (0.8, -0.8), (-0.8, 0.8), (0.8, 0.8)] {
+        fonts.draw(c, text, x + dx, y + dy, px, true, rgba(0, 0, 0, 150));
+    }
+    fonts.draw(c, text, x, y, px, true, Color::WHITE);
+}
+
 pub fn dock(fonts: &Fonts, _theme: &Theme, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, scale: f32) -> Option<Canvas> {
     let mut c = Canvas::new(layout.width as f32, layout.height as f32, scale)?;
     let (sx, sy, sw, sh) = layout.shelf;
@@ -454,12 +464,11 @@ pub fn dock(fonts: &Fonts, _theme: &Theme, items: &[DockItem], layout: &DockLayo
             c.fill(pb.finish(), &solid(rgba(15, 20, 30, 220)));
         }
         if hover == Some(i) {
-            let px = 13.0;
+            let px = 14.0;
             let tw = fonts.measure(&it.label, px, true);
             let lx = (x + s / 2.0 - tw / 2.0).clamp(10.0, layout.width as f32 - tw - 10.0);
             let ly = (y - 8.0).max(16.0);
-            c.fill(rrect(lx - 8.0, ly - 14.0, tw + 16.0, 19.0, 9.5), &solid(rgba(0, 0, 0, 120)));
-            fonts.draw(&mut c, &it.label, lx, ly, px, true, Color::WHITE);
+            outlined_label(fonts, &mut c, &it.label, lx, ly, px);
         }
     }
     Some(c)
