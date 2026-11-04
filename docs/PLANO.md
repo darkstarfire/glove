@@ -1,8 +1,16 @@
 # Plano do Glove
 
-Mapa do que falta para o Glove ficar fiel ao Mac OS X 10.0–10.3 (Cheetah, Puma, Jaguar e
-Panther) **no comportamento, nas proporções e na linguagem visual**, sempre com arte própria
-desenhada por código (sem logotipos, ícones ou código da Apple).
+Mapa do que falta para o Glove ficar fiel ao Mac OS X da era Aqua "gel", do 10.0 ao **10.4 Tiger**
+(Cheetah, Puma, Jaguar, Panther e Tiger), **no comportamento, nas proporções e na linguagem visual**,
+sempre com arte própria desenhada por código (sem logotipos, ícones ou código da Apple) e com nomes
+próprios para os recursos (ex.: "Busca Rápida", não o nome da Apple).
+
+**Base: Tiger (10.4)**, o último da era antes da virada do 10.5 Leopard (Dock 3D, janelas cinza lisas,
+barra de menu translúcida). As fases 0 e 1 foram feitas olhando o 10.0–10.3; a etapa 3.0 compara
+o Glove com o Tiger e decide o que muda.
+
+Depois de cumprir tudo da era (fases 1 a 9), vem a **Fase 10**: o Glove "como deveria ter sido",
+com ferramentas de luxo e recursos modernos, mantendo o visual gel.
 
 O levantamento comparou 334 capturas de referência com o Glove atual. As análises
 completas, com medidas, cores e arquivos de referência, estão em [`docs/analise/`](analise/):
@@ -49,6 +57,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 ## Fase 2 — glove-kit: os controles que faltam (destrava as outras fases)
 
+- [ ] 2.0 Referências do Tiger em `referencias/tiger/` (512pixels) e análise das diferenças para o Glove: barra de menu, listras, metal, Dock, controles (M)
 - [ ] 2.1 Barra de rolagem em gel genérica (listas, tabelas, colunas) (M)
 - [ ] 2.2 Barra de progresso com listras animadas (indeterminada) e giratório (M)
 - [ ] 2.3 Alerta padrão com ícones originais de Pare/Cuidado/Nota e botão padrão pulsante (M)
@@ -67,6 +76,11 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [ ] 3.6 Extras na barra de menu: volume, bateria e monitor, com menus próprios; teclas de volume e brilho (M)
 - [ ] 3.7 Ociosidade: apagar a tela (DPMS), bloqueio de tela no compositor (senha via PAM) e tampa do notebook (G)
 - [ ] 3.8 Painel "Iniciando sessão…" com barra de progresso ao entrar (P)
+- [ ] 3.9 **Busca Rápida** (como o Spotlight do 10.4): lupa no canto direito da barra de menu e
+  Super+Espaço; acha apps instalados (`.desktop`), Preferências e arquivos (índice leve em segundo
+  plano), Enter abre o primeiro resultado. Resolve o "abrir apps" apontado no uso real (M)
+- [ ] 3.10 **Exposé** (10.3): F9/F10/F11 ou canto da tela espalha todas as janelas, só as do app,
+  ou mostra a mesa; clique traz a janela à frente. Feito no compositor (M)
 
 ## Fase 4 — Dock completo
 
@@ -101,11 +115,14 @@ Meta: tela de login inteira abaixo de 25 MB.
     No 10.0–10.3 não havia Launchpad (10.7) nem Spotlight (10.4): os apps ficavam na pasta
     **Aplicativos** (Ir ▸ Aplicativos, Ctrl+Shift+A), no Dock e em Itens Recentes. A pasta
     Aplicativos do Glove deve listar os `.desktop` instalados (XDG), com os ícones do sistema,
-    e permitir arrastar para o Dock (ver 4.4 "Manter no Dock")
+    e permitir arrastar para o Dock (ver 4.4 "Manter no Dock"). A Busca Rápida (3.9) usa a mesma lista
 - [ ] 6.8 Lista ordenável com expansão e datas "Hoje/Ontem"; status com seleção e "somente leitura" (M)
 - [ ] 6.9 Diálogo Abrir/Salvar em colunas (`kit::filebrowser`), usado no Editor, Visualizador e Lembretes (G)
 - [ ] 6.10 Modo Panther: barra lateral, metal escovado, engrenagem (M)
 - [ ] 6.11 Atualização automática (inotify), seleção múltipla e retângulo elástico; pendrives na mesa (M)
+- [ ] 6.12 Pastas inteligentes (10.4): buscas salvas da Busca Rápida que aparecem como pastas (M)
+- [ ] 6.13 Compactar: "Compactar item" no menu do Arquivos e clique duplo em .zip/.tar.gz abre
+  (utilitário de arquivo com janela de progresso, como o do 10.3) (M)
 
 ## Fase 7 — Preferências
 
@@ -137,9 +154,26 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [ ] 8.10 Calculadora científica, Caracteres em modo Teclado, Captura de seleção (M)
 - [ ] 8.11 Vídeo (mpv com controles próprios), Registros, Informações do Sistema, Ajuda (M cada)
 - [ ] 8.12 Correio (por último) (G)
+- [ ] 8.13 Dicionário (10.4) com dicionários livres (formato DICT/StarDict) (M)
+- [ ] 8.14 Livro de Fontes (10.3): ver, instalar e desativar fontes (M)
 
 ## Fase 9 — Sessão avançada
 
 - [ ] 9.1 Vários monitores ao mesmo tempo (estender/espelhar) (G)
 - [ ] 9.2 Apps X11 (XWayland) (M)
 - [ ] 9.3 Troca rápida de usuário (Baixa)
+
+## Fase 10 — O Glove "como deveria ter sido" (depois de cumprir toda a era)
+
+Ideias para depois das fases 1 a 9: o que veio depois do Tiger (ou nunca veio), redesenhado no
+visual gel. Cada uma será detalhada antes de começar.
+
+- [ ] 10.1 Grade de apps em tela cheia (como o Launchpad), com pastas e busca
+- [ ] 10.2 Espaços de trabalho (mesas virtuais) integrados ao Exposé
+- [ ] 10.3 Olhada Rápida: Espaço no Arquivos mostra a prévia do arquivo
+- [ ] 10.4 Central de notificações e avisos dos apps
+- [ ] 10.5 Gestos de trackpad com vários dedos (Exposé, trocar de mesa, voltar/avançar)
+- [ ] 10.6 Abas no Arquivos, no Editor e no Terminal; janelas em tela cheia
+- [ ] 10.7 Cópias de segurança automáticas com linha do tempo (como o Time Machine)
+- [ ] 10.8 Central de apps (instalar e atualizar pelo apt/Flatpak) com cara da era
+- [ ] 10.9 Apps de luxo: Fotos (biblioteca de imagens), gravador de som, Mensagens
