@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/paint", "crates/config", "crates/kit", "crates/compositor", "crates/about", "crates/prefs", "crates/calc", "crates/clock", "crates/editor", "crates/files", "crates/viewer", "crates/term", "crates/notes", "crates/monitor", "crates/shot", "crates/chars", "crates/find", "crates/disks", "crates/chess"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# Mantém o modo debug rápido o suficiente para testar
+[profile.dev.package."*"]
+opt-level = 2

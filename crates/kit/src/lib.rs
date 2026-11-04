@@ -1,0 +1,15 @@
+//! glove-kit: toolkit dos apps do Glove.
+//!
+//! Interface em modo imediato, desenhada por software com o visual do Glove,
+//! nítida em qualquer escala e sem gastar CPU quando nada acontece.
+
+pub mod menu;
+mod platform;
+mod text;
+pub mod ui;
+pub use text::TextBuffer;
+
+pub use glove_paint as paint;
+pub use platform::{local_time, run, theme_from_config, App, WindowOptions};
+pub use menu::{Menu, MenuItem};
+pub use ui::{Rect, Ui};

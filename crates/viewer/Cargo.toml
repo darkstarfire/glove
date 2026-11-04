@@ -1,0 +1,9 @@
+[package]
+name = "glove-view"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-kit = { path = "../kit" }
+zune-jpeg = "0.5.15"
