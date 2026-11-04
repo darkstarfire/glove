@@ -15,7 +15,7 @@ completas, com medidas, cores e arquivos de referência, estão em [`docs/analis
 | [4-sessao-login.md](analise/4-sessao-login.md) | Tela de login, splash, desligar/reiniciar, bloqueio, primeiro uso, utilitários |
 | [5-apps.md](analise/5-apps.md) | Apps existentes e apps que faltam |
 
-As capturas de referência ficam em `referencias/`, fora do git (são de terceiros). Para baixá-las de novo,
+As capturas de referência ficam em [`referencias/`](../referencias/) (com as fontes de cada uma). Origem:
 use as páginas da [512pixels](https://512pixels.net/projects/aqua-screenshot-library/) (10.0–10.2) e da
 [GUIdebook](https://guidebookgallery.org/screenshots/macosx103) (10.3).
 
