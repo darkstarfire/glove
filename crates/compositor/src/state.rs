@@ -5,7 +5,7 @@ use smithay::{
     desktop::{PopupManager, Space, Window, WindowSurfaceType},
     input::{Seat, SeatState},
     reexports::{
-        calloop::{generic::Generic, EventLoop, Interest, LoopSignal, Mode, PostAction},
+        calloop::{generic::Generic, EventLoop, Interest, LoopHandle, LoopSignal, Mode, PostAction},
         wayland_server::{
             backend::{ClientData, ClientId, DisconnectReason},
             protocol::wl_surface::WlSurface,
@@ -35,6 +35,7 @@ pub struct Glove {
     pub display_handle: DisplayHandle,
     pub space: Space<Window>,
     pub loop_signal: LoopSignal,
+    pub loop_handle: LoopHandle<'static, CalloopData>,
 
     pub compositor_state: CompositorState,
     pub xdg_shell_state: XdgShellState,
@@ -83,10 +84,12 @@ pub struct Glove {
     pub cursor_tex_scale: f64,
     /// Ctrl+Alt+F1…F12 na sessão própria: trocar para esse console.
     pub vt_request: Option<i32>,
+    /// Fim de sessão em andamento.
+    pub ending: Option<crate::ending::Ending>,
 }
 
 impl Glove {
-    pub fn new(event_loop: &mut EventLoop<CalloopData>, display: Display<Self>) -> Self {
+    pub fn new(event_loop: &mut EventLoop<'static, CalloopData>, display: Display<Self>) -> Self {
         let dh = display.handle();
 
         let compositor_state = CompositorState::new::<Self>(&dh);
@@ -114,6 +117,7 @@ impl Glove {
             display_handle: dh,
             space: Space::default(),
             loop_signal: event_loop.get_signal(),
+            loop_handle: event_loop.handle(),
             compositor_state,
             xdg_shell_state,
             xdg_decoration_state,
@@ -142,6 +146,7 @@ impl Glove {
             cursor_status: smithay::input::pointer::CursorImageStatus::default_named(),
             cursor_tex: None,
             cursor_tex_scale: 0.0,
+            ending: None,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

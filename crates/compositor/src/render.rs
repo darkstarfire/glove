@@ -56,6 +56,20 @@ impl Glove {
             self.cursor_elements(renderer, sc, &mut out);
         }
 
+        // Tela de encerramento: cobre tudo (menos o cursor).
+        if let Some(e) = self.ending.as_ref().filter(|e| e.screen_since.is_some()) {
+            let (w, h) = c.out_size;
+            let (cx, cy) = glove_paint::chrome::ending_spinner_center(w as f32, h as f32);
+            let half = glove_paint::chrome::ENDING_SPINNER / 2.0;
+            if let Some(t) = &e.spinner {
+                out.extend(mem(renderer, ((cx - half).round() as i32, (cy - half).round() as i32).into(), t, sc));
+            }
+            if let Some(t) = &e.bg {
+                out.extend(mem(renderer, (0, 0).into(), t, sc));
+            }
+            return out;
+        }
+
         if let Some(m) = &c.menu {
             // Submenus por cima do menu que os abriu.
             for lv in m.levels.iter().rev() {

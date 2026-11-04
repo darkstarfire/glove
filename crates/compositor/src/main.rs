@@ -3,6 +3,7 @@
 mod grabs;
 mod handlers;
 mod input;
+mod ending;
 mod menus;
 mod recent;
 mod render;

@@ -664,3 +664,37 @@ mod tests {
         assert_eq!(shortcut_parts("F5"), ("".into(), "F5".into()));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tela de encerramento (Desligando…, Reiniciando…, Encerrando sessão…)
+// ---------------------------------------------------------------------------
+
+/// Tamanho do giratório da tela de encerramento.
+pub const ENDING_SPINNER: f32 = 32.0;
+
+/// Centro do giratório na tela de encerramento de altura `h`.
+pub fn ending_spinner_center(w: f32, h: f32) -> (f32, f32) {
+    (w / 2.0, h / 2.0 + 70.0)
+}
+
+/// Fundo cinza-claro de inicialização, com o orbe e o texto (sem o giratório,
+/// que é uma peça separada para não redesenhar a tela inteira a cada passo).
+pub fn ending_screen(fonts: &Fonts, theme: &Theme, w: f32, h: f32, label: &str, scale: f32) -> Option<Canvas> {
+    let mut c = Canvas::new(w, h, scale)?;
+    c.fill_rect(0.0, 0.0, w, h, &vgrad(0.0, h, &[(0.0, rgba(214, 216, 219, 255)), (1.0, rgba(188, 191, 196, 255))]));
+    let (cx, cy) = (w / 2.0, h / 2.0 - 30.0);
+    gel_circle(&mut c, cx, cy, 44.0, theme.accent);
+    let px = 15.0;
+    let tw = fonts.measure(label, px, false);
+    let (_, sy) = ending_spinner_center(w, h);
+    fonts.draw(&mut c, label, (w - tw) / 2.0, sy + ENDING_SPINNER / 2.0 + 30.0, px, false, rgba(60, 62, 66, 255));
+    Some(c)
+}
+
+/// Giratório da tela de encerramento (`phase` de 0 a 1 = uma volta), sobre o fundo dela.
+pub fn ending_spinner(phase: f32, scale: f32) -> Option<Canvas> {
+    let s = ENDING_SPINNER;
+    let mut c = Canvas::new(s, s, scale)?;
+    spinner(&mut c, s / 2.0, s / 2.0, s / 2.0, phase, rgba(70, 72, 76, 255));
+    Some(c)
+}

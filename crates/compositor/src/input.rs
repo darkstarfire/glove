@@ -220,6 +220,10 @@ impl Glove {
     }
 
     fn on_key(&mut self, code: u32, state: KeyState, time: u32) {
+        // Tela de encerramento: nada mais responde.
+        if self.ending_screen_shown() {
+            return;
+        }
         let serial = SERIAL_COUNTER.next_serial();
         let keyboard = self.seat.get_keyboard().unwrap();
         let action = keyboard.input::<Option<KeyAction>, _>(self, code.into(), state, serial, time, |st, mods, handle| {
@@ -389,6 +393,9 @@ impl Glove {
     }
 
     fn on_button(&mut self, button: u32, state: ButtonState, time: u32) {
+        if self.ending_screen_shown() {
+            return;
+        }
         let pointer = self.seat.get_pointer().unwrap();
         let serial = SERIAL_COUNTER.next_serial();
         let pos = pointer.current_location();

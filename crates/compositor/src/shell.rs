@@ -104,6 +104,12 @@ pub fn deco_top(w: &Window) -> i32 {
     if is_ssd(w) { TITLE_H } else { 0 }
 }
 
+/// Nome do app de uma janela, para mostrar ao usuário.
+pub fn app_display_name(w: &Window) -> String {
+    let (title, id) = window_info(w);
+    if id.is_empty() { title } else { pretty_app_name(&id) }
+}
+
 /// Nome curto e bonito a partir do app_id ("org.gnome.TextEditor" → "TextEditor").
 fn pretty_app_name(app_id: &str) -> String {
     // Apps do próprio Glove têm nomes em português.
@@ -718,25 +724,6 @@ impl Glove {
         v
     }
 
-    /// Fim de sessão confirmado no glove-sair.
-    pub fn end_session(&mut self, kind: &str) {
-        let cmd = match kind {
-            "desligar" => Some("poweroff"),
-            "reiniciar" => Some("reboot"),
-            "encerrar" | "sair" => None,
-            _ => return,
-        };
-        tracing::info!("fim de sessão: {kind}");
-        if let Some(c) = cmd {
-            // Pede ao systemd antes de sair (o pedido é rápido; a máquina desliga depois).
-            if let Err(e) = std::process::Command::new("systemctl").arg(c).status() {
-                tracing::warn!("systemctl {c}: {e}");
-                return;
-            }
-        }
-        self.loop_signal.stop();
-    }
-
     pub fn close_menu(&mut self) {
         if self.chrome.menu.take().is_some() {
             self.dirty = true;
@@ -1037,6 +1024,23 @@ impl Glove {
                 if lv.key != Some(key) {
                     lv.buffer = chrome::menu(&self.fonts, &self.theme, &lv.items, lv.hover, sc).map(to_tex);
                     lv.key = Some(key);
+                }
+            }
+        }
+
+        // Tela de encerramento
+        let nested = self.nested;
+        if let Some(e) = &mut self.ending {
+            if e.screen_since.is_some() {
+                let key = (w, h, tgen);
+                if e.bg_key != Some(key) {
+                    e.bg = chrome::ending_screen(&self.fonts, &self.theme, w as f32, h as f32, e.kind.label(nested), sc).map(to_tex);
+                    e.bg_key = Some(key);
+                }
+                let key = (e.spinner_step(), tgen);
+                if e.spinner_key != Some(key) {
+                    e.spinner = chrome::ending_spinner(key.0 as f32 / 12.0, sc).map(to_tex);
+                    e.spinner_key = Some(key);
                 }
             }
         }
