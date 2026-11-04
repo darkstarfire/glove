@@ -30,7 +30,7 @@ O Glove de hoje segue o 10.0–10.2 (Jaguar). O Tiger mantém a linguagem gel, m
 
 ## Decisões
 
-1. **Tema "Tiger", padrão do Glove** (etapa 1.8): barra de menu lisa, menus com separador em
+1. **Tema "Claro" (visual do Tiger, com nome próprio), padrão do Glove** (etapa 1.8): barra de menu lisa, menus com separador em
    linha, Dock liso, janelas em degradê cinza. O tema **Listras** continua como o visual 10.0–10.2,
    com o trabalho já feito na Fase 1.
 2. **Arquivos mira o Finder do Tiger**: as etapas 6.1 (toolbar do 10.2) e 6.10 (modo Panther)

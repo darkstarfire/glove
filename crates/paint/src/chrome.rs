@@ -58,6 +58,15 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
             };
             c.brushed_metal(0.0, 0.0, w, h, top, bot);
         }
+        Variant::Claro => {
+            // Degradê cinza claro e liso, sem listras (10.4). A inativa fica mais clara.
+            let (top, bot) = if st.active {
+                (rgba(244, 244, 244, 255), rgba(232, 232, 232, 255))
+            } else {
+                (rgba(248, 248, 248, 255), rgba(240, 240, 240, 255))
+            };
+            c.fill_rect(0.0, 0.0, w, h, &vgrad(0.0, h, &[(0.0, top), (1.0, bot)]));
+        }
         Variant::Listras => {
             // Listras claras, quase sem degradê (10.2). A inativa fica translúcida.
             let (top, bot) = if st.active {
@@ -81,7 +90,8 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
         }
     }
     c.hline(0.0, 0.0, w, rgba(255, 255, 255, 200));
-    c.hline(0.0, h - 1.0 / scale, w, rgba(120, 120, 124, 255));
+    let edge = if theme.variant == Variant::Claro { rgba(150, 150, 152, 255) } else { rgba(120, 120, 124, 255) };
+    c.hline(0.0, h - 1.0 / scale, w, edge);
     c.clip_top_corners(6.0);
 
     let cy = h / 2.0;
@@ -192,10 +202,21 @@ pub const MENUBAR_PX: f32 = 14.0;
 pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], clock: &str, open: Option<usize>, scale: f32) -> Option<(Canvas, MenuBarLayout)> {
     let h = MENUBAR_H as f32;
     let mut c = Canvas::new(w, h, scale)?;
-    c.pinstripes(0.0, 0.0, w, h, theme.menu_bg_a, theme.menu_bg_b);
-    c.hline(0.0, h - 1.0 / scale, w, rgba(0, 0, 0, 110));
+    let claro = theme.variant == Variant::Claro;
+    if claro {
+        // Degradê brilhante e liso: branco, um pouco mais escuro no meio, branco de novo.
+        c.fill_rect(0.0, 0.0, w, h, &vgrad(0.0, h, &[(0.0, rgba(255, 255, 255, 255)), (0.45, rgba(243, 243, 244, 255)), (0.9, rgba(255, 255, 255, 255))]));
+        c.hline(0.0, h - 1.0 / scale, w, rgba(200, 200, 202, 255));
+    } else {
+        c.pinstripes(0.0, 0.0, w, h, theme.menu_bg_a, theme.menu_bg_b);
+        c.hline(0.0, h - 1.0 / scale, w, rgba(0, 0, 0, 110));
+    }
     let hot = |c: &mut Canvas, a: f32, b: f32| {
-        c.fill_rect(a, 0.0, b - a, h - 1.0, &vgrad(0.0, h, &[(0.0, lighten(theme.accent, 0.15)), (1.0, darken(theme.accent, 0.15))]));
+        if claro {
+            c.fill_rect(a, 0.0, b - a, h - 1.0, &solid(theme.menu_hot));
+        } else {
+            c.fill_rect(a, 0.0, b - a, h - 1.0, &vgrad(0.0, h, &[(0.0, lighten(theme.accent, 0.15)), (1.0, darken(theme.accent, 0.15))]));
+        }
     };
 
     let logo = (6.0, 34.0);
@@ -339,8 +360,15 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
         c.draw_canvas(&sh, 0.0, 0.0);
     }
     let x0 = m;
-    c.fill_rect(x0, 0.0, w, h, &solid(rgba(246, 247, 249, 248)));
-    c.pinstripes(x0, 0.0, w, h, rgba(246, 247, 249, 0), rgba(230, 232, 234, 235));
+    let claro = theme.variant == Variant::Claro;
+    if claro {
+        // 10.4: listras quase invisíveis.
+        c.fill_rect(x0, 0.0, w, h, &solid(rgba(237, 240, 241, 250)));
+        c.pinstripes(x0, 0.0, w, h, rgba(235, 237, 239, 250), rgba(237, 240, 241, 0));
+    } else {
+        c.fill_rect(x0, 0.0, w, h, &solid(rgba(246, 247, 249, 248)));
+        c.pinstripes(x0, 0.0, w, h, rgba(246, 247, 249, 0), rgba(230, 232, 234, 235));
+    }
     c.stroke(rrect(x0, 0.0, w, h, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
 
     let (mw, kw) = shortcut_columns(fonts, items);
@@ -348,15 +376,20 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
     let mut cy = MENU_PAD;
     for (i, it) in items.iter().enumerate() {
         if it.separator {
-            if theme.variant != crate::theme::Variant::Listras {
-                c.hline(x0 + 1.0, cy + SEP_H / 2.0, w - 2.0, rgba(212, 212, 212, 255));
+            if theme.variant != Variant::Listras {
+                let line = if claro { rgba(217, 218, 220, 255) } else { rgba(212, 212, 212, 255) };
+                c.hline(x0 + 1.0, (cy + SEP_H / 2.0).floor(), w - 2.0, line);
             }
             cy += SEP_H;
             continue;
         }
         let hot = hover == Some(i) && it.enabled;
         if hot {
-            c.fill_rect(x0, cy, w, MENU_ITEM_H, &vgrad(cy, cy + MENU_ITEM_H, &[(0.0, lighten(theme.accent, 0.2)), (1.0, darken(theme.accent, 0.1))]));
+            if claro {
+                c.fill_rect(x0, cy, w, MENU_ITEM_H, &solid(theme.menu_hot));
+            } else {
+                c.fill_rect(x0, cy, w, MENU_ITEM_H, &vgrad(cy, cy + MENU_ITEM_H, &[(0.0, lighten(theme.accent, 0.2)), (1.0, darken(theme.accent, 0.1))]));
+            }
         }
         let color = if hot {
             Color::WHITE
@@ -490,15 +523,20 @@ fn outlined_label(fonts: &Fonts, c: &mut Canvas, text: &str, x: f32, y: f32, px:
     fonts.draw(c, text, x, y, px, true, Color::WHITE);
 }
 
-pub fn dock(fonts: &Fonts, _theme: &Theme, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, scale: f32) -> Option<Canvas> {
+pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, scale: f32) -> Option<Canvas> {
     let mut c = Canvas::new(layout.width as f32, layout.height as f32, scale)?;
     let (sx, sy, sw, sh) = layout.shelf;
 
     // Prateleira de vidro fosco: retângulo translúcido com bordas claras.
     // Vidro branco translúcido com listras finas, encostado na borda de baixo.
     let shelf = rrect4(sx, sy, sw, sh + 2.0, [2.0, 2.0, 0.0, 0.0]);
-    c.fill(shelf.clone(), &vgrad(sy, sy + sh, &[(0.0, rgba(255, 255, 255, 120)), (0.5, rgba(240, 244, 250, 100)), (1.0, rgba(225, 232, 242, 112))]));
-    c.pinstripes(sx + 1.0, sy + 1.0, sw - 2.0, sh - 1.0, rgba(255, 255, 255, 0), rgba(255, 255, 255, 34));
+    if theme.variant == Variant::Claro {
+        // 10.4: vidro branco liso, sem listras.
+        c.fill(shelf.clone(), &solid(rgba(255, 255, 255, 115)));
+    } else {
+        c.fill(shelf.clone(), &vgrad(sy, sy + sh, &[(0.0, rgba(255, 255, 255, 120)), (0.5, rgba(240, 244, 250, 100)), (1.0, rgba(225, 232, 242, 112))]));
+        c.pinstripes(sx + 1.0, sy + 1.0, sw - 2.0, sh - 1.0, rgba(255, 255, 255, 0), rgba(255, 255, 255, 34));
+    }
     c.stroke(shelf, &solid(rgba(255, 255, 255, 170)), 1.0);
     c.hline(sx, sy - 1.0, sw, rgba(0, 0, 0, 50));
     c.hline(sx + 2.0, sy + 1.0, sw - 4.0, rgba(255, 255, 255, 210));

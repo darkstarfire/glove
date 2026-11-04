@@ -146,7 +146,7 @@ impl Prefs {
                     self.save();
                 }
             });
-            ui.small("Listras: gel azul e listras finas. Metal: barras de metal escovado. Grafite: tons de cinza.");
+            ui.small("Claro: sóbrio, como o fim da era (padrão). Listras: gel azul e listras finas. Metal: barras de metal escovado. Grafite: tons de cinza.");
         });
         ui.space(10.0);
         ui.separator();

@@ -96,11 +96,11 @@ impl App for Clock {
         let accent = ui.theme.accent;
         // Refaz o cache só se a escala ou o tema mudarem.
         let key = ui.c.scale;
-        let theme_id = accent.red().to_bits() as u64 ^ ((accent.blue().to_bits() as u64) << 32);
+        let theme_id = accent.red().to_bits() as u64 ^ ((accent.blue().to_bits() as u64) << 32) ^ ui.theme.body_a.red().to_bits() as u64;
         if !matches!(&self.cache, Some((k, t, _)) if *k == key && *t == theme_id) {
             if let Some(mut bg) = Canvas::new(ui.c.w, ui.c.h, key) {
-                bg.clear(rgba(236, 236, 236, 255));
-                bg.pinstripes(0.0, 0.0, bg.w, bg.h, rgba(232, 232, 232, 255), rgba(242, 242, 242, 255));
+                bg.clear(ui.theme.body_a);
+                bg.pinstripes(0.0, 0.0, bg.w, bg.h, ui.theme.body_a, ui.theme.body_b);
                 dial(&mut bg, ui.fonts, w / 2.0, 124.0, 108.0);
                 self.cache = Some((key, theme_id, bg));
             }

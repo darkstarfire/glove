@@ -6,6 +6,9 @@ use tiny_skia::Color;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Variant {
+    /// Sóbrio e claro, o padrão (lembra o fim da era): barra de menu lisa, menus com
+    /// separador em linha, Dock liso e janelas em cinza claro.
+    Claro,
     /// Listras finas e gel azul (lembra o começo da era).
     Listras,
     /// Metal escovado nas barras de título.
@@ -15,10 +18,11 @@ pub enum Variant {
 }
 
 impl Variant {
-    pub const ALL: [Variant; 3] = [Variant::Listras, Variant::Metal, Variant::Grafite];
+    pub const ALL: [Variant; 4] = [Variant::Claro, Variant::Listras, Variant::Metal, Variant::Grafite];
 
     pub fn id(self) -> &'static str {
         match self {
+            Variant::Claro => "claro",
             Variant::Listras => "listras",
             Variant::Metal => "metal",
             Variant::Grafite => "grafite",
@@ -27,6 +31,7 @@ impl Variant {
 
     pub fn label(self) -> &'static str {
         match self {
+            Variant::Claro => "Claro",
             Variant::Listras => "Listras",
             Variant::Metal => "Metal",
             Variant::Grafite => "Grafite",
@@ -35,6 +40,11 @@ impl Variant {
 
     pub fn from_id(s: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|v| v.id().eq_ignore_ascii_case(s))
+    }
+
+    /// Tema da configuração, com o padrão (Claro) quando o nome é desconhecido.
+    pub fn from_config(s: &str) -> Self {
+        Self::from_id(s).unwrap_or(Variant::Claro)
     }
 }
 
@@ -57,6 +67,11 @@ pub struct Theme {
     pub menu_bg_a: Color,
     pub menu_bg_b: Color,
     pub menu_text: Color,
+    /// Item de menu sob o mouse (o Tiger usa um azul liso, sem degradê).
+    pub menu_hot: Color,
+    /// Fundo das janelas dos apps: listras alternadas.
+    pub body_a: Color,
+    pub body_b: Color,
     pub wallpaper: [Color; 3],
 }
 
@@ -73,10 +88,11 @@ impl Theme {
             (rgba(230, 70, 60, 255), rgba(240, 180, 40, 255), rgba(80, 190, 70, 255))
         };
         let wallpaper = match variant {
-            Variant::Listras => [rgba(10, 40, 110, 255), rgba(30, 95, 200, 255), rgba(140, 200, 255, 255)],
+            Variant::Claro | Variant::Listras => [rgba(10, 40, 110, 255), rgba(30, 95, 200, 255), rgba(140, 200, 255, 255)],
             Variant::Metal => [rgba(8, 28, 70, 255), rgba(40, 80, 160, 255), rgba(170, 200, 240, 255)],
             Variant::Grafite => [rgba(35, 40, 52, 255), rgba(85, 95, 115, 255), rgba(190, 200, 215, 255)],
         };
+        let claro = variant == Variant::Claro;
         Self {
             variant,
             accent,
@@ -93,6 +109,9 @@ impl Theme {
             menu_bg_a: rgba(246, 246, 246, 238),
             menu_bg_b: rgba(255, 255, 255, 238),
             menu_text: rgba(0, 0, 0, 255),
+            menu_hot: if claro { rgba(66, 132, 214, 255) } else { accent },
+            body_a: if claro { rgba(240, 240, 240, 255) } else { rgba(232, 232, 232, 255) },
+            body_b: if claro { rgba(243, 243, 243, 255) } else { rgba(242, 242, 242, 255) },
             wallpaper,
         }
     }

@@ -55,7 +55,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 1.5 Janela inativa: botões só com contorno e barra translúcida; botões de título desabilitáveis (P)
 - [x] 1.6 Calculadora com visor verde-claro e botões neutros, como a referência (P)
 - [x] 1.7 "Sobre o Glove" com memória, processador e versão (P)
-- [ ] 1.8 **Tema "Tiger"** (padrão): barra de menu em degradê liso, menus com separador em linha e
+- [x] 1.8 **Tema "Claro"** (padrão, visual do Tiger): barra de menu em degradê liso, menus com separador em linha e
   destaque azul liso, Dock liso, janelas em degradê cinza; Listras fica como o visual 10.0–10.2 (M)
 
 ## Fase 2 — glove-kit: os controles que faltam (destrava as outras fases)

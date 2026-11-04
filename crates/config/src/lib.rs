@@ -258,7 +258,7 @@ pub fn default_dock_apps() -> Vec<DockApp> {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            theme: "listras".into(),
+            theme: "claro".into(),
             wallpaper: "ondas".into(),
             terminal: default_terminal(),
             terminal_font: String::new(),

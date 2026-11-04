@@ -103,7 +103,7 @@ impl Glove {
 
         let socket_name = Self::init_wayland_listener(display, event_loop);
         let config = Config::load();
-        let theme = Theme::new(Variant::from_id(&config.theme).unwrap_or(Variant::Listras));
+        let theme = Theme::new(Variant::from_config(&config.theme));
         let fonts = Fonts::load_system().expect("nenhuma fonte encontrada (instale fonts-dejavu)");
 
         Self {
@@ -208,7 +208,7 @@ impl Glove {
         }
         let old = std::mem::replace(&mut self.config, new);
         if old.theme != self.config.theme || old.wallpaper != self.config.wallpaper {
-            self.theme = Theme::new(Variant::from_id(&self.config.theme).unwrap_or(Variant::Listras));
+            self.theme = Theme::new(Variant::from_config(&self.config.theme));
             self.theme_gen += 1;
         }
         if old.keyboard != self.config.keyboard {

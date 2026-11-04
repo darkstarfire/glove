@@ -8,7 +8,7 @@ use glove_paint::*;
 fn main() {
     let mut args = std::env::args().skip(1);
     let out = args.next().unwrap_or("preview.png".into());
-    let variant = args.next().and_then(|s| Variant::from_id(&s)).unwrap_or(Variant::Listras);
+    let variant = Variant::from_config(&args.next().unwrap_or_default());
     let scale: f32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(1.0);
     let theme = Theme::new(variant);
     let fonts = Fonts::load_system().expect("fonte");

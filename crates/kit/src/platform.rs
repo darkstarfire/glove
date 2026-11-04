@@ -108,7 +108,7 @@ pub struct WindowOptions {
 
 pub fn theme_from_config() -> Theme {
     let c = glove_config::Config::load();
-    Theme::new(Variant::from_id(&c.theme).unwrap_or(Variant::Listras))
+    Theme::new(Variant::from_config(&c.theme))
 }
 
 struct Runner<A: App> {
@@ -338,8 +338,8 @@ impl<A: App> Runner<A> {
             let reuse = self.canvas.take().filter(|c| c.w == self.width as f32 && c.h == self.height as f32 && c.scale == scale);
             let Some(mut canvas) = reuse.or_else(|| Canvas::new(self.width as f32, self.height as f32, scale)) else { return };
             if !self.app.paints_background() {
-                canvas.clear(glove_paint::draw::rgba(236, 236, 236, 255));
-                canvas.pinstripes(0.0, 0.0, self.width as f32, self.height as f32, glove_paint::draw::rgba(232, 232, 232, 255), glove_paint::draw::rgba(242, 242, 242, 255));
+                canvas.clear(self.theme.body_a);
+                canvas.pinstripes(0.0, 0.0, self.width as f32, self.height as f32, self.theme.body_a, self.theme.body_b);
             }
             let (redraw, close) = {
                 let mut ui = Ui::new(&mut canvas, &self.theme, &self.fonts, &self.doc_fonts, !self.fixed, &self.input, &mut self.mem);

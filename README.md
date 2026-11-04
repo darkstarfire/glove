@@ -14,7 +14,7 @@ suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imag
 - Dock em prateleira de vidro com ampliação, nome do app, indicador de app aberto, janelas
   minimizadas e lixeira
 - Barras de título com fechar / minimizar / zoom, sombra, arrastar e redimensionar pela borda
-- 3 temas trocados na hora: **Listras**, **Metal** e **Grafite**
+- 4 temas trocados na hora: **Claro** (padrão, sóbrio como o fim da era), **Listras**, **Metal** e **Grafite**
 - **glove-kit**: toolkit dos apps (botões em gel, caixas, rádio, slider, pop-up, campo de texto, abas, listas)
 - **Preferências**: tema, papel de parede (Ondas, Aurora, Liso ou PNG de ~/Imagens), **Monitor**
   (qual tela, resolução com confirmação de 15 s, tamanho da interface), Dock (tamanho e ampliação),
