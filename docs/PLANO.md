@@ -6,7 +6,7 @@ sempre com arte própria desenhada por código (sem logotipos, ícones ou códig
 próprios para os recursos (ex.: "Busca Rápida", não o nome da Apple).
 
 **Base: Tiger (10.4)**, o último da era antes da virada do 10.5 Leopard (Dock 3D, janelas cinza lisas,
-barra de menu translúcida). As fases 0 e 1 foram feitas olhando o 10.0–10.3; a etapa 3.0 compara
+barra de menu translúcida). As fases 0 e 1 foram feitas olhando o 10.0–10.3; a etapa 2.0 compara
 o Glove com o Tiger e decide o que muda.
 
 Depois de cumprir tudo da era (fases 1 a 9), vem a **Fase 10**: o Glove "como deveria ter sido",
@@ -22,6 +22,7 @@ completas, com medidas, cores e arquivos de referência, estão em [`docs/analis
 | [3-preferencias.md](analise/3-preferencias.md) | Preferências: grade "Mostrar Todos" e cada painel, com o serviço Linux de cada um |
 | [4-sessao-login.md](analise/4-sessao-login.md) | Tela de login, splash, desligar/reiniciar, bloqueio, primeiro uso, utilitários |
 | [5-apps.md](analise/5-apps.md) | Apps existentes e apps que faltam |
+| [6-tiger.md](analise/6-tiger.md) | Tiger (10.4) comparado ao Glove: o que muda com o Tiger como base |
 
 As capturas de referência ficam em [`referencias/`](../referencias/) (com as fontes de cada uma). Origem:
 use as páginas da [512pixels](https://512pixels.net/projects/aqua-screenshot-library/) (10.0–10.2) e da
@@ -54,10 +55,12 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 1.5 Janela inativa: botões só com contorno e barra translúcida; botões de título desabilitáveis (P)
 - [x] 1.6 Calculadora com visor verde-claro e botões neutros, como a referência (P)
 - [x] 1.7 "Sobre o Glove" com memória, processador e versão (P)
+- [ ] 1.8 **Tema "Tiger"** (padrão): barra de menu em degradê liso, menus com separador em linha e
+  destaque azul liso, Dock liso, janelas em degradê cinza; Listras fica como o visual 10.0–10.2 (M)
 
 ## Fase 2 — glove-kit: os controles que faltam (destrava as outras fases)
 
-- [ ] 2.0 Referências do Tiger em `referencias/tiger/` (512pixels) e análise das diferenças para o Glove: barra de menu, listras, metal, Dock, controles (M)
+- [x] 2.0 Referências do Tiger em `referencias/tiger/` (512pixels) e análise das diferenças ([6-tiger.md](analise/6-tiger.md)) (M)
 - [ ] 2.1 Barra de rolagem em gel genérica (listas, tabelas, colunas) (M)
 - [ ] 2.2 Barra de progresso com listras animadas (indeterminada) e giratório (M)
 - [ ] 2.3 Alerta padrão com ícones originais de Pare/Cuidado/Nota e botão padrão pulsante (M)
@@ -84,7 +87,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 ## Fase 4 — Dock completo
 
-- [ ] 4.1 Super+Tab percorre os apps no próprio Dock, com rótulo (10.0–10.2) (M)
+- [ ] 4.1 Super+Tab no estilo do Tiger: faixa de ícones grandes no meio da tela, com o nome do app (M)
 - [ ] 4.2 Ícone pula ao abrir um app (M)
 - [ ] 4.3 Animação de minimizar até o Dock (Escala) e miniatura viva da janela minimizada (G)
 - [ ] 4.4 Menu de contexto do Dock com bico apontando para o ícone (Manter, Mostrar no Arquivos, Encerrar) (M)
@@ -104,7 +107,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 
 ## Fase 6 — Arquivos
 
-- [ ] 6.1 Barra de ferramentas do 10.2: Voltar/Avançar com rótulos, segmentado de visualização, Computador, Início, Aplicativos, Buscar (M)
+- [ ] 6.1 Janela do Tiger: barra de ferramentas unida ao título em metal, Voltar/Avançar, segmentado de visualização, engrenagem, busca em cápsula e **barra lateral** (discos, Mesa, Início, Aplicativos, Documentos…) (G)
 - [ ] 6.2 Lixeira: Esvaziar com alerta, Devolver, ícone cheia/vazia no Dock (M)
 - [ ] 6.3 Ícones de pastas especiais (Mesa, Documentos, Música, Imagens, Vídeos…), de tipos e emblema de atalho (M)
 - [ ] 6.4 Copiar/colar/mover/arrastar com janela de progresso e alerta de substituição (G)
@@ -118,7 +121,6 @@ Meta: tela de login inteira abaixo de 25 MB.
     e permitir arrastar para o Dock (ver 4.4 "Manter no Dock"). A Busca Rápida (3.9) usa a mesma lista
 - [ ] 6.8 Lista ordenável com expansão e datas "Hoje/Ontem"; status com seleção e "somente leitura" (M)
 - [ ] 6.9 Diálogo Abrir/Salvar em colunas (`kit::filebrowser`), usado no Editor, Visualizador e Lembretes (G)
-- [ ] 6.10 Modo Panther: barra lateral, metal escovado, engrenagem (M)
 - [ ] 6.11 Atualização automática (inotify), seleção múltipla e retângulo elástico; pendrives na mesa (M)
 - [ ] 6.12 Pastas inteligentes (10.4): buscas salvas da Busca Rápida que aparecem como pastas (M)
 - [ ] 6.13 Compactar: "Compactar item" no menu do Arquivos e clique duplo em .zip/.tar.gz abre
