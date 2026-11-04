@@ -334,7 +334,6 @@ impl App for Editor {
                     MenuItem::new("font-reset", "Tamanho normal", "").enabled(self.buf.font_px > 0.0),
                 ],
             ),
-            Menu::new("Janela", vec![MenuItem::new("minimize", "Minimizar", "Ctrl+M")]),
         ]
     }
 

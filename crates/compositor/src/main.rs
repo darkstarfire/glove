@@ -3,6 +3,7 @@
 mod grabs;
 mod handlers;
 mod input;
+mod appmenu;
 mod ending;
 mod menus;
 mod recent;
@@ -178,6 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         data.state.space.refresh();
         data.state.popups.cleanup();
         data.state.minimized.retain(|(w, _)| w.alive());
+        data.state.hidden.retain(|(w, _)| w.alive());
         let _ = data.display_handle.flush_clients();
         // Só redesenha quando algo mudou: sem trabalho, sem CPU.
         if let Some(vt) = data.state.vt_request.take() {

@@ -517,6 +517,11 @@ impl App for Terminal {
             self.paste(&t);
         }
         // Teclado: atalhos do Terminal primeiro, o resto vai para o shell.
+        if ui.menu_actions().iter().any(|a| a == "prefs") {
+            // Preferências do Terminal: o painel Terminal das Preferências do Glove.
+            let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-prefs"))).filter(|p| p.is_file());
+            let _ = std::process::Command::new(exe.unwrap_or_else(|| "glove-prefs".into())).arg("terminal").spawn();
+        }
         let keys: Vec<_> = ui.keys().to_vec();
         for k in &keys {
             match k.combo.as_str() {
@@ -665,6 +670,7 @@ impl App for Terminal {
     fn menus(&self) -> Vec<Menu> {
         let sel = self.term.selection.is_some();
         vec![
+            Menu::app(vec![MenuItem::new("prefs", "Preferências…", "")]),
             Menu::new("Shell", vec![MenuItem::new("new", "Nova janela", "Ctrl+Shift+N"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+Shift+W")]),
             Menu::new(
                 "Editar",

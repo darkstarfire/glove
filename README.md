@@ -122,6 +122,8 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+Enter | Novo terminal |
 | Super+Q | Fechar janela |
 | Super+M | Minimizar |
+| Super+H | Ocultar o app (some sem ir para o Dock; volta pelo Dock ou por Mostrar Todos) |
+| Super+Alt+H | Ocultar os outros apps |
 | Super+↑ | Zoom |
 | Super+Tab | Trocar de janela |
 | Super+, | Preferências |

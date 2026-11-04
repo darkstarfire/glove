@@ -111,7 +111,7 @@ pub fn app_display_name(w: &Window) -> String {
 }
 
 /// Nome curto e bonito a partir do app_id ("org.gnome.TextEditor" → "TextEditor").
-fn pretty_app_name(app_id: &str) -> String {
+pub(crate) fn pretty_app_name(app_id: &str) -> String {
     // Apps do próprio Glove têm nomes em português.
     match app_id {
         "glove.Preferences" => return "Preferências".into(),
@@ -176,8 +176,17 @@ pub enum MenuAction {
     Restart,
     ShutDown,
     LogOut,
-    /// Minimiza todas as janelas do app em foco.
+    /// "Sobre <app>" genérico dos apps do Glove: (app_id, nome).
+    AboutApp(String, String),
+    /// Esconde as janelas do app em foco.
     HideApp(u32),
+    HideOthers(u32),
+    ShowAll,
+    MinimizeWindow(Window),
+    ZoomWindow(Window),
+    BringAllToFront(u32),
+    /// Janela escolhida na lista do menu Janela.
+    FocusWindow(Window),
     /// Fecha todas as janelas do app em foco.
     QuitApp(u32),
     /// Item de um menu do próprio app.
@@ -593,7 +602,7 @@ impl Glove {
         client.get_credentials(&self.display_handle).ok().map(|c| c.pid as u32)
     }
 
-    fn focused_app_name(&self) -> String {
+    pub(crate) fn focused_app_name(&self) -> String {
         match self.focused_window() {
             Some(win) => {
                 let (title, app_id) = window_info(&win);
@@ -609,7 +618,7 @@ impl Glove {
     }
 
     /// Menus enviados pelo app em foco.
-    fn focused_menus(&self) -> Vec<crate::menus::AppMenu> {
+    pub(crate) fn focused_menus(&self) -> Vec<crate::menus::AppMenu> {
         let Some(pid) = self.focused_pid() else { return Vec::new() };
         self.menu_clients.iter().rev().find(|c| c.pid == pid).map(|c| c.menus.clone()).unwrap_or_default()
     }
@@ -617,35 +626,30 @@ impl Glove {
     /// Títulos da barra: nome do app + menus dele.
     pub fn bar_titles(&self) -> Vec<String> {
         let mut t = vec![self.focused_app_name()];
-        t.extend(self.focused_menus().into_iter().map(|m| m.title));
+        t.extend(self.bar_menus().into_iter().map(|m| match m {
+            crate::appmenu::BarMenu::Client(m) => m.title,
+            crate::appmenu::BarMenu::Window(_) => crate::appmenu::WINDOW_MENU.to_string(),
+        }));
         t
     }
 
     pub fn open_bar_menu(&mut self, target: BarTarget) {
         match target {
             BarTarget::Logo => self.open_main_menu(),
-            BarTarget::Title(0) => {
-                let app = self.focused_app_name();
-                let pid = self.focused_pid().unwrap_or(0);
-                let has_window = self.focused_window().is_some();
-                let item = |label: String| if has_window { MenuItem::item(label) } else { MenuItem::item(label).disabled() };
-                let nodes = vec![
-                    MenuNode::new(item(format!("Ocultar {app}")), Some(MenuAction::HideApp(pid))),
-                    MenuNode::sep(),
-                    MenuNode::new(item(format!("Encerrar {app}")), Some(MenuAction::QuitApp(pid))),
-                ];
-                self.show_menu(target, nodes);
-            }
+            BarTarget::Title(0) => self.open_app_menu(),
             BarTarget::Title(i) => {
                 let pid = self.focused_pid().unwrap_or(0);
-                let Some(menu) = self.focused_menus().into_iter().nth(i - 1) else { return };
-                let nodes = client_nodes(pid, menu.items);
+                let nodes = match self.bar_menus().into_iter().nth(i - 1) {
+                    Some(crate::appmenu::BarMenu::Client(m)) => client_nodes(pid, m.items),
+                    Some(crate::appmenu::BarMenu::Window(extra)) => self.window_menu_nodes(extra),
+                    None => return,
+                };
                 self.show_menu(target, nodes);
             }
         }
     }
 
-    fn show_menu(&mut self, target: BarTarget, nodes: Vec<MenuNode>) {
+    pub(crate) fn show_menu(&mut self, target: BarTarget, nodes: Vec<MenuNode>) {
         let x = match target {
             BarTarget::Logo => self.chrome.logo_range.0,
             BarTarget::Title(i) => self.chrome.title_ranges.get(i).map(|r| r.0).unwrap_or(0.0),
@@ -688,7 +692,7 @@ impl Glove {
     }
 
     /// Atalho configurado para uma ação (texto vazio se não houver).
-    fn binding(&self, action: &str) -> String {
+    pub(crate) fn binding(&self, action: &str) -> String {
         self.config.shortcuts.iter().find(|s| s.action == action).map(|s| s.keys.clone()).unwrap_or_default()
     }
 
@@ -896,11 +900,19 @@ impl Glove {
             MenuAction::Restart => self.spawn("glove-sair reiniciar"),
             MenuAction::ShutDown => self.spawn("glove-sair desligar"),
             MenuAction::LogOut => self.spawn(if self.nested { "glove-sair sair" } else { "glove-sair encerrar" }),
-            MenuAction::HideApp(pid) => {
-                for w in self.windows_of_pid(pid) {
-                    self.minimize_window(&w);
-                }
+            MenuAction::AboutApp(id, name) => self.spawn(&format!("glove-about --app {id} '{}'", name.replace('\'', ""))),
+            MenuAction::HideApp(pid) => self.hide_pid(pid),
+            MenuAction::HideOthers(pid) => self.hide_others(pid),
+            MenuAction::ShowAll => {
+                // Volta tudo, sem trocar o app da frente.
+                let front = self.focused_window();
+                self.unhide_where(|_| true);
+                self.focus_window(front);
             }
+            MenuAction::MinimizeWindow(w) => self.minimize_window(&w),
+            MenuAction::ZoomWindow(w) => self.toggle_zoom(&w),
+            MenuAction::BringAllToFront(pid) => self.bring_all_to_front(pid),
+            MenuAction::FocusWindow(w) => self.bring_window(w),
             MenuAction::QuitApp(pid) => {
                 for w in self.windows_of_pid(pid) {
                     self.close_window(&w);
@@ -914,7 +926,7 @@ impl Glove {
         }
     }
 
-    fn windows_of_pid(&self, pid: u32) -> Vec<Window> {
+    pub(crate) fn windows_of_pid(&self, pid: u32) -> Vec<Window> {
         use smithay::reexports::wayland_server::Resource;
         self.space
             .elements()
@@ -944,7 +956,7 @@ impl Glove {
         self.dirty = true;
     }
 
-    fn windows_of_app(&self, app_id: &str) -> Vec<Window> {
+    pub(crate) fn windows_of_app(&self, app_id: &str) -> Vec<Window> {
         if app_id.is_empty() {
             return Vec::new();
         }
@@ -955,8 +967,12 @@ impl Glove {
         match a {
             DockAction::App(i) => {
                 let Some(app) = self.config.dock_apps.get(i).cloned() else { return };
-                // Se já está aberto, traz para frente; senão, abre.
-                if let Some(w) = self.windows_of_app(&app.app_id).pop() {
+                // Se já está aberto, traz para frente (ou mostra, se estava oculto); senão, abre.
+                let id = app.app_id.clone();
+                let was_hidden = !id.is_empty() && self.hidden.iter().any(|(w, _)| window_info(w).1.eq_ignore_ascii_case(&id));
+                if was_hidden {
+                    self.unhide_where(|w| window_info(w).1.eq_ignore_ascii_case(&id));
+                } else if let Some(w) = self.windows_of_app(&app.app_id).pop() {
                     self.focus_window(Some(w));
                 } else if let Some(idx) = self.minimized.iter().position(|(w, _)| window_info(w).1.eq_ignore_ascii_case(&app.app_id) && !app.app_id.is_empty()) {
                     self.restore_minimized(idx);
@@ -1062,7 +1078,7 @@ impl Glove {
         let running: Vec<String> = self
             .space
             .elements()
-            .chain(self.minimized.iter().map(|(w, _)| w))
+            .chain(self.minimized.iter().chain(&self.hidden).map(|(w, _)| w))
             .map(|w| window_info(w).1.to_lowercase())
             .collect();
         for (i, app) in self.config.dock_apps.iter().enumerate() {
@@ -1202,7 +1218,7 @@ pub fn clock_text() -> String {
 }
 
 /// Itens do menu de um app (com submenus) já ligados às ações.
-fn client_nodes(pid: u32, entries: Vec<crate::menus::Entry>) -> Vec<MenuNode> {
+pub(crate) fn client_nodes(pid: u32, entries: Vec<crate::menus::Entry>) -> Vec<MenuNode> {
     entries
         .into_iter()
         .map(|e| {

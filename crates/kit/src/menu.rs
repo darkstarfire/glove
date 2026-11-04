@@ -51,6 +51,17 @@ impl Menu {
     pub fn new(title: &str, items: Vec<MenuItem>) -> Self {
         Self { title: title.into(), items }
     }
+
+    /// Itens que vão no menu com o nome do app (ex.: "Sobre…", "Preferências…"),
+    /// acima de Ocultar/Encerrar, que o Glove põe sozinho.
+    pub fn app(items: Vec<MenuItem>) -> Self {
+        Self::new("@app", items)
+    }
+
+    /// Itens a mais no menu Janela (o Glove já põe Minimizar, Zoom e a lista de janelas).
+    pub fn window(items: Vec<MenuItem>) -> Self {
+        Self::new("Janela", items)
+    }
 }
 
 fn clean(s: &str) -> String {

@@ -258,11 +258,13 @@ pub struct MenuItem {
     pub enabled: bool,
     /// Abre um submenu (mostra ▸ à direita).
     pub submenu: bool,
+    /// ◆ na coluna da marca (janela minimizada no menu Janela).
+    pub diamond: bool,
 }
 
 impl MenuItem {
     pub fn item(label: impl Into<String>) -> Self {
-        Self { label: label.into(), checked: false, separator: false, shortcut: String::new(), enabled: true, submenu: false }
+        Self { label: label.into(), checked: false, separator: false, shortcut: String::new(), enabled: true, submenu: false, diamond: false }
     }
     /// Item que abre um submenu.
     pub fn sub(label: impl Into<String>) -> Self {
@@ -419,6 +421,8 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
         let base = cy + 14.5;
         if it.checked {
             fonts.draw(&mut c, "✓", x0 + 7.0, base, MENU_PX, false, color);
+        } else if it.diamond {
+            fonts.draw(&mut c, "◆", x0 + 6.0, base, MENU_PX - 2.0, false, color);
         }
         fonts.draw(&mut c, &it.label, x0 + 22.0, base, MENU_PX, false, color);
         if !it.shortcut.is_empty() {

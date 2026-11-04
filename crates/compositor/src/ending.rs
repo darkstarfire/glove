@@ -77,7 +77,7 @@ impl Ending {
 
 impl Glove {
     fn open_windows(&self) -> usize {
-        self.space.elements().count() + self.minimized.len()
+        self.space.elements().count() + self.minimized.len() + self.hidden.len()
     }
 
     /// A tela de encerramento está à frente (nada mais responde).
@@ -93,6 +93,8 @@ impl Glove {
         }
         tracing::info!("fim de sessão: {word}");
         self.close_menu();
+        // Escondidas voltam à tela: podem perguntar se querem salvar.
+        self.unhide_where(|_| true);
         let windows: Vec<_> = self.space.elements().cloned().chain(self.minimized.iter().map(|(w, _)| w.clone())).collect();
         for w in &windows {
             self.close_window(w);

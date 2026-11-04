@@ -124,7 +124,43 @@ fn processor() -> String {
     }
 }
 
+/// "Sobre <app>" genérico dos apps do Glove (pedido pelo menu do app):
+/// ícone grande, nome, versão e de onde vem.
+struct AppAbout {
+    icon: glove_kit::paint::icons::Icon,
+    name: String,
+}
+
+impl App for AppAbout {
+    fn ui(&mut self, ui: &mut Ui) {
+        let w = ui.c.w;
+        glove_kit::paint::icons::draw(ui.c, ui.fonts, self.icon, (w - 64.0) / 2.0, 22.0, 64.0, None);
+        let center = |ui: &mut Ui, t: &str, y: f32, px: f32, bold: bool, c| {
+            let tw = ui.text_width(t, px, bold);
+            ui.fonts.draw(ui.c, t, ((w - tw) / 2.0).max(8.0), y, px, bold, c);
+        };
+        center(ui, &self.name.clone(), 116.0, 14.0, true, rgba(20, 20, 20, 255));
+        center(ui, concat!("Versão ", env!("CARGO_PKG_VERSION")), 136.0, 11.0, false, rgba(60, 60, 60, 255));
+        center(ui, "Parte do Glove", 166.0, 11.0, false, rgba(60, 60, 60, 255));
+        center(ui, "Software livre · GPL-3.0 ou posterior", 182.0, 10.0, false, rgba(90, 90, 90, 255));
+        if ui.keys().iter().any(|k| matches!(k.key, Key::Escape | Key::Enter)) {
+            ui.close = true;
+        }
+    }
+}
+
 fn main() {
+    let mut args = std::env::args().skip(1);
+    if args.next().as_deref() == Some("--app") {
+        let id = args.next().unwrap_or_default();
+        let name = args.next().unwrap_or_else(|| "Aplicativo".into());
+        // Painéis "Sobre" da época não têm título.
+        let opts = WindowOptions { title: String::new(), app_id: "glove.About".into(), size: (260, 200), fixed: true };
+        if let Err(e) = run(opts, AppAbout { icon: glove_kit::app_icon(&id), name }) {
+            eprintln!("glove-about: {e}");
+        }
+        return;
+    }
     let about = About { memory: memory_mib().map(format_memory).unwrap_or_else(|| "—".into()), processor: processor() };
     let opts = WindowOptions { title: "Sobre o Glove".into(), app_id: "glove.About".into(), size: (W as u32, 310), fixed: true };
     if let Err(e) = run(opts, about) {

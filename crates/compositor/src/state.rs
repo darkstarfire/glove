@@ -60,6 +60,8 @@ pub struct Glove {
 
     /// Janelas minimizadas e onde estavam.
     pub minimized: Vec<(Window, Point<i32, Logical>)>,
+    /// Janelas escondidas por "Ocultar" (não aparecem no Dock) e onde estavam.
+    pub hidden: Vec<(Window, Point<i32, Logical>)>,
     /// Há algo novo para desenhar.
     pub dirty: bool,
     /// Rodando dentro de outro desktop (atalhos usam Alt em vez de Super).
@@ -136,6 +138,7 @@ impl Glove {
             fonts,
             chrome: Chrome::default(),
             minimized: Vec::new(),
+            hidden: Vec::new(),
             dirty: true,
             nested: false,
             cascade: 0,

@@ -33,6 +33,8 @@ enum KeyAction {
     Preferences,
     Screenshot,
     ForceQuit,
+    Hide,
+    HideOthers,
     Quit,
     /// Trocar para o console N (Ctrl+Alt+F1…F12, só na sessão própria).
     Vt(i32),
@@ -53,6 +55,8 @@ impl KeyAction {
             "preferences" => Self::Preferences,
             "screenshot" => Self::Screenshot,
             "force_quit" => Self::ForceQuit,
+            "hide" => Self::Hide,
+            "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
             _ => return None,
         })
@@ -307,6 +311,16 @@ impl Glove {
             }
             Some(KeyAction::Preferences) => self.open_preferences(),
             Some(KeyAction::Screenshot) => self.request_screenshot(),
+            Some(KeyAction::Hide) => {
+                if let Some(pid) = self.focused_pid() {
+                    self.hide_pid(pid);
+                }
+            }
+            Some(KeyAction::HideOthers) => {
+                if let Some(pid) = self.focused_pid() {
+                    self.hide_others(pid);
+                }
+            }
             Some(KeyAction::ForceQuit) => self.run_menu_action(crate::shell::MenuAction::ForceQuit),
             Some(KeyAction::Quit) => self.loop_signal.stop(),
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),

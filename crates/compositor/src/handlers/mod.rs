@@ -105,7 +105,7 @@ impl Glove {
     /// Avisa todos os apps quando a escala da tela muda.
     pub fn update_client_scales(&mut self) {
         let scale = self.scale();
-        let windows: Vec<_> = self.space.elements().cloned().chain(self.minimized.iter().map(|(w, _)| w.clone())).collect();
+        let windows: Vec<_> = self.space.elements().cloned().chain(self.minimized.iter().chain(&self.hidden).map(|(w, _)| w.clone())).collect();
         for w in windows {
             w.with_surfaces(|_, states| {
                 with_fractional_scale(states, |fs| fs.set_preferred_scale(scale));
