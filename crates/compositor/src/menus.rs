@@ -5,7 +5,8 @@
 //! compositor responde com `ACT <id>`. Protocolo (campos separados por TAB):
 //!
 //! ```text
-//! app → glove:  HELLO <pid> | BEGIN | MENU <título> | ITEM <id> <rótulo> <atalho> <flags> | SEP | END
+//! app → glove:  HELLO <pid> | BEGIN | MENU <título> | ITEM <id> <rótulo> <atalho> <flags> | SEP
+//!               | SUB <rótulo> <flags> … ENDSUB (submenu) | END
 //! glove → app:  ACT <id>
 //! ```
 //! flags: `d` = desativado, `c` = marcado.
@@ -26,6 +27,9 @@ pub struct Entry {
     pub enabled: bool,
     pub checked: bool,
     pub separator: bool,
+    /// Itens do submenu (vazio = item comum).
+    pub sub: Vec<Entry>,
+    pub is_sub: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -40,6 +44,8 @@ pub struct MenuClient {
     stream: UnixStream,
     buf: Vec<u8>,
     pending: Vec<AppMenu>,
+    /// Submenus abertos com SUB e ainda sem ENDSUB.
+    open_subs: Vec<Entry>,
     pub menus: Vec<AppMenu>,
     /// Pedido de captura de tela: (atraso em ms, abrir no Visualizador).
     pub shot: Option<(u64, bool)>,
@@ -50,28 +56,54 @@ impl MenuClient {
         let _ = self.stream.write_all(format!("ACT\t{id}\n").as_bytes());
     }
 
-    fn line(&mut self, line: &str) -> bool {
+    /// Lista que recebe o próximo item: o submenu aberto mais interno ou o menu.
+    fn target(&mut self) -> Option<&mut Vec<Entry>> {
+        match self.open_subs.last_mut() {
+            Some(e) => Some(&mut e.sub),
+            None => self.pending.last_mut().map(|m| &mut m.items),
+        }
+    }
+
+    pub(crate) fn line(&mut self, line: &str) -> bool {
         let f: Vec<&str> = line.split('\t').collect();
         match f[0] {
             "HELLO" => self.pid = f.get(1).and_then(|p| p.parse().ok()).unwrap_or(0),
-            "BEGIN" => self.pending.clear(),
-            "MENU" => self.pending.push(AppMenu { title: f.get(1).unwrap_or(&"").to_string(), items: Vec::new() }),
+            "BEGIN" => {
+                self.pending.clear();
+                self.open_subs.clear();
+            }
+            "MENU" => {
+                self.open_subs.clear();
+                self.pending.push(AppMenu { title: f.get(1).unwrap_or(&"").to_string(), items: Vec::new() });
+            }
             "ITEM" => {
-                if let Some(m) = self.pending.last_mut() {
-                    let flags = f.get(4).copied().unwrap_or("");
-                    m.items.push(Entry {
-                        id: f.get(1).unwrap_or(&"").to_string(),
-                        label: f.get(2).unwrap_or(&"").to_string(),
-                        shortcut: f.get(3).unwrap_or(&"").to_string(),
-                        enabled: !flags.contains('d'),
-                        checked: flags.contains('c'),
-                        separator: false,
-                    });
+                let flags = f.get(4).copied().unwrap_or("");
+                let e = Entry {
+                    id: f.get(1).unwrap_or(&"").to_string(),
+                    label: f.get(2).unwrap_or(&"").to_string(),
+                    shortcut: f.get(3).unwrap_or(&"").to_string(),
+                    enabled: !flags.contains('d'),
+                    checked: flags.contains('c'),
+                    ..Default::default()
+                };
+                if let Some(t) = self.target() {
+                    t.push(e);
                 }
             }
             "SEP" => {
-                if let Some(m) = self.pending.last_mut() {
-                    m.items.push(Entry { separator: true, enabled: true, ..Default::default() });
+                if let Some(t) = self.target() {
+                    t.push(Entry { separator: true, enabled: true, ..Default::default() });
+                }
+            }
+            "SUB" => {
+                let flags = f.get(2).copied().unwrap_or("");
+                self.open_subs.push(Entry { label: f.get(1).unwrap_or(&"").to_string(), enabled: !flags.contains('d'), is_sub: true, ..Default::default() });
+            }
+            "ENDSUB" => {
+                if let Some(e) = self.open_subs.pop() {
+                    if let Some(t) = self.target() {
+                        t.push(e);
+                    }
                 }
             }
             "SHOT" => {
@@ -108,7 +140,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), menus: Vec::new(), shot: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -163,4 +195,24 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
         })
         .map_err(|e| std::io::Error::other(e.to_string()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn le_submenus() {
+        let (a, _b) = UnixStream::pair().unwrap();
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None };
+        let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
+        let done = text.lines().fold(false, |d, l| c.line(l) || d);
+        assert!(done);
+        let items = &c.menus[0].items;
+        assert_eq!(items.len(), 3);
+        assert!(items[1].is_sub && items[1].label == "Recentes");
+        assert_eq!(items[1].sub[0].id, "r1");
+        assert!(items[1].sub[1].is_sub && !items[1].sub[1].enabled);
+        assert!(items[2].separator);
+    }
 }

@@ -128,6 +128,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Print | Captura de tela em ~/Imagens |
 | Ctrl+Alt+Backspace | Sair do Glove (encerra a sessão) |
 | Ctrl+Alt+F1…F12 | Trocar de console (só na sessão própria) |
+| Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
 
 ## Configuração
 

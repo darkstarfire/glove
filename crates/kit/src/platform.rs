@@ -562,7 +562,11 @@ impl<A: App> Runner<A> {
         }
         self.menu_shortcuts.clear();
         for m in &menus {
+            let mut all = Vec::new();
             for it in &m.items {
+                it.walk(&mut all);
+            }
+            for it in all {
                 if let crate::menu::MenuItem::Item { id, shortcut, .. } = it {
                     self.menu_shortcuts.insert(id.clone(), shortcut.clone());
                 }

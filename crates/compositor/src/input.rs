@@ -17,7 +17,7 @@ use glove_paint::chrome;
 
 use crate::{
     grabs::{MoveSurfaceGrab, ResizeSurfaceGrab},
-    shell::{deco_top, Hit},
+    shell::{deco_top, Hit, MenuKey},
     state::Glove,
 };
 
@@ -35,6 +35,10 @@ enum KeyAction {
     Quit,
     /// Trocar para o console N (Ctrl+Alt+F1…F12, só na sessão própria).
     Vt(i32),
+    /// Ctrl+F2: abre a barra de menu pelo teclado.
+    MenuBar,
+    /// Tecla com um menu aberto.
+    Menu(MenuKey),
 }
 
 impl KeyAction {
@@ -233,6 +237,26 @@ impl Glove {
             // Nome da tecla sem modificadores (independe do layout para letras).
             let raw = handle.raw_latin_sym_or_raw_current_sym().unwrap_or_else(|| handle.modified_sym());
             let name = smithay::input::keyboard::xkb::keysym_get_name(raw).to_lowercase();
+            // Menu aberto: as teclas são dele (setas, Enter, Esc).
+            if st.chrome.menu.is_some() {
+                let k = match name.as_str() {
+                    "up" | "kp_up" => MenuKey::Up,
+                    "down" | "kp_down" => MenuKey::Down,
+                    "left" | "kp_left" => MenuKey::Left,
+                    "right" | "kp_right" => MenuKey::Right,
+                    "return" | "kp_enter" | "space" => MenuKey::Activate,
+                    "escape" => MenuKey::Close,
+                    _ if mods.ctrl && name == "f2" => MenuKey::Close,
+                    _ => MenuKey::Other,
+                };
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::Menu(k)));
+            }
+            // Ctrl+F2: barra de menu pelo teclado (como no Mac OS X).
+            if mods.ctrl && !mods.alt && !mods.shift && !mods.logo && name == "f2" {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::MenuBar));
+            }
             let action = st.bindings.iter().find_map(|b| {
                 // Dentro de outro desktop o Super costuma ser capturado: Alt vale como Super.
                 let logo_ok = if b.logo { mods.logo || (st.nested && mods.alt && !b.alt) } else { !mods.logo };
@@ -279,6 +303,8 @@ impl Glove {
             Some(KeyAction::Screenshot) => self.request_screenshot(),
             Some(KeyAction::Quit) => self.loop_signal.stop(),
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
+            Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
+            Some(KeyAction::Menu(k)) => self.menu_key(k),
             None => {}
         }
     }
@@ -294,10 +320,17 @@ impl Glove {
             }
         }
         if let Some(m) = &mut self.chrome.menu {
-            let h = if let Hit::Menu(i) = &hit { *i } else { None };
-            if m.hover != h {
-                m.hover = h;
-                self.dirty = true;
+            match &hit {
+                Hit::Menu(l, i) => self.menu_hover(*l, *i),
+                _ => {
+                    // Fora dos menus: apaga só o realce do painel mais interno (os
+                    // outros continuam marcando o item que abriu o submenu).
+                    if let Some(lv) = m.levels.last_mut() {
+                        if lv.hover.take().is_some() {
+                            self.dirty = true;
+                        }
+                    }
+                }
             }
         }
 
@@ -371,7 +404,7 @@ impl Glove {
                 // Com o menu aberto: clicar no mesmo título fecha, em outro troca;
                 // fora dos menus, só fecha.
                 match hit {
-                    Hit::Menu(_) => {}
+                    Hit::Menu(..) => {}
                     Hit::MenuBar { target: Some(t) } if t != cur => self.open_bar_menu(t),
                     _ => self.close_menu(),
                 }
@@ -422,19 +455,15 @@ impl Glove {
                             self.dirty = true;
                         }
                     }
-                    Hit::Menu(_) => {}
+                    Hit::Menu(..) => {}
                 }
             }
             self.chrome.swallow_release = swallow;
         } else if state == ButtonState::Released {
             let hit = self.hit_test(pos);
             // Menu: escolher um item ao soltar
-            if let (Some(m), Hit::Menu(Some(i))) = (&self.chrome.menu, &hit) {
-                let action = m.actions.get(*i).cloned().flatten();
-                self.close_menu();
-                if let Some(a) = action {
-                    self.run_menu_action(a);
-                }
+            if let (Some(_), Hit::Menu(l, Some(i))) = (&self.chrome.menu, &hit) {
+                self.menu_activate(*l, *i);
             }
             if let Some(p) = self.chrome.dock_pressed.take() {
                 if let Hit::Dock(Some(i)) = hit {
@@ -515,6 +544,7 @@ fn debug_keycode(k: &str) -> (u32, bool) {
         "=" => return (13, false),
         "/" => return (53, false),
         "|" => return (43, true),
+        "f2" => return (60, false),
         _ => {}
     }
     let lower = k.to_lowercase();

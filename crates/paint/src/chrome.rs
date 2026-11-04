@@ -256,11 +256,17 @@ pub struct MenuItem {
     /// Atalho mostrado à direita (ex.: "Ctrl+S").
     pub shortcut: String,
     pub enabled: bool,
+    /// Abre um submenu (mostra ▸ à direita).
+    pub submenu: bool,
 }
 
 impl MenuItem {
     pub fn item(label: impl Into<String>) -> Self {
-        Self { label: label.into(), checked: false, separator: false, shortcut: String::new(), enabled: true }
+        Self { label: label.into(), checked: false, separator: false, shortcut: String::new(), enabled: true, submenu: false }
+    }
+    /// Item que abre um submenu.
+    pub fn sub(label: impl Into<String>) -> Self {
+        Self { submenu: true, ..Self::item(label) }
     }
     pub fn check(label: impl Into<String>, checked: bool) -> Self {
         Self { checked, ..Self::item(label) }
@@ -329,10 +335,21 @@ fn shortcut_columns(fonts: &Fonts, items: &[MenuItem]) -> (f32, f32) {
 
 pub fn menu_content_size(fonts: &Fonts, items: &[MenuItem]) -> (f32, f32) {
     let (mw, kw) = shortcut_columns(fonts, items);
-    let shortcuts = if mw + kw > 0.0 { mw + kw + 30.0 } else { 0.0 };
+    let mut shortcuts = if mw + kw > 0.0 { mw + kw + 30.0 } else { 0.0 };
+    if items.iter().any(|i| i.submenu) {
+        shortcuts = shortcuts.max(SUB_ARROW_W);
+    }
     let w = items.iter().map(|i| fonts.measure(&i.label, MENU_PX, false)).fold(0.0, f32::max) + shortcuts + 44.0;
     let h = items.iter().map(|i| if i.separator { SEP_H } else { MENU_ITEM_H }).sum::<f32>() + MENU_PAD * 2.0;
     (w.max(180.0).ceil(), h.ceil())
+}
+
+/// Espaço à direita reservado para o ▸ dos submenus.
+const SUB_ARROW_W: f32 = 24.0;
+
+/// Topo do item `i` (relativo ao topo do conteúdo do menu).
+pub fn menu_item_top(items: &[MenuItem], i: usize) -> f32 {
+    MENU_PAD + items.iter().take(i).map(|it| if it.separator { SEP_H } else { MENU_ITEM_H }).sum::<f32>()
 }
 
 /// Item sob a coordenada `y` (relativa ao topo do conteúdo do menu).
@@ -408,6 +425,16 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
             let msw = fonts.measure(&m, MENU_PX, false);
             fonts.draw(&mut c, &m, key_x - 2.0 - msw, base, MENU_PX, false, color);
             fonts.draw(&mut c, &k, key_x, base, MENU_PX, false, color);
+        }
+        if it.submenu {
+            // Triângulo cheio apontando para a direita.
+            let (tx, ty) = (x0 + w - 16.0, cy + MENU_ITEM_H / 2.0);
+            let mut pb = tiny_skia::PathBuilder::new();
+            pb.move_to(tx, ty - 4.5);
+            pb.line_to(tx + 6.5, ty);
+            pb.line_to(tx, ty + 4.5);
+            pb.close();
+            c.fill(pb.finish(), &solid(color));
         }
         cy += MENU_ITEM_H;
     }

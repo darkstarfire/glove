@@ -57,8 +57,11 @@ impl Glove {
         }
 
         if let Some(m) = &c.menu {
-            if let Some(b) = &m.buffer {
-                out.extend(mem(renderer, m.buffer_pos(), b, sc));
+            // Submenus por cima do menu que os abriu.
+            for lv in m.levels.iter().rev() {
+                if let Some(b) = &lv.buffer {
+                    out.extend(mem(renderer, lv.buffer_pos(), b, sc));
+                }
             }
         }
         if let Some(b) = &c.menubar {

@@ -176,22 +176,73 @@ pub enum BarTarget {
     Title(usize),
 }
 
-pub struct OpenMenu {
-    pub target: BarTarget,
+/// Item de menu com o que ele faz e, se for submenu, os filhos.
+#[derive(Clone, Debug)]
+pub struct MenuNode {
+    pub item: MenuItem,
+    pub action: Option<MenuAction>,
+    pub sub: Vec<MenuNode>,
+}
+
+impl MenuNode {
+    pub fn new(item: MenuItem, action: Option<MenuAction>) -> Self {
+        Self { item, action, sub: Vec::new() }
+    }
+    pub fn sep() -> Self {
+        Self::new(MenuItem::sep(), None)
+    }
+    pub fn submenu(label: impl Into<String>, sub: Vec<MenuNode>) -> Self {
+        Self { item: MenuItem::sub(label), action: None, sub }
+    }
+    /// Pode ser escolhido (pelo mouse ou pelas setas).
+    fn selectable(&self) -> bool {
+        !self.item.separator && self.item.enabled
+    }
+}
+
+/// Um painel do menu aberto: o menu da barra ou um submenu.
+pub struct MenuLevel {
+    pub nodes: Vec<MenuNode>,
     pub items: Vec<MenuItem>,
-    pub actions: Vec<Option<MenuAction>>,
     /// Posição do conteúdo (sem a margem de sombra).
     pub origin: Point<i32, Logical>,
     pub size: Size<i32, Logical>,
     pub hover: Option<usize>,
+    /// Item do nível anterior que abriu este submenu.
+    pub parent: Option<usize>,
     key: Option<(Option<usize>, u64)>,
     pub buffer: Option<Tex>,
 }
 
-impl OpenMenu {
+impl MenuLevel {
     pub fn buffer_pos(&self) -> Point<i32, Logical> {
         (self.origin.x - MENU_SHADOW, self.origin.y).into()
     }
+    /// Próximo item escolhível a partir do atual, na direção `dir` (±1), dando a volta.
+    fn step(&self, dir: i32) -> Option<usize> {
+        let n = self.nodes.len() as i32;
+        let start = self.hover.map(|h| h as i32).unwrap_or(if dir > 0 { -1 } else { n });
+        (1..=n).map(|k| (start + dir * k).rem_euclid(n) as usize).find(|&i| self.nodes[i].selectable())
+    }
+}
+
+/// Menu aberto: o painel da barra e os submenus abertos a partir dele.
+pub struct OpenMenu {
+    pub target: BarTarget,
+    pub levels: Vec<MenuLevel>,
+}
+
+/// Teclas que os menus abertos tratam.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MenuKey {
+    Up,
+    Down,
+    Left,
+    Right,
+    Activate,
+    Close,
+    /// Qualquer outra tecla: engolida enquanto o menu está aberto.
+    Other,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -267,7 +318,8 @@ impl Chrome {
 // ---------------------------------------------------------------------------
 
 pub enum Hit {
-    Menu(Option<usize>),
+    /// Menu aberto: (nível, item).
+    Menu(usize, Option<usize>),
     MenuBar { target: Option<BarTarget> },
     Dock(Option<usize>),
     Title { window: Window, button: Option<TitleButton>, group: bool },
@@ -292,9 +344,11 @@ impl Glove {
         let (px, py) = (pos.x, pos.y);
 
         if let Some(m) = &self.chrome.menu {
-            let r = Rectangle::new(m.origin, m.size).to_f64();
-            if r.contains(pos) {
-                return Hit::Menu(chrome::menu_item_at(&m.items, (py - m.origin.y as f64) as f32));
+            // O submenu mais interno fica por cima.
+            for (l, lv) in m.levels.iter().enumerate().rev() {
+                if Rectangle::new(lv.origin, lv.size).to_f64().contains(pos) {
+                    return Hit::Menu(l, chrome::menu_item_at(&lv.items, (py - lv.origin.y as f64) as f32));
+                }
             }
         }
         if py < MENUBAR_H as f64 {
@@ -553,72 +607,196 @@ impl Glove {
                 let app = self.focused_app_name();
                 let pid = self.focused_pid().unwrap_or(0);
                 let has_window = self.focused_window().is_some();
-                let mut items = vec![MenuItem::item(format!("Ocultar {app}")), MenuItem::sep(), MenuItem::item(format!("Encerrar {app}"))];
-                if !has_window {
-                    items = items.into_iter().map(|i| if i.separator { i } else { i.disabled() }).collect();
-                }
-                let actions = vec![Some(MenuAction::HideApp(pid)), None, Some(MenuAction::QuitApp(pid))];
-                self.show_menu(target, items, actions);
+                let item = |label: String| if has_window { MenuItem::item(label) } else { MenuItem::item(label).disabled() };
+                let nodes = vec![
+                    MenuNode::new(item(format!("Ocultar {app}")), Some(MenuAction::HideApp(pid))),
+                    MenuNode::sep(),
+                    MenuNode::new(item(format!("Encerrar {app}")), Some(MenuAction::QuitApp(pid))),
+                ];
+                self.show_menu(target, nodes);
             }
             BarTarget::Title(i) => {
                 let pid = self.focused_pid().unwrap_or(0);
                 let Some(menu) = self.focused_menus().into_iter().nth(i - 1) else { return };
-                let mut items = Vec::new();
-                let mut actions = Vec::new();
-                for e in menu.items {
-                    if e.separator {
-                        items.push(MenuItem::sep());
-                        actions.push(None);
-                        continue;
-                    }
-                    let mut it = MenuItem::check(e.label, e.checked).with_shortcut(e.shortcut);
-                    if !e.enabled {
-                        it = it.disabled();
-                    }
-                    actions.push(e.enabled.then(|| MenuAction::Client(pid, e.id)));
-                    items.push(it);
-                }
-                self.show_menu(target, items, actions);
+                let nodes = client_nodes(pid, menu.items);
+                self.show_menu(target, nodes);
             }
         }
     }
 
-    fn show_menu(&mut self, target: BarTarget, items: Vec<MenuItem>, actions: Vec<Option<MenuAction>>) {
+    fn show_menu(&mut self, target: BarTarget, nodes: Vec<MenuNode>) {
         let x = match target {
             BarTarget::Logo => self.chrome.logo_range.0,
             BarTarget::Title(i) => self.chrome.title_ranges.get(i).map(|r| r.0).unwrap_or(0.0),
         };
-        let (w, h) = chrome::menu_content_size(&self.fonts, &items);
-        self.chrome.menu = Some(OpenMenu { target, items, actions, origin: (x as i32, MENUBAR_H).into(), size: (w as i32, h as i32).into(), hover: None, key: None, buffer: None });
+        let level = self.menu_level(nodes, (x as i32, MENUBAR_H).into());
+        self.chrome.menu = Some(OpenMenu { target, levels: vec![level] });
         self.dirty = true;
     }
 
-    pub fn open_main_menu(&mut self) {
-        let mut items = vec![
-            MenuItem::item("Sobre o Glove"),
-            MenuItem::sep(),
-            MenuItem::item("Preferências…"),
-            MenuItem::item("Novo Terminal"),
-            MenuItem::sep(),
-        ];
-        let mut actions = vec![Some(MenuAction::About), None, Some(MenuAction::Preferences), Some(MenuAction::NewTerminal), None];
-        for v in Variant::ALL {
-            items.push(MenuItem::check(format!("Tema: {}", v.label()), self.theme.variant == v));
-            actions.push(Some(MenuAction::Theme(v)));
-        }
-        items.push(MenuItem::sep());
-        actions.push(None);
-        items.push(MenuItem::item(if self.nested { "Sair do Glove" } else { "Encerrar Sessão…" }));
-        actions.push(Some(MenuAction::Quit));
-
+    fn menu_level(&self, nodes: Vec<MenuNode>, origin: Point<i32, Logical>) -> MenuLevel {
+        let items: Vec<MenuItem> = nodes.iter().map(|n| n.item.clone()).collect();
         let (w, h) = chrome::menu_content_size(&self.fonts, &items);
-        let _ = (w, h);
-        self.show_menu(BarTarget::Logo, items, actions);
+        MenuLevel { nodes, items, origin, size: (w as i32, h as i32).into(), hover: None, parent: None, key: None, buffer: None }
+    }
+
+    pub fn open_main_menu(&mut self) {
+        let temas = Variant::ALL
+            .into_iter()
+            .map(|v| MenuNode::new(MenuItem::check(v.label(), self.theme.variant == v), Some(MenuAction::Theme(v))))
+            .collect();
+        let nodes = vec![
+            MenuNode::new(MenuItem::item("Sobre o Glove"), Some(MenuAction::About)),
+            MenuNode::sep(),
+            MenuNode::new(MenuItem::item("Preferências…"), Some(MenuAction::Preferences)),
+            MenuNode::new(MenuItem::item("Novo Terminal"), Some(MenuAction::NewTerminal)),
+            MenuNode::sep(),
+            MenuNode::submenu("Tema", temas),
+            MenuNode::sep(),
+            MenuNode::new(MenuItem::item(if self.nested { "Sair do Glove" } else { "Encerrar Sessão…" }), Some(MenuAction::Quit)),
+        ];
+        self.show_menu(BarTarget::Logo, nodes);
     }
 
     pub fn close_menu(&mut self) {
         if self.chrome.menu.take().is_some() {
             self.dirty = true;
+        }
+    }
+
+    /// Mouse (ou teclado) sobre o item `hover` do nível `level`: realça, fecha os
+    /// submenus de outros itens e abre o submenu deste, se houver.
+    pub fn menu_hover(&mut self, level: usize, hover: Option<usize>) {
+        let Some(m) = &mut self.chrome.menu else { return };
+        let Some(lv) = m.levels.get_mut(level) else { return };
+        let hover = hover.filter(|&i| lv.nodes.get(i).is_some_and(MenuNode::selectable));
+        if lv.hover != hover {
+            lv.hover = hover;
+            self.dirty = true;
+        }
+        if m.levels.len() > level + 1 {
+            // Submenu já aberto deste mesmo item: fica.
+            if hover.is_some() && m.levels[level + 1].parent == hover {
+                return;
+            }
+            m.levels.truncate(level + 1);
+            self.dirty = true;
+        }
+        self.open_submenu(level);
+    }
+
+    /// Abre o submenu do item realçado no nível `level` (se ele tiver um).
+    fn open_submenu(&mut self, level: usize) -> bool {
+        let Some(m) = &self.chrome.menu else { return false };
+        if m.levels.len() > level + 1 {
+            return false;
+        }
+        let lv = &m.levels[level];
+        let Some(i) = lv.hover else { return false };
+        let node = &lv.nodes[i];
+        if node.sub.is_empty() || !node.selectable() {
+            return false;
+        }
+        let top = chrome::menu_item_top(&lv.items, i) - chrome::menu_item_top(&lv.items, 0);
+        let (px, py, pw) = (lv.origin.x, lv.origin.y + top as i32, lv.size.w);
+        let mut sub = self.menu_level(node.sub.clone(), (0, 0).into());
+        let (sw, sh) = self.output_size();
+        // À direita do menu; sem espaço, à esquerda (como no Mac OS X).
+        let mut x = px + pw - 1;
+        if x + sub.size.w > sw {
+            x = (px - sub.size.w + 1).max(0);
+        }
+        let y = py.min(sh - sub.size.h).max(MENUBAR_H);
+        sub.origin = (x, y).into();
+        sub.parent = Some(i);
+        if let Some(m) = &mut self.chrome.menu {
+            m.levels.push(sub);
+        }
+        self.dirty = true;
+        true
+    }
+
+    /// Escolhe o item `i` do nível `level`: submenu abre, ação roda e o menu fecha.
+    pub fn menu_activate(&mut self, level: usize, i: usize) {
+        let Some(node) = self.chrome.menu.as_ref().and_then(|m| m.levels.get(level)).and_then(|lv| lv.nodes.get(i)).cloned() else { return };
+        if !node.selectable() {
+            return;
+        }
+        if !node.sub.is_empty() {
+            // Submenu: só abre (o mouse em cima já abriu).
+            self.menu_hover(level, Some(i));
+            return;
+        }
+        self.close_menu();
+        if let Some(a) = node.action {
+            self.run_menu_action(a);
+        }
+    }
+
+    /// Abre a barra de menu pelo teclado, com o primeiro item realçado.
+    pub fn open_menubar_by_key(&mut self) {
+        self.open_bar_menu(BarTarget::Logo);
+        self.menu_key(MenuKey::Down);
+    }
+
+    /// Navegação pelo teclado no menu aberto.
+    pub fn menu_key(&mut self, k: MenuKey) {
+        let Some(m) = &self.chrome.menu else { return };
+        let target = m.target;
+        let depth = m.levels.len() - 1;
+        let deepest = &m.levels[depth];
+        match k {
+            MenuKey::Up | MenuKey::Down => {
+                let next = deepest.step(if k == MenuKey::Down { 1 } else { -1 });
+                // Só realça: o submenu abre com → ou Enter.
+                if let Some(m) = &mut self.chrome.menu {
+                    m.levels[depth].hover = next;
+                }
+                self.dirty = true;
+            }
+            MenuKey::Right => {
+                if self.open_submenu(depth) {
+                    if let Some(m) = &mut self.chrome.menu {
+                        let lv = m.levels.last_mut().unwrap();
+                        lv.hover = lv.step(1);
+                    }
+                } else {
+                    self.menu_neighbor(target, 1);
+                }
+            }
+            MenuKey::Left => {
+                if depth > 0 {
+                    if let Some(m) = &mut self.chrome.menu {
+                        m.levels.truncate(depth);
+                    }
+                    self.dirty = true;
+                } else {
+                    self.menu_neighbor(target, -1);
+                }
+            }
+            MenuKey::Activate => match deepest.hover {
+                Some(i) if !deepest.nodes[i].sub.is_empty() => self.menu_key(MenuKey::Right),
+                Some(i) => self.menu_activate(depth, i),
+                None => self.close_menu(),
+            },
+            MenuKey::Close => self.close_menu(),
+            MenuKey::Other => {}
+        }
+    }
+
+    /// Abre o menu vizinho na barra (dir = ±1), dando a volta, com o primeiro item realçado.
+    fn menu_neighbor(&mut self, target: BarTarget, dir: i32) {
+        let n = self.bar_titles().len() as i32 + 1; // logotipo + títulos
+        let idx = match target {
+            BarTarget::Logo => 0,
+            BarTarget::Title(i) => i as i32 + 1,
+        };
+        let next = (idx + dir).rem_euclid(n);
+        let t = if next == 0 { BarTarget::Logo } else { BarTarget::Title(next as usize - 1) };
+        self.open_bar_menu(t);
+        if let Some(m) = &mut self.chrome.menu {
+            let lv = &mut m.levels[0];
+            lv.hover = lv.step(1);
         }
     }
 
@@ -755,10 +933,12 @@ impl Glove {
 
         // Menu aberto
         if let Some(m) = &mut self.chrome.menu {
-            let key = (m.hover, tgen);
-            if m.key != Some(key) {
-                m.buffer = chrome::menu(&self.fonts, &self.theme, &m.items, m.hover, sc).map(to_tex);
-                m.key = Some(key);
+            for lv in &mut m.levels {
+                let key = (lv.hover, tgen);
+                if lv.key != Some(key) {
+                    lv.buffer = chrome::menu(&self.fonts, &self.theme, &lv.items, lv.hover, sc).map(to_tex);
+                    lv.key = Some(key);
+                }
             }
         }
 
@@ -916,4 +1096,29 @@ pub fn clock_text() -> String {
         libc::localtime_r(&t, &mut tm);
         format!("{} {:02}:{:02}", DIAS[(tm.tm_wday as usize) % 7], tm.tm_hour, tm.tm_min)
     }
+}
+
+/// Itens do menu de um app (com submenus) já ligados às ações.
+fn client_nodes(pid: u32, entries: Vec<crate::menus::Entry>) -> Vec<MenuNode> {
+    entries
+        .into_iter()
+        .map(|e| {
+            if e.separator {
+                return MenuNode::sep();
+            }
+            if e.is_sub {
+                let mut n = MenuNode::submenu(e.label, client_nodes(pid, e.sub));
+                if !e.enabled {
+                    n.item = n.item.disabled();
+                }
+                return n;
+            }
+            let mut it = MenuItem::check(e.label, e.checked).with_shortcut(e.shortcut);
+            if !e.enabled {
+                it = it.disabled();
+            }
+            let action = e.enabled.then(|| MenuAction::Client(pid, e.id));
+            MenuNode::new(it, action)
+        })
+        .collect()
 }
