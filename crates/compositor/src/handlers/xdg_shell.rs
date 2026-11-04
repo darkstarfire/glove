@@ -33,6 +33,10 @@ impl XdgShellHandler for Glove {
         &mut self.xdg_shell_state
     }
 
+    fn client_pong(&mut self, client: smithay::wayland::shell::xdg::ShellClient) {
+        self.on_pong(client);
+    }
+
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         let window = Window::new_wayland_window(surface);
         // Posição provisória; a definitiva vem no primeiro quadro (já com tamanho).

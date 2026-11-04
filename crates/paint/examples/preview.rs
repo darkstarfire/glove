@@ -60,6 +60,13 @@ fn main() {
     let layout = dock_layout(&dock_items, Some(base.items[1].0 + 24.0), 1.0, DOCK_BASE, DOCK_MAX);
     let d = dock(&fonts, &theme, &dock_items, &layout, Some(1), scale).unwrap();
     screen.draw_canvas(&d, ((w as u32 - layout.width) / 2) as f32, h - layout.height as f32);
+    // Cursores: seta e o de espera (app sem responder).
+    if let Some(a) = cursor_arrow(scale) {
+        screen.draw_canvas(&a, w - 120.0, 80.0);
+    }
+    if let Some(c) = cursor_wait(3, scale) {
+        screen.draw_canvas(&c, w - 80.0, 80.0);
+    }
     screen.pm.save_png(&out).unwrap();
     println!("salvo em {out}");
 }

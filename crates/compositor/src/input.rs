@@ -42,6 +42,8 @@ enum KeyAction {
     MenuBar,
     /// Tecla com um menu aberto.
     Menu(MenuKey),
+    /// Tecla com o painel Forçar Encerrar aberto (nome xkb).
+    ForceQuitKey(&'static str),
 }
 
 impl KeyAction {
@@ -262,6 +264,20 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(Some(KeyAction::Menu(k)));
             }
+            // Painel Forçar Encerrar: setas, Enter e Esc são dele.
+            if st.force_quit.is_some() && !mods.ctrl && !mods.alt && !mods.logo {
+                let k = match name.as_str() {
+                    "up" => Some("up"),
+                    "down" => Some("down"),
+                    "return" | "kp_enter" => Some("return"),
+                    "escape" => Some("escape"),
+                    _ => None,
+                };
+                if let Some(k) = k {
+                    st.suppressed_keys.push(code);
+                    return FilterResult::Intercept(Some(KeyAction::ForceQuitKey(k)));
+                }
+            }
             // Ctrl+F2: barra de menu pelo teclado (como no Mac OS X).
             if mods.ctrl && !mods.alt && !mods.shift && !mods.logo && name == "f2" {
                 st.suppressed_keys.push(code);
@@ -282,6 +298,12 @@ impl Glove {
             }
         });
 
+        // Tecla entregue a um app: aproveita para ver se ele responde.
+        if state == KeyState::Pressed && action.as_ref().is_some_and(|a| a.is_none()) {
+            if let Some(w) = self.focused_window() {
+                self.ping_window(&w);
+            }
+        }
         match action.flatten() {
             Some(KeyAction::Terminal) => {
                 let t = self.config.terminal.clone();
@@ -326,6 +348,9 @@ impl Glove {
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
             Some(KeyAction::Menu(k)) => self.menu_key(k),
+            Some(KeyAction::ForceQuitKey(k)) => {
+                self.force_quit_key(k);
+            }
             None => {}
         }
     }
@@ -354,6 +379,25 @@ impl Glove {
                 }
             }
         }
+
+        // Painel Forçar Encerrar: realce dos botões da barra de título.
+        let fq_hover = matches!(hit, Hit::ForceQuit(chrome::FqHit::Title(_)));
+        if let Some(fq) = &mut self.force_quit {
+            if fq.title_hover != fq_hover {
+                fq.title_hover = fq_hover;
+                self.dirty = true;
+            }
+        }
+
+        // App travado sob o mouse: cursor de espera (e um ping de vez em quando).
+        let under = match &hit {
+            Hit::Client(w) | Hit::Title { window: w, .. } => Some(w.clone()),
+            _ => None,
+        };
+        if let Some(w) = &under {
+            self.ping_window(w);
+        }
+        self.update_wait_cursor(under.as_ref());
 
         // Dock (ampliação segue o mouse)
         match &hit {
@@ -462,7 +506,12 @@ impl Glove {
                             then = Then::Resize(window, edges);
                         }
                     }
+                    Hit::ForceQuit(h) => {
+                        self.force_quit_press(h);
+                        swallow = true;
+                    }
                     Hit::Client(window) => {
+                        self.ping_window(&window);
                         if self.focused_window().as_ref() != Some(&window) {
                             self.focus_window(Some(window));
                         }
@@ -488,6 +537,10 @@ impl Glove {
             // Menu: escolher um item ao soltar
             if let (Some(_), Hit::Menu(l, Some(i))) = (&self.chrome.menu, &hit) {
                 self.menu_activate(*l, *i);
+            }
+            if self.force_quit.as_ref().is_some_and(|f| f.pressed.is_some()) {
+                let h = if let Hit::ForceQuit(h) = hit { Some(h) } else { None };
+                self.force_quit_release(h);
             }
             if let Some(p) = self.chrome.dock_pressed.take() {
                 if let Hit::Dock(Some(i)) = hit {

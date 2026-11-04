@@ -5,6 +5,7 @@ mod handlers;
 mod input;
 mod appmenu;
 mod ending;
+mod forcequit;
 mod menus;
 mod recent;
 mod render;

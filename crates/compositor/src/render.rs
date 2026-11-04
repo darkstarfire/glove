@@ -78,6 +78,12 @@ impl Glove {
                 }
             }
         }
+        if let Some(fq) = &self.force_quit {
+            if let Some(t) = &fq.tex {
+                let m = glove_paint::chrome::FQ_SHADOW as i32;
+                out.extend(mem(renderer, (fq.origin.x - m, fq.origin.y - m).into(), t, sc));
+            }
+        }
         if let Some(b) = &c.menubar {
             out.extend(mem(renderer, (0, 0).into(), b, sc));
         }
@@ -115,6 +121,18 @@ impl Glove {
     fn cursor_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
         use smithay::input::pointer::{CursorImageStatus, CursorImageSurfaceData};
         let pos = self.pointer_pos;
+        // App sem responder sob o mouse: cursor de espera, girando.
+        if self.wait_cursor.shown {
+            if let Some(t) = &self.wait_cursor.tex {
+                let half = glove_paint::chrome::WAIT_CURSOR_SIZE as f64 / 2.0;
+                let loc = Point::<f64, Logical>::from((pos.x - half, pos.y - half));
+                if let Some(buf) = t.upload(renderer) {
+                    let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
+                    out.push(GloveElement::Texture(TextureRenderElement::from_texture_buffer(loc.to_physical(sc), &buf, None, Some(src), Some(t.size), Kind::Cursor)));
+                }
+                return;
+            }
+        }
         match &self.cursor_status {
             CursorImageStatus::Hidden => {}
             CursorImageStatus::Surface(surface) => {

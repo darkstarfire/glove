@@ -345,6 +345,8 @@ impl Chrome {
 pub enum Hit {
     /// Menu aberto: (nível, item).
     Menu(usize, Option<usize>),
+    /// Painel Forçar Encerrar.
+    ForceQuit(chrome::FqHit),
     MenuBar { target: Option<BarTarget> },
     Dock(Option<usize>),
     Title { window: Window, button: Option<TitleButton>, group: bool },
@@ -375,6 +377,9 @@ impl Glove {
                     return Hit::Menu(l, chrome::menu_item_at(&lv.items, (py - lv.origin.y as f64) as f32));
                 }
             }
+        }
+        if let Some(h) = self.force_quit_hit(pos) {
+            return Hit::ForceQuit(h);
         }
         if py < MENUBAR_H as f64 {
             let (a, b) = self.chrome.logo_range;
@@ -892,8 +897,7 @@ impl Glove {
                     .spawn();
             }
             MenuAction::ClearRecent => self.recent.clear(),
-            // Até a janela própria (etapa 3.5), o Monitor faz o papel de Forçar Encerrar.
-            MenuAction::ForceQuit => self.spawn("glove-monitor"),
+            MenuAction::ForceQuit => self.open_force_quit(),
             MenuAction::Sleep => {
                 let _ = std::process::Command::new("systemctl").arg("suspend").spawn();
             }
@@ -1068,6 +1072,8 @@ impl Glove {
             self.chrome.desk_key = Some(key);
         }
 
+        self.prepare_force_quit();
+        self.prepare_wait_cursor();
         self.prepare_dock();
         self.prepare_decorations();
     }

@@ -88,6 +88,11 @@ pub struct Glove {
     pub vt_request: Option<i32>,
     /// Fim de sessão em andamento.
     pub ending: Option<crate::ending::Ending>,
+    /// Pings aos apps (detecta quem não responde).
+    pub pinger: crate::forcequit::Pinger,
+    /// Painel Forçar Encerrar aberto.
+    pub force_quit: Option<crate::forcequit::ForceQuit>,
+    pub wait_cursor: crate::forcequit::WaitCursor,
 }
 
 impl Glove {
@@ -150,6 +155,9 @@ impl Glove {
             cursor_tex: None,
             cursor_tex_scale: 0.0,
             ending: None,
+            pinger: Default::default(),
+            force_quit: None,
+            wait_cursor: Default::default(),
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,
