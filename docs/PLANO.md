@@ -44,7 +44,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 1.3 Papel de parede: tirar a faixa clara (emenda do degradê) (P)
 - [x] 1.4 Menus: listras opacas, cantos retos, sombra forte, itens de 19 pt, atalhos em 2 colunas (P)
 - [x] 1.5 Janela inativa: botões só com contorno e barra translúcida; botões de título desabilitáveis (P)
-- [ ] 1.6 Calculadora com visor verde-claro e botões neutros, como a referência (P)
+- [x] 1.6 Calculadora com visor verde-claro e botões neutros, como a referência (P)
 - [ ] 1.7 "Sobre o Glove" com memória, processador e versão (P)
 
 ## Fase 2 — glove-kit: os controles que faltam (destrava as outras fases)

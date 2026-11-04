@@ -516,6 +516,19 @@ impl<'a> Ui<'a> {
     }
 
     /// Botão de gel numa posição livre (grades, teclados). `lit` = aceso (ex.: operação ativa).
+    /// Tecla neutra (calculadora, teclados): gel claro, texto normal, escurece ao apertar.
+    pub fn key_button(&mut self, r: Rect, t: &str, px: f32, lit: bool) -> bool {
+        let id = self.next_id();
+        let (_, down, clicked) = self.interact(id, r);
+        let base = rgba(242, 242, 244, 255);
+        let b = if down { darken(base, 0.22) } else if lit { darken(base, 0.12) } else { base };
+        gel_rect(self.c, r.x, r.y, r.w, r.h, 5.0, b);
+        self.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 5.0), &solid(rgba(120, 120, 126, 255)), 1.0);
+        let tw = self.fonts.measure(t, px, false);
+        self.fonts.draw(self.c, t, r.x + (r.w - tw) / 2.0, r.y + r.h / 2.0 + px * 0.36, px, false, rgba(25, 25, 25, 255));
+        clicked
+    }
+
     pub fn gel_button(&mut self, r: Rect, t: &str, base: Color, px: f32, lit: bool) -> bool {
         let id = self.next_id();
         let (_, down, clicked) = self.interact(id, r);

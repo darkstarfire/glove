@@ -22,6 +22,8 @@ struct Calc {
     /// O próximo dígito começa um número novo.
     fresh: bool,
     error: bool,
+    /// Memória (MC, M+, M−, MR).
+    memory: f64,
 }
 
 /// Número no formato brasileiro, com no máximo 12 dígitos significativos.
@@ -46,7 +48,7 @@ fn fmt(v: f64) -> String {
 
 impl Calc {
     fn new() -> Self {
-        Self { display: "0".into(), acc: None, op: None, fresh: true, error: false }
+        Self { display: "0".into(), acc: None, op: None, fresh: true, error: false, memory: 0.0 }
     }
 
     fn value(&self) -> f64 {
@@ -112,8 +114,9 @@ impl Calc {
         }
     }
 
+    /// C limpa a conta, mas não a memória (essa só com MC).
     fn clear(&mut self) {
-        *self = Self::new();
+        *self = Self { memory: self.memory, ..Self::new() };
     }
 
     fn negate(&mut self) {
@@ -144,6 +147,19 @@ impl Calc {
         }
     }
 
+    fn memory_add(&mut self, sign: f64) {
+        if !self.error {
+            self.memory += sign * self.value();
+            self.fresh = true;
+        }
+    }
+
+    fn memory_recall(&mut self) {
+        self.display = fmt(self.memory);
+        self.error = false;
+        self.fresh = true;
+    }
+
     fn keyboard(&mut self, ui: &Ui) {
         for ch in ui.typed().chars() {
             match ch {
@@ -170,85 +186,97 @@ impl Calc {
     }
 }
 
-const PAD: f32 = 12.0;
+const PAD: f32 = 14.0;
 const BW: f32 = 46.0;
-const BH: f32 = 36.0;
-const GAP: f32 = 8.0;
-const DISPLAY_H: f32 = 60.0;
+const BH: f32 = 26.0;
+const GAP: f32 = 7.0;
+const DISPLAY_H: f32 = 50.0;
+/// Fileiras de teclas: memória + 5 da grade.
+const ROWS: f32 = 6.0;
 
 impl App for Calc {
+    fn paints_background(&self) -> bool {
+        true
+    }
+
     fn ui(&mut self, ui: &mut Ui) {
         self.keyboard(ui);
-        let w = ui.c.w;
+        let (w, h) = (ui.c.w, ui.c.h);
+        // Corpo em metal escovado, como a calculadora do 10.3.
+        let (top, bot) = (ui.theme.metal_top, ui.theme.metal_bottom);
+        ui.c.brushed_metal(0.0, 0.0, w, h, top, bot);
 
-        // Visor: vidro azulado afundado, com reflexo diagonal.
+        // Visor de cristal líquido verde-amarelado, afundado no metal.
         let (dx, dy, dw, dh) = (PAD, PAD, w - 2.0 * PAD, DISPLAY_H);
-        ui.c.fill(rrect(dx - 1.0, dy - 1.0, dw + 2.0, dh + 2.0, 7.0), &vgrad(dy, dy + dh, &[(0.0, rgba(90, 95, 110, 255)), (1.0, rgba(200, 204, 214, 255))]));
-        ui.c.fill(rrect(dx, dy, dw, dh, 6.0), &vgrad(dy, dy + dh, &[(0.0, rgba(196, 214, 228, 255)), (1.0, rgba(232, 240, 246, 255))]));
-        ui.c.fill(rrect(dx, dy, dw, 6.0, 6.0), &vgrad(dy, dy + 6.0, &[(0.0, rgba(0, 0, 0, 50)), (1.0, rgba(0, 0, 0, 0))]));
-        let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
-        pb.move_to(dx + dw * 0.55, dy);
-        pb.line_to(dx + dw * 0.85, dy);
-        pb.line_to(dx + dw * 0.62, dy + dh);
-        pb.line_to(dx + dw * 0.32, dy + dh);
-        pb.close();
-        ui.c.fill(pb.finish(), &solid(rgba(255, 255, 255, 45)));
+        ui.c.fill(rrect(dx - 1.0, dy - 1.0, dw + 2.0, dh + 2.0, 3.0), &vgrad(dy, dy + dh, &[(0.0, rgba(110, 112, 104, 255)), (1.0, rgba(235, 235, 230, 255))]));
+        ui.c.fill(rrect(dx, dy, dw, dh, 2.0), &solid(rgba(236, 242, 200, 255)));
+        ui.c.fill(rrect(dx, dy, dw, 4.0, 2.0), &vgrad(dy, dy + 4.0, &[(0.0, rgba(0, 0, 0, 45)), (1.0, rgba(0, 0, 0, 0))]));
         let shown = if self.error { "Erro".to_string() } else { self.display.clone() };
-        let mut px = 28.0;
-        while ui.text_width(&shown, px, false) > dw - 20.0 && px > 12.0 {
+        let mut px = 22.0;
+        while ui.text_width(&shown, px, false) > dw - 20.0 && px > 11.0 {
             px -= 1.0;
         }
         let tw = ui.text_width(&shown, px, false);
-        ui.fonts.draw(ui.c, &shown, dx + dw - tw - 10.0, dy + dh - 14.0, px, false, rgba(20, 30, 45, 255));
+        let ink = rgba(25, 30, 20, 255);
+        ui.fonts.draw(ui.c, &shown, dx + dw - tw - 10.0, dy + 26.0, px, false, ink);
+        let mut marks = Vec::new();
+        if self.memory != 0.0 {
+            marks.push("M");
+        }
         if let Some(op) = self.op {
-            let s = match op {
+            marks.push(match op {
                 Op::Add => "+",
                 Op::Sub => "−",
                 Op::Mul => "×",
                 Op::Div => "÷",
-            };
-            ui.fonts.draw(ui.c, s, dx + 10.0, dy + 18.0, 13.0, true, rgba(60, 80, 110, 255));
+            });
         }
+        ui.fonts.draw(ui.c, &marks.join("  "), dx + 10.0, dy + dh - 9.0, 11.0, false, ink);
 
         // Teclas
-        let accent = ui.theme.accent;
-        let light = rgba(240, 240, 243, 255);
-        let mid = rgba(196, 198, 206, 255);
-        let eq = rgba(240, 150, 40, 255);
-        let y0 = PAD + DISPLAY_H + 14.0;
-        let cell = |col: f32, row: f32, span: f32| Rect::new(PAD + col * (BW + GAP), y0 + row * (BH + GAP), BW * span + GAP * (span - 1.0), BH);
+        let y0 = PAD + DISPLAY_H + 12.0;
+        let cell = |col: f32, row: f32, span: f32, vspan: f32| {
+            Rect::new(PAD + col * (BW + GAP), y0 + row * (BH + GAP), BW * span + GAP * (span - 1.0), BH * vspan + GAP * (vspan - 1.0))
+        };
         let (cur_op, fresh) = (self.op, self.fresh);
         let op_lit = |o: Op| cur_op == Some(o) && fresh;
+        let px = 14.0;
 
-        if ui.gel_button(cell(0.0, 0.0, 1.0), "C", mid, 15.0, false) {
+        for (i, label) in ["MC", "M+", "M−", "MR"].into_iter().enumerate() {
+            if ui.key_button(cell(i as f32, 0.0, 1.0, 1.0), label, 12.0, false) {
+                match i {
+                    0 => self.memory = 0.0,
+                    1 => self.memory_add(1.0),
+                    2 => self.memory_add(-1.0),
+                    _ => self.memory_recall(),
+                }
+            }
+        }
+        if ui.key_button(cell(0.0, 1.0, 1.0, 1.0), "C", px, false) {
             self.clear();
         }
-        if ui.gel_button(cell(1.0, 0.0, 1.0), "±", mid, 15.0, false) {
+        if ui.key_button(cell(1.0, 1.0, 1.0, 1.0), "±", px, false) {
             self.negate();
         }
-        if ui.gel_button(cell(2.0, 0.0, 1.0), "%", mid, 15.0, false) {
-            self.percent();
-        }
-        for (i, (label, op)) in [("÷", Op::Div), ("×", Op::Mul), ("−", Op::Sub), ("+", Op::Add)].into_iter().enumerate() {
-            let lit = op_lit(op);
-            if ui.gel_button(cell(3.0, i as f32, 1.0), label, accent, 17.0, lit) {
+        for (r, (label, op)) in [(cell(2.0, 1.0, 1.0, 1.0), ("÷", Op::Div)), (cell(3.0, 1.0, 1.0, 1.0), ("×", Op::Mul)), (cell(3.0, 2.0, 1.0, 1.0), ("−", Op::Sub)), (cell(3.0, 3.0, 1.0, 1.0), ("+", Op::Add))] {
+            if ui.key_button(r, label, px + 2.0, op_lit(op)) {
                 self.operator(op);
             }
         }
         for (row, digits) in [['7', '8', '9'], ['4', '5', '6'], ['1', '2', '3']].iter().enumerate() {
             for (col, d) in digits.iter().enumerate() {
-                if ui.gel_button(cell(col as f32, row as f32 + 1.0, 1.0), &d.to_string(), light, 15.0, false) {
+                if ui.key_button(cell(col as f32, row as f32 + 2.0, 1.0, 1.0), &d.to_string(), px, false) {
                     self.digit(*d);
                 }
             }
         }
-        if ui.gel_button(cell(0.0, 4.0, 2.0), "0", light, 15.0, false) {
+        if ui.key_button(cell(0.0, 5.0, 2.0, 1.0), "0", px, false) {
             self.digit('0');
         }
-        if ui.gel_button(cell(2.0, 4.0, 1.0), ",", light, 15.0, false) {
+        if ui.key_button(cell(2.0, 5.0, 1.0, 1.0), ",", px, false) {
             self.digit(',');
         }
-        if ui.gel_button(cell(3.0, 4.0, 1.0), "=", eq, 17.0, false) {
+        if ui.key_button(cell(3.0, 4.0, 1.0, 2.0), "=", px + 2.0, false) {
             self.equals();
         }
     }
@@ -256,7 +284,7 @@ impl App for Calc {
 
 fn main() {
     let w = (PAD * 2.0 + BW * 4.0 + GAP * 3.0) as u32;
-    let h = (PAD + DISPLAY_H + 14.0 + BH * 5.0 + GAP * 4.0 + PAD) as u32;
+    let h = (PAD + DISPLAY_H + 12.0 + BH * ROWS + GAP * (ROWS - 1.0) + PAD) as u32;
     let opts = WindowOptions { title: "Calculadora".into(), app_id: "glove.Calculator".into(), size: (w, h), fixed: true };
     if let Err(e) = run(opts, Calc::new()) {
         eprintln!("glove-calc: {e}");
@@ -280,6 +308,18 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    #[test]
+    fn memoria() {
+        let mut c = Calc::new();
+        press(&mut c, "12");
+        c.memory_add(1.0);
+        press(&mut c, "5");
+        c.memory_add(-1.0);
+        c.clear();
+        c.memory_recall();
+        assert_eq!(c.display, "7");
     }
 
     #[test]
