@@ -439,8 +439,10 @@ pub fn dock(fonts: &Fonts, _theme: &Theme, items: &[DockItem], layout: &DockLayo
     let (sx, sy, sw, sh) = layout.shelf;
 
     // Prateleira de vidro fosco: retângulo translúcido com bordas claras.
-    let shelf = rrect4(sx, sy, sw, sh + 2.0, [3.0, 3.0, 0.0, 0.0]);
-    c.fill(shelf.clone(), &vgrad(sy, sy + sh, &[(0.0, rgba(255, 255, 255, 120)), (0.5, rgba(240, 244, 250, 95)), (1.0, rgba(225, 232, 242, 110))]));
+    // Vidro branco translúcido com listras finas, encostado na borda de baixo.
+    let shelf = rrect4(sx, sy, sw, sh + 2.0, [2.0, 2.0, 0.0, 0.0]);
+    c.fill(shelf.clone(), &vgrad(sy, sy + sh, &[(0.0, rgba(255, 255, 255, 120)), (0.5, rgba(240, 244, 250, 100)), (1.0, rgba(225, 232, 242, 112))]));
+    c.pinstripes(sx + 1.0, sy + 1.0, sw - 2.0, sh - 1.0, rgba(255, 255, 255, 0), rgba(255, 255, 255, 34));
     c.stroke(shelf, &solid(rgba(255, 255, 255, 170)), 1.0);
     c.hline(sx, sy - 1.0, sw, rgba(0, 0, 0, 50));
     c.hline(sx + 2.0, sy + 1.0, sw - 4.0, rgba(255, 255, 255, 210));
@@ -451,7 +453,7 @@ pub fn dock(fonts: &Fonts, _theme: &Theme, items: &[DockItem], layout: &DockLayo
             c.vline(lx, sy, sh, rgba(0, 0, 0, 70));
             c.vline(lx + 1.0, sy, sh, rgba(255, 255, 255, 190));
         }
-        icons::draw(&mut c, fonts, it.icon, *x, *y, *s, it.letter);
+        icons::draw_bare(&mut c, fonts, it.icon, *x, *y, *s, it.letter);
         if it.running {
             // Indicador de app aberto: pequeno triângulo escuro na base.
             let cx = x + s / 2.0;

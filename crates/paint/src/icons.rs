@@ -68,10 +68,15 @@ impl Icon {
 
 /// Desenha o ícone ocupando o quadrado (x, y, s, s).
 pub fn draw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, letter: Option<char>) {
-    // Sombra de contato suave sob todos os ícones.
+    // Sombra de contato suave sob o ícone (mesa, Arquivos).
     pm.fill(oval(x + s * 0.12, y + s * 0.86, s * 0.76, s * 0.12),
         &radial(x + s * 0.5, y + s * 0.92, s * 0.4, &[(0.0, rgba(0, 0, 0, 90)), (1.0, rgba(0, 0, 0, 0))]),
     );
+    draw_bare(pm, fonts, icon, x, y, s, letter);
+}
+
+/// O ícone sem a sombra de contato (no Dock os ícones ficam direto no vidro).
+pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, letter: Option<char>) {
     match icon {
         Icon::Terminal => terminal(pm, x, y, s),
         Icon::Folder => folder(pm, x, y, s),
