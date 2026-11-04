@@ -238,7 +238,8 @@ impl Fonts {
         let base = (baseline * s).round() as i32;
         let mut prev: Option<GlyphId> = None;
         let pw = c.pm.width() as i32;
-        let ph = c.pm.height() as i32;
+        let [bx0, by0, bx1, by1] = c.bounds();
+        let (ox, oy) = c.offset();
         let mut cache = self.cache.borrow_mut();
         let data = c.pm.data_mut();
         let (cr, cg, cb, ca) = (color.red(), color.green(), color.blue(), color.alpha());
@@ -253,12 +254,12 @@ impl Fonts {
             let gy = base + g.top;
             for row in 0..g.h as i32 {
                 let y = gy + row;
-                if y < 0 || y >= ph {
+                if y < by0 || y >= by1 {
                     continue;
                 }
                 for col in 0..g.w as i32 {
                     let x = gx + col;
-                    if x < 0 || x >= pw {
+                    if x < bx0 || x >= bx1 {
                         continue;
                     }
                     let cov = g.cov[row as usize * g.w + col as usize];
@@ -266,7 +267,7 @@ impl Fonts {
                         continue;
                     }
                     let a = cov as f32 / 255.0 * ca;
-                    let i = ((y * pw + x) * 4) as usize;
+                    let i = (((y - oy) * pw + (x - ox)) * 4) as usize;
                     let inv = 1.0 - a;
                     data[i] = (cr * a * 255.0 + data[i] as f32 * inv) as u8;
                     data[i + 1] = (cg * a * 255.0 + data[i + 1] as f32 * inv) as u8;

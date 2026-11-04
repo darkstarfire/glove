@@ -354,6 +354,11 @@ pub struct Memory {
     pub(crate) size_req: Option<(u32, u32, bool)>,
     /// Pedido para redesenhar daqui a pouco (animações, repetição de setas).
     pub(crate) wake_after: Option<std::time::Duration>,
+    /// Onde estão as animações que pediram o próximo quadro (redesenho parcial:
+    /// se só elas mudam, só essa área é refeita).
+    pub(crate) anim_rects: Vec<Rect>,
+    /// Algum pedido de quadro sem área conhecida: o próximo quadro é inteiro.
+    pub(crate) anim_full: bool,
     /// Ícone do app (alertas), descoberto pelo app_id.
     pub(crate) app_icon: Option<Icon>,
     /// Sombra do alerta já desfocada: (largura, altura, escala) → canvas.
@@ -642,6 +647,13 @@ impl<'a> Ui<'a> {
     pub fn clipped(&mut self, key: u64, r: Rect, f: impl FnOnce(&mut Canvas, &Fonts)) {
         let scale = self.c.scale;
         let id = key ^ 0xc1_1b_ed;
+        if !self.visible(r) {
+            // Fora da área redesenhada: guarda o rascunho para o próximo quadro.
+            if self.mem.scratch.contains_key(&id) {
+                self.mem.scratch_used.push(id);
+            }
+            return;
+        }
         let mut sc = match self.mem.scratch.remove(&id) {
             Some(c) if c.w == r.w && c.h == r.h && c.scale == scale => c,
             _ => match Canvas::new(r.w, r.h, scale) {
@@ -1344,8 +1356,24 @@ impl<'a> Ui<'a> {
     }
 
     /// Pede um novo quadro daqui a `d` (sem eventos), para animações.
+    /// O quadro pedido assim é refeito por inteiro; se só uma área muda, use
+    /// [`Ui::wake_after_in`].
     pub fn wake_after(&mut self, d: std::time::Duration) {
         self.mem.wake_after = Some(self.mem.wake_after.map_or(d, |w| w.min(d)));
+        self.mem.anim_full = true;
+    }
+
+    /// Pede um novo quadro daqui a `d` em que só `r` muda: o kit redesenha e
+    /// manda para a tela só essa área (pulso do botão, listras do progresso…).
+    pub fn wake_after_in(&mut self, d: std::time::Duration, r: Rect) {
+        self.mem.wake_after = Some(self.mem.wake_after.map_or(d, |w| w.min(d)));
+        self.mem.anim_rects.push(r);
+    }
+
+    /// O retângulo cai na área que está sendo redesenhada? (Fora dela, o
+    /// desenho é descartado; pular o trabalho caro é opcional.)
+    pub fn visible(&self, r: Rect) -> bool {
+        self.c.visible(r.x, r.y, r.w, r.h)
     }
 
     // -----------------------------------------------------------------------
@@ -1416,7 +1444,6 @@ impl<'a> Ui<'a> {
         // Só a janela ativa pulsa (como no original); nas outras o botão fica parado
         // e o app não gasta nada.
         let pulse = if self.input.active {
-            self.wake_after(Duration::from_millis(200));
             0.5 + 0.5 * ((ms % 1600) as f32 / 1600.0 * std::f32::consts::TAU).sin()
         } else {
             0.5
@@ -1436,6 +1463,10 @@ impl<'a> Ui<'a> {
         }
         let mut chosen = None;
         let last = buttons.len().saturating_sub(1);
+        if self.input.active && !buttons.is_empty() {
+            // Só o botão padrão muda a cada quadro do pulso.
+            self.wake_after_in(Duration::from_millis(200), rects[last]);
+        }
         for (i, b) in buttons.iter().enumerate() {
             let id = self.next_id();
             let r = rects[i];
@@ -1485,7 +1516,7 @@ impl<'a> Ui<'a> {
     /// Barra de progresso num retângulo livre.
     pub fn progress_in(&mut self, r: Rect, value: Option<f32>) {
         let phase = if value.is_none() {
-            self.wake_after(std::time::Duration::from_millis(50));
+            self.wake_after_in(std::time::Duration::from_millis(50), r);
             anim_phase(900)
         } else {
             0.0
@@ -1501,7 +1532,8 @@ impl<'a> Ui<'a> {
 
     /// Giratório centrado em (cx, cy).
     pub fn spinner_at(&mut self, cx: f32, cy: f32, size: f32) {
-        self.wake_after(std::time::Duration::from_millis(1000 / 12));
+        let h = size / 2.0 + 1.0;
+        self.wake_after_in(std::time::Duration::from_millis(1000 / 12), Rect::new(cx - h, cy - h, h * 2.0, h * 2.0));
         spinner(self.c, cx, cy, size / 2.0, anim_phase(1000), rgba(60, 60, 64, 255));
     }
 

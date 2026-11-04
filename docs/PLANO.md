@@ -68,7 +68,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 2.5 Formulário com rótulos à direita (`form_row`), caixa com abas (`tab_box`), slider com marcas e polegar em gota (M)
 - [x] 2.6 Tabela com cabeçalho em gel, colunas ordenáveis e triângulos de expansão (`table`); Monitor ordena e mostra em hierarquia (M)
 - [x] 2.7 Triângulo de abrir/fechar seção (`disclosure`) e janela que muda de altura pelo app (`set_window_size`, animada); Atalhos em grupos (P)
-- [ ] 2.8 Redesenho parcial no kit: só a área que mudou vai para a tela (hoje cada quadro refaz a janela inteira; o pulso do alerta custa ~7% de um núcleo, e digitar/rolar também ficaria mais leve) (M)
+- [x] 2.8 Redesenho parcial no kit: só a área que mudou vai para a tela (hoje cada quadro refaz a janela inteira; o pulso do alerta custa ~7% de um núcleo, e digitar/rolar também ficaria mais leve) (M)
 
 ## Fase 3 — Menus e sessão (comportamento do sistema)
 

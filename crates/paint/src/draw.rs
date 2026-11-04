@@ -127,32 +127,145 @@ fn blend_px(data: &mut [u8], i: usize, r: f32, g: f32, b: f32, a: f32) {
 
 /// Superfície de desenho em coordenadas lógicas.
 pub struct Canvas {
+    /// Onde se desenha: a tela toda ou, com recorte, só a área recortada.
     pub pm: Pixmap,
     pub scale: f32,
     /// Tamanho lógico.
     pub w: f32,
     pub h: f32,
+    /// Com recorte (redesenho parcial): a imagem inteira guardada e a posição,
+    /// em pixels, da área recortada que está em `pm`.
+    full: Option<Pixmap>,
+    off: (i32, i32),
+}
+
+/// a·b/255 arredondado, só com inteiros.
+#[inline]
+fn mul255(a: u32, b: u32) -> u32 {
+    let x = a * b + 128;
+    (x + (x >> 8)) >> 8
+}
+
+/// Compõe uma linha de pixels pré-multiplicados (`src` sobre `dst`).
+#[inline]
+fn blend_row(dst: &mut [u8], src: &[u8]) {
+    for (d, s) in dst.chunks_exact_mut(4).zip(src.chunks_exact(4)) {
+        match s[3] {
+            0 => {}
+            255 => d.copy_from_slice(s),
+            a => {
+                let inv = 255 - a as u32;
+                for k in 0..4 {
+                    d[k] = (s[k] as u32 + mul255(d[k] as u32, inv)) as u8;
+                }
+            }
+        }
+    }
+}
+
+/// Cor como RGBA pré-multiplicado em bytes.
+fn premul(c: Color) -> [u8; 4] {
+    let c = c.premultiply().to_color_u8();
+    [c.red(), c.green(), c.blue(), c.alpha()]
+}
+
+/// Copia um retângulo de pixels entre pixmaps (`w`×`h` a partir das origens dadas).
+fn copy_px(src: &Pixmap, sx: i32, sy: i32, dst: &mut Pixmap, dx: i32, dy: i32, w: i32, h: i32) {
+    let (sw, dw) = (src.width() as usize, dst.width() as usize);
+    let n = w as usize * 4;
+    let s = src.data();
+    let d = dst.data_mut();
+    for y in 0..h as usize {
+        let si = ((sy as usize + y) * sw + sx as usize) * 4;
+        let di = ((dy as usize + y) * dw + dx as usize) * 4;
+        d[di..di + n].copy_from_slice(&s[si..si + n]);
+    }
 }
 
 impl Canvas {
     pub fn new(w: f32, h: f32, scale: f32) -> Option<Self> {
         let pw = (w * scale).ceil().max(1.0) as u32;
         let ph = (h * scale).ceil().max(1.0) as u32;
-        Some(Self { pm: Pixmap::new(pw, ph)?, scale, w, h })
+        Some(Self { pm: Pixmap::new(pw, ph)?, scale, w, h, full: None, off: (0, 0) })
+    }
+
+    /// Limita o desenho a um retângulo em pixels físicos (`None` = a tela toda).
+    /// Enquanto houver recorte, desenha-se numa superfície do tamanho dele (com
+    /// os pixels atuais) que volta para a imagem ao tirar o recorte: o resultado
+    /// é idêntico ao de redesenhar tudo, gastando só com a área recortada.
+    pub fn set_clip(&mut self, r: Option<[i32; 4]>) {
+        if let Some(mut full) = self.full.take() {
+            let (w, h) = (self.pm.width() as i32, self.pm.height() as i32);
+            copy_px(&self.pm, 0, 0, &mut full, self.off.0, self.off.1, w, h);
+            self.pm = full;
+            self.off = (0, 0);
+        }
+        let Some([x0, y0, x1, y1]) = r else { return };
+        let (pw, ph) = (self.pm.width() as i32, self.pm.height() as i32);
+        let [x0, y0, x1, y1] = [x0.clamp(0, pw), y0.clamp(0, ph), x1.clamp(0, pw), y1.clamp(0, ph)];
+        let Some(mut sub) = Pixmap::new((x1 - x0).max(1) as u32, (y1 - y0).max(1) as u32) else { return };
+        if x1 > x0 && y1 > y0 {
+            copy_px(&self.pm, x0, y0, &mut sub, 0, 0, x1 - x0, y1 - y0);
+        }
+        self.full = Some(std::mem::replace(&mut self.pm, sub));
+        self.off = (x0, y0);
+    }
+
+    /// O recorte atual em pixels físicos, se houver.
+    pub fn clip(&self) -> Option<[i32; 4]> {
+        self.full.as_ref().map(|_| self.bounds())
+    }
+
+    /// Área em pixels (da imagem inteira) onde se pode desenhar.
+    pub fn bounds(&self) -> [i32; 4] {
+        let (ox, oy) = self.off;
+        [ox, oy, ox + self.pm.width() as i32, oy + self.pm.height() as i32]
+    }
+
+    /// Posição, em pixels da imagem inteira, do pixel (0, 0) de `pm`.
+    pub fn offset(&self) -> (i32, i32) {
+        self.off
+    }
+
+    /// O retângulo lógico cai (ao menos em parte) dentro do recorte?
+    pub fn visible(&self, x: f32, y: f32, w: f32, h: f32) -> bool {
+        if self.full.is_none() {
+            return true;
+        }
+        let [x0, y0, x1, y1] = self.bounds();
+        let s = self.scale;
+        ((x * s).floor() as i32) < x1 && (((x + w) * s).ceil() as i32) > x0 && ((y * s).floor() as i32) < y1 && (((y + h) * s).ceil() as i32) > y0
+    }
+
+    fn path_visible(&self, p: &Path, pad: f32) -> bool {
+        let b = p.bounds();
+        self.visible(b.x() - pad, b.y() - pad, b.width() + pad * 2.0, b.height() + pad * 2.0)
+    }
+
+    /// Desenha um pixmap com uma transformação em pixels da imagem inteira.
+    pub fn draw_pixmap_t(&mut self, img: tiny_skia::PixmapRef, paint: &PixmapPaint, t: Transform) {
+        let t = t.post_translate(-self.off.0 as f32, -self.off.1 as f32);
+        self.pm.draw_pixmap(0, 0, img, paint, t, None);
     }
 
     pub fn px_width(&self) -> u32 {
-        self.pm.width()
+        self.full.as_ref().unwrap_or(&self.pm).width()
     }
     pub fn px_height(&self) -> u32 {
-        self.pm.height()
+        self.full.as_ref().unwrap_or(&self.pm).height()
     }
     pub fn data(&self) -> &[u8] {
-        self.pm.data()
+        self.full.as_ref().unwrap_or(&self.pm).data()
     }
 
     fn t(&self) -> Transform {
-        Transform::from_scale(self.scale, self.scale)
+        Transform::from_scale(self.scale, self.scale).post_translate(-self.off.0 as f32, -self.off.1 as f32)
+    }
+
+    /// Índice em `pm` do pixel (x, y) da imagem inteira (que precisa estar em `bounds`).
+    #[inline]
+    fn idx(&self, x: i32, y: i32) -> usize {
+        (((y - self.off.1) * self.pm.width() as i32 + (x - self.off.0)) * 4) as usize
     }
 
     pub fn clear(&mut self, c: Color) {
@@ -160,14 +273,24 @@ impl Canvas {
     }
 
     pub fn fill(&mut self, path: Option<Path>, paint: &Paint) {
+        self.fill_rule(path, paint, FillRule::Winding);
+    }
+
+    pub fn fill_rule(&mut self, path: Option<Path>, paint: &Paint, rule: FillRule) {
         if let Some(p) = path {
+            if !self.path_visible(&p, 1.0) {
+                return;
+            }
             let t = self.t();
-            self.pm.fill_path(&p, paint, FillRule::Winding, t, None);
+            self.pm.fill_path(&p, paint, rule, t, None);
         }
     }
 
     pub fn stroke(&mut self, path: Option<Path>, paint: &Paint, width: f32) {
         if let Some(p) = path {
+            if !self.path_visible(&p, width + 1.0) {
+                return;
+            }
             let t = self.t();
             let s = Stroke { width, ..Default::default() };
             self.pm.stroke_path(&p, paint, &s, t, None);
@@ -175,6 +298,9 @@ impl Canvas {
     }
 
     pub fn fill_rect(&mut self, x: f32, y: f32, w: f32, h: f32, paint: &Paint) {
+        if !self.visible(x, y, w, h) {
+            return;
+        }
         if let Some(r) = Rect::from_xywh(x, y, w, h) {
             let t = self.t();
             self.pm.fill_rect(r, paint, t, None);
@@ -195,41 +321,44 @@ impl Canvas {
     }
 
     fn px_rect(&mut self, x: i32, y: i32, w: i32, h: i32, c: Color) {
-        let pw = self.pm.width() as i32;
-        let ph = self.pm.height() as i32;
-        let data = self.pm.data_mut();
-        for yy in y.max(0)..(y + h).min(ph) {
-            for xx in x.max(0)..(x + w).min(pw) {
-                blend_px(data, ((yy * pw + xx) * 4) as usize, c.red(), c.green(), c.blue(), c.alpha());
+        let [bx0, by0, bx1, by1] = self.bounds();
+        for yy in y.max(by0)..(y + h).min(by1) {
+            for xx in x.max(bx0)..(x + w).min(bx1) {
+                let i = self.idx(xx, yy);
+                blend_px(self.pm.data_mut(), i, c.red(), c.green(), c.blue(), c.alpha());
             }
         }
     }
 
     fn px_range(&self, x: f32, y: f32, w: f32, h: f32) -> (i32, i32, i32, i32) {
         let s = self.scale;
-        let pw = self.pm.width() as i32;
-        let ph = self.pm.height() as i32;
-        let x0 = ((x * s).round() as i32).clamp(0, pw);
-        let y0 = ((y * s).round() as i32).clamp(0, ph);
-        let x1 = (((x + w) * s).round() as i32).clamp(0, pw);
-        let y1 = (((y + h) * s).round() as i32).clamp(0, ph);
-        (x0, y0, x1, y1)
+        let [bx0, by0, bx1, by1] = self.bounds();
+        let x0 = ((x * s).round() as i32).clamp(bx0, bx1);
+        let y0 = ((y * s).round() as i32).clamp(by0, by1);
+        let x1 = (((x + w) * s).round() as i32).clamp(bx0, bx1);
+        let y1 = (((y + h) * s).round() as i32).clamp(by0, by1);
+        (x0, y0, x1.max(x0), y1.max(y0))
     }
 
     /// Listras finas horizontais; `a` e `b` alternam a cada 2 linhas lógicas.
     pub fn pinstripes(&mut self, x: f32, y: f32, w: f32, h: f32, a: Color, b: Color) {
         let (x0, y0, x1, y1) = self.px_range(x, y, w, h);
         let s = self.scale;
-        let pw = self.pm.width() as i32;
-        let data = self.pm.data_mut();
+        if x0 >= x1 {
+            return;
+        }
+        // Linha pronta de cada cor: copiada (opaca) ou composta com inteiros.
+        let n = ((x1 - x0) * 4) as usize;
+        let rows = [a, b].map(|c| premul(c).repeat(n / 4));
         for yy in y0..y1 {
             let ly = ((yy as f32 + 0.5) / s - y).floor() as i32;
-            let c = if (ly / 2) % 2 == 0 { a } else { b };
-            if c.alpha() <= 0.0 {
-                continue;
-            }
-            for xx in x0..x1 {
-                blend_px(data, ((yy * pw + xx) * 4) as usize, c.red(), c.green(), c.blue(), c.alpha());
+            let k = if (ly / 2) % 2 == 0 { 0 } else { 1 };
+            let at = self.idx(x0, yy);
+            let dst = &mut self.pm.data_mut()[at..at + n];
+            match rows[k][3] {
+                0 => {}
+                255 => dst.copy_from_slice(&rows[k]),
+                _ => blend_row(dst, &rows[k]),
             }
         }
     }
@@ -238,17 +367,18 @@ impl Canvas {
     pub fn brushed_metal(&mut self, x: f32, y: f32, w: f32, h: f32, top: Color, bottom: Color) {
         let (x0, y0, x1, y1) = self.px_range(x, y, w, h);
         let s = self.scale;
-        let pw = self.pm.width() as i32;
-        let data = self.pm.data_mut();
-        let span = (y1 - y0).max(1) as f32;
+        // O gradiente usa a altura pedida, não só a parte visível.
+        let ys = (y * s).round() as i32;
+        let span = (((y + h) * s).round() as i32 - ys).max(1) as f32;
         for yy in y0..y1 {
-            let base = mix(top, bottom, (yy - y0) as f32 / span);
+            let base = mix(top, bottom, (yy - ys) as f32 / span);
             let row = hash(yy as u32 * 7919) as f32 / u32::MAX as f32;
             for xx in x0..x1 {
                 let seg = hash(((xx as f32 / (23.0 * s)) as u32) ^ (yy as u32).wrapping_mul(2_654_435_761));
                 let n = (row - 0.5) * 0.07 + ((seg & 0xff) as f32 / 255.0 - 0.5) * 0.035;
                 let c = |v: f32| (v + n).clamp(0.0, 1.0);
-                blend_px(data, ((yy * pw + xx) * 4) as usize, c(base.red()), c(base.green()), c(base.blue()), base.alpha());
+                let i = self.idx(xx, yy);
+                blend_px(self.pm.data_mut(), i, c(base.red()), c(base.green()), c(base.blue()), base.alpha());
             }
         }
     }
@@ -256,9 +386,9 @@ impl Canvas {
     /// Arredonda os cantos superiores apagando os pixels de fora.
     pub fn clip_top_corners(&mut self, r: f32) {
         let r = r * self.scale;
-        let w = self.pm.width() as i32;
+        let w = self.px_width() as i32;
         let ri = r.ceil() as i32;
-        let data = self.pm.data_mut();
+        let [bx0, by0, bx1, by1] = self.bounds();
         for y in 0..ri {
             for dx in 0..ri {
                 let (px, py) = (dx as f32 + 0.5, y as f32 + 0.5);
@@ -271,7 +401,11 @@ impl Canvas {
                     continue;
                 }
                 for x in [dx, w - 1 - dx] {
-                    let i = ((y * w + x) * 4) as usize;
+                    if x < bx0 || x >= bx1 || y < by0 || y >= by1 {
+                        continue;
+                    }
+                    let i = self.idx(x, y);
+                    let data = self.pm.data_mut();
                     for k in 0..4 {
                         data[i + k] = (data[i + k] as f32 * cov) as u8;
                     }
@@ -283,6 +417,9 @@ impl Canvas {
     /// Preenche `path` só dentro de `clip` (recorte com borda suave).
     pub fn fill_clipped(&mut self, path: Option<Path>, paint: &Paint, clip: Option<Path>) {
         let (Some(p), Some(cl)) = (path, clip) else { return };
+        if !self.path_visible(&p, 1.0) {
+            return;
+        }
         let Some(mut mask) = tiny_skia::Mask::new(self.pm.width(), self.pm.height()) else { return };
         let t = self.t();
         mask.fill_path(&cl, FillRule::Winding, true, t);
@@ -292,6 +429,9 @@ impl Canvas {
     /// Traço com pontas arredondadas.
     pub fn stroke_round(&mut self, path: Option<Path>, paint: &Paint, width: f32) {
         if let Some(p) = path {
+            if !self.path_visible(&p, width + 1.0) {
+                return;
+            }
             let t = self.t();
             let s = Stroke { width, line_cap: tiny_skia::LineCap::Round, ..Default::default() };
             self.pm.stroke_path(&p, paint, &s, t, None);
@@ -301,14 +441,21 @@ impl Canvas {
     /// Copia outro canvas (mesma escala) na posição lógica (x, y).
     pub fn draw_canvas(&mut self, other: &Canvas, x: f32, y: f32) {
         let s = self.scale;
-        self.pm.draw_pixmap(
-            (x * s).round() as i32,
-            (y * s).round() as i32,
-            other.pm.as_ref(),
-            &PixmapPaint::default(),
-            Transform::identity(),
-            None,
-        );
+        let (ox, oy) = ((x * s).round() as i32, (y * s).round() as i32);
+        let (sw, sh) = (other.pm.width() as i32, other.pm.height() as i32);
+        let [bx0, by0, bx1, by1] = self.bounds();
+        let (x0, x1) = (ox.max(bx0), (ox + sw).min(bx1));
+        let (y0, y1) = (oy.max(by0), (oy + sh).min(by1));
+        if x0 >= x1 || y0 >= y1 {
+            return;
+        }
+        let n = (x1 - x0) as usize * 4;
+        let src = other.pm.data();
+        for yy in y0..y1 {
+            let si = ((yy - oy) as usize * sw as usize + (x0 - ox) as usize) * 4;
+            let di = self.idx(x0, yy);
+            blend_row(&mut self.pm.data_mut()[di..di + n], &src[si..si + n]);
+        }
     }
 
     /// Sombra suave de um retângulo arredondado (rw × rh) cobrindo a região
@@ -487,5 +634,58 @@ mod tests {
         progress_bar(&mut a, 0.0, 0.0, 60.0, 12.0, None, 0.0, accent);
         progress_bar(&mut b, 0.0, 0.0, 60.0, 12.0, None, 0.5, accent);
         assert_ne!(a.data(), b.data());
+    }
+
+    /// Cena de teste: fundo listrado, área recortada copiada e um botão de gel
+    /// cuja cor depende de `t` (como o pulso do botão padrão).
+    fn scene(c: &mut Canvas, t: f32) {
+        let (a, b) = (rgba(236, 236, 236, 255), rgba(242, 242, 242, 255));
+        c.clear(a);
+        c.pinstripes(0.0, 0.0, c.w, c.h, a, b);
+        let mut sc = Canvas::new(60.0, 30.0, c.scale).unwrap();
+        sc.fill(rrect(2.0, 2.0, 56.0, 26.0, 6.0), &solid(rgba(30, 90, 200, 160)));
+        c.draw_canvas(&sc, 5.0, 5.0);
+        gel_rect(c, 40.0, 50.0, 70.0, 22.0, 11.0, mix(rgba(40, 110, 220, 255), rgba(150, 200, 250, 255), t));
+        c.stroke(rrect(1.0, 1.0, c.w - 2.0, c.h - 2.0, 4.0), &solid(rgba(0, 0, 0, 90)), 1.0);
+    }
+
+    #[test]
+    fn redesenho_parcial_igual_ao_inteiro() {
+        for scale in [1.0, 1.5, 2.0] {
+            let mut full = Canvas::new(120.0, 90.0, scale).unwrap();
+            scene(&mut full, 0.8);
+            let mut part = Canvas::new(120.0, 90.0, scale).unwrap();
+            scene(&mut part, 0.1);
+            // Só a área do botão (com folga) é refeita.
+            let r = [((38.0 * scale) as i32), ((48.0 * scale) as i32), ((112.0 * scale).ceil() as i32), ((74.0 * scale).ceil() as i32)];
+            part.set_clip(Some(r));
+            scene(&mut part, 0.8);
+            part.set_clip(None);
+            let pw = full.px_width() as usize;
+            // Os degradês podem arredondar 1 nível diferente com a origem deslocada
+            // (invisível); mais que isso é erro.
+            let far = |a: &[u8], b: &[u8]| a.iter().zip(b).any(|(x, y)| x.abs_diff(*y) > 1);
+            let bad: Vec<_> = full.data().chunks(4).zip(part.data().chunks(4)).enumerate().filter(|(_, (a, b))| far(a, b)).map(|(i, (a, b))| (i % pw, i / pw, a.to_vec(), b.to_vec())).take(5).collect();
+            assert!(bad.is_empty(), "escala {scale}: parcial difere do inteiro: {bad:?}");
+        }
+    }
+
+    #[test]
+    fn recorte_nao_toca_fora() {
+        let mut c = Canvas::new(40.0, 40.0, 1.0).unwrap();
+        c.clear(rgba(255, 0, 0, 255));
+        let before = c.data().to_vec();
+        c.set_clip(Some([10, 10, 20, 20]));
+        c.clear(rgba(0, 0, 255, 255));
+        c.pinstripes(0.0, 0.0, 40.0, 40.0, rgba(0, 255, 0, 255), rgba(0, 0, 0, 255));
+        c.fill(rrect(0.0, 0.0, 40.0, 40.0, 5.0), &solid(rgba(0, 0, 0, 128)));
+        c.set_clip(None);
+        for y in 0..40 {
+            for x in 0..40 {
+                let i = (y * 40 + x) * 4;
+                let inside = (10..20).contains(&x) && (10..20).contains(&y);
+                assert_eq!(c.data()[i..i + 4] == before[i..i + 4], !inside, "pixel ({x}, {y})");
+            }
+        }
     }
 }

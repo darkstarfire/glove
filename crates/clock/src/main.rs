@@ -106,7 +106,7 @@ impl App for Clock {
             }
         }
         if let Some((_, _, bg)) = &self.cache {
-            ui.c.pm.data_mut().copy_from_slice(bg.pm.data());
+            ui.c.draw_canvas(bg, 0.0, 0.0);
         }
         hands(ui.c, w / 2.0, 124.0, 108.0, h, m, s, accent);
 

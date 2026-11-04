@@ -275,7 +275,7 @@ impl App for Viewer {
             let (lvl, f) = img.level_for(k * s);
             let paint = PixmapPaint { quality: if k * s >= 1.0 { FilterQuality::Nearest } else { FilterQuality::Bilinear }, ..Default::default() };
             let ks = k * s * f;
-            ui.c.pm.draw_pixmap(0, 0, lvl.as_ref(), &paint, Transform::from_row(ks, 0.0, 0.0, ks, x * s, y * s), None);
+            ui.c.draw_pixmap_t(lvl.as_ref(), &paint, Transform::from_row(ks, 0.0, 0.0, ks, x * s, y * s));
         } else {
             let msg = self.error.clone().unwrap_or_else(|| "Abra uma imagem pelo Arquivos (clique duplo).".into());
             let tw = ui.text_width(&msg, 13.0, false);

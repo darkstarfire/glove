@@ -126,8 +126,16 @@ struct Runner<A: App> {
     output_state: OutputState,
     shm: Shm,
     pool: SlotPool,
-    /// Buffer reaproveitado entre quadros (só cria outro se o compositor ainda o estiver usando).
-    buffer: Option<Buffer>,
+    /// Buffers reaproveitados entre quadros, cada um com o número do quadro que
+    /// guarda (só cria outro se o compositor ainda estiver usando todos).
+    buffers: Vec<(Buffer, u64)>,
+    /// Número do último quadro enviado e as áreas que mudaram nos últimos quadros
+    /// (um buffer antigo recebe só o que mudou desde o quadro que ele guarda).
+    frame_no: u64,
+    history: std::collections::VecDeque<(u64, Vec<[i32; 4]>)>,
+    /// Cópia do último quadro enviado, para achar o que mudou.
+    prev: Vec<u8>,
+    prev_key: (u32, u32, u32),
     /// Canvas reaproveitado enquanto o tamanho/escala não mudam.
     canvas: Option<Canvas>,
     window: Window,
@@ -141,6 +149,11 @@ struct Runner<A: App> {
     fixed: bool,
     configured: bool,
     dirty: bool,
+    /// Só uma animação pediu o quadro (pode ser redesenho parcial).
+    anim_dirty: bool,
+    /// Um configure foi confirmado: o compositor só aplica o novo estado
+    /// (bordas, tamanho) no próximo commit, mesmo que nenhum pixel mude.
+    need_commit: bool,
     frame_pending: bool,
     exit: bool,
     input: Input,
@@ -276,7 +289,11 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         output_state: OutputState::new(&globals, &qh),
         shm,
         pool,
-        buffer: None,
+        buffers: Vec::new(),
+        frame_no: 0,
+        history: std::collections::VecDeque::new(),
+        prev: Vec::new(),
+        prev_key: (0, 0, 0),
         canvas: None,
         window,
         viewport,
@@ -288,6 +305,8 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         fixed: opts.fixed,
         configured: false,
         dirty: true,
+        anim_dirty: false,
+        need_commit: false,
         frame_pending: false,
         exit: false,
         input: Input::default(),
@@ -335,6 +354,70 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+/// União dos retângulos lógicos em pixels físicos, com folga para a
+/// suavização das bordas.
+fn px_union(rects: &[crate::ui::Rect], scale: f32) -> [i32; 4] {
+    let mut u = [i32::MAX, i32::MAX, i32::MIN, i32::MIN];
+    for r in rects {
+        u[0] = u[0].min(((r.x - 2.0) * scale).floor() as i32);
+        u[1] = u[1].min(((r.y - 2.0) * scale).floor() as i32);
+        u[2] = u[2].max(((r.x + r.w + 2.0) * scale).ceil() as i32);
+        u[3] = u[3].max(((r.y + r.h + 2.0) * scale).ceil() as i32);
+    }
+    u
+}
+
+/// Compara o quadro novo (`cur`, RGBA w×h) com o anterior (`prev`) dentro de
+/// `region` e devolve as áreas que mudaram, já copiadas para `prev`. Linhas
+/// vizinhas que mudaram viram um só retângulo (até 8 linhas de folga).
+pub(crate) fn frame_damage(prev: &mut Vec<u8>, cur: &[u8], w: i32, h: i32, region: [i32; 4]) -> Vec<[i32; 4]> {
+    if prev.len() != cur.len() {
+        *prev = cur.to_vec();
+        return vec![[0, 0, w, h]];
+    }
+    let [rx0, ry0, rx1, ry1] = [region[0].clamp(0, w), region[1].clamp(0, h), region[2].clamp(0, w), region[3].clamp(0, h)];
+    if rx0 >= rx1 || ry0 >= ry1 {
+        return Vec::new();
+    }
+    let row = |y: i32| ((y * w + rx0) * 4) as usize..((y * w + rx1) * 4) as usize;
+    let mut out = Vec::new();
+    let mut band: Option<[i32; 4]> = None;
+    let mut gap = 0;
+    for y in ry0..ry1 {
+        let (a, b) = (&cur[row(y)], &prev[row(y)]);
+        if a == b {
+            if band.is_some() {
+                gap += 1;
+                if gap > 8 {
+                    out.extend(band.take());
+                }
+            }
+            continue;
+        }
+        gap = 0;
+        let n = (rx1 - rx0) as usize;
+        let first = a.chunks_exact(4).zip(b.chunks_exact(4)).position(|(p, q)| p != q).unwrap_or(0) as i32;
+        let last = (n - a.chunks_exact(4).rev().zip(b.chunks_exact(4).rev()).position(|(p, q)| p != q).unwrap_or(0)) as i32;
+        let (x0, x1) = (rx0 + first, rx0 + last);
+        band = Some(match band {
+            Some([bx0, by0, bx1, _]) => [bx0.min(x0), by0, bx1.max(x1), y + 1],
+            None => [x0, y, x1, y + 1],
+        });
+    }
+    out.extend(band);
+    if out.len() > 16 {
+        let u = out.iter().fold([w, h, 0, 0], |u, r| [u[0].min(r[0]), u[1].min(r[1]), u[2].max(r[2]), u[3].max(r[3])]);
+        out = vec![u];
+    }
+    for &[x0, y0, x1, y1] in &out {
+        for y in y0..y1 {
+            let r = ((y * w + x0) * 4) as usize..((y * w + x1) * 4) as usize;
+            prev[r.clone()].copy_from_slice(&cur[r]);
+        }
+    }
+    out
+}
+
 impl<A: App> Runner<A> {
     fn request_redraw(&mut self, _qh: &QueueHandle<Self>) {
         self.dirty = true;
@@ -346,16 +429,34 @@ impl<A: App> Runner<A> {
     fn draw_now(&mut self) {
         // Espera o compositor mostrar o quadro anterior: nunca desenha mais
         // rápido que a tela (importante quando chega muita saída de uma vez).
-        if !self.configured || !self.dirty || self.frame_pending {
+        if !self.configured || !(self.dirty || self.anim_dirty) || self.frame_pending {
             return;
         }
         self.step_size_anim();
+        let t0 = std::time::Instant::now();
+        // Redesenho parcial: se só as animações pediram este quadro (nenhum
+        // evento, nada do app), refaz só a área delas; o resto do canvas já
+        // está certo desde o quadro anterior.
+        let anim_rects = std::mem::take(&mut self.mem.anim_rects);
+        let mut partial = !self.dirty
+            && self.anim_dirty
+            && !self.mem.anim_full
+            && !anim_rects.is_empty()
+            && self.size_anim.is_none()
+            && !self.input.has_events()
+            && !self.input.moved;
+        self.anim_dirty = false;
         // Até 3 passadas seguidas se a interface pedir (ex.: pop-up que acabou de abrir).
         for pass in 0..3 {
             self.dirty = false;
+            self.mem.anim_rects.clear();
+            self.mem.anim_full = false;
             let scale = if self.viewport.is_some() { self.scale } else { self.int_scale as f64 } as f32;
             let reuse = self.canvas.take().filter(|c| c.w == self.width as f32 && c.h == self.height as f32 && c.scale == scale);
+            partial &= reuse.is_some();
             let Some(mut canvas) = reuse.or_else(|| Canvas::new(self.width as f32, self.height as f32, scale)) else { return };
+            let region = partial.then(|| px_union(&anim_rects, scale));
+            canvas.set_clip(region);
             if !self.app.paints_background() {
                 canvas.clear(self.theme.body_a);
                 canvas.pinstripes(0.0, 0.0, self.width as f32, self.height as f32, self.theme.body_a, self.theme.body_b);
@@ -368,6 +469,7 @@ impl<A: App> Runner<A> {
             // Um clique muda o estado no meio do quadro (ex.: o visor já foi
             // desenhado antes do botão). Mais uma passada, sem eventos, mostra
             // o resultado na hora. Só a última passada vai para a tela.
+            canvas.set_clip(None);
             let resized = self.after_frame();
             let had_events = self.input.has_events();
             self.input.end_frame();
@@ -375,12 +477,28 @@ impl<A: App> Runner<A> {
                 self.exit = true;
             }
             if (redraw || had_events || resized) && pass < 2 {
+                // A próxima passada pode mudar qualquer coisa: refaz tudo.
+                partial = false;
                 self.canvas = Some(canvas);
                 self.dirty = true;
                 continue;
             }
-            self.present(&canvas);
-            self.shown = true;
+            let t1 = std::time::Instant::now();
+            let key = (canvas.px_width(), canvas.px_height(), canvas.scale.to_bits());
+            if key != self.prev_key {
+                self.prev.clear();
+                self.prev_key = key;
+            }
+            let (pw, ph) = (canvas.px_width() as i32, canvas.px_height() as i32);
+            let damage = frame_damage(&mut self.prev, canvas.data(), pw, ph, region.unwrap_or([0, 0, pw, ph]));
+            self.present(&canvas, &damage);
+            if std::mem::take(&mut self.need_commit) && damage.is_empty() {
+                self.window.commit();
+            }
+            if std::env::var_os("GLOVE_PROF").is_some() {
+                let px: i32 = damage.iter().map(|r| (r[2] - r[0]) * (r[3] - r[1])).sum();
+                eprintln!("PROF desenho={:?} envio={:?} passadas={} parcial={} mudou={}px em {} áreas", t1 - t0, t1.elapsed(), pass + 1, region.is_some(), px, damage.len());
+            }
             self.canvas = Some(canvas);
             break;
         }
@@ -523,7 +641,12 @@ impl<A: App> Runner<A> {
                 self.wake_pending = true;
                 let _ = self.loop_handle.insert_source(Timer::from_duration(d), |_, _, st: &mut Runner<A>| {
                     st.wake_pending = false;
-                    st.dirty = true;
+                    // A animação de tamanho refaz tudo; as outras podem ser parciais.
+                    if st.size_anim.is_some() {
+                        st.dirty = true;
+                    } else {
+                        st.anim_dirty = true;
+                    }
                     st.draw_now();
                     TimeoutAction::Drop
                 });
@@ -585,24 +708,57 @@ impl<A: App> Runner<A> {
         });
     }
 
-    fn present(&mut self, c: &Canvas) {
-        let (pw, ph) = (c.px_width() as i32, c.px_height() as i32);
-        // Reaproveita o buffer anterior se já foi liberado e tem o mesmo tamanho.
-        let same = self.buffer.as_ref().is_some_and(|b| b.height() == ph && b.stride() == pw * 4);
-        if !same || self.buffer.as_ref().is_some_and(|b| self.pool.canvas(b).is_none()) {
-            match self.pool.create_buffer(pw, ph, pw * 4, wl_shm::Format::Argb8888) {
-                Ok((b, _)) => self.buffer = Some(b),
-                Err(_) => return,
-            }
+    /// Manda o quadro para a tela: só as áreas em `damage` são copiadas e
+    /// anunciadas ao compositor. Sem mudança, nada é enviado.
+    fn present(&mut self, c: &Canvas, damage: &[[i32; 4]]) {
+        if damage.is_empty() {
+            return;
         }
-        let Some(buffer) = self.buffer.as_ref() else { return };
-        let Some(canvas) = self.pool.canvas(buffer) else { return };
+        let (pw, ph) = (c.px_width() as i32, c.px_height() as i32);
+        // Um buffer livre do mesmo tamanho; senão, um novo (no máximo 3).
+        self.buffers.retain(|(b, _)| b.height() == ph && b.stride() == pw * 4);
+        let free = self.buffers.iter().position(|(b, _)| self.pool.canvas(b).is_some());
+        let idx = match free {
+            Some(i) => i,
+            None => {
+                let Ok((b, _)) = self.pool.create_buffer(pw, ph, pw * 4, wl_shm::Format::Argb8888) else { return };
+                if self.buffers.len() >= 3 {
+                    self.buffers.remove(0);
+                }
+                self.buffers.push((b, 0));
+                self.buffers.len() - 1
+            }
+        };
+        self.frame_no += 1;
+        let n = self.frame_no;
+        // O que copiar: o que mudou desde o quadro que o buffer guarda.
+        let held = self.buffers[idx].1;
+        let mut copy: Vec<[i32; 4]> = damage.to_vec();
+        let known = held > 0 && (held + 1 == n || self.history.front().is_some_and(|(f, _)| *f <= held + 1));
+        if known {
+            for (f, rects) in &self.history {
+                if *f > held {
+                    copy.extend_from_slice(rects);
+                }
+            }
+        } else {
+            copy = vec![[0, 0, pw, ph]];
+        }
+        let (buffer, _) = &self.buffers[idx];
+        let Some(dst) = self.pool.canvas(buffer) else { return };
+        let src = c.data();
         // RGBA (tiny-skia) → BGRA (wl_shm Argb8888 em little-endian)
-        for (d, s) in canvas.chunks_exact_mut(4).zip(c.data().chunks_exact(4)) {
-            d[0] = s[2];
-            d[1] = s[1];
-            d[2] = s[0];
-            d[3] = s[3];
+        for [x0, y0, x1, y1] in copy {
+            for y in y0..y1 {
+                let a = ((y * pw + x0) * 4) as usize;
+                let b = ((y * pw + x1) * 4) as usize;
+                for (d, s) in dst[a..b].chunks_exact_mut(4).zip(src[a..b].chunks_exact(4)) {
+                    d[0] = s[2];
+                    d[1] = s[1];
+                    d[2] = s[0];
+                    d[3] = s[3];
+                }
+            }
         }
         let surface = self.window.wl_surface();
         if let Some(v) = &self.viewport {
@@ -610,11 +766,19 @@ impl<A: App> Runner<A> {
         } else {
             surface.set_buffer_scale(self.int_scale);
         }
-        surface.damage_buffer(0, 0, pw, ph);
+        for [x0, y0, x1, y1] in damage {
+            surface.damage_buffer(*x0, *y0, x1 - x0, y1 - y0);
+        }
         surface.frame(&self.qh, smithay_client_toolkit::compositor::FrameCallbackData(surface.clone()));
         self.frame_pending = true;
         if buffer.attach_to(surface).is_ok() {
             self.window.commit();
+            self.shown = true;
+        }
+        self.buffers[idx].1 = n;
+        self.history.push_back((n, damage.to_vec()));
+        while self.history.len() > 4 {
+            self.history.pop_front();
         }
     }
 
@@ -717,6 +881,7 @@ impl<A: App> WindowHandler for Runner<A> {
             }
         }
         self.configured = true;
+        self.need_commit = true;
         self.request_redraw(qh);
     }
 }
@@ -860,3 +1025,29 @@ impl<A: App> ProvidesRegistryState for Runner<A> {
 }
 
 smithay_client_toolkit::delegate_dispatch2!(@<A: App + 'static> Runner<A>);
+
+#[cfg(test)]
+mod tests {
+    use super::frame_damage;
+
+    #[test]
+    fn so_o_que_mudou() {
+        let (w, h) = (20, 16);
+        let mut prev = Vec::new();
+        let mut cur = vec![0u8; (w * h * 4) as usize];
+        assert_eq!(frame_damage(&mut prev, &cur, w, h, [0, 0, w, h]), vec![[0, 0, w, h]]);
+        assert!(frame_damage(&mut prev, &cur, w, h, [0, 0, w, h]).is_empty());
+        let set = |cur: &mut Vec<u8>, x: i32, y: i32| cur[((y * w + x) * 4) as usize] = 255;
+        set(&mut cur, 5, 3);
+        assert_eq!(frame_damage(&mut prev, &cur, w, h, [0, 0, w, h]), vec![[5, 3, 6, 4]]);
+        assert_eq!(prev, cur);
+        // Duas mudanças próximas viram uma área; uma distante, outra.
+        set(&mut cur, 2, 0);
+        set(&mut cur, 9, 2);
+        set(&mut cur, 7, 15);
+        assert_eq!(frame_damage(&mut prev, &cur, w, h, [0, 0, w, h]), vec![[2, 0, 10, 3], [7, 15, 8, 16]]);
+        // Fora da região comparada não conta.
+        set(&mut cur, 0, 10);
+        assert!(frame_damage(&mut prev, &cur, w, h, [5, 0, w, h]).is_empty());
+    }
+}

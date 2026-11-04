@@ -683,7 +683,7 @@ pub fn glyph(pm: &mut Canvas, g: Glyph, cx: f32, cy: f32, s: f32, color: Color) 
             pb.close();
             pb.push_circle(gx, cy, r * 0.32);
             if let Some(p) = pb.finish() {
-                pm.pm.fill_path(&p, &ink, tiny_skia::FillRule::EvenOdd, tiny_skia::Transform::from_scale(pm.scale, pm.scale), None);
+                pm.fill_rule(Some(p), &ink, tiny_skia::FillRule::EvenOdd);
             }
             let ax = cx + s * 0.38;
             let mut pb = PathBuilder::new();
