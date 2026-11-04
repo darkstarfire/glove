@@ -45,7 +45,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 1.4 Menus: listras opacas, cantos retos, sombra forte, itens de 19 pt, atalhos em 2 colunas (P)
 - [x] 1.5 Janela inativa: botões só com contorno e barra translúcida; botões de título desabilitáveis (P)
 - [x] 1.6 Calculadora com visor verde-claro e botões neutros, como a referência (P)
-- [ ] 1.7 "Sobre o Glove" com memória, processador e versão (P)
+- [x] 1.7 "Sobre o Glove" com memória, processador e versão (P)
 
 ## Fase 2 — glove-kit: os controles que faltam (destrava as outras fases)
 
@@ -97,6 +97,11 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [ ] 6.5 Renomear no lugar, menu de contexto, Duplicar, Criar atalho (M)
 - [ ] 6.6 Obter Informações (Ctrl+I) com seções Geral, Nome, Abrir com, Permissões, Comentários (G)
 - [ ] 6.7 Menu Ir completo, "Ir para a pasta…" com Tab, pasta Aplicativos/Utilitários (M)
+  - Apontamento (sessão no hardware): falta um jeito de achar e abrir os apps instalados no Linux.
+    No 10.0–10.3 não havia Launchpad (10.7) nem Spotlight (10.4): os apps ficavam na pasta
+    **Aplicativos** (Ir ▸ Aplicativos, Ctrl+Shift+A), no Dock e em Itens Recentes. A pasta
+    Aplicativos do Glove deve listar os `.desktop` instalados (XDG), com os ícones do sistema,
+    e permitir arrastar para o Dock (ver 4.4 "Manter no Dock")
 - [ ] 6.8 Lista ordenável com expansão e datas "Hoje/Ontem"; status com seleção e "somente leitura" (M)
 - [ ] 6.9 Diálogo Abrir/Salvar em colunas (`kit::filebrowser`), usado no Editor, Visualizador e Lembretes (G)
 - [ ] 6.10 Modo Panther: barra lateral, metal escovado, engrenagem (M)

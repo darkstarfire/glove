@@ -21,6 +21,7 @@ suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imag
   teclado (layout e repetição), **Mouse** (velocidade, aceleração, rolagem natural, canhoto),
   **Trackpad** (tocar para clicar, clique secundário, velocidade, rolagem natural, ignorar ao digitar)
   e atalhos editáveis. Tudo aplicado na hora.
+- **Sobre o Glove**: versão, memória instalada e processador; "Mais informações…" abre o Monitor
 - **Calculadora** (teclado ou mouse, formato brasileiro com vírgula) e **Relógio** (analógico + data
   por extenso; o ícone do Dock mostra a hora atual)
 - **Editor de Texto**: janela só com o documento (comandos nos menus da barra), puxador de
@@ -109,8 +110,8 @@ Limitações atuais da sessão própria:
 - Fechar a tampa do notebook não faz nada (a suspensão fica por conta do sistema)
 - Teclas de brilho e volume não funcionam
 - Apps só-X11 não abrem (falta o XWayland); apps Wayland abrem normalmente
-- Testada até agora só a parte de detectar a placa e os monitores (`glove --monitores`); o uso
-  completo direto na tela ainda precisa ser validado em hardware
+- Ainda não há como abrir os apps instalados no sistema fora do Dock (a pasta Aplicativos
+  está no plano, etapa 6.7)
 
 ## Atalhos (padrão, editáveis nas Preferências)
 
