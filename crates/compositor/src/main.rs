@@ -4,6 +4,7 @@ mod grabs;
 mod handlers;
 mod input;
 mod menus;
+mod recent;
 mod render;
 mod shell;
 mod state;

@@ -568,6 +568,11 @@ impl<'a> Ui<'a> {
         self.mem.glove_cmds.push(format!("SHOT\t{delay_ms}\t{}", open as u8));
     }
 
+    /// Pede ao Glove o fim da sessão: "encerrar", "reiniciar" ou "desligar".
+    pub fn request_end_session(&mut self, kind: &str) {
+        self.mem.glove_cmds.push(format!("SAIR\t{kind}"));
+    }
+
     /// Põe `text` na área de transferência.
     pub fn copy(&mut self, text: &str) {
         self.mem.clip_out = Some(text.to_string());
@@ -1387,33 +1392,54 @@ impl<'a> Ui<'a> {
     /// botões, o primeiro fica afastado à esquerda (ex.: "Não salvar").
     /// Devolve o índice do botão escolhido.
     pub fn alert(&mut self, kind: AlertKind, title: &str, text: &str, buttons: &[&str]) -> Option<usize> {
+        self.alert_impl(kind, title, text, buttons, true)
+    }
+
+    /// Alerta que ocupa a janela inteira (janela própria de alerta, como a de
+    /// Desligar): sem folha nem fundo escurecido, e a janela toma a altura do texto.
+    pub fn alert_window(&mut self, kind: AlertKind, title: &str, text: &str, buttons: &[&str]) -> Option<usize> {
+        self.alert_impl(kind, title, text, buttons, false)
+    }
+
+    fn alert_impl(&mut self, kind: AlertKind, title: &str, text: &str, buttons: &[&str], sheet: bool) -> Option<usize> {
         use std::time::Duration;
         self.set_enabled(true);
         let (w, h) = (self.c.w, self.c.h);
-        let sw = (w - 24.0).min(440.0).max(200.0);
-        let sx = ((w - sw) / 2.0).round();
+        let (sx, sw) = if sheet {
+            let sw = (w - 24.0).min(440.0).max(200.0);
+            (((w - sw) / 2.0).round(), sw)
+        } else {
+            (0.0, w)
+        };
         const ICON: f32 = 64.0;
         let tx = sx + 20.0 + ICON + 16.0;
         let tw = sx + sw - 20.0 - tx;
         let title_lines = wrap_lines(self.fonts, title, 13.0, true, tw);
         let text_lines = if text.is_empty() { Vec::new() } else { wrap_lines(self.fonts, text, 11.0, false, tw) };
         let text_h = title_lines.len() as f32 * 17.0 + if text_lines.is_empty() { 0.0 } else { 6.0 + text_lines.len() as f32 * 15.0 };
-        let sh = (16.0 + text_h.max(ICON - 4.0) + 20.0 + CONTROL_H + 16.0).min(h).round();
-
-        // Fundo escurecido, sombra e a folha listrada encostada no topo.
-        self.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
-        // O desfoque da sombra é caro: só é refeito quando o tamanho muda (o pulso redesenha).
-        let key = (sw as u32, sh as u32, self.c.scale.to_bits());
-        if self.mem.alert_shadow.as_ref().map(|(k, _)| *k) != Some(key) {
-            self.mem.alert_shadow = Canvas::shadow(-14.0, 0.0, sw + 28.0, sh + 18.0, sw, sh, &ShadowSpec { blur: 14.0, offset_y: 4.0, radius: 6.0, alpha: 0.45 }, self.c.scale).map(|c| (key, c));
+        let natural = (16.0 + text_h.max(ICON - 4.0) + 20.0 + CONTROL_H + 16.0).round();
+        if !sheet {
+            self.set_window_size(w, natural, false);
+            self.c.fill_rect(0.0, 0.0, w, h, &solid(self.theme.body_b));
+            self.c.pinstripes(0.0, 0.0, w, h, self.theme.body_a, self.theme.body_b);
         }
-        if let Some((_, shadow)) = &self.mem.alert_shadow {
-            self.c.draw_canvas(shadow, sx - 14.0, 0.0);
+        let sh = natural.min(h);
+        if sheet {
+            // Fundo escurecido, sombra e a folha listrada encostada no topo.
+            self.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
+            // O desfoque da sombra é caro: só é refeito quando o tamanho muda (o pulso redesenha).
+            let key = (sw as u32, sh as u32, self.c.scale.to_bits());
+            if self.mem.alert_shadow.as_ref().map(|(k, _)| *k) != Some(key) {
+                self.mem.alert_shadow = Canvas::shadow(-14.0, 0.0, sw + 28.0, sh + 18.0, sw, sh, &ShadowSpec { blur: 14.0, offset_y: 4.0, radius: 6.0, alpha: 0.45 }, self.c.scale).map(|c| (key, c));
+            }
+            if let Some((_, shadow)) = &self.mem.alert_shadow {
+                self.c.draw_canvas(shadow, sx - 14.0, 0.0);
+            }
+            let shape = || rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 6.0, 6.0]);
+            self.c.fill(shape(), &solid(self.theme.body_b));
+            self.c.pinstripes(sx, 0.0, sw, sh - 6.0, self.theme.body_a, self.theme.body_b);
+            self.c.stroke(shape(), &solid(rgba(0, 0, 0, 80)), 1.0 / self.c.scale);
         }
-        let shape = || rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 6.0, 6.0]);
-        self.c.fill(shape(), &solid(self.theme.body_b));
-        self.c.pinstripes(sx, 0.0, sw, sh - 6.0, self.theme.body_a, self.theme.body_b);
-        self.c.stroke(shape(), &solid(rgba(0, 0, 0, 80)), 1.0 / self.c.scale);
 
         // Ícone
         let (ix, iy) = (sx + 20.0, 14.0);

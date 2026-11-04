@@ -157,9 +157,19 @@ pub struct Placed;
 pub enum MenuAction {
     About,
     Preferences,
-    NewTerminal,
-    Theme(Variant),
-    Quit,
+    /// Liga/desliga a ampliação do Dock.
+    DockMagnification,
+    DockPreferences,
+    /// Abre um app dos Itens Recentes (app_id).
+    RecentApp(String),
+    /// Abre um documento dos Itens Recentes.
+    RecentDocument(std::path::PathBuf),
+    ClearRecent,
+    ForceQuit,
+    Sleep,
+    Restart,
+    ShutDown,
+    LogOut,
     /// Minimiza todas as janelas do app em foco.
     HideApp(u32),
     /// Fecha todas as janelas do app em foco.
@@ -545,6 +555,11 @@ impl Glove {
             return;
         }
         w.user_data().insert_if_missing(|| Placed);
+        // Itens Recentes: só apps que o Glove sabe abrir de novo.
+        let app_id = window_info(w).1;
+        if self.config.dock_apps.iter().any(|a| a.app_id == app_id) {
+            self.recent.add_app(&app_id);
+        }
         let area = self.work_area();
         let top = deco_top(w);
         let off = (self.cascade % 6) * 26;
@@ -640,22 +655,86 @@ impl Glove {
         MenuLevel { nodes, items, origin, size: (w as i32, h as i32).into(), hover: None, parent: None, key: None, buffer: None }
     }
 
+    /// Menu principal, como o da era: Sobre, Preferências, Dock ▸, Itens Recentes ▸,
+    /// Forçar Encerrar, Repouso, Reiniciar, Desligar e Encerrar Sessão.
     pub fn open_main_menu(&mut self) {
-        let temas = Variant::ALL
-            .into_iter()
-            .map(|v| MenuNode::new(MenuItem::check(v.label(), self.theme.variant == v), Some(MenuAction::Theme(v))))
-            .collect();
+        let item = |label: &str, a: MenuAction| MenuNode::new(MenuItem::item(label), Some(a));
+        let mag = if self.config.dock.magnification { "Desativar Ampliação" } else { "Ativar Ampliação" };
+        let dock = vec![item(mag, MenuAction::DockMagnification), MenuNode::sep(), item("Preferências do Dock…", MenuAction::DockPreferences)];
+        let logout = if self.nested { "Sair do Glove…".to_string() } else { format!("Encerrar Sessão de {}…", user_full_name()) };
         let nodes = vec![
-            MenuNode::new(MenuItem::item("Sobre o Glove"), Some(MenuAction::About)),
+            item("Sobre o Glove", MenuAction::About),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Preferências…"), Some(MenuAction::Preferences)),
-            MenuNode::new(MenuItem::item("Novo Terminal"), Some(MenuAction::NewTerminal)),
+            MenuNode::new(MenuItem::item("Preferências…").with_shortcut(self.binding("preferences")), Some(MenuAction::Preferences)),
+            MenuNode::submenu("Dock", dock),
             MenuNode::sep(),
-            MenuNode::submenu("Tema", temas),
+            MenuNode::submenu("Itens Recentes", self.recent_nodes()),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item(if self.nested { "Sair do Glove" } else { "Encerrar Sessão…" }), Some(MenuAction::Quit)),
+            MenuNode::new(MenuItem::item("Forçar Encerrar…").with_shortcut(self.binding("force_quit")), Some(MenuAction::ForceQuit)),
+            MenuNode::sep(),
+            item("Repouso", MenuAction::Sleep),
+            item("Reiniciar…", MenuAction::Restart),
+            item("Desligar…", MenuAction::ShutDown),
+            MenuNode::sep(),
+            item(&logout, MenuAction::LogOut),
         ];
         self.show_menu(BarTarget::Logo, nodes);
+    }
+
+    /// Atalho configurado para uma ação (texto vazio se não houver).
+    fn binding(&self, action: &str) -> String {
+        self.config.shortcuts.iter().find(|s| s.action == action).map(|s| s.keys.clone()).unwrap_or_default()
+    }
+
+    /// Submenu Itens Recentes: títulos "Aplicativos" e "Documentos" (desativados,
+    /// como na era), as listas e "Limpar Menu".
+    fn recent_nodes(&self) -> Vec<MenuNode> {
+        let header = |t: &str| MenuNode::new(MenuItem::item(t).disabled(), None);
+        let none = || MenuNode::new(MenuItem::item("Nenhum").disabled(), None);
+        let mut v = vec![header("Aplicativos")];
+        let apps: Vec<MenuNode> = self
+            .recent
+            .apps
+            .iter()
+            .filter_map(|id| self.config.dock_apps.iter().find(|a| &a.app_id == id))
+            .map(|a| MenuNode::new(MenuItem::item(format!("  {}", a.name)), Some(MenuAction::RecentApp(a.app_id.clone()))))
+            .collect();
+        let has_apps = !apps.is_empty();
+        if has_apps { v.extend(apps) } else { v.push(none()) }
+        v.push(MenuNode::sep());
+        v.push(header("Documentos"));
+        let docs = self.recent.documents();
+        let has_docs = !docs.is_empty();
+        for p in docs {
+            let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            v.push(MenuNode::new(MenuItem::item(format!("  {name}")), Some(MenuAction::RecentDocument(p))));
+        }
+        if !has_docs {
+            v.push(none());
+        }
+        v.push(MenuNode::sep());
+        let clear = MenuItem::item("Limpar Menu");
+        v.push(MenuNode::new(if has_apps || has_docs { clear } else { clear.disabled() }, Some(MenuAction::ClearRecent)));
+        v
+    }
+
+    /// Fim de sessão confirmado no glove-sair.
+    pub fn end_session(&mut self, kind: &str) {
+        let cmd = match kind {
+            "desligar" => Some("poweroff"),
+            "reiniciar" => Some("reboot"),
+            "encerrar" | "sair" => None,
+            _ => return,
+        };
+        tracing::info!("fim de sessão: {kind}");
+        if let Some(c) = cmd {
+            // Pede ao systemd antes de sair (o pedido é rápido; a máquina desliga depois).
+            if let Err(e) = std::process::Command::new("systemctl").arg(c).status() {
+                tracing::warn!("systemctl {c}: {e}");
+                return;
+            }
+        }
+        self.loop_signal.stop();
     }
 
     pub fn close_menu(&mut self) {
@@ -804,12 +883,32 @@ impl Glove {
         match a {
             MenuAction::About => self.spawn("glove-about"),
             MenuAction::Preferences => self.open_preferences(),
-            MenuAction::NewTerminal => {
-                let t = self.config.terminal.clone();
-                self.spawn(&t);
+            MenuAction::DockMagnification => {
+                self.config.dock.magnification = !self.config.dock.magnification;
+                let _ = self.config.save();
+                self.dirty = true;
             }
-            MenuAction::Theme(v) => self.set_theme(v),
-            MenuAction::Quit => self.loop_signal.stop(),
+            MenuAction::DockPreferences => self.spawn("glove-prefs dock"),
+            MenuAction::RecentApp(id) => {
+                if let Some(i) = self.config.dock_apps.iter().position(|a| a.app_id == id) {
+                    self.run_dock_action(DockAction::App(i));
+                }
+            }
+            MenuAction::RecentDocument(p) => {
+                let _ = std::process::Command::new("xdg-open")
+                    .arg(p)
+                    .env("WAYLAND_DISPLAY", &self.socket_name)
+                    .spawn();
+            }
+            MenuAction::ClearRecent => self.recent.clear(),
+            // Até a janela própria (etapa 3.5), o Monitor faz o papel de Forçar Encerrar.
+            MenuAction::ForceQuit => self.spawn("glove-monitor"),
+            MenuAction::Sleep => {
+                let _ = std::process::Command::new("systemctl").arg("suspend").spawn();
+            }
+            MenuAction::Restart => self.spawn("glove-sair reiniciar"),
+            MenuAction::ShutDown => self.spawn("glove-sair desligar"),
+            MenuAction::LogOut => self.spawn(if self.nested { "glove-sair sair" } else { "glove-sair encerrar" }),
             MenuAction::HideApp(pid) => {
                 for w in self.windows_of_pid(pid) {
                     self.minimize_window(&w);
@@ -1121,4 +1220,19 @@ fn client_nodes(pid: u32, entries: Vec<crate::menus::Entry>) -> Vec<MenuNode> {
             MenuNode::new(it, action)
         })
         .collect()
+}
+
+/// Nome completo do usuário (campo de comentário do /etc/passwd) ou o login.
+fn user_full_name() -> String {
+    let uid = unsafe { libc::getuid() };
+    let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
+    let entry = passwd.lines().map(|l| l.split(':').collect::<Vec<_>>()).find(|f| f.len() > 4 && f[2].parse() == Ok(uid));
+    let login = std::env::var("USER").unwrap_or_default();
+    match entry {
+        Some(f) => {
+            let full = f[4].split(',').next().unwrap_or("").trim();
+            if full.is_empty() { f[0].to_string() } else { full.to_string() }
+        }
+        None => login,
+    }
 }

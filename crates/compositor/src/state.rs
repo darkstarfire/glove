@@ -70,6 +70,8 @@ pub struct Glove {
     pub menu_clients: Vec<crate::menus::MenuClient>,
     pub menu_seq: u64,
     pub menu_socket: Option<std::path::PathBuf>,
+    /// Itens Recentes do menu principal.
+    pub recent: crate::recent::Recent,
     /// Pedido de captura de tela (salva no próximo quadro).
     pub screenshot_request: Option<std::path::PathBuf>,
     /// Abrir a captura no Visualizador depois de salvar.
@@ -144,6 +146,7 @@ impl Glove {
             menu_clients: Vec::new(),
             menu_seq: 0,
             menu_socket: None,
+            recent: crate::recent::Recent::load(),
         }
     }
 

@@ -177,6 +177,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("cycle", "Trocar de janela"),
     ("preferences", "Abrir Preferências"),
     ("screenshot", "Captura de tela"),
+    ("force_quit", "Forçar Encerrar"),
     ("quit", "Sair do Glove"),
 ];
 
@@ -228,6 +229,7 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
         ("cycle", "Super+Tab"),
         ("preferences", "Super+Comma"),
         ("screenshot", "Print"),
+        ("force_quit", "Ctrl+Alt+Escape"),
         ("quit", "Ctrl+Alt+BackSpace"),
     ]
     .into_iter()
@@ -301,7 +303,8 @@ impl Config {
                 if c.shortcuts.is_empty() {
                     c.shortcuts = default_shortcuts();
                 }
-                if c.migrate() {
+                let added = c.add_missing_shortcuts();
+                if c.migrate() || added {
                     let _ = c.save();
                 }
                 c
@@ -325,6 +328,18 @@ impl Config {
         let tmp = p.with_extension("toml.tmp");
         std::fs::write(&tmp, text)?;
         std::fs::rename(tmp, p)
+    }
+
+    /// Ações novas ganham o atalho padrão em configurações antigas.
+    pub fn add_missing_shortcuts(&mut self) -> bool {
+        let mut added = false;
+        for d in default_shortcuts() {
+            if !self.shortcuts.iter().any(|s| s.action == d.action) {
+                self.shortcuts.push(d);
+                added = true;
+            }
+        }
+        added
     }
 
     /// Atualiza configurações antigas: troca apps do GNOME pelos do Glove e

@@ -49,6 +49,8 @@ pub struct MenuClient {
     pub menus: Vec<AppMenu>,
     /// Pedido de captura de tela: (atraso em ms, abrir no Visualizador).
     pub shot: Option<(u64, bool)>,
+    /// Pedido de fim de sessão ("encerrar", "reiniciar", "desligar"), vindo do glove-sair.
+    pub end: Option<String>,
 }
 
 impl MenuClient {
@@ -110,6 +112,7 @@ impl MenuClient {
                 let delay = f.get(1).and_then(|v| v.parse().ok()).unwrap_or(0);
                 self.shot = Some((delay, f.get(2) == Some(&"1")));
             }
+            "SAIR" => self.end = f.get(1).map(|k| k.to_string()),
             "END" => {
                 self.menus = std::mem::take(&mut self.pending);
                 return true;
@@ -140,7 +143,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -163,6 +166,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                         }
                     }
                     let st = &mut data.state;
+                    let mut end = None;
                     if let Some(c) = st.menu_clients.iter_mut().find(|c| c.key == key) {
                         c.buf.extend_from_slice(&bytes);
                         let mut changed = false;
@@ -171,6 +175,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                             let text = String::from_utf8_lossy(&line[..line.len() - 1]).into_owned();
                             changed |= c.line(&text);
                         }
+                        end = c.end.take();
                         if changed {
                             st.dirty = true;
                         }
@@ -182,6 +187,9 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                                 smithay::reexports::calloop::timer::TimeoutAction::Drop
                             });
                         }
+                    }
+                    if let Some(kind) = end {
+                        st.end_session(&kind);
                     }
                     if closed {
                         st.menu_clients.retain(|c| c.key != key);
@@ -204,7 +212,7 @@ mod tests {
     #[test]
     fn le_submenus() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None };
         let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
         let done = text.lines().fold(false, |d, l| c.line(l) || d);
         assert!(done);

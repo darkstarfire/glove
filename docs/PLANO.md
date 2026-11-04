@@ -73,7 +73,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 ## Fase 3 — Menus e sessão (comportamento do sistema)
 
 - [x] 3.1 Submenus nos menus (▸), com navegação por teclado (M)
-- [ ] 3.2 Menu principal da era: Sobre, Preferências, Dock ▸, Itens Recentes ▸, Forçar Encerrar, Repouso, Reiniciar, Desligar, Encerrar Sessão (M)
+- [x] 3.2 Menu principal da era: Sobre, Preferências, Dock ▸, Itens Recentes ▸, Forçar Encerrar, Repouso, Reiniciar, Desligar, Encerrar Sessão (M)
 - [ ] 3.3 Desligar/Reiniciar/Encerrar com alerta e contagem de 120 s, apps avisados antes de sair, tela de desligando (M)
 - [ ] 3.4 Menu do app completo (Sobre, Preferências, Ocultar Outros, Mostrar Todos, Encerrar) e menu Janela do compositor (M)
 - [ ] 3.5 Forçar Encerrar desenhado pelo compositor, com detecção de "não responde" (ping) e cursor de espera original (M)

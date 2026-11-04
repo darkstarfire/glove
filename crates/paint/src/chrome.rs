@@ -299,7 +299,8 @@ fn shortcut_parts(s: &str) -> (String, String) {
         "Return" => "↩",
         "BackSpace" => "⌫",
         "Delete" => "⌦",
-        "Escape" => "⎋",
+        // A fonte não tem o ⎋.
+        "Escape" => "Esc",
         "Tab" => "⇥",
         "Up" => "↑",
         "Down" => "↓",

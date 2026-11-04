@@ -87,7 +87,7 @@ struct Prefs {
 const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
     ("Janelas", &["close", "minimize", "zoom", "cycle"]),
     ("Aplicativos", &["terminal", "preferences"]),
-    ("Sistema", &["screenshot", "quit"]),
+    ("Sistema", &["screenshot", "force_quit", "quit"]),
 ];
 
 impl Prefs {

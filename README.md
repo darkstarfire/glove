@@ -126,6 +126,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+Tab | Trocar de janela |
 | Super+, | Preferências |
 | Print | Captura de tela em ~/Imagens |
+| Ctrl+Alt+Esc | Forçar Encerrar (por enquanto abre o Monitor) |
 | Ctrl+Alt+Backspace | Sair do Glove (encerra a sessão) |
 | Ctrl+Alt+F1…F12 | Trocar de console (só na sessão própria) |
 | Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
@@ -157,6 +158,7 @@ crates/chars       Caracteres (`glove-chars`)
 crates/find        Busca (`glove-find`)
 crates/disks       Discos (`glove-disks`)
 crates/chess       Xadrez (`glove-chess`)
+crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
 data/              sessão: glove-session, glove.desktop, instalar-sessao.sh
 ```
 

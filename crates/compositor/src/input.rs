@@ -32,6 +32,7 @@ enum KeyAction {
     Cycle,
     Preferences,
     Screenshot,
+    ForceQuit,
     Quit,
     /// Trocar para o console N (Ctrl+Alt+F1…F12, só na sessão própria).
     Vt(i32),
@@ -51,6 +52,7 @@ impl KeyAction {
             "cycle" => Self::Cycle,
             "preferences" => Self::Preferences,
             "screenshot" => Self::Screenshot,
+            "force_quit" => Self::ForceQuit,
             "quit" => Self::Quit,
             _ => return None,
         })
@@ -301,6 +303,7 @@ impl Glove {
             }
             Some(KeyAction::Preferences) => self.open_preferences(),
             Some(KeyAction::Screenshot) => self.request_screenshot(),
+            Some(KeyAction::ForceQuit) => self.run_menu_action(crate::shell::MenuAction::ForceQuit),
             Some(KeyAction::Quit) => self.loop_signal.stop(),
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),

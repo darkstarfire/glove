@@ -796,6 +796,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-sair"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-shot"
 version = "0.1.0"
 dependencies = [
