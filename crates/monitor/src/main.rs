@@ -198,9 +198,8 @@ impl Monitor {
             }
             ui.fonts.draw(ui.c, t, x + 8.0, area.y + 14.0, 11.0, false, rgba(30, 30, 30, 255));
         }
-        let body = Rect::new(area.x, area.y + header, area.w, area.h - header);
         let content = self.procs.len() as f32 * ROW_H;
-        self.scroll = (self.scroll + ui.scroll_in(body)).clamp(0.0, (content - body.h).max(0.0));
+        let body = ui.scroll_area(Rect::new(area.x, area.y + header, area.w, area.h - header), &mut self.scroll, content, ROW_H);
         let first = (self.scroll / ROW_H).floor() as usize;
         let count = (body.h / ROW_H).ceil() as usize + 1;
         for (i, p) in self.procs.iter().enumerate().skip(first).take(count) {

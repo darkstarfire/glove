@@ -213,16 +213,15 @@ impl App for Find {
         }
 
         // Resultados
-        let area = Rect::new(0.0, bar, w, h - bar - 22.0);
         let content = self.view.len() as f32 * ROW_H;
-        self.scroll = (self.scroll + ui.scroll_in(area)).clamp(0.0, (content - area.h).max(0.0));
+        let area = ui.scroll_area(Rect::new(0.0, bar, w, h - bar - 22.0), &mut self.scroll, content, ROW_H);
         let first = (self.scroll / ROW_H).floor() as usize;
         let count = (area.h / ROW_H).ceil() as usize + 1;
         for i in first..(first + count).min(self.view.len()) {
             let y = area.y + i as f32 * ROW_H - self.scroll;
             let (top, bot) = (y.max(area.y), (y + ROW_H).min(area.y + area.h));
             if bot > top {
-                let r = ui.hit(Rect::new(0.0, top, w, bot - top));
+                let r = ui.hit(Rect::new(0.0, top, area.w, bot - top));
                 if r.pressed {
                     self.selected = Some(i);
                     if r.double {

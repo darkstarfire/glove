@@ -61,7 +61,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 ## Fase 2 — glove-kit: os controles que faltam (destrava as outras fases)
 
 - [x] 2.0 Referências do Tiger em `referencias/tiger/` (512pixels) e análise das diferenças ([6-tiger.md](analise/6-tiger.md)) (M)
-- [ ] 2.1 Barra de rolagem em gel genérica (listas, tabelas, colunas) (M)
+- [x] 2.1 Barra de rolagem em gel genérica (listas, tabelas, colunas) (M)
 - [ ] 2.2 Barra de progresso com listras animadas (indeterminada) e giratório (M)
 - [ ] 2.3 Alerta padrão com ícones originais de Pare/Cuidado/Nota e botão padrão pulsante (M)
 - [ ] 2.4 Controle segmentado com glifos; barra de ferramentas com ícone + rótulo; campo de busca em cápsula (M)

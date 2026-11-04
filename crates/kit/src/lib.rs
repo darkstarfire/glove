@@ -12,4 +12,4 @@ pub use text::TextBuffer;
 pub use glove_paint as paint;
 pub use platform::{local_time, run, theme_from_config, App, WindowOptions};
 pub use menu::{Menu, MenuItem};
-pub use ui::{Rect, Ui};
+pub use ui::{Rect, Ui, SCROLLBAR_W};

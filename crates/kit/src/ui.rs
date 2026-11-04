@@ -12,6 +12,10 @@ use glove_paint::{
 
 pub type Id = u64;
 
+/// Largura da barra de rolagem (15 pt, como na era).
+pub const SCROLLBAR_W: f32 = 15.0;
+const SCROLL_ARROW_H: f32 = 15.0;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Rect {
     pub x: f32,
@@ -149,6 +153,10 @@ pub struct Memory {
     /// Comandos para o Glove (pelo canal dos menus).
     pub(crate) glove_cmds: Vec<String>,
     pub(crate) minimize_req: bool,
+    /// Pedido para redesenhar daqui a pouco (animações, repetição de setas).
+    pub(crate) wake_after: Option<std::time::Duration>,
+    /// Seta de rolagem apertada: (id, próxima repetição).
+    scroll_repeat: Option<(Id, std::time::Instant)>,
     /// Superfícies de rascunho reaproveitadas (recorte de áreas roláveis).
     scratch: HashMap<Id, Canvas>,
     /// Quais foram usadas neste quadro (as outras são liberadas no fim).
@@ -838,6 +846,135 @@ impl<'a> Ui<'a> {
         self.area(Rect::new(r.x + 16.0, r.y + 14.0, r.w - 32.0, r.h - 28.0), f);
     }
 
+    /// Pede um novo quadro daqui a `d` (sem eventos), para animações.
+    pub fn wake_after(&mut self, d: std::time::Duration) {
+        self.mem.wake_after = Some(self.mem.wake_after.map_or(d, |w| w.min(d)));
+    }
+
+    // -----------------------------------------------------------------------
+    // Rolagem
+    // -----------------------------------------------------------------------
+
+    /// Área rolável na vertical com a barra de rolagem em gel à direita, sempre visível
+    /// como na era (sem polegar quando tudo cabe). Aplica a roda do mouse, as setas, o
+    /// clique no trilho e o arrasto do polegar a `offset` e devolve a área do conteúdo.
+    pub fn scroll_area(&mut self, area: Rect, offset: &mut f32, content: f32, line: f32) -> Rect {
+        let id = self.next_id();
+        if self.hovered(area) && self.input.scroll != 0.0 {
+            *offset += self.input.scroll;
+        }
+        // A barra para acima do puxador de redimensionar.
+        let at_corner = self.resizable && area.x + area.w >= self.c.w - 0.5 && area.y + area.h >= self.c.h - 0.5;
+        let sb = Rect::new(area.x + area.w - SCROLLBAR_W, area.y, SCROLLBAR_W, if at_corner { area.h - SCROLLBAR_W } else { area.h });
+        self.vscrollbar(id, sb, offset, content, area.h, line);
+        Rect::new(area.x, area.y, area.w - SCROLLBAR_W, area.h)
+    }
+
+    /// Barra de rolagem vertical: trilho em relevo, polegar em cápsula de gel e as duas
+    /// setas juntas embaixo (padrão da era).
+    fn vscrollbar(&mut self, id: Id, sb: Rect, offset: &mut f32, content: f32, view: f32, line: f32) {
+        use std::time::{Duration, Instant};
+        let max = (content - view).max(0.0);
+        let arrows = sb.h >= 2.0 * SCROLL_ARROW_H + 30.0;
+        let track = Rect::new(sb.x, sb.y, sb.w, sb.h - if arrows { 2.0 * SCROLL_ARROW_H } else { 0.0 });
+        let up = Rect::new(sb.x, track.y + track.h, sb.w, SCROLL_ARROW_H);
+        let down = Rect::new(sb.x, up.y + SCROLL_ARROW_H, sb.w, SCROLL_ARROW_H);
+        let thumb_h = if content > 0.0 { (track.h * view / content).clamp(24.0_f32.min(track.h), track.h) } else { track.h };
+        let thumb_y = |o: f32| track.y + if max > 0.0 { o / max * (track.h - thumb_h) } else { 0.0 };
+        let (grab, up_id, down_id) = (id ^ 0x5c5c, id ^ 0x5c01, id ^ 0x5c02);
+
+        if max > 0.0 && self.input.pressed {
+            let my = self.input.pos.1;
+            if self.hovered(track) {
+                let ty = thumb_y(*offset);
+                if my >= ty && my < ty + thumb_h {
+                    self.mem.slider_grab = Some(grab);
+                    self.mem.scroll.insert(grab, my - ty);
+                } else {
+                    let page = (view - line).max(line);
+                    *offset += if my < ty { -page } else { page };
+                }
+            } else if arrows && (self.hovered(up) || self.hovered(down)) {
+                let (aid, d) = if self.hovered(up) { (up_id, -line) } else { (down_id, line) };
+                *offset += d;
+                self.mem.active = Some(aid);
+                // Segurar a seta repete, depois de uma pausa.
+                self.mem.scroll_repeat = Some((aid, Instant::now() + Duration::from_millis(350)));
+                self.wake_after(Duration::from_millis(350));
+            }
+        }
+        if self.mem.slider_grab == Some(grab) {
+            if self.input.down {
+                let off = *self.mem.scroll.get(&grab).unwrap_or(&0.0);
+                let t = ((self.input.pos.1 - off - track.y) / (track.h - thumb_h).max(1.0)).clamp(0.0, 1.0);
+                *offset = t * max;
+            }
+            if self.input.released {
+                self.mem.slider_grab = None;
+            }
+        }
+        let held = match self.mem.scroll_repeat {
+            Some((aid, _)) if aid == up_id || aid == down_id => Some(aid),
+            _ => None,
+        };
+        if let Some(aid) = held {
+            if !self.input.down || self.input.released {
+                self.mem.scroll_repeat = None;
+                if self.mem.active == Some(aid) {
+                    self.mem.active = None;
+                }
+            } else {
+                let r = if aid == up_id { up } else { down };
+                let now = Instant::now();
+                if let Some((_, at)) = self.mem.scroll_repeat.filter(|(_, at)| now >= *at) {
+                    let _ = at;
+                    if self.hovered(r) {
+                        *offset += if aid == up_id { -line } else { line };
+                    }
+                    self.mem.scroll_repeat = Some((aid, now + Duration::from_millis(50)));
+                }
+                self.wake_after(Duration::from_millis(50));
+            }
+        }
+        *offset = offset.clamp(0.0, max);
+
+        // Seta apertada (fica azul enquanto o mouse está sobre ela).
+        let lit_up = self.input.down && held == Some(up_id) && self.hovered(up);
+        let lit_down = self.input.down && held == Some(down_id) && self.hovered(down);
+        let (accent, grabbed) = (self.theme.accent, self.mem.slider_grab == Some(grab));
+
+        // Trilho em relevo com listras leves
+        let c = &mut *self.c;
+        c.fill_rect(sb.x, sb.y, sb.w, sb.h, &linear(sb.x, 0.0, sb.x + sb.w, 0.0, &[(0.0, rgba(200, 200, 204, 255)), (0.35, rgba(238, 238, 240, 255)), (1.0, rgba(226, 226, 230, 255))]));
+        c.pinstripes(sb.x + 1.0, track.y, sb.w - 1.0, track.h, rgba(255, 255, 255, 0), rgba(255, 255, 255, 60));
+        c.vline(sb.x, sb.y, sb.h, rgba(150, 150, 156, 255));
+        if max > 0.0 {
+            let ty = thumb_y(*offset);
+            let base = if grabbed { darken(accent, 0.15) } else { accent };
+            gel_rect(c, sb.x + 2.0, ty + 1.0, sb.w - 3.0, thumb_h - 2.0, (sb.w - 3.0) / 2.0, base);
+        }
+        if arrows {
+            for (r, is_up, lit) in [(up, true, lit_up), (down, false, lit_down)] {
+                let fill = if lit {
+                    linear(r.x, 0.0, r.x + r.w, 0.0, &[(0.0, darken(accent, 0.1)), (0.5, lighten(accent, 0.25)), (1.0, accent)])
+                } else {
+                    linear(r.x, 0.0, r.x + r.w, 0.0, &[(0.0, rgba(222, 222, 226, 255)), (0.5, rgba(252, 252, 252, 255)), (1.0, rgba(236, 236, 240, 255))])
+                };
+                c.fill_rect(r.x + 1.0, r.y, r.w - 1.0, r.h, &fill);
+                c.hline(r.x, r.y, r.w, rgba(150, 150, 156, 255));
+                let ink = if lit { Color::WHITE } else if max > 0.0 { rgba(70, 70, 74, 255) } else { rgba(170, 170, 174, 255) };
+                let (cx, cy) = (r.x + r.w / 2.0 + 0.5, r.y + r.h / 2.0);
+                let d = if is_up { -1.0 } else { 1.0 };
+                let mut pb = glove_paint::tiny_skia::PathBuilder::new();
+                pb.move_to(cx - 3.5, cy - 2.0 * d);
+                pb.line_to(cx + 3.5, cy - 2.0 * d);
+                pb.line_to(cx, cy + 2.5 * d);
+                pb.close();
+                c.fill(pb.finish(), &solid(ink));
+            }
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Lista
     // -----------------------------------------------------------------------
@@ -848,11 +985,10 @@ impl<'a> Ui<'a> {
         let row_h = 19.0;
         let content = rows.len() as f32 * row_h;
         let mut off = *self.mem.scroll.get(&id).unwrap_or(&0.0);
-        if self.hovered(r) && self.input.scroll != 0.0 {
-            off += self.input.scroll;
-        }
-        off = off.clamp(0.0, (content - height + 2.0).max(0.0));
+        self.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
+        let inner = self.scroll_area(Rect::new(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0), &mut off, content, row_h);
         self.mem.scroll.insert(id, off);
+        let r = Rect::new(r.x, r.y, inner.w + 2.0, r.h);
 
         let mut changed = false;
         let hover = self.hovered(r);
@@ -864,7 +1000,6 @@ impl<'a> Ui<'a> {
             }
         }
 
-        self.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         self.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));
         let first = (off / row_h).floor() as usize;
         let visible = (height / row_h).ceil() as usize + 1;
@@ -995,32 +1130,8 @@ impl<'a> Ui<'a> {
             buf.scroll_y = (buf.scroll_y + self.input.scroll).clamp(0.0, max_scroll);
         }
 
-        // Barra de rolagem
-        let track_h = sb.h;
-        let thumb_h = if content_h > 0.0 { (track_h * r.h / content_h).clamp(28.0, track_h) } else { track_h };
-        let thumb_y = |sy: f32| sb.y + if max_scroll > 0.0 { sy / max_scroll * (track_h - thumb_h) } else { 0.0 };
-        let grab = id ^ 0x5c5c;
-        if self.hovered(sb) && self.input.pressed && max_scroll > 0.0 {
-            let ty = thumb_y(buf.scroll_y);
-            let my = self.input.pos.1;
-            if my >= ty && my < ty + thumb_h {
-                self.mem.slider_grab = Some(grab);
-                self.mem.scroll.insert(grab, my - ty);
-            } else {
-                let page = r.h - lh;
-                buf.scroll_y = (buf.scroll_y + if my < ty { -page } else { page }).clamp(0.0, max_scroll);
-            }
-        }
-        if self.mem.slider_grab == Some(grab) {
-            if self.input.down {
-                let off = *self.mem.scroll.get(&grab).unwrap_or(&0.0);
-                let t = ((self.input.pos.1 - off - sb.y) / (track_h - thumb_h).max(1.0)).clamp(0.0, 1.0);
-                buf.scroll_y = t * max_scroll;
-            }
-            if self.input.released {
-                self.mem.slider_grab = None;
-            }
-        }
+        // Barra de rolagem (desenhada aqui; o texto fica à esquerda dela)
+        self.vscrollbar(id, sb, &mut buf.scroll_y, content_h, r.h, lh);
 
         // Teclado
         let focused = self.mem.focus == Some(id) && !self.captured;
@@ -1170,14 +1281,6 @@ impl<'a> Ui<'a> {
         self.c.hline(r.x, r.y, r.w, rgba(120, 120, 126, 255));
         self.c.fill_rect(r.x, r.y, r.w, 3.0, &vgrad(r.y, r.y + 3.0, &[(0.0, rgba(0, 0, 0, 35)), (1.0, rgba(0, 0, 0, 0))]));
 
-        // Barra de rolagem: trilho listrado + polegar de gel
-        self.c.fill_rect(sb.x, sb.y, sb.w, sb.h, &linear(sb.x, 0.0, sb.x + sb.w, 0.0, &[(0.0, rgba(210, 210, 214, 255)), (0.5, rgba(240, 240, 242, 255)), (1.0, rgba(220, 220, 224, 255))]));
-        self.c.vline(sb.x, sb.y, sb.h, rgba(150, 150, 156, 255));
-        if max_scroll > 0.0 {
-            let ty = thumb_y(buf.scroll_y);
-            let base = if self.mem.slider_grab == Some(grab) { darken(self.theme.accent, 0.15) } else { self.theme.accent };
-            gel_rect(self.c, sb.x + 2.0, ty + 1.0, sb.w - 3.0, thumb_h - 2.0, (sb.w - 3.0) / 2.0, base);
-        }
         changed
     }
 

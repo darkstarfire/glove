@@ -2,7 +2,7 @@
 
 use glove_kit::{
     paint::{draw::*, Color},
-    run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    run, App, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W,
 };
 
 const BLOCKS: [(&str, u32, u32); 15] = [
@@ -66,11 +66,11 @@ impl App for Chars {
         }
 
         // Grade
-        let grid = Rect::new(SIDE + 20.0, 10.0, w - SIDE - 30.0, h - 120.0);
+        let full = Rect::new(SIDE + 20.0, 10.0, w - SIDE - 30.0, h - 120.0);
         let chars = self.chars();
-        let per_row = (grid.w / CELL).floor().max(1.0) as usize;
+        let per_row = ((full.w - SCROLLBAR_W) / CELL).floor().max(1.0) as usize;
         let rows = chars.len().div_ceil(per_row);
-        self.scroll = (self.scroll + ui.scroll_in(grid)).clamp(0.0, (rows as f32 * CELL - grid.h).max(0.0));
+        let grid = ui.scroll_area(full, &mut self.scroll, rows as f32 * CELL, CELL);
         let first = (self.scroll / CELL).floor() as usize;
         let visible = (grid.h / CELL).ceil() as usize + 1;
         for (i, ch) in chars.iter().enumerate().skip(first * per_row).take(visible * per_row) {
@@ -105,7 +105,7 @@ impl App for Chars {
                 c.vline(x + CELL - 1.0, y, CELL, rgba(225, 225, 230, 255));
             }
         });
-        ui.c.stroke(rrect(grid.x - 0.5, grid.y - 0.5, grid.w + 1.0, grid.h + 1.0, 0.0), &solid(rgba(130, 130, 136, 255)), 1.0);
+        ui.c.stroke(rrect(full.x - 0.5, full.y - 0.5, full.w + 1.0, full.h + 1.0, 0.0), &solid(rgba(130, 130, 136, 255)), 1.0);
 
         // Prévia
         let py = h - 100.0;

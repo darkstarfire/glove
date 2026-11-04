@@ -158,6 +158,8 @@ struct Runner<A: App> {
     menu_stream: Option<std::os::unix::net::UnixStream>,
     menu_sent: String,
     menu_shortcuts: std::collections::HashMap<String, String>,
+    /// Já há um timer de "acordar" pendente (ui.wake_after).
+    wake_pending: bool,
 }
 
 const TEXT_MIMES: [&str; 5] = ["text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "STRING", "TEXT"];
@@ -295,6 +297,7 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         menu_stream: None,
         menu_sent: String::new(),
         menu_shortcuts: std::collections::HashMap::new(),
+        wake_pending: false,
     };
     runner.connect_menus();
     if let Some(fd) = runner.app.watch_fd() {
@@ -450,6 +453,17 @@ impl<A: App> Runner<A> {
         if std::mem::take(&mut self.mem.resize_req) {
             if let Some(seat) = &self.seat {
                 self.window.resize(seat, self.last_serial, smithay_client_toolkit::reexports::protocols::xdg::shell::client::xdg_toplevel::ResizeEdge::BottomRight);
+            }
+        }
+        if let Some(d) = self.mem.wake_after.take() {
+            if !self.wake_pending {
+                self.wake_pending = true;
+                let _ = self.loop_handle.insert_source(Timer::from_duration(d), |_, _, st: &mut Runner<A>| {
+                    st.wake_pending = false;
+                    st.dirty = true;
+                    st.draw_now();
+                    TimeoutAction::Drop
+                });
             }
         }
         if std::mem::take(&mut self.mem.minimize_req) {

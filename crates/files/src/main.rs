@@ -8,7 +8,7 @@ use glove_kit::{
     paint::{draw::*, icons::{self, Icon}, Color},
     run,
     ui::Key,
-    App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    App, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W,
 };
 
 const TOOLBAR_H: f32 = 62.0;
@@ -459,7 +459,7 @@ impl Files {
         };
         let content = entries.len() as f32 * ROW_H;
         let mut off = *self.scroll.get(dir).unwrap_or(&0.0);
-        off = (off + ui.scroll_in(r)).clamp(0.0, (content - r.h).max(0.0));
+        let r = ui.scroll_area(r, &mut off, content, ROW_H);
         self.scroll.insert(dir.to_path_buf(), off);
 
         // Qual item desta coluna está "no caminho" (selecionado ou aberto à direita)?
@@ -555,10 +555,9 @@ impl Files {
             }
             ui.fonts.draw(ui.c, t, x + 8.0, area.y + 14.0, 11.0, false, rgba(30, 30, 30, 255));
         }
-        let body = Rect::new(area.x, area.y + header, area.w, area.h - header);
         let content = entries.len() as f32 * ROW_H;
         let mut off = *self.scroll.get(&dir).unwrap_or(&0.0);
-        off = (off + ui.scroll_in(body)).clamp(0.0, (content - body.h).max(0.0));
+        let body = ui.scroll_area(Rect::new(area.x, area.y + header, area.w, area.h - header), &mut off, content, ROW_H);
         self.scroll.insert(dir.clone(), off);
         let first = (off / ROW_H).floor() as usize;
         let count = (body.h / ROW_H).ceil() as usize + 1;
@@ -624,11 +623,11 @@ impl Files {
             }
         };
         let (cw, ch) = (104.0, 92.0);
-        let per_row = ((area.w - 16.0) / cw).floor().max(1.0) as usize;
+        let per_row = ((area.w - SCROLLBAR_W - 16.0) / cw).floor().max(1.0) as usize;
         let rows = entries.len().div_ceil(per_row);
         let content = rows as f32 * ch + 16.0;
         let mut off = *self.scroll.get(&dir).unwrap_or(&0.0);
-        off = (off + ui.scroll_in(area)).clamp(0.0, (content - area.h).max(0.0));
+        let area = ui.scroll_area(area, &mut off, content, ROW_H);
         self.scroll.insert(dir.clone(), off);
         let mut action: Option<(Entry, bool)> = None;
         let cell = |i: usize| (8.0 + (i % per_row) as f32 * cw, 8.0 + (i / per_row) as f32 * ch - off);
