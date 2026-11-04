@@ -102,6 +102,16 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 - Log da sessão: `~/.local/state/glove/sessao.log`
 - Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
 
+Limitações atuais da sessão própria:
+
+- Uma tela por vez (sem estender ou espelhar em dois monitores)
+- A tela não apaga sozinha quando o computador fica parado
+- Fechar a tampa do notebook não faz nada (a suspensão fica por conta do sistema)
+- Teclas de brilho e volume não funcionam
+- Apps só-X11 não abrem (falta o XWayland); apps Wayland abrem normalmente
+- Testada até agora só a parte de detectar a placa e os monitores (`glove --monitores`); o uso
+  completo direto na tela ainda precisa ser validado em hardware
+
 ## Atalhos (padrão, editáveis nas Preferências)
 
 Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma capturar o Super).
