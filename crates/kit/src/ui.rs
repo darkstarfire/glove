@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::text::TextBuffer;
 use glove_paint::{
     draw::*,
-    icons::{self, Icon},
+    icons::{self, Glyph, Icon},
     Color, Fonts, Theme,
 };
 
@@ -40,6 +40,12 @@ fn wrap_lines(fonts: &Fonts, text: &str, px: f32, bold: bool, max: f32) -> Vec<S
     }
     out
 }
+
+/// Altura do campo de busca.
+pub const SEARCH_H: f32 = 22.0;
+/// Tamanho de cada parte do controle segmentado.
+pub const SEGMENT_W: f32 = 28.0;
+pub const SEGMENT_H: f32 = 22.0;
 
 /// Altura da barra de progresso.
 pub const PROGRESS_H: f32 = 12.0;
@@ -753,9 +759,9 @@ impl<'a> Ui<'a> {
     // Campo de texto
     // -----------------------------------------------------------------------
 
-    pub fn text_field(&mut self, value: &mut String, width: f32) -> bool {
-        let id = self.next_id();
-        let r = self.alloc(width, CONTROL_H);
+    /// Edição de uma linha de texto em `r` (foco pelo clique, digitação, setas).
+    /// Devolve (mudou, Enter pressionado).
+    fn edit_line(&mut self, id: Id, r: Rect, value: &mut String) -> (bool, bool) {
         let hover = self.hovered(r);
         if hover && self.input.pressed {
             self.mem.focus = Some(id);
@@ -765,6 +771,7 @@ impl<'a> Ui<'a> {
         }
         let focused = self.mem.focus == Some(id);
         let mut changed = false;
+        let mut enter = false;
         if focused {
             let mut cur = (*self.mem.cursor.get(&id).unwrap_or(&value.chars().count())).min(value.chars().count());
             let byte = |s: &String, ci: usize| s.char_indices().nth(ci).map(|(b, _)| b).unwrap_or(s.len());
@@ -791,12 +798,24 @@ impl<'a> Ui<'a> {
                     Key::Right => cur = (cur + 1).min(value.chars().count()),
                     Key::Home => cur = 0,
                     Key::End => cur = value.chars().count(),
-                    Key::Enter | Key::Escape => self.mem.focus = None,
+                    Key::Enter => {
+                        enter = true;
+                        self.mem.focus = None;
+                    }
+                    Key::Escape => self.mem.focus = None,
                     _ => {}
                 }
             }
             self.mem.cursor.insert(id, cur);
         }
+        (changed, enter)
+    }
+
+    pub fn text_field(&mut self, value: &mut String, width: f32) -> bool {
+        let id = self.next_id();
+        let r = self.alloc(width, CONTROL_H);
+        let (changed, _) = self.edit_line(id, r, value);
+        let focused = self.mem.focus == Some(id);
 
         // Moldura afundada + anel azul quando em foco
         if focused {
@@ -814,6 +833,147 @@ impl<'a> Ui<'a> {
             self.c.fill_rect(cx, r.y + 4.0, 1.0, r.h - 8.0, &solid(ink()));
         }
         changed
+    }
+
+    // -----------------------------------------------------------------------
+    // Busca, segmentado e itens de barra de ferramentas
+    // -----------------------------------------------------------------------
+
+    /// Campo de busca em cápsula com lupa (como no 10.3/10.4). Mostra `placeholder`
+    /// em cinza quando vazio; o "x" à direita e o Esc limpam. Devolve verdadeiro
+    /// quando o Enter é pressionado.
+    pub fn search_field(&mut self, value: &mut String, placeholder: &str, width: f32) -> bool {
+        let r = self.alloc(width, SEARCH_H);
+        self.search_field_in(r, value, placeholder)
+    }
+
+    /// Campo de busca num retângulo livre (altura recomendada: `SEARCH_H`).
+    pub fn search_field_in(&mut self, r: Rect, value: &mut String, placeholder: &str) -> bool {
+        let id = self.next_id();
+        let clear_id = self.next_id();
+        let clear = Rect::new(r.x + r.w - 19.0, r.y + (r.h - 14.0) / 2.0, 14.0, 14.0);
+        // O "x" vem antes do campo, para o clique nele não mover o cursor.
+        let mut cleared = false;
+        if !value.is_empty() {
+            let (_, _, clicked) = self.interact(clear_id, clear);
+            if clicked || (self.hovered(clear) && self.input.pressed) {
+                cleared = true;
+            }
+        }
+        let field = Rect::new(r.x, r.y, r.w - if value.is_empty() { 0.0 } else { 20.0 }, r.h);
+        let (_, enter) = if cleared { (false, false) } else { self.edit_line(id, field, value) };
+        let focused = self.mem.focus == Some(id);
+        if cleared || focused && self.input.keys.iter().any(|k| k.key == Key::Escape) {
+            value.clear();
+            self.mem.cursor.insert(id, 0);
+            self.mem.focus = Some(id);
+        }
+
+        let rad = r.h / 2.0;
+        if self.mem.focus == Some(id) {
+            self.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, rad + 3.0), &solid(with_alpha(self.theme.accent, 0.45)));
+        }
+        self.c.fill(rrect(r.x, r.y, r.w, r.h, rad), &solid(rgba(118, 118, 124, 255)));
+        let inner = || rrect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, rad - 1.0);
+        self.c.fill(inner(), &solid(Color::WHITE));
+        self.c.fill_clipped(rrect(r.x, r.y, r.w, 4.0, 0.0), &vgrad(r.y + 1.0, r.y + 4.0, &[(0.0, rgba(0, 0, 0, 55)), (1.0, rgba(0, 0, 0, 0))]), inner());
+        icons::magnifier(self.c, r.x + 12.0, r.y + r.h / 2.0, 12.0, rgba(70, 70, 74, 255));
+
+        let tx = r.x + 22.0;
+        let avail = r.w - 22.0 - if value.is_empty() { 8.0 } else { 24.0 };
+        let base = r.y + r.h / 2.0 + 4.5;
+        let px = 12.0;
+        if value.is_empty() {
+            if self.mem.focus != Some(id) {
+                let t = self.fonts.ellipsize(placeholder, px, false, avail);
+                self.fonts.draw(self.c, &t, tx, base, px, false, rgba(150, 150, 154, 255));
+            }
+        } else {
+            // Texto longo: mostra o final (onde se digita).
+            let mut shown: String = value.clone();
+            while self.fonts.measure(&shown, px, false) > avail && !shown.is_empty() {
+                shown.remove(0);
+            }
+            self.fonts.draw(self.c, &shown, tx, base, px, false, ink());
+            // Botão de limpar: bolinha cinza com "x" branco.
+            let (cx, cy) = (clear.x + 7.0, clear.y + 7.0);
+            self.c.fill(circle(cx, cy, 6.5), &solid(rgba(150, 150, 156, 255)));
+            let mut pb = glove_paint::tiny_skia::PathBuilder::new();
+            pb.move_to(cx - 2.5, cy - 2.5);
+            pb.line_to(cx + 2.5, cy + 2.5);
+            pb.move_to(cx + 2.5, cy - 2.5);
+            pb.line_to(cx - 2.5, cy + 2.5);
+            self.c.stroke(pb.finish(), &solid(Color::WHITE), 1.4);
+        }
+        if self.mem.focus == Some(id) {
+            let cur = (*self.mem.cursor.get(&id).unwrap_or(&0)).min(value.chars().count());
+            let full_w = self.fonts.measure(value, px, false);
+            let before: String = value.chars().take(cur).collect();
+            let off = (full_w - avail).max(0.0);
+            let cx = tx + self.fonts.measure(&before, px, false) - off;
+            self.c.fill_rect(cx.max(tx), r.y + 4.0, 1.0, r.h - 8.0, &solid(ink()));
+        }
+        enter
+    }
+
+    /// Controle segmentado com glifos (10.3/10.4): cápsula clara com divisórias e o
+    /// segmento escolhido em azul claro. `selected` = None para botões momentâneos
+    /// (ex.: Voltar/Avançar); `enabled` vazio = todos ativos. Devolve o segmento clicado.
+    pub fn segmented(&mut self, glyphs: &[Glyph], selected: Option<usize>, enabled: &[bool]) -> Option<usize> {
+        let r = self.alloc(glyphs.len() as f32 * SEGMENT_W, SEGMENT_H);
+        self.segmented_in(r, glyphs, selected, enabled)
+    }
+
+    /// Segmentado num retângulo livre (as partes dividem a largura igualmente).
+    pub fn segmented_in(&mut self, r: Rect, glyphs: &[Glyph], selected: Option<usize>, enabled: &[bool]) -> Option<usize> {
+        let n = glyphs.len().max(1);
+        let sw = r.w / n as f32;
+        let rad = 4.0;
+        self.c.fill(rrect(r.x, r.y, r.w, r.h, rad), &solid(rgba(132, 132, 138, 255)));
+        let inner = || rrect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, rad - 1.0);
+        let mut out = None;
+        let a = self.theme.accent;
+        for (i, g) in glyphs.iter().enumerate() {
+            let id = self.next_id();
+            let seg = Rect::new((r.x + i as f32 * sw).round(), r.y, sw.round(), r.h);
+            let on = enabled.get(i).copied().unwrap_or(true);
+            let (_, down, clicked) = if on { self.interact(id, seg) } else { (false, false, false) };
+            if clicked {
+                out = Some(i);
+            }
+            let sel = selected == Some(i);
+            let stops: [(f32, Color); 4] = if sel {
+                [(0.0, lighten(a, 0.72)), (0.48, lighten(a, 0.52)), (0.52, lighten(a, 0.4)), (1.0, lighten(a, 0.64))]
+            } else {
+                [(0.0, rgba(253, 253, 253, 255)), (0.48, rgba(242, 242, 242, 255)), (0.52, rgba(232, 232, 232, 255)), (1.0, rgba(246, 246, 246, 255))]
+            };
+            let stops = stops.map(|(t, c)| (t, if down { darken(c, 0.15) } else { c }));
+            self.c.fill_clipped(rrect(seg.x, r.y, seg.w, r.h, 0.0), &vgrad(r.y, r.y + r.h, &stops), inner());
+            if i > 0 {
+                self.c.vline(seg.x, r.y + 1.0, r.h - 2.0, rgba(150, 150, 156, 255));
+            }
+            let color = if on { rgba(45, 45, 50, 255) } else { rgba(165, 165, 170, 255) };
+            icons::glyph(self.c, *g, (seg.x + seg.w / 2.0).round(), (r.y + r.h / 2.0).round(), 12.0, color);
+        }
+        out
+    }
+
+    /// Item de barra de ferramentas: ícone com o nome embaixo (Arquivos, Preferências).
+    /// Realce ao passar o mouse e ao apertar; `selected` deixa marcado.
+    pub fn toolbar_item_in(&mut self, r: Rect, icon: Icon, label: &str, selected: bool) -> bool {
+        let id = self.next_id();
+        let (hover, down, clicked) = self.interact(id, r);
+        if selected || down {
+            self.c.fill(rrect(r.x, r.y, r.w, r.h, 6.0), &solid(rgba(0, 0, 0, if down { 45 } else { 30 })));
+        } else if hover {
+            self.c.fill(rrect(r.x, r.y, r.w, r.h, 6.0), &solid(rgba(255, 255, 255, 60)));
+        }
+        let size = (r.h - 22.0).clamp(16.0, 34.0);
+        icons::draw(self.c, self.fonts, icon, r.x + (r.w - size) / 2.0, r.y + 3.0, size, label.chars().next());
+        let t = self.fonts.ellipsize(label, 11.0, false, r.w - 4.0);
+        let tw = self.fonts.measure(&t, 11.0, false);
+        self.fonts.draw(self.c, &t, r.x + (r.w - tw) / 2.0, r.y + r.h - 6.0, 11.0, false, ink());
+        clicked
     }
 
     // -----------------------------------------------------------------------
@@ -1242,19 +1402,9 @@ impl<'a> Ui<'a> {
 
     /// Ícone grande com nome embaixo (barra de painéis das Preferências).
     pub fn icon_tile(&mut self, icon: Icon, t: &str, selected: bool) -> bool {
-        let id = self.next_id();
         let w = (self.fonts.measure(t, 11.0, false) + 12.0).max(64.0);
         let r = self.alloc(w, 58.0);
-        let (hover, down, clicked) = self.interact(id, r);
-        if selected || down {
-            self.c.fill(rrect(r.x, r.y, r.w, r.h, 6.0), &solid(rgba(0, 0, 0, if down { 50 } else { 30 })));
-        } else if hover {
-            self.c.fill(rrect(r.x, r.y, r.w, r.h, 6.0), &solid(rgba(255, 255, 255, 60)));
-        }
-        icons::draw(self.c, self.fonts, icon, r.x + (r.w - 34.0) / 2.0, r.y + 3.0, 34.0, t.chars().next());
-        let tw = self.fonts.measure(t, 11.0, false);
-        self.fonts.draw(self.c, t, r.x + (r.w - tw) / 2.0, r.y + 51.0, 11.0, false, ink());
-        clicked
+        self.toolbar_item_in(r, icon, t, selected)
     }
 
     // -----------------------------------------------------------------------

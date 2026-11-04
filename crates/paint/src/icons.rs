@@ -610,3 +610,106 @@ pub fn alert_caution(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill(tri(s * 0.09), &vgrad(y + s * 0.15, y + s * 0.6, &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(255, 255, 255, 0))]));
     exclamation(pm, x + s / 2.0, y + s * 0.3, s * 0.48, rgba(30, 25, 10, 255));
 }
+
+// ---------------------------------------------------------------------------
+// Glifos pequenos (controles segmentados e botões de barra de ferramentas)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Glyph {
+    /// Visualizar como ícones: grade de 2×2.
+    ViewIcons,
+    /// Visualizar como lista: linhas.
+    ViewList,
+    /// Visualizar em colunas: três colunas.
+    ViewColumns,
+    Back,
+    Forward,
+    /// Menu de ação: engrenagem com setinha para baixo.
+    Action,
+    Plus,
+    Minus,
+}
+
+/// Desenha o glifo centrado em (cx, cy), num quadrado de `s` pontos.
+pub fn glyph(pm: &mut Canvas, g: Glyph, cx: f32, cy: f32, s: f32, color: Color) {
+    let ink = solid(color);
+    let h = s / 2.0;
+    match g {
+        Glyph::ViewIcons => {
+            let q = s * 0.36;
+            let gap = s * 0.14;
+            for (dx, dy) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)] {
+                let x = cx - q - gap / 2.0 + dx * (q + gap);
+                let y = cy - q - gap / 2.0 + dy * (q + gap);
+                pm.stroke(rrect(x + 0.5, y + 0.5, q - 1.0, q - 1.0, 0.5), &ink, 1.0);
+            }
+        }
+        Glyph::ViewList => {
+            for i in 0..4 {
+                let y = (cy - h * 0.75 + i as f32 * h * 0.5).round() + 0.5;
+                pm.fill_rect(cx - h, y - 0.5, s, 1.0, &ink);
+            }
+        }
+        Glyph::ViewColumns => {
+            pm.stroke(rrect(cx - h + 0.5, cy - h * 0.75 + 0.5, s - 1.0, s * 0.75 - 1.0, 0.0), &ink, 1.0);
+            for k in [1.0, 2.0] {
+                let x = (cx - h + s * k / 3.0).round() + 0.5;
+                pm.fill_rect(x - 0.5, cy - h * 0.75, 1.0, s * 0.75, &ink);
+            }
+        }
+        Glyph::Back | Glyph::Forward => {
+            let d = if g == Glyph::Back { -1.0 } else { 1.0 };
+            let mut pb = PathBuilder::new();
+            pb.move_to(cx + d * h * 0.55, cy);
+            pb.line_to(cx - d * h * 0.45, cy - h * 0.6);
+            pb.line_to(cx - d * h * 0.45, cy + h * 0.6);
+            pb.close();
+            pm.fill(pb.finish(), &ink);
+        }
+        Glyph::Action => {
+            // Engrenagem à esquerda e setinha à direita.
+            let (gx, r) = (cx - s * 0.18, s * 0.36);
+            let mut pb = PathBuilder::new();
+            let teeth = 8;
+            for i in 0..teeth * 2 {
+                let a = i as f32 / (teeth * 2) as f32 * std::f32::consts::TAU;
+                let a2 = (i as f32 + 1.0) / (teeth * 2) as f32 * std::f32::consts::TAU;
+                let rr = if i % 2 == 0 { r } else { r * 0.72 };
+                let (p1, p2) = ((gx + rr * a.cos(), cy + rr * a.sin()), (gx + rr * a2.cos(), cy + rr * a2.sin()));
+                if i == 0 { pb.move_to(p1.0, p1.1) } else { pb.line_to(p1.0, p1.1) }
+                pb.line_to(p2.0, p2.1);
+            }
+            pb.close();
+            pb.push_circle(gx, cy, r * 0.32);
+            if let Some(p) = pb.finish() {
+                pm.pm.fill_path(&p, &ink, tiny_skia::FillRule::EvenOdd, tiny_skia::Transform::from_scale(pm.scale, pm.scale), None);
+            }
+            let ax = cx + s * 0.38;
+            let mut pb = PathBuilder::new();
+            pb.move_to(ax - s * 0.13, cy - s * 0.04);
+            pb.line_to(ax + s * 0.13, cy - s * 0.04);
+            pb.line_to(ax, cy + s * 0.12);
+            pb.close();
+            pm.fill(pb.finish(), &ink);
+        }
+        Glyph::Plus | Glyph::Minus => {
+            let t = (s * 0.14).max(1.5);
+            pm.fill_rect(cx - h * 0.7, cy - t / 2.0, s * 0.7, t, &ink);
+            if g == Glyph::Plus {
+                pm.fill_rect(cx - t / 2.0, cy - h * 0.7, t, s * 0.7, &ink);
+            }
+        }
+    }
+}
+
+/// Lupa (campo de busca).
+pub fn magnifier(pm: &mut Canvas, cx: f32, cy: f32, s: f32, color: Color) {
+    let r = s * 0.3;
+    let (ox, oy) = (cx - s * 0.1, cy - s * 0.1);
+    pm.stroke(circle(ox, oy, r), &solid(color), (s * 0.13).max(1.3));
+    let mut pb = PathBuilder::new();
+    pb.move_to(ox + r * 0.75, oy + r * 0.75);
+    pb.line_to(cx + s * 0.42, cy + s * 0.42);
+    pm.stroke_round(pb.finish(), &solid(color), (s * 0.18).max(1.8));
+}

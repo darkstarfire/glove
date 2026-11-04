@@ -24,6 +24,8 @@ struct Shared {
 
 struct Find {
     query: String,
+    /// Onde buscar: (nome, pasta). A pasta pedida na linha de comando vem primeiro.
+    places: Vec<(String, PathBuf)>,
     place: usize,
     shared: Arc<Mutex<Shared>>,
     /// Geração da busca atual (buscas antigas param ao ver que mudou).
@@ -122,12 +124,36 @@ fn walk(root: PathBuf, needle: String, geracao: u64, current: Arc<AtomicU64>, sh
 }
 
 impl Find {
+    /// `glove-find [texto] [pasta]`: já abre buscando.
+    fn from_args() -> Self {
+        let mut args = std::env::args().skip(1);
+        let mut f = Self::new();
+        if let Some(q) = args.next() {
+            f.query = q;
+        }
+        if let Some(dir) = args.next().map(PathBuf::from).filter(|d| d.is_dir()) {
+            match f.places.iter().position(|(_, p)| *p == dir) {
+                Some(i) => f.place = i,
+                None => {
+                    let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| dir.display().to_string());
+                    f.places.insert(0, (name, dir));
+                    f.place = 0;
+                }
+            }
+        }
+        if !f.query.trim().is_empty() {
+            f.start();
+        }
+        f
+    }
+
     fn new() -> Self {
         let mut fds = [0; 2];
         unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_NONBLOCK | libc::O_CLOEXEC) };
         let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
         Self {
             query: String::new(),
+            places: places(),
             place: 0,
             shared: Arc::default(),
             generation: Arc::new(AtomicU64::new(0)),
@@ -152,7 +178,7 @@ impl Find {
             return;
         }
         self.searching = true;
-        let root = places()[self.place].1.clone();
+        let root = self.places[self.place].1.clone();
         let (cur, shared, wake) = (self.generation.clone(), self.shared.clone(), self.wake_w.clone());
         std::thread::spawn(move || walk(root, q, geracao, cur, shared, wake));
     }
@@ -197,9 +223,9 @@ impl App for Find {
             ui.horizontal(|ui| {
                 icons::draw(ui.c, ui.fonts, Icon::Search, 14.0, 10.0, 30.0, None);
                 ui.space(34.0);
-                ui.text_field(&mut self.query, (w - 360.0).max(140.0));
+                ui.search_field(&mut self.query, "Parte do nome", (w - 360.0).max(140.0));
                 ui.label_right("em", 24.0);
-                let names: Vec<String> = places().into_iter().map(|p| p.0).collect();
+                let names: Vec<String> = self.places.iter().map(|p| p.0.clone()).collect();
                 ui.popup(&mut place, &names, 130.0);
                 clicked = ui.default_button("Buscar");
             });
@@ -317,7 +343,7 @@ impl App for Find {
 
 fn main() {
     let opts = WindowOptions { title: "Busca".into(), app_id: "glove.Find".into(), size: (620, 420), fixed: false };
-    if let Err(e) = run(opts, Find::new()) {
+    if let Err(e) = run(opts, Find::from_args()) {
         eprintln!("glove-find: {e}");
     }
 }

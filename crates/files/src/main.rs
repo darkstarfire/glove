@@ -8,7 +8,7 @@ use glove_kit::{
     paint::{draw::*, icons::{self, Icon}, Color},
     run,
     ui::Key,
-    App, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W,
+    App, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W, SEARCH_H, SEGMENT_H, SEGMENT_W,
 };
 
 const TOOLBAR_H: f32 = 62.0;
@@ -214,6 +214,8 @@ struct Files {
     selected: Option<PathBuf>,
     back: Vec<PathBuf>,
     forward: Vec<PathBuf>,
+    /// Texto do campo de busca da barra.
+    search: String,
     hidden: bool,
     cache: HashMap<PathBuf, (Option<SystemTime>, bool, Result<Vec<Entry>, String>)>,
     scroll: HashMap<PathBuf, f32>,
@@ -230,6 +232,7 @@ impl Files {
             selected: None,
             back: Vec::new(),
             forward: Vec::new(),
+            search: String::new(),
             hidden: false,
             cache: HashMap::new(),
             scroll: HashMap::new(),
@@ -358,28 +361,22 @@ impl Files {
         ui.c.fill_rect(0.0, 0.0, w, TOOLBAR_H, &vgrad(0.0, TOOLBAR_H, &[(0.0, rgba(246, 246, 246, 255)), (1.0, rgba(214, 214, 218, 255))]));
         ui.c.pinstripes(0.0, 0.0, w, TOOLBAR_H, rgba(255, 255, 255, 0), rgba(255, 255, 255, 60));
         ui.c.hline(0.0, TOOLBAR_H - 1.0, w, rgba(130, 130, 136, 255));
-        let light = rgba(240, 240, 243, 255);
-        let accent = ui.theme.accent;
-
-        // Voltar / Avançar
-        let (by, bh) = (12.0, 26.0);
-        if ui.gel_button(Rect::new(12.0, by, 30.0, bh), "◀", light, 11.0, false) {
-            self.go_back();
+        // Voltar / Avançar: segmentado momentâneo, apagado quando não há para onde ir.
+        let cy = 20.0;
+        let nav = [!self.back.is_empty(), !self.forward.is_empty()];
+        match ui.segmented_in(Rect::new(12.0, cy, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::Back, Glyph::Forward], None, &nav) {
+            Some(0) => self.go_back(),
+            Some(_) => self.go_forward(),
+            None => {}
         }
-        if ui.gel_button(Rect::new(44.0, by, 30.0, bh), "▶", light, 11.0, false) {
-            self.go_forward();
+        // Modo de visualização
+        let views = [View::Icons, View::List, View::Columns];
+        let sel = views.iter().position(|v| *v == self.view);
+        let vx = 12.0 + 2.0 * SEGMENT_W + 12.0;
+        if let Some(i) = ui.segmented_in(Rect::new(vx, cy, 3.0 * SEGMENT_W, SEGMENT_H), &[Glyph::ViewIcons, Glyph::ViewList, Glyph::ViewColumns], sel, &[]) {
+            self.view = views[i];
         }
-        // Modo de visualização (segmentado)
-        let views = [(View::Icons, "Ícones"), (View::List, "Lista"), (View::Columns, "Colunas")];
-        let mut x = 90.0;
-        for (v, label) in views {
-            let tw = ui.text_width(label, 12.0, true) + 22.0;
-            if ui.gel_button(Rect::new(x, by, tw, bh), label, if self.view == v { accent } else { light }, 12.0, false) {
-                self.view = v;
-            }
-            x += tw + 2.0;
-        }
-        // Lugares
+        // Lugares (à direita)
         let places = [
             ("Computador", Icon::Disk, PathBuf::from("/")),
             ("Início", Icon::Folder, home()),
@@ -390,18 +387,19 @@ impl Files {
         for (label, icon, path) in places.iter().rev() {
             let tw = (ui.text_width(label, 11.0, false) + 12.0).max(58.0);
             px -= tw;
-            let r = Rect::new(px, 4.0, tw, TOOLBAR_H - 8.0);
-            let resp = ui.hit(r);
-            if resp.down || resp.hover {
-                ui.c.fill(rrect(r.x, r.y, r.w, r.h, 6.0), &solid(rgba(0, 0, 0, if resp.down { 45 } else { 18 })));
-            }
-            icons::draw(ui.c, ui.fonts, *icon, r.x + (r.w - 32.0) / 2.0, r.y + 2.0, 32.0, None);
-            let lw = ui.text_width(label, 11.0, false);
-            ui.fonts.draw(ui.c, label, r.x + (r.w - lw) / 2.0, r.y + r.h - 5.0, 11.0, false, rgba(30, 30, 30, 255));
-            if resp.clicked {
+            if ui.toolbar_item_in(Rect::new(px, 4.0, tw, TOOLBAR_H - 8.0), *icon, label, false) {
                 self.go(path.clone());
             }
             px -= 4.0;
+        }
+        // Busca: abre a Busca já procurando nesta pasta.
+        let sx = vx + 3.0 * SEGMENT_W + 16.0;
+        let sw = (px - 12.0 - sx).min(200.0);
+        if sw >= 90.0 && ui.search_field_in(Rect::new(sx, cy, sw, SEARCH_H), &mut self.search, "Buscar nesta pasta") {
+            let q = self.search.trim().to_string();
+            if !q.is_empty() {
+                let _ = std::process::Command::new(sibling("glove-find")).arg(&q).arg(self.current()).spawn();
+            }
         }
     }
 
