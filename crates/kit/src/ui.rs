@@ -12,6 +12,35 @@ use glove_paint::{
 
 pub type Id = u64;
 
+/// Tipo de alerta: o ícone grande à esquerda.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AlertKind {
+    /// Aviso comum: só o ícone do app.
+    Note,
+    /// Cuidado (ex.: perder alterações): triângulo amarelo com o ícone do app no canto.
+    Caution,
+    /// Problema grave: placa vermelha.
+    Stop,
+}
+
+/// Quebra `text` em linhas que cabem em `max` (respeitando quebras de linha do texto).
+fn wrap_lines(fonts: &Fonts, text: &str, px: f32, bold: bool, max: f32) -> Vec<String> {
+    let mut out = Vec::new();
+    for para in text.split('\n') {
+        let mut line = String::new();
+        for word in para.split_whitespace() {
+            let test = if line.is_empty() { word.to_string() } else { format!("{line} {word}") };
+            if fonts.measure(&test, px, bold) > max && !line.is_empty() {
+                out.push(std::mem::replace(&mut line, word.to_string()));
+            } else {
+                line = test;
+            }
+        }
+        out.push(line);
+    }
+    out
+}
+
 /// Altura da barra de progresso.
 pub const PROGRESS_H: f32 = 12.0;
 
@@ -94,6 +123,8 @@ pub struct KeyPress {
 /// Estado de entrada acumulado entre dois quadros.
 #[derive(Default)]
 pub struct Input {
+    /// A janela tem o foco do teclado (é a janela ativa).
+    pub active: bool,
     pub pos: (f32, f32),
     pub inside: bool,
     pub down: bool,
@@ -165,12 +196,22 @@ pub struct Memory {
     pub(crate) minimize_req: bool,
     /// Pedido para redesenhar daqui a pouco (animações, repetição de setas).
     pub(crate) wake_after: Option<std::time::Duration>,
+    /// Ícone do app (alertas), descoberto pelo app_id.
+    pub(crate) app_icon: Option<Icon>,
+    /// Sombra do alerta já desfocada: (largura, altura, escala) → canvas.
+    alert_shadow: Option<((u32, u32, u32), Canvas)>,
     /// Seta de rolagem apertada: (id, próxima repetição).
     scroll_repeat: Option<(Id, std::time::Instant)>,
     /// Superfícies de rascunho reaproveitadas (recorte de áreas roláveis).
     scratch: HashMap<Id, Canvas>,
     /// Quais foram usadas neste quadro (as outras são liberadas no fim).
     scratch_used: Vec<Id>,
+}
+
+impl Memory {
+    pub(crate) fn with_app_icon(icon: Icon) -> Self {
+        Self { app_icon: Some(icon), ..Self::default() }
+    }
 }
 
 struct Layout {
@@ -859,6 +900,129 @@ impl<'a> Ui<'a> {
     /// Pede um novo quadro daqui a `d` (sem eventos), para animações.
     pub fn wake_after(&mut self, d: std::time::Duration) {
         self.mem.wake_after = Some(self.mem.wake_after.map_or(d, |w| w.min(d)));
+    }
+
+    // -----------------------------------------------------------------------
+    // Alerta
+    // -----------------------------------------------------------------------
+
+    /// Alerta da era como folha que desce do topo da janela (o resto escurece e fica
+    /// bloqueado: o app deve chamar `set_enabled(false)` antes de desenhar o resto
+    /// enquanto o alerta estiver aberto). `buttons` vão da esquerda para a direita: o
+    /// último é o padrão (Enter, azul pulsante), "Cancelar" responde ao Esc e, com três
+    /// botões, o primeiro fica afastado à esquerda (ex.: "Não salvar").
+    /// Devolve o índice do botão escolhido.
+    pub fn alert(&mut self, kind: AlertKind, title: &str, text: &str, buttons: &[&str]) -> Option<usize> {
+        use std::time::Duration;
+        self.set_enabled(true);
+        let (w, h) = (self.c.w, self.c.h);
+        let sw = (w - 24.0).min(440.0).max(200.0);
+        let sx = ((w - sw) / 2.0).round();
+        const ICON: f32 = 64.0;
+        let tx = sx + 20.0 + ICON + 16.0;
+        let tw = sx + sw - 20.0 - tx;
+        let title_lines = wrap_lines(self.fonts, title, 13.0, true, tw);
+        let text_lines = if text.is_empty() { Vec::new() } else { wrap_lines(self.fonts, text, 11.0, false, tw) };
+        let text_h = title_lines.len() as f32 * 17.0 + if text_lines.is_empty() { 0.0 } else { 6.0 + text_lines.len() as f32 * 15.0 };
+        let sh = (16.0 + text_h.max(ICON - 4.0) + 20.0 + CONTROL_H + 16.0).min(h).round();
+
+        // Fundo escurecido, sombra e a folha listrada encostada no topo.
+        self.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
+        // O desfoque da sombra é caro: só é refeito quando o tamanho muda (o pulso redesenha).
+        let key = (sw as u32, sh as u32, self.c.scale.to_bits());
+        if self.mem.alert_shadow.as_ref().map(|(k, _)| *k) != Some(key) {
+            self.mem.alert_shadow = Canvas::shadow(-14.0, 0.0, sw + 28.0, sh + 18.0, sw, sh, &ShadowSpec { blur: 14.0, offset_y: 4.0, radius: 6.0, alpha: 0.45 }, self.c.scale).map(|c| (key, c));
+        }
+        if let Some((_, shadow)) = &self.mem.alert_shadow {
+            self.c.draw_canvas(shadow, sx - 14.0, 0.0);
+        }
+        let shape = || rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 6.0, 6.0]);
+        self.c.fill(shape(), &solid(self.theme.body_b));
+        self.c.pinstripes(sx, 0.0, sw, sh - 6.0, self.theme.body_a, self.theme.body_b);
+        self.c.stroke(shape(), &solid(rgba(0, 0, 0, 80)), 1.0 / self.c.scale);
+
+        // Ícone
+        let (ix, iy) = (sx + 20.0, 14.0);
+        let app = self.mem.app_icon.unwrap_or(Icon::Window);
+        match kind {
+            AlertKind::Note => icons::draw(self.c, self.fonts, app, ix, iy, ICON, None),
+            AlertKind::Caution => {
+                icons::alert_caution(self.c, ix, iy, ICON);
+                icons::draw(self.c, self.fonts, app, ix + ICON - 30.0, iy + ICON - 30.0, 32.0, None);
+            }
+            AlertKind::Stop => icons::alert_stop(self.c, ix, iy, ICON),
+        }
+
+        // Textos
+        let mut y = 16.0 + 13.0;
+        for l in &title_lines {
+            self.fonts.draw(self.c, l, tx, y, 13.0, true, ink());
+            y += 17.0;
+        }
+        y += 6.0 - 17.0 + 11.0 + 4.0;
+        for l in &text_lines {
+            self.fonts.draw(self.c, l, tx, y, 11.0, false, rgba(30, 30, 30, 255));
+            y += 15.0;
+        }
+
+        // Botões (o padrão pulsa: ~1,6 s por ciclo a 5 quadros/s, só com o alerta aberto)
+        let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+        // Só a janela ativa pulsa (como no original); nas outras o botão fica parado
+        // e o app não gasta nada.
+        let pulse = if self.input.active {
+            self.wake_after(Duration::from_millis(200));
+            0.5 + 0.5 * ((ms % 1600) as f32 / 1600.0 * std::f32::consts::TAU).sin()
+        } else {
+            0.5
+        };
+        let by = sh - 16.0 - CONTROL_H;
+        let widths: Vec<f32> = buttons.iter().map(|b| (self.fonts.measure(b, TEXT, false) + 32.0).max(80.0).ceil()).collect();
+        let mut x = sx + sw - 20.0;
+        let mut rects = vec![Rect::new(0.0, 0.0, 0.0, 0.0); buttons.len()];
+        for i in (0..buttons.len()).rev() {
+            if buttons.len() == 3 && i == 0 {
+                rects[0] = Rect::new(tx, by, widths[0], CONTROL_H);
+                break;
+            }
+            x -= widths[i];
+            rects[i] = Rect::new(x, by, widths[i], CONTROL_H);
+            x -= 12.0;
+        }
+        let mut chosen = None;
+        let last = buttons.len().saturating_sub(1);
+        for (i, b) in buttons.iter().enumerate() {
+            let id = self.next_id();
+            let r = rects[i];
+            let (_, down, clicked) = self.interact(id, r);
+            let base = if i == last {
+                let a = self.theme.accent;
+                if down { darken(a, 0.2) } else { mix(darken(a, 0.08), lighten(a, 0.3), pulse) }
+            } else if down {
+                darken(rgba(238, 238, 240, 255), 0.2)
+            } else {
+                rgba(238, 238, 240, 255)
+            };
+            gel_rect(self.c, r.x, r.y, r.w, r.h, r.h / 2.0, base);
+            let bw = self.fonts.measure(b, TEXT, false);
+            self.fonts.draw(self.c, b, r.x + (r.w - bw) / 2.0, r.y + 15.5, TEXT, false, ink());
+            if clicked {
+                chosen = Some(i);
+            }
+        }
+        let keys = &self.input.keys;
+        if keys.iter().any(|k| k.key == Key::Enter) && !buttons.is_empty() {
+            chosen = Some(last);
+        }
+        if keys.iter().any(|k| k.key == Key::Escape) {
+            if let Some(i) = buttons.iter().position(|b| b.eq_ignore_ascii_case("Cancelar")) {
+                chosen = Some(i);
+            } else if buttons.len() == 1 {
+                chosen = Some(0);
+            }
+        }
+        // Nada embaixo responde enquanto o alerta está aberto.
+        self.set_enabled(false);
+        chosen
     }
 
     // -----------------------------------------------------------------------

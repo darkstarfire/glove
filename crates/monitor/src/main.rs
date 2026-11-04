@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use glove_kit::{
     paint::{draw::*, tiny_skia::PathBuilder, Color},
-    run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    run, AlertKind, App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };
 
 const HISTORY: usize = 60;
@@ -67,6 +67,8 @@ struct Monitor {
     users: HashMap<u32, String>,
     ncpu: f32,
     message: Option<String>,
+    /// Pedido de forçar encerramento esperando confirmação: (pid, nome).
+    confirm_kill: Option<(i32, String)>,
 }
 
 impl Monitor {
@@ -85,6 +87,7 @@ impl Monitor {
             users: users(),
             ncpu,
             message: None,
+            confirm_kill: None,
         };
         m.refresh();
         m
@@ -133,6 +136,10 @@ impl Monitor {
 
     fn kill(&mut self, sig: i32) {
         let Some(pid) = self.selected else { return };
+        self.kill_pid(pid, sig);
+    }
+
+    fn kill_pid(&mut self, pid: i32, sig: i32) {
         if unsafe { libc::kill(pid, sig) } != 0 {
             self.message = Some(format!("Não foi possível encerrar o processo {pid}: {}", std::io::Error::last_os_error()));
         } else {
@@ -238,8 +245,10 @@ impl Monitor {
 
 impl App for Monitor {
     fn ui(&mut self, ui: &mut Ui) {
-        let mut acts: Vec<String> = ui.menu_actions().to_vec();
-        for k in ui.keys() {
+        let asking = self.confirm_kill.is_some();
+        ui.set_enabled(!asking);
+        let mut acts: Vec<String> = if asking { Vec::new() } else { ui.menu_actions().to_vec() };
+        for k in ui.keys().iter().filter(|_| !asking) {
             match k.combo.as_str() {
                 "Ctrl+Q" | "Delete" => acts.push("term".into()),
                 "Ctrl+W" => acts.push("close".into()),
@@ -249,7 +258,12 @@ impl App for Monitor {
         for a in acts {
             match a.as_str() {
                 "term" => self.kill(libc::SIGTERM),
-                "kill" => self.kill(libc::SIGKILL),
+                "kill" => {
+                    if let Some(pid) = self.selected {
+                        let name = self.procs.iter().find(|p| p.pid == pid).map(|p| p.name.clone()).unwrap_or_else(|| pid.to_string());
+                        self.confirm_kill = Some((pid, name));
+                    }
+                }
                 "close" => ui.close = true,
                 _ => {}
             }
@@ -268,6 +282,23 @@ impl App for Monitor {
         let has = self.selected.is_some();
         if has && ui.gel_button(Rect::new(w - 170.0, fy + 6.0, 150.0, 22.0), "Encerrar processo", rgba(240, 240, 243, 255), 12.0, false) {
             self.kill(libc::SIGTERM);
+        }
+
+        if let Some((pid, name)) = self.confirm_kill.clone() {
+            let title = format!("Forçar o encerramento de “{name}”?");
+            let text = "O processo é interrompido na hora, sem chance de salvar. Alterações não salvas serão perdidas.";
+            match ui.alert(AlertKind::Caution, &title, text, &["Cancelar", "Forçar encerramento"]) {
+                Some(1) => {
+                    self.confirm_kill = None;
+                    self.kill_pid(pid, libc::SIGKILL);
+                    ui.redraw = true;
+                }
+                Some(_) => {
+                    self.confirm_kill = None;
+                    ui.redraw = true;
+                }
+                None => {}
+            }
         }
     }
 

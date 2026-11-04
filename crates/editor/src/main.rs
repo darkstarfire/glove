@@ -6,7 +6,7 @@ use glove_kit::{
     paint::draw::*,
     run,
     ui::Key,
-    App, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions,
+    AlertKind, App, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions,
 };
 
 /// Folha (diálogo que desce da barra de título).
@@ -138,6 +138,23 @@ impl Editor {
         if matches!(self.sheet, Sheet::None) {
             return;
         }
+        if matches!(self.sheet, Sheet::AskSave) {
+            let title = format!("Deseja salvar as alterações feitas no documento “{}”?", self.name());
+            match ui.alert(AlertKind::Caution, &title, "Se você não salvar, as alterações serão perdidas.", &["Não salvar", "Cancelar", "Salvar"]) {
+                Some(0) => ui.close = true,
+                Some(1) => {
+                    self.sheet = Sheet::None;
+                    ui.redraw = true;
+                }
+                Some(_) => {
+                    self.sheet = Sheet::None;
+                    self.save(true, ui);
+                    ui.redraw = true;
+                }
+                None => {}
+            }
+            return;
+        }
         let (w, h) = (ui.c.w, ui.c.h);
         ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
         let sw = (w - 40.0).min(440.0);
@@ -154,7 +171,6 @@ impl Editor {
         let escape = ui.keys().iter().any(|k| k.key == Key::Escape);
         let name = self.name();
         let mut next: Option<Sheet> = None;
-        let mut close = false;
         let mut do_save: Option<(PathBuf, bool)> = None;
         let mut do_open: Option<String> = None;
 
@@ -197,24 +213,7 @@ impl Editor {
                     }
                 });
             }
-            Sheet::AskSave => {
-                ui.heading(&format!("Deseja salvar as alterações em “{name}”?"));
-                ui.small("Se você não salvar, as alterações serão perdidas.");
-                ui.space(20.0);
-                ui.horizontal(|ui| {
-                    if ui.button("Não salvar") {
-                        close = true;
-                    }
-                    ui.space(sw - 40.0 - 300.0);
-                    if ui.button("Cancelar") || escape {
-                        next = Some(Sheet::None);
-                    }
-                    if ui.default_button("Salvar") || enter {
-                        do_save = Some((PathBuf::new(), true));
-                    }
-                });
-            }
-            Sheet::None => {}
+            Sheet::AskSave | Sheet::None => {}
         });
 
         if let Some(p) = do_open {
@@ -236,9 +235,6 @@ impl Editor {
             if matches!(self.sheet, Sheet::SaveAs { .. }) {
                 next = None;
             }
-        }
-        if close {
-            ui.close = true;
         }
         if let Some(s) = next {
             self.sheet = s;

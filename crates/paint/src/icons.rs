@@ -2,7 +2,7 @@
 
 use crate::draw::*;
 use crate::font::Fonts;
-use tiny_skia::PathBuilder;
+use tiny_skia::{Color, PathBuilder};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Icon {
@@ -545,4 +545,68 @@ fn trackpad(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(rrect(px, qy, pw, qh, s * 0.04), &solid(rgba(110, 114, 124, 255)), lw);
     // Dedo (marca de toque)
     pm.fill(circle(px + pw * 0.62, py + ph * 0.45, s * 0.06), &solid(rgba(70, 130, 230, 150)));
+}
+
+// ---------------------------------------------------------------------------
+// Ícones de alerta (arte própria: placa vermelha de oito lados e triângulo amarelo)
+// ---------------------------------------------------------------------------
+
+/// Ponto de exclamação vetorial centrado em `cx`, ocupando de `top` até `top + h`.
+fn exclamation(pm: &mut Canvas, cx: f32, top: f32, h: f32, color: Color) {
+    let w = h * 0.2;
+    let bar = h * 0.66;
+    let mut pb = tiny_skia::PathBuilder::new();
+    pb.move_to(cx - w / 2.0, top + w / 2.0);
+    pb.quad_to(cx, top - w * 0.15, cx + w / 2.0, top + w / 2.0);
+    pb.line_to(cx + w * 0.28, top + bar);
+    pb.line_to(cx - w * 0.28, top + bar);
+    pb.close();
+    pm.fill(pb.finish(), &solid(color));
+    pm.fill(circle(cx, top + h - w * 0.55, w * 0.55), &solid(color));
+}
+
+/// Alerta grave: placa vermelha de oito lados em gel, com "!" branco.
+pub fn alert_stop(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let (cx, cy) = (x + s / 2.0, y + s / 2.0);
+    let oct = |r: f32| {
+        let mut pb = tiny_skia::PathBuilder::new();
+        for i in 0..8 {
+            let a = (i as f32 + 0.5) / 8.0 * std::f32::consts::TAU;
+            let (px, py) = (cx + r * a.cos(), cy + r * a.sin());
+            if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+        }
+        pb.close();
+        pb.finish()
+    };
+    let r = s * 0.46;
+    pm.fill(oval(x + s * 0.18, y + s * 0.88, s * 0.64, s * 0.1), &radial(cx, y + s * 0.93, s * 0.32, &[(0.0, rgba(0, 0, 0, 70)), (1.0, rgba(0, 0, 0, 0))]));
+    pm.fill(oct(r), &solid(rgba(255, 255, 255, 255)));
+    pm.fill(oct(r - s * 0.035), &solid(rgba(150, 10, 10, 255)));
+    pm.fill(oct(r - s * 0.05), &radial(cx, cy + r * 0.5, r * 1.3, &[(0.0, rgba(255, 70, 60, 255)), (0.6, rgba(220, 20, 20, 255)), (1.0, rgba(170, 0, 0, 255))]));
+    // Brilho do gel na metade de cima.
+    pm.fill(oval(cx - r * 0.7, cy - r * 0.92, r * 1.4, r * 0.8), &vgrad(cy - r, cy - r * 0.15, &[(0.0, rgba(255, 255, 255, 170)), (1.0, rgba(255, 255, 255, 10))]));
+    exclamation(pm, cx, cy - r * 0.62, r * 1.22, rgba(255, 255, 255, 255));
+}
+
+/// Cuidado: triângulo amarelo de cantos arredondados em gel, com "!" escuro.
+pub fn alert_caution(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let tri = |inset: f32| {
+        let (l, r, t, b) = (x + s * 0.04 + inset, x + s * 0.96 - inset, y + s * 0.08 + inset * 1.4, y + s * 0.9 - inset * 0.6);
+        let mx = x + s / 2.0;
+        let k = s * 0.07;
+        let mut pb = tiny_skia::PathBuilder::new();
+        pb.move_to(mx - k * 0.6, t + k);
+        pb.quad_to(mx, t - k * 0.2, mx + k * 0.6, t + k);
+        pb.line_to(r - k * 0.2, b - k);
+        pb.quad_to(r + k * 0.3, b, r - k, b);
+        pb.line_to(l + k, b);
+        pb.quad_to(l - k * 0.3, b, l + k * 0.2, b - k);
+        pb.close();
+        pb.finish()
+    };
+    pm.fill(oval(x + s * 0.12, y + s * 0.86, s * 0.76, s * 0.1), &radial(x + s / 2.0, y + s * 0.91, s * 0.38, &[(0.0, rgba(0, 0, 0, 60)), (1.0, rgba(0, 0, 0, 0))]));
+    pm.fill(tri(0.0), &solid(rgba(150, 105, 0, 255)));
+    pm.fill(tri(s * 0.025), &vgrad(y + s * 0.1, y + s * 0.9, &[(0.0, rgba(255, 236, 120, 255)), (0.55, rgba(252, 204, 30, 255)), (1.0, rgba(236, 160, 10, 255))]));
+    pm.fill(tri(s * 0.09), &vgrad(y + s * 0.15, y + s * 0.6, &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(255, 255, 255, 0))]));
+    exclamation(pm, x + s / 2.0, y + s * 0.3, s * 0.48, rgba(30, 25, 10, 255));
 }

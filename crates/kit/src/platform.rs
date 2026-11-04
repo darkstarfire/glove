@@ -106,6 +106,15 @@ pub struct WindowOptions {
     pub fixed: bool,
 }
 
+/// Ícone do app pelo app_id (a mesma lista do Dock).
+fn app_icon(app_id: &str) -> glove_paint::icons::Icon {
+    glove_config::default_dock_apps()
+        .into_iter()
+        .find(|a| a.app_id == app_id)
+        .map(|a| glove_paint::icons::Icon::from_name(&a.icon))
+        .unwrap_or(glove_paint::icons::Icon::Window)
+}
+
 pub fn theme_from_config() -> Theme {
     let c = glove_config::Config::load();
     Theme::new(Variant::from_config(&c.theme))
@@ -278,7 +287,7 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         frame_pending: false,
         exit: false,
         input: Input::default(),
-        mem: Memory::default(),
+        mem: Memory::with_app_icon(app_icon(&opts.app_id)),
         fonts: Fonts::load_system().ok_or("nenhuma fonte encontrada")?,
         doc_fonts: Fonts::load_document().ok_or("nenhuma fonte encontrada")?,
         theme: theme_from_config(),
@@ -695,8 +704,16 @@ impl<A: App> SeatHandler for Runner<A> {
 }
 
 impl<A: App> KeyboardHandler for Runner<A> {
-    fn enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32, _: &[u32], _: &[Keysym]) {}
-    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32) {}
+    fn enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32, _: &[u32], _: &[Keysym]) {
+        self.input.active = true;
+        self.dirty = true;
+        self.draw_now();
+    }
+    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32) {
+        self.input.active = false;
+        self.dirty = true;
+        self.draw_now();
+    }
     fn press_key(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, serial: u32, ev: KeyEvent) {
         self.last_serial = serial;
         self.key(&ev);
