@@ -19,7 +19,7 @@ fn main() {
         for (sx, sy, sh) in window_shadow(ww, wh + TITLE_H, active, scale) {
             screen.draw_canvas(&sh, (x + sx) as f32, (y + sy) as f32);
         }
-        let st = TitleBarState { active, hover: active, pressed: None };
+        let st = TitleBarState { active, hover: active, pressed: None, zoom_enabled: true };
         let tb = titlebar(&fonts, &theme, ww as f32, title, &st, scale).unwrap();
         screen.draw_canvas(&tb, x as f32, y as f32);
         let mut body = Canvas::new(ww as f32, wh as f32, scale).unwrap();

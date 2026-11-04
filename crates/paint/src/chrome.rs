@@ -41,6 +41,8 @@ pub struct TitleBarState {
     pub active: bool,
     pub hover: bool,
     pub pressed: Option<TitleButton>,
+    /// Zoom disponível (janelas de tamanho fixo mostram o botão desbotado).
+    pub zoom_enabled: bool,
 }
 
 pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBarState, scale: f32) -> Option<Canvas> {
@@ -55,6 +57,17 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
                 (lighten(theme.metal_top, 0.3), lighten(theme.metal_bottom, 0.4))
             };
             c.brushed_metal(0.0, 0.0, w, h, top, bot);
+        }
+        Variant::Listras => {
+            // Listras claras, quase sem degradê (10.2). A inativa fica translúcida.
+            let (top, bot) = if st.active {
+                (rgba(246, 246, 246, 255), rgba(226, 226, 226, 255))
+            } else {
+                (rgba(250, 250, 250, 200), rgba(238, 238, 238, 200))
+            };
+            c.fill_rect(0.0, 0.0, w, h, &vgrad(0.0, h, &[(0.0, top), (1.0, bot)]));
+            let a = if st.active { 0.6 } else { 0.35 };
+            c.pinstripes(0.0, 0.0, w, h, rgba(255, 255, 255, 0), with_alpha(Color::WHITE, a));
         }
         _ => {
             let (top, bot) = if st.active {
@@ -84,6 +97,19 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
         };
         if st.pressed == Some(b) {
             base = darken(base, 0.3);
+        }
+        let enabled = b != TitleButton::Zoom || st.zoom_enabled;
+        if !st.active && theme.variant == Variant::Listras {
+            // Inativa no 10.2: só o contorno do botão, com um brilho por dentro.
+            c.fill(circle(cx, cy, BUTTON_R), &vgrad(cy - BUTTON_R, cy + BUTTON_R, &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(225, 225, 228, 120))]));
+            c.stroke(circle(cx, cy, BUTTON_R - 0.5), &solid(rgba(168, 168, 168, 255)), 1.0);
+            c.fill(oval(cx - BUTTON_R * 0.55, cy - BUTTON_R * 0.85, BUTTON_R * 1.1, BUTTON_R * 0.7), &solid(rgba(255, 255, 255, 170)));
+            continue;
+        }
+        if !enabled {
+            // Indisponível: o mesmo gel, desbotado.
+            gel_circle(&mut c, cx, cy, BUTTON_R, with_alpha(lighten(base, 0.35), 0.4));
+            continue;
         }
         gel_circle(&mut c, cx, cy, BUTTON_R, base);
         if st.hover {

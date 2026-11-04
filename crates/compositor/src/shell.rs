@@ -60,6 +60,17 @@ impl Tex {
     }
 }
 
+/// Janela de tamanho fixo (mínimo = máximo): sem zoom.
+pub fn fixed_size(w: &Window) -> bool {
+    let Some(t) = w.toplevel() else { return false };
+    let (min, max) = with_states(t.wl_surface(), |st| {
+        let mut c = st.cached_state.get::<SurfaceCachedState>();
+        let d = c.current();
+        (d.min_size, d.max_size)
+    });
+    min.w > 0 && min == max
+}
+
 pub fn to_tex(c: Canvas) -> Tex {
     let size = (c.w.round() as i32, c.h.round() as i32).into();
     let px = (c.px_width() as i32, c.px_height() as i32);
@@ -440,12 +451,7 @@ impl Glove {
     pub fn toggle_zoom(&mut self, w: &Window) {
         let Some(t) = w.toplevel().cloned() else { return };
         // Janelas de tamanho fixo não têm zoom.
-        let (min, max) = with_states(t.wl_surface(), |st| {
-            let mut c = st.cached_state.get::<SurfaceCachedState>();
-            let d = c.current();
-            (d.min_size, d.max_size)
-        });
-        if min.w > 0 && min == max {
+        if fixed_size(w) {
             return;
         }
         let Some(geo) = self.space.element_geometry(w) else { return };
@@ -861,6 +867,7 @@ impl Glove {
                 active,
                 hover: self.chrome.hover_buttons.as_ref() == Some(w),
                 pressed: self.chrome.pressed_button.as_ref().filter(|(pw, _)| pw == w).map(|(_, b)| *b),
+                zoom_enabled: !fixed_size(w),
             };
             let (title, _) = window_info(w);
             let tkey = (size.w, st.clone(), title.clone(), tgen);
