@@ -29,9 +29,11 @@ pub fn render(theme: &Theme, w: f32, h: f32, scale: f32) -> Option<Canvas> {
         pb.close();
         c.fill(
             pb.finish(),
+            // Degradê pela altura real da faixa (com curva negativa, os limites se
+            // invertiam e o degradê virava uma emenda dura).
             &vgrad(
-                y0 - h * bend,
-                y0 + h * bend + t,
+                y0 - h * bend.abs(),
+                y0 + h * bend.abs() + t * 1.6,
                 &[(0.0, with_alpha(light, 0.0)), (0.5, with_alpha(light, alpha)), (1.0, with_alpha(light, 0.0))],
             ),
         );

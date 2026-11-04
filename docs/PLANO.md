@@ -41,7 +41,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 - [x] 1.1 Rótulo do Dock: texto branco em negrito com contorno escuro, sem pílula (P)
 - [x] 1.2 Prateleira do Dock listrada e encostada na borda; ícones sem a sombra elíptica (P)
-- [ ] 1.3 Papel de parede: tirar a faixa clara (emenda do degradê) (P)
+- [x] 1.3 Papel de parede: tirar a faixa clara (emenda do degradê) (P)
 - [ ] 1.4 Menus: listras opacas, cantos retos, sombra forte, itens de 19 pt, atalhos em 2 colunas (P)
 - [ ] 1.5 Janela inativa: botões só com contorno e barra translúcida; botões de título desabilitáveis (P)
 - [ ] 1.6 Calculadora com visor verde-claro e botões neutros, como a referência (P)
