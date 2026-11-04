@@ -231,36 +231,59 @@ impl MenuItem {
     }
 }
 
-/// "Ctrl+Shift+S" → "⇧Ctrl S" fica confuso; mostramos "Ctrl+Shift+S" mais curto: "Ctrl ⇧ S".
-fn shortcut_label(s: &str) -> String {
-    s.split('+')
-        .map(|p| match p {
-            "Shift" => "⇧",
-            "Return" => "↩",
-            "BackSpace" => "⌫",
-            "Up" => "↑",
-            "Down" => "↓",
-            "Comma" | "comma" => ",",
-            "equal" => "=",
-            "minus" => "-",
-            other => other,
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+/// Atalho em duas partes, como nos menus da era: modificadores em símbolos (na ordem
+/// ⌃ ⌥ ⇧ ❖) e a tecla, que fica numa coluna própria. "Ctrl+Shift+S" → ("⌃⇧", "S").
+fn shortcut_parts(s: &str) -> (String, String) {
+    let parts: Vec<&str> = s.split('+').collect();
+    let (mods, key) = parts.split_at(parts.len().saturating_sub(1));
+    let mut m = String::new();
+    for (name, glyph) in [("Ctrl", "⌃"), ("Alt", "⌥"), ("Shift", "⇧"), ("Super", "❖")] {
+        if mods.iter().any(|p| p.eq_ignore_ascii_case(name)) {
+            m.push_str(glyph);
+        }
+    }
+    let key = match key.first().copied().unwrap_or("") {
+        "Return" => "↩",
+        "BackSpace" => "⌫",
+        "Delete" => "⌦",
+        "Escape" => "⎋",
+        "Tab" => "⇥",
+        "Up" => "↑",
+        "Down" => "↓",
+        "Left" => "←",
+        "Right" => "→",
+        "Comma" | "comma" => ",",
+        "period" => ".",
+        "equal" => "=",
+        "minus" => "-",
+        "plus" => "+",
+        "space" => "Espaço",
+        other => other,
+    };
+    let key = if key.chars().count() == 1 { key.to_uppercase() } else { key.to_string() };
+    (m, key)
 }
 
-pub const MENU_ITEM_H: f32 = 20.0;
-const SEP_H: f32 = 10.0;
+pub const MENU_ITEM_H: f32 = 19.0;
+/// Separador: um vão (no tema Listras sem linha, como no 10.2).
+const SEP_H: f32 = 11.0;
 const MENU_PAD: f32 = 4.0;
 /// Margem de sombra em volta do menu (esquerda, direita e embaixo).
 pub const MENU_SHADOW: i32 = 12;
+const MENU_PX: f32 = 14.0;
+
+/// Larguras das colunas de atalho (modificadores, tecla).
+fn shortcut_columns(fonts: &Fonts, items: &[MenuItem]) -> (f32, f32) {
+    items.iter().filter(|i| !i.shortcut.is_empty()).fold((0.0f32, 0.0f32), |(mw, kw), i| {
+        let (m, k) = shortcut_parts(&i.shortcut);
+        (mw.max(fonts.measure(&m, MENU_PX, false)), kw.max(fonts.measure(&k, MENU_PX, false)))
+    })
+}
 
 pub fn menu_content_size(fonts: &Fonts, items: &[MenuItem]) -> (f32, f32) {
-    let w = items
-        .iter()
-        .map(|i| fonts.measure(&i.label, 14.0, false) + if i.shortcut.is_empty() { 0.0 } else { fonts.measure(&shortcut_label(&i.shortcut), 14.0, false) + 36.0 })
-        .fold(0.0, f32::max)
-        + 48.0;
+    let (mw, kw) = shortcut_columns(fonts, items);
+    let shortcuts = if mw + kw > 0.0 { mw + kw + 30.0 } else { 0.0 };
+    let w = items.iter().map(|i| fonts.measure(&i.label, MENU_PX, false)).fold(0.0, f32::max) + shortcuts + 44.0;
     let h = items.iter().map(|i| if i.separator { SEP_H } else { MENU_ITEM_H }).sum::<f32>() + MENU_PAD * 2.0;
     (w.max(180.0).ceil(), h.ceil())
 }
@@ -284,20 +307,24 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
     let m = MENU_SHADOW as f32;
     let mut c = Canvas::new(w + 2.0 * m, h + m, scale)?;
 
-    let s = ShadowSpec { blur: 10.0, offset_y: 3.0, radius: 5.0, alpha: 0.35 };
+    // Sombra forte para baixo e cantos retos, como nos menus da era.
+    let s = ShadowSpec { blur: 8.0, offset_y: 4.0, radius: 0.0, alpha: 0.45 };
     if let Some(sh) = Canvas::shadow(-m, 0.0, w + 2.0 * m, h + m, w, h, &s, scale) {
         c.draw_canvas(&sh, 0.0, 0.0);
     }
     let x0 = m;
-    let body = rrect4(x0, 0.0, w, h, [0.0, 0.0, 5.0, 5.0]);
-    c.fill(body.clone(), &solid(rgba(255, 255, 255, 235)));
-    c.pinstripes(x0, 0.0, w, h - 5.0, rgba(240, 240, 240, 120), rgba(255, 255, 255, 0));
-    c.stroke(body, &solid(rgba(0, 0, 0, 60)), 1.0 / scale);
+    c.fill_rect(x0, 0.0, w, h, &solid(rgba(246, 247, 249, 248)));
+    c.pinstripes(x0, 0.0, w, h, rgba(246, 247, 249, 0), rgba(230, 232, 234, 235));
+    c.stroke(rrect(x0, 0.0, w, h, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
 
+    let (mw, kw) = shortcut_columns(fonts, items);
+    let key_x = x0 + w - 14.0 - kw;
     let mut cy = MENU_PAD;
     for (i, it) in items.iter().enumerate() {
         if it.separator {
-            c.hline(x0 + 1.0, cy + SEP_H / 2.0, w - 2.0, rgba(0, 0, 0, 40));
+            if theme.variant != crate::theme::Variant::Listras {
+                c.hline(x0 + 1.0, cy + SEP_H / 2.0, w - 2.0, rgba(212, 212, 212, 255));
+            }
             cy += SEP_H;
             continue;
         }
@@ -310,19 +337,22 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
         } else if it.enabled {
             theme.menu_text
         } else {
-            rgba(150, 150, 150, 255)
+            rgba(160, 160, 160, 255)
         };
+        let base = cy + 14.5;
         if it.checked {
-            fonts.draw(&mut c, "✓", x0 + 8.0, cy + 15.5, 14.0, false, color);
+            fonts.draw(&mut c, "✓", x0 + 7.0, base, MENU_PX, false, color);
         }
-        fonts.draw(&mut c, &it.label, x0 + 24.0, cy + 15.5, 14.0, false, color);
+        fonts.draw(&mut c, &it.label, x0 + 22.0, base, MENU_PX, false, color);
         if !it.shortcut.is_empty() {
-            let sl = shortcut_label(&it.shortcut);
-            let sw = fonts.measure(&sl, 14.0, false);
-            fonts.draw(&mut c, &sl, x0 + w - sw - 16.0, cy + 15.5, 14.0, false, color);
+            let (m, k) = shortcut_parts(&it.shortcut);
+            let msw = fonts.measure(&m, MENU_PX, false);
+            fonts.draw(&mut c, &m, key_x - 2.0 - msw, base, MENU_PX, false, color);
+            fonts.draw(&mut c, &k, key_x, base, MENU_PX, false, color);
         }
         cy += MENU_ITEM_H;
     }
+    let _ = mw;
     Some(c)
 }
 
@@ -528,4 +558,17 @@ pub fn cursor_arrow(scale: f32) -> Option<Canvas> {
     c.stroke(arrow(0.0, 0.0), &solid(rgba(255, 255, 255, 255)), 2.2);
     c.fill(arrow(0.0, 0.0), &solid(rgba(0, 0, 0, 255)));
     Some(c)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn atalhos_em_duas_partes() {
+        assert_eq!(shortcut_parts("Ctrl+Shift+S"), ("⌃⇧".into(), "S".into()));
+        assert_eq!(shortcut_parts("Ctrl+o"), ("⌃".into(), "O".into()));
+        assert_eq!(shortcut_parts("Super+Return"), ("❖".into(), "↩".into()));
+        assert_eq!(shortcut_parts("F5"), ("".into(), "F5".into()));
+    }
 }
