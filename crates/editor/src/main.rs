@@ -2,18 +2,15 @@
 
 use std::path::{Path, PathBuf};
 
-use glove_kit::{
-    paint::draw::*,
-    run,
-    ui::Key,
-    AlertKind, App, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions,
-};
+use glove_kit::{run, AlertKind, App, Choice, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
 
 /// Folha (diálogo que desce da barra de título).
 enum Sheet {
     None,
-    Open { path: String, error: Option<String> },
-    SaveAs { path: String, error: Option<String>, then_close: bool },
+    Open(FileBrowser),
+    SaveAs { fb: FileBrowser, then_close: bool },
+    /// Erro ao abrir ou salvar (alerta com OK).
+    Error(String),
     AskSave,
 }
 
@@ -31,21 +28,6 @@ fn home() -> PathBuf {
 fn documents_dir() -> PathBuf {
     let h = home();
     ["Documentos", "Documents"].iter().map(|d| h.join(d)).find(|p| p.is_dir()).unwrap_or(h)
-}
-
-fn expand_tilde(s: &str) -> PathBuf {
-    match s.strip_prefix("~/") {
-        Some(rest) => home().join(rest),
-        None => PathBuf::from(s),
-    }
-}
-
-fn display_path(p: &Path) -> String {
-    let h = home();
-    match p.strip_prefix(&h) {
-        Ok(rest) => format!("~/{}", rest.display()),
-        Err(_) => p.display().to_string(),
-    }
 }
 
 /// Grava de forma segura: arquivo temporário ao lado + renomear.
@@ -66,7 +48,7 @@ impl Editor {
                 }
                 // Arquivo novo: começa vazio e salva nesse caminho.
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => ed.path = Some(p),
-                Err(e) => ed.sheet = Sheet::Open { path: p.display().to_string(), error: Some(format!("Não consegui abrir: {e}")) },
+                Err(e) => ed.sheet = Sheet::Error(format!("Não consegui abrir “{}”: {e}", p.display())),
             }
         }
         ed
@@ -85,17 +67,15 @@ impl Editor {
                         ui.close = true;
                     }
                 }
-                Err(e) => self.sheet = Sheet::SaveAs { path: display_path(&p), error: Some(format!("Não consegui salvar: {e}")), then_close },
+                Err(e) => self.sheet = Sheet::Error(format!("Não consegui salvar “{}”: {e}", p.display())),
             },
             None => {
-                let suggestion = documents_dir().join("Sem título.txt");
-                self.sheet = Sheet::SaveAs { path: display_path(&suggestion), error: None, then_close };
+                self.sheet = Sheet::SaveAs { fb: FileBrowser::save(Some(documents_dir()), "Sem título.txt"), then_close };
             }
         }
     }
 
-    fn open(&mut self, path: &str) -> Result<(), String> {
-        let p = expand_tilde(path.trim());
+    fn open(&mut self, p: PathBuf) -> Result<(), String> {
         let t = std::fs::read_to_string(&p).map_err(|e| format!("Não consegui abrir: {e}"))?;
         // Documento atual vazio e intocado: abre aqui; senão, numa janela nova.
         if self.buf.is_empty() && !self.buf.modified && self.path.is_none() {
@@ -116,7 +96,7 @@ impl Editor {
             Some("new") => spawn_self(None),
             Some("open") => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_else(documents_dir);
-                self.sheet = Sheet::Open { path: format!("{}/", display_path(&dir)), error: None };
+                self.sheet = Sheet::Open(FileBrowser::open(Some(dir), &[]));
             }
             Some("save") => self.save(false, ui),
             Some("close") => {
@@ -155,90 +135,34 @@ impl Editor {
             }
             return;
         }
-        let (w, h) = (ui.c.w, ui.c.h);
-        ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
-        let sw = (w - 40.0).min(440.0);
-        let sh = 150.0;
-        let sx = (w - sw) / 2.0;
-        if let Some(shadow) = Canvas::shadow(-14.0, 0.0, sw + 28.0, sh + 18.0, sw, sh, &ShadowSpec { blur: 14.0, offset_y: 4.0, radius: 6.0, alpha: 0.45 }, ui.c.scale) {
-            ui.c.draw_canvas(&shadow, sx - 14.0, 0.0);
+        if let Sheet::Error(msg) = &self.sheet {
+            let msg = msg.clone();
+            if ui.alert(AlertKind::Stop, &msg, "", &["OK"]).is_some() {
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
         }
-        ui.c.fill(rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 7.0, 7.0]), &solid(rgba(238, 238, 238, 248)));
-        ui.c.pinstripes(sx, 0.0, sw, sh - 7.0, rgba(232, 232, 232, 255), rgba(244, 244, 244, 255));
-        ui.c.stroke(rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 7.0, 7.0]), &solid(rgba(0, 0, 0, 70)), 1.0 / ui.c.scale);
-
-        let enter = ui.keys().iter().any(|k| k.key == Key::Enter);
-        let escape = ui.keys().iter().any(|k| k.key == Key::Escape);
-        let name = self.name();
-        let mut next: Option<Sheet> = None;
-        let mut do_save: Option<(PathBuf, bool)> = None;
-        let mut do_open: Option<String> = None;
-
-        ui.set_enabled(true);
-        ui.area(Rect::new(sx + 20.0, 18.0, sw - 40.0, sh - 30.0), |ui| match &mut self.sheet {
-            Sheet::Open { path, error } => {
-                ui.heading("Abrir arquivo");
-                ui.text_field(path, sw - 40.0);
-                if let Some(e) = error {
-                    ui.small(e);
-                } else {
-                    ui.small("Digite o caminho do arquivo.");
-                }
-                ui.horizontal(|ui| {
-                    ui.space(sw - 40.0 - 170.0);
-                    if ui.button("Cancelar") || escape {
-                        next = Some(Sheet::None);
-                    }
-                    if ui.default_button("Abrir") || enter {
-                        do_open = Some(path.clone());
-                    }
-                });
-            }
-            Sheet::SaveAs { path, error, then_close } => {
-                ui.heading(&format!("Salvar “{name}” como:"));
-                ui.text_field(path, sw - 40.0);
-                if let Some(e) = error {
-                    ui.small(e);
-                } else {
-                    ui.small("Digite o caminho completo, com o nome do arquivo.");
-                }
-                let tc = *then_close;
-                ui.horizontal(|ui| {
-                    ui.space(sw - 40.0 - 170.0);
-                    if ui.button("Cancelar") || escape {
-                        next = Some(Sheet::None);
-                    }
-                    if ui.default_button("Salvar") || enter {
-                        do_save = Some((expand_tilde(path.trim()), tc));
-                    }
-                });
-            }
-            Sheet::AskSave | Sheet::None => {}
-        });
-
-        if let Some(p) = do_open {
-            match self.open(&p) {
-                Ok(()) => next = Some(Sheet::None),
-                Err(e) => {
-                    if let Sheet::Open { error, .. } = &mut self.sheet {
-                        *error = Some(e);
-                    }
+        // Abrir e Salvar como: o diálogo em colunas do kit.
+        let choice = match &mut self.sheet {
+            Sheet::Open(fb) | Sheet::SaveAs { fb, .. } => ui.file_sheet(fb),
+            _ => None,
+        };
+        let Some(choice) = choice else { return };
+        let sheet = std::mem::replace(&mut self.sheet, Sheet::None);
+        ui.redraw = true;
+        match (sheet, choice) {
+            (_, Choice::Cancelled) => {}
+            (Sheet::Open(_), Choice::Picked(p)) => {
+                if let Err(e) = self.open(p) {
+                    self.sheet = Sheet::Error(e);
                 }
             }
-        }
-        if let Some((p, then_close)) = do_save {
-            if !p.as_os_str().is_empty() {
+            (Sheet::SaveAs { then_close, .. }, Choice::Picked(p)) => {
                 self.path = Some(p);
+                self.save(then_close, ui);
             }
-            self.sheet = Sheet::None;
-            self.save(then_close, ui);
-            if matches!(self.sheet, Sheet::SaveAs { .. }) {
-                next = None;
-            }
-        }
-        if let Some(s) = next {
-            self.sheet = s;
-            ui.redraw = true;
+            _ => {}
         }
     }
 }
@@ -269,8 +193,8 @@ impl App for Editor {
                     "Ctrl+equal" | "Ctrl+plus" => action = Some("bigger"),
                     "Ctrl+minus" => action = Some("smaller"),
                     "Ctrl+Shift+S" => {
-                        let p = self.path.clone().unwrap_or_else(|| documents_dir().join("Sem título.txt"));
-                        self.sheet = Sheet::SaveAs { path: display_path(&p), error: None, then_close: false };
+                        let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).or_else(|| Some(documents_dir()));
+                        self.sheet = Sheet::SaveAs { fb: FileBrowser::save(dir, &self.name()), then_close: false };
                     }
                     _ => {}
                 }

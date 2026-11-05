@@ -10,7 +10,7 @@ use glove_kit::{
     },
     run,
     ui::Key,
-    App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    App, Choice, FileBrowser, Menu, MenuItem, Rect, Ui, WindowOptions,
 };
 
 /// Lado máximo guardado na memória (fotos maiores são reduzidas ao abrir).
@@ -105,11 +105,13 @@ struct Viewer {
     pan: (f32, f32),
     drag_from: Option<(f32, f32)>,
     last_title: String,
+    /// Diálogo Abrir aberto.
+    open_fb: Option<FileBrowser>,
 }
 
 impl Viewer {
     fn new(path: Option<PathBuf>) -> Self {
-        let mut v = Self { path: None, image: None, error: None, zoom: None, pan: (0.0, 0.0), drag_from: None, last_title: String::new() };
+        let mut v = Self { path: None, image: None, error: None, zoom: None, pan: (0.0, 0.0), drag_from: None, last_title: String::new(), open_fb: None };
         if let Some(p) = path {
             v.load(p);
         }
@@ -174,6 +176,10 @@ impl Viewer {
     fn action(&mut self, a: &str, ui: &mut Ui, area: Rect) {
         let k = self.scale(area);
         match a {
+            "open" => {
+                let dir = self.path.as_ref().and_then(|p| p.parent().map(|d| d.to_path_buf()));
+                self.open_fb = Some(FileBrowser::open(dir, &["png", "jpg", "jpeg"]));
+            }
             "bigger" => self.set_zoom(k * 1.25),
             "smaller" => self.set_zoom(k / 1.25),
             "actual" => {
@@ -215,7 +221,8 @@ impl App for Viewer {
                 "Ctrl+L" => "rot-left",
                 "Ctrl+R" => "rot-right",
                 "Ctrl+W" => "close",
-                "Ctrl+O" => "reveal",
+                "Ctrl+O" => "open",
+                "Ctrl+Shift+R" => "reveal",
                 "Right" => "next",
                 "Left" => "prev",
                 _ => match k.key {
@@ -229,6 +236,10 @@ impl App for Viewer {
             }
         }
         acts.extend(ui.menu_actions().iter().cloned());
+        // Com o diálogo Abrir na frente, as teclas são dele.
+        if self.open_fb.is_some() {
+            acts.clear();
+        }
         for a in acts {
             self.action(&a, ui, area);
         }
@@ -277,7 +288,7 @@ impl App for Viewer {
             let ks = k * s * f;
             ui.c.draw_pixmap_t(lvl.as_ref(), &paint, Transform::from_row(ks, 0.0, 0.0, ks, x * s, y * s));
         } else {
-            let msg = self.error.clone().unwrap_or_else(|| "Abra uma imagem pelo Arquivos (clique duplo).".into());
+            let msg = self.error.clone().unwrap_or_else(|| "Abra uma imagem com Arquivo › Abrir… (Ctrl+O) ou pelo Arquivos.".into());
             let tw = ui.text_width(&msg, 13.0, false);
             ui.fonts.draw(ui.c, &msg, (w - tw) / 2.0, h / 2.0, 13.0, false, Color::WHITE);
         }
@@ -285,6 +296,16 @@ impl App for Viewer {
         // Faixa inferior (puxador de redimensionar)
         ui.c.fill_rect(0.0, h - 15.0, w, 15.0, &vgrad(h - 15.0, h, &[(0.0, rgba(232, 232, 236, 255)), (1.0, rgba(214, 214, 218, 255))]));
         ui.c.hline(0.0, h - 15.0, w, rgba(150, 150, 156, 255));
+        // Diálogo Abrir (só imagens que o Visualizador lê).
+        if let Some(fb) = &mut self.open_fb {
+            if let Some(c) = ui.file_sheet(fb) {
+                self.open_fb = None;
+                if let Choice::Picked(p) = c {
+                    self.load(p);
+                }
+                ui.redraw = true;
+            }
+        }
     }
 
     fn menus(&self) -> Vec<Menu> {
@@ -292,7 +313,12 @@ impl App for Viewer {
         vec![
             Menu::new(
                 "Arquivo",
-                vec![MenuItem::new("reveal", "Mostrar no Arquivos", "Ctrl+O"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")],
+                vec![
+                    MenuItem::new("open", "Abrir…", "Ctrl+O"),
+                    MenuItem::new("reveal", "Mostrar no Arquivos", "Ctrl+Shift+R"),
+                    MenuItem::Separator,
+                    MenuItem::new("close", "Fechar", "Ctrl+W"),
+                ],
             ),
             Menu::new(
                 "Visualizar",

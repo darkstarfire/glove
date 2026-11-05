@@ -5,7 +5,7 @@
 
 use std::path::PathBuf;
 
-use glove_kit::{run, App, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
+use glove_kit::{run, App, Choice, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
 
 const COLORS: [(&str, &str, (u8, u8, u8)); 6] = [
     ("amarelo", "Amarelo", (255, 244, 160)),
@@ -103,6 +103,8 @@ impl Note {
 struct Notes {
     note: Note,
     last_title: String,
+    /// Exportar/Importar: o diálogo, se é exportar e o tamanho da janela antes dele.
+    file: Option<(FileBrowser, bool, (f32, f32))>,
 }
 
 impl App for Notes {
@@ -113,6 +115,8 @@ impl App for Notes {
                 "Ctrl+N" => acts.push("new".into()),
                 "Ctrl+W" => acts.push("close".into()),
                 "Ctrl+M" => acts.push("minimize".into()),
+                "Ctrl+Shift+E" => acts.push("export".into()),
+                "Ctrl+Shift+I" => acts.push("import".into()),
                 _ => {}
             }
         }
@@ -130,6 +134,18 @@ impl App for Notes {
                     self.note.deleted = true;
                     ui.close = true;
                 }
+                // A janela cresce enquanto o diálogo está aberto e volta depois.
+                "export" | "import" if self.file.is_none() => {
+                    let size = (ui.c.w, ui.c.h);
+                    let fb = if a == "export" {
+                        let name: String = self.note.title().chars().filter(|c| *c != '/').collect();
+                        FileBrowser::save(None, &format!("{}.txt", name.trim()))
+                    } else {
+                        FileBrowser::open(None, &["txt", "md"])
+                    };
+                    self.file = Some((fb, a == "export", size));
+                    ui.set_window_size(560.0, 420.0, true);
+                }
                 c if c.starts_with("cor-") => {
                     if let Some(i) = COLORS.iter().position(|(id, _, _)| c[4..] == **id) {
                         self.note.color = i;
@@ -142,6 +158,25 @@ impl App for Notes {
         }
 
         let (w, h) = (ui.c.w, ui.c.h);
+        if let Some((fb, export, size)) = &mut self.file {
+            let (export, size) = (*export, *size);
+            ui.set_enabled(false);
+            ui.text_area(&mut self.note.buf, Rect::new(0.0, 0.0, w, h));
+            if let Some(c) = ui.file_sheet(fb) {
+                self.file = None;
+                ui.set_window_size(size.0, size.1, true);
+                if let Choice::Picked(p) = c {
+                    if export {
+                        let _ = std::fs::write(&p, self.note.buf.text());
+                    } else if let Ok(t) = std::fs::read_to_string(&p) {
+                        self.note.buf.insert(&t);
+                        self.note.save();
+                    }
+                }
+            }
+            ui.set_enabled(true);
+            return;
+        }
         if ui.text_area(&mut self.note.buf, Rect::new(0.0, 0.0, w, h)) {
             // Salva a cada mudança: arquivos minúsculos, nada se perde.
             self.note.save();
@@ -160,6 +195,9 @@ impl App for Notes {
                 "Arquivo",
                 vec![
                     MenuItem::new("new", "Novo lembrete", "Ctrl+N"),
+                    MenuItem::Separator,
+                    MenuItem::new("import", "Importar texto…", "Ctrl+Shift+I"),
+                    MenuItem::new("export", "Exportar como texto…", "Ctrl+Shift+E"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar", "Ctrl+W"),
                     MenuItem::new("delete", "Apagar lembrete", ""),
@@ -210,7 +248,7 @@ fn main() {
         note.save();
     }
     let opts = WindowOptions { title: note.title(), app_id: "glove.Notes".into(), size: (260, 220), fixed: false };
-    if let Err(e) = run(opts, Notes { note, last_title: String::new() }) {
+    if let Err(e) = run(opts, Notes { note, last_title: String::new(), file: None }) {
         eprintln!("glove-notes: {e}");
     }
 }
