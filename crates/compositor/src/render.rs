@@ -167,6 +167,12 @@ impl Glove {
         let c = &self.chrome;
         let sc = self.scale();
 
+        // Protetor de tela: cobre tudo (e esconde o cursor); nada por baixo precisa ser desenhado.
+        if let Some(t) = self.saver.as_ref().and_then(|s| s.tex.as_ref()) {
+            out.extend(mem(renderer, (0, 0).into(), t, sc));
+            return out;
+        }
+
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
         }

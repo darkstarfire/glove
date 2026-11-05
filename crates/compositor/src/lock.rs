@@ -102,6 +102,18 @@ impl Glove {
         let (screen, sleep) = self.idle_timeouts();
         let idle = self.idle.last_input.map(|t| t.elapsed()).unwrap_or_default();
         let mut next = Duration::from_secs(60);
+        // Protetor de tela antes de apagar (se vier antes do apagar).
+        let saver = self.config.saver.minutes;
+        if saver > 0 && !self.greeter {
+            let timeout = Duration::from_secs(saver as u64 * 60);
+            if idle >= timeout {
+                if self.saver.is_none() && !self.idle.screen_off && screen.is_none_or(|s| timeout < s) {
+                    self.start_saver(None, false);
+                }
+            } else {
+                next = next.min(timeout - idle);
+            }
+        }
         if let Some(timeout) = screen {
             if idle >= timeout {
                 if !self.idle.screen_off {
@@ -128,6 +140,8 @@ impl Glove {
     }
 
     pub fn screen_off(&mut self) {
+        // Tela apagada: o protetor para de desenhar.
+        self.saver = None;
         if self.config.energy.require_password {
             self.lock_screen();
         }
@@ -141,6 +155,10 @@ impl Glove {
     pub fn note_input(&mut self) -> bool {
         self.idle.last_input = Some(Instant::now());
         self.idle.slept = false;
+        // Qualquer entrada tira o protetor (e só serve para isso).
+        if self.stop_saver() {
+            return true;
+        }
         if self.idle.screen_off {
             self.idle.screen_off = false;
             self.dirty = true;

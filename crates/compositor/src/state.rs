@@ -86,6 +86,8 @@ pub struct Glove {
     /// A seta padrão, desenhada na escala atual.
     pub cursor_tex: Option<crate::shell::Tex>,
     pub cursor_tex_scale: f64,
+    /// Protetor de tela na tela.
+    pub saver: Option<crate::saver::ScreenSaver>,
     /// Textura e programa dos efeitos do Acesso Universal.
     pub effects: std::cell::RefCell<crate::render::EffectCache>,
     /// Ctrl+Alt+F1…F12 na sessão própria: trocar para esse console.
@@ -203,6 +205,7 @@ impl Glove {
             cursor_tex: None,
             cursor_tex_scale: 0.0,
             effects: Default::default(),
+            saver: None,
             ending: None,
             pinger: Default::default(),
             force_quit: None,

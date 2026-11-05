@@ -16,6 +16,7 @@ mod recent;
 mod render;
 mod shell;
 mod search;
+mod saver;
 mod startup;
 mod state;
 mod switcher;

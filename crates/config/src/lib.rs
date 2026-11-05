@@ -59,6 +59,22 @@ impl Clock {
     }
 }
 
+/// Protetor de tela.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Saver {
+    /// Qual (ver `glove_paint::saver::SAVERS`).
+    pub kind: String,
+    /// Minutos parado até começar; 0 = nunca.
+    pub minutes: u32,
+}
+
+impl Default for Saver {
+    fn default() -> Self {
+        Self { kind: "aurora".into(), minutes: 5 }
+    }
+}
+
 /// Acesso Universal (feito pelo compositor).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -475,6 +491,8 @@ pub struct Config {
     pub clock: Clock,
     #[serde(default)]
     pub access: Access,
+    #[serde(default)]
+    pub saver: Saver,
     /// Menu Wi-Fi na barra de menu.
     #[serde(default = "yes")]
     pub wifi_menu: bool,
@@ -598,6 +616,7 @@ impl Default for Config {
             wifi_menu: true,
             clock: Clock::default(),
             access: Access::default(),
+            saver: Saver::default(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }

@@ -51,6 +51,8 @@ pub struct MenuClient {
     pub shot: Option<(u64, bool)>,
     /// Pedido de fim de sessão ("encerrar", "reiniciar", "desligar"), vindo do glove-sair.
     pub end: Option<String>,
+    /// Pedido de testar um protetor de tela (botão Testar das Preferências).
+    pub saver: Option<String>,
 }
 
 impl MenuClient {
@@ -113,6 +115,7 @@ impl MenuClient {
                 self.shot = Some((delay, f.get(2) == Some(&"1")));
             }
             "SAIR" => self.end = f.get(1).map(|k| k.to_string()),
+            "PROTETOR" => self.saver = f.get(1).map(|k| k.to_string()),
             "END" => {
                 self.menus = std::mem::take(&mut self.pending);
                 return true;
@@ -143,7 +146,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -167,6 +170,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                     }
                     let st = &mut data.state;
                     let mut end = None;
+                    let mut saver = None;
                     if let Some(c) = st.menu_clients.iter_mut().find(|c| c.key == key) {
                         c.buf.extend_from_slice(&bytes);
                         let mut changed = false;
@@ -176,6 +180,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                             changed |= c.line(&text);
                         }
                         end = c.end.take();
+                        saver = c.saver.take();
                         if changed {
                             st.dirty = true;
                         }
@@ -190,6 +195,9 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                     }
                     if let Some(kind) = end {
                         st.end_session(&kind);
+                    }
+                    if let Some(kind) = saver {
+                        st.start_saver(Some(kind), true);
                     }
                     if closed {
                         st.menu_clients.retain(|c| c.key != key);
@@ -212,7 +220,7 @@ mod tests {
     #[test]
     fn le_submenus() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None };
         let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
         let done = text.lines().fold(false, |d, l| c.line(l) || d);
         assert!(done);

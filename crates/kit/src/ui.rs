@@ -578,6 +578,11 @@ impl<'a> Ui<'a> {
         self.mem.glove_cmds.push(format!("SAIR\t{kind}"));
     }
 
+    /// Pede ao Glove para mostrar um protetor de tela agora (botão Testar).
+    pub fn request_screensaver(&mut self, kind: &str) {
+        self.mem.glove_cmds.push(format!("PROTETOR\t{kind}"));
+    }
+
     /// Põe `text` na área de transferência.
     pub fn copy(&mut self, text: &str) {
         self.mem.clip_out = Some(text.to_string());

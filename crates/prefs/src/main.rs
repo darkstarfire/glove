@@ -59,7 +59,7 @@ struct PaneInfo {
 }
 
 const PANES: [PaneInfo; 14] = [
-    PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
+    PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
     PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
@@ -185,6 +185,10 @@ struct Prefs {
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Aba do Acesso Universal.
     access_tab: usize,
+    /// Aba do painel Mesa e Protetor de Tela.
+    desk_tab: usize,
+    /// Hora de abrir (para animar a prévia do protetor).
+    started: Instant,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
     /// Miniaturas de papel de parede já desenhadas.
@@ -208,6 +212,9 @@ const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
 impl Prefs {
     fn new() -> Self {
         let mut p = Self::build();
+        if std::env::args().nth(1).as_deref() == Some("protetor") {
+            p.desk_tab = 1;
+        }
         if p.pane == Pane::Rede {
             p.rede.refresh();
         }
@@ -246,6 +253,7 @@ impl Prefs {
         let (pane, kbd_tab) = match arg.as_str() {
             "atalhos" => (Pane::Teclado, 1),
             "entrada" => (Pane::Teclado, 2),
+            "protetor" => (Pane::Mesa, 0),
             a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
         };
         Self {
@@ -257,6 +265,8 @@ impl Prefs {
             kbd_tab,
             open_groups: [true, false, false],
             desk_source: 0,
+            desk_tab: 0,
+            started: Instant::now(),
             access_tab: 0,
             sound_tab: 0,
             energy_tab: 0,
@@ -565,6 +575,92 @@ impl Prefs {
 
     /// Mesa: a imagem atual em destaque, as coleções à esquerda e as miniaturas à direita.
     fn mesa(&mut self, ui: &mut Ui) {
+        let mut tab = self.desk_tab;
+        let shown = tab;
+        ui.space(4.0);
+        ui.tab_box(&mut tab, &["Mesa", "Protetor de Tela"], if shown == 0 { 400.0 } else { 456.0 }, |ui| match shown {
+            0 => self.mesa_tab(ui),
+            _ => self.protetor_tab(ui),
+        });
+        self.desk_tab = tab;
+    }
+
+    /// Protetor de Tela: lista, prévia animada, tempo, Testar e cantos ativos.
+    fn protetor_tab(&mut self, ui: &mut Ui) {
+        use glove_kit::paint::saver::SAVERS;
+        let (x0, y0) = ui.cursor();
+        let w = ui.available_width();
+        let rows: Vec<String> = SAVERS.iter().map(|(_, n)| n.to_string()).collect();
+        let mut sel = SAVERS.iter().position(|(id, _)| *id == self.config.saver.kind).or(Some(0));
+        ui.area(Rect::new(x0, y0, 150.0, 190.0), |ui| {
+            ui.label("Protetores de tela");
+            if ui.list(&mut sel, &rows, 150.0, 166.0) {
+                if let Some(i) = sel {
+                    self.config.saver.kind = SAVERS[i].0.to_string();
+                    self.save();
+                }
+            }
+        });
+        // Prévia (o mesmo desenho do compositor, pequeno).
+        let (px, py) = (x0 + 170.0, y0 + 20.0);
+        let pw = (w - 170.0).min(300.0);
+        let ph = (pw * 0.6).round();
+        ui.c.fill(rrect(px - 3.0, py - 3.0, pw + 6.0, ph + 6.0, 3.0), &solid(rgba(0, 0, 0, 60)));
+        if let Some(mut c) = glove_kit::paint::draw::Canvas::new(pw, ph, ui.c.scale) {
+            let (y, mo, d, _, h, m, _) = glove_kit::local_time();
+            let time = format!("{h:02}:{m:02}");
+            let date = format!("{d:02}/{mo:02}/{y}");
+            glove_kit::paint::saver::draw(&mut c, ui.fonts, &self.config.saver.kind, pw, ph, self.started.elapsed().as_secs_f32(), (&time, &date));
+            ui.c.draw_canvas(&c, px, py);
+        }
+        ui.fonts.draw(ui.c, "Prévia", px + pw / 2.0 - ui.text_width("Prévia", 11.0, false) / 2.0, py + ph + 16.0, 11.0, false, rgba(90, 90, 96, 255));
+        ui.area(Rect::new(px + pw - 80.0, py + ph + 6.0, 80.0, 30.0), |ui| {
+            if ui.button("Testar") {
+                ui.request_screensaver(&self.config.saver.kind);
+            }
+        });
+        ui.wake_after_in(Duration::from_millis(66), Rect::new(px, py, pw, ph));
+        ui.alloc(w, (20.0 + ph + 40.0).max(196.0));
+        if let Some(m) = Self::minutes_slider(ui, "Iniciar o protetor de tela quando inativo por:", self.config.saver.minutes) {
+            self.config.saver.minutes = m;
+            self.save();
+        }
+        ui.space(8.0);
+        // Cantos ativos (o mesmo ajuste do Exposé).
+        ui.label("Cantos ativos:");
+        const ACTIONS: [(&str, &str); 5] = [("", "—"), ("todas", "Todas as janelas"), ("app", "Janelas do app"), ("mesa", "Mesa"), ("protetor", "Iniciar o protetor de tela")];
+        let names: Vec<String> = ACTIONS.iter().map(|a| a.1.to_string()).collect();
+        let hc = self.config.hot_corners.clone();
+        let mut corners = [hc.top_left, hc.top_right, hc.bottom_left, hc.bottom_right];
+        let mut changed = false;
+        for (row, pair) in [[0usize, 1], [2, 3]].iter().enumerate() {
+            ui.horizontal(|ui| {
+                ui.space(16.0);
+                for &k in pair {
+                    let mut cur = ACTIONS.iter().position(|a| a.0 == corners[k]).unwrap_or(0);
+                    ui.push_id(&format!("canto{k}"), |ui| {
+                        if ui.popup(&mut cur, &names, 200.0) {
+                            corners[k] = ACTIONS[cur].0.to_string();
+                            changed = true;
+                        }
+                    });
+                    if k % 2 == 0 {
+                        ui.space(40.0);
+                    }
+                }
+            });
+            if row == 0 {
+                ui.space(4.0);
+            }
+        }
+        if changed {
+            let [a, b, c, d] = corners;
+            self.config.hot_corners = glove_config::HotCorners { top_left: a, top_right: b, bottom_left: c, bottom_right: d };
+            self.save();
+        }
+    }
+
+    fn mesa_tab(&mut self, ui: &mut Ui) {
         let (x0, y0) = ui.cursor();
         let w = ui.available_width();
         // Poço com a imagem atual.

@@ -8,6 +8,7 @@ pub mod chrome;
 pub mod draw;
 pub mod font;
 pub mod icons;
+pub mod saver;
 pub mod theme;
 pub mod wallpaper;
 

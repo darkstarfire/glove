@@ -288,6 +288,8 @@ impl Glove {
             if self.corner_armed {
                 if let Some(mode) = ExposeMode::from_word(&action) {
                     self.toggle_expose(mode);
+                } else if action == "protetor" {
+                    self.start_saver(None, false);
                 }
             }
         }

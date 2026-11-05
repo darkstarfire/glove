@@ -219,7 +219,8 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
 }
 
 /// Painéis das Preferências: (nome, argumento do glove-prefs).
-const PREFS: [(&str, &str); 16] = [
+const PREFS: [(&str, &str); 17] = [
+    ("Protetor de Tela", "protetor"),
     ("Acesso Universal (zoom, cores)", "acesso"),
     ("Itens de Início", "inicio"),
     ("Menu de Entrada (layouts de teclado)", "entrada"),

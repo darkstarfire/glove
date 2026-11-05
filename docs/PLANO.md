@@ -137,7 +137,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 7.6 Data e Hora: fuso, NTP (timedated), aba Relógio da barra (M)
 - [x] 7.7 Itens de Início (autostart XDG) e Menu de Entrada (vários layouts) (M)
 - [x] 7.8 Acesso Universal: cursor grande, zoom, cores invertidas (no compositor) (M)
-- [ ] 7.9 Protetor de Tela com protetores originais (G)
+- [x] 7.9 Protetor de Tela com protetores originais (G)
 - [ ] 7.10 Contas/Minha Conta (AccountsService), Internacional (idioma e formatos) (G)
 - [ ] 7.11 Compartilhamento, Mídia Removível, Aplicativos Padrão, Bluetooth (M cada)
 - [ ] 7.12 Baixa: Atualização de Software, Disco de Inicialização, Fala, Impressão
