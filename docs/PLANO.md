@@ -331,7 +331,9 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   desconectar (opção "Servidores conectados" nas Preferências do Arquivos). Item **Rede** na barra
   lateral (Ctrl+Shift+K) com as máquinas que o gvfs vê na rede (`network:///`, pelo Avahi/Samba);
   clicar numa conecta. Testado com um servidor FTP local que pede senha (M)
-- [ ] 9.10.6 Arquivos: **pastas com mola** (segurar um arquivo arrastado sobre uma pasta a abre) (P)
+- [x] 9.10.6 Arquivos: **pastas com mola**: segurar o arrastado (de qualquer app ou da mesa) sobre uma
+  pasta por 0,9 s abre a pasta na janela, e dá para continuar descendo até soltar; na mesa, segurar
+  sobre uma pasta abre uma janela dela (P)
 - [ ] 9.10.7 Janelas: **botão-pílula** no canto do título que oculta a barra de ferramentas; **ponto no
   botão fechar** quando o documento tem alterações não salvas; **ícone do documento** no título
   (arrastável; Ctrl+clique mostra o caminho em menu); **Ctrl+`** alterna as janelas do mesmo app (M)

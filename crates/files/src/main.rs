@@ -36,6 +36,8 @@ const SIDE_ROW: f32 = 30.0;
 const PANE_M: f32 = 6.0;
 const PANE_GAP: f32 = 6.0;
 const ROW_H: f32 = 18.0;
+/// Pasta com mola: quanto tempo segurar em cima até ela abrir.
+const SPRING_MS: u64 = 900;
 const COL_W: f32 = 200.0;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -608,6 +610,8 @@ struct Files {
     cfg: glove_config::arquivos::Files,
     /// Submenu aberto no menu de contexto: (qual, topo da linha que o abriu).
     ctx_sub: Option<(String, f32)>,
+    /// Pasta com mola: a pasta sob o que está sendo arrastado e desde quando.
+    spring: Option<(PathBuf, std::time::Instant)>,
     /// Pasta Rede: quando foi lida e o que achou (nome, endereço); a busca roda numa thread.
     network: Arc<std::sync::Mutex<(Option<std::time::Instant>, bool, Vec<(String, String)>)>>,
     /// Pendrives montados (relidos a cada 2 s para a barra lateral).
@@ -658,6 +662,7 @@ impl Files {
             cfg: glove_config::Config::load().files,
             ctx_sub: None,
             mounts: (None, Vec::new()),
+            spring: None,
             network: Arc::new(std::sync::Mutex::new((None, false, Vec::new()))),
         }
     }
@@ -834,6 +839,28 @@ impl Files {
                 p2.cancel.store(true, Ordering::Relaxed);
             }
         });
+    }
+
+    /// Pasta com mola (como no Tiger): segurar o arrastado sobre uma pasta por um
+    /// instante abre a pasta, e dá para continuar descendo até soltar.
+    fn spring_folder(&mut self, ui: &mut Ui, dropped: bool) {
+        let target = self.drop_target.clone().filter(|_| self.dnd_hover && !dropped).filter(|t| t.is_dir() && *t != self.current());
+        match (&self.spring, target) {
+            (Some((p, t)), Some(tg)) if *p == tg => {
+                if t.elapsed() >= std::time::Duration::from_millis(SPRING_MS) {
+                    self.spring = None;
+                    self.go(tg);
+                    ui.redraw = true;
+                } else {
+                    ui.wake_after(std::time::Duration::from_millis(100));
+                }
+            }
+            (_, Some(tg)) => {
+                self.spring = Some((tg, std::time::Instant::now()));
+                ui.wake_after(std::time::Duration::from_millis(100));
+            }
+            (_, None) => self.spring = None,
+        }
     }
 
     /// Arrastar: depois de 5 pontos vira um arrastar do sistema (o ícone segue o
@@ -2555,6 +2582,7 @@ impl App for Files {
         self.job_panel(ui);
         self.goto_sheet(ui);
         self.drag_frame(ui);
+        self.spring_folder(ui, dropped.is_some());
         if let Some((paths, _)) = dropped {
             self.handle_drop(paths);
         }

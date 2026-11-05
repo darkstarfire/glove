@@ -698,8 +698,21 @@ impl Glove {
                 _ => None,
             };
             if hot != self.desk.hot {
-                self.desk.hot = hot;
+                self.desk.hot = hot.clone();
                 self.dirty = true;
+                // Pasta com mola: segurar em cima por um instante abre a pasta numa janela.
+                if let Some(p) = hot.filter(|p| p.is_dir()) {
+                    let _ = self.loop_handle.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_millis(900)), move |_, _, data| {
+                        let st = &mut data.state;
+                        let dragging = st.desk.drag.is_some() || st.dnd_icon.is_some() || st.desk.incoming.is_some();
+                        if dragging && st.desk.hot.as_ref() == Some(&p) {
+                            st.desk.hot = None;
+                            st.spawn(&format!("glove-files {}", quote(&p)));
+                            st.dirty = true;
+                        }
+                        smithay::reexports::calloop::timer::TimeoutAction::Drop
+                    });
+                }
             }
             if self.desk.drag.is_some() {
                 self.dirty = true;
