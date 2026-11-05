@@ -1,4 +1,6 @@
-//! Visualizador de imagens do Glove (PNG e JPEG).
+//! Visualizador do Glove: imagens (PNG e JPEG) e PDF, com barra de
+//! ferramentas e miniaturas na lateral. As páginas de PDF são desenhadas pelo
+//! pdftoppm (poppler) numa thread; as miniaturas também.
 
 use std::path::{Path, PathBuf};
 
@@ -10,12 +12,24 @@ use glove_kit::{
     },
     run,
     ui::Key,
-    App, Choice, FileBrowser, Menu, MenuItem, Rect, Ui, WindowOptions,
+    App, Choice, FileBrowser, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SEGMENT_H, SEGMENT_W,
 };
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+/// Barra de ferramentas e lateral de miniaturas.
+const TOOLBAR_H: f32 = 52.0;
+const SIDEBAR_W: f32 = 132.0;
+const THUMB: u32 = 96;
 
 /// Lado máximo guardado na memória (fotos maiores são reduzidas ao abrir).
 const MAX_SIDE: u32 = 4096;
 const EXTS: [&str; 3] = ["png", "jpg", "jpeg"];
+
+fn is_pdf(p: &Path) -> bool {
+    p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
+}
 
 fn is_image(p: &Path) -> bool {
     p.extension().and_then(|e| e.to_str()).is_some_and(|e| EXTS.contains(&e.to_ascii_lowercase().as_str()))
@@ -96,8 +110,76 @@ impl Image {
     }
 }
 
+/// O que está aberto: as imagens da pasta ou as páginas de um PDF.
+enum Doc {
+    Images(Vec<PathBuf>),
+    Pdf { path: PathBuf, pages: usize, size_pt: (f32, f32) },
+}
+
+impl Doc {
+    fn len(&self) -> usize {
+        match self {
+            Doc::Images(l) => l.len(),
+            Doc::Pdf { pages, .. } => *pages,
+        }
+    }
+}
+
+/// Páginas e tamanho (pontos) do PDF pelo pdfinfo.
+pub fn parse_pdfinfo(t: &str) -> (usize, (f32, f32)) {
+    let pages = t.lines().find_map(|l| l.strip_prefix("Pages:")).and_then(|v| v.trim().parse().ok()).unwrap_or(0);
+    let size = t
+        .lines()
+        .find_map(|l| l.strip_prefix("Page size:"))
+        .and_then(|v| {
+            let mut it = v.split_whitespace();
+            let w: f32 = it.next()?.parse().ok()?;
+            it.next();
+            let h: f32 = it.next()?.parse().ok()?;
+            Some((w, h))
+        })
+        .unwrap_or((612.0, 792.0));
+    (pages, size)
+}
+
+fn cache_dir() -> PathBuf {
+    let base = std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache"))).unwrap_or_else(std::env::temp_dir);
+    base.join("glove/visualizador").join(std::process::id().to_string())
+}
+
+/// Desenha a página `n` (1…) do PDF em `dpi` e devolve o PNG.
+fn render_pdf_page(pdf: &Path, n: usize, dpi: u32, tag: &str) -> Result<Pixmap, String> {
+    let dir = cache_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let prefix = dir.join(format!("{tag}-{n}"));
+    let out = std::process::Command::new("pdftoppm")
+        .args(["-png", "-singlefile", "-r", &dpi.to_string(), "-f", &n.to_string(), "-l", &n.to_string()])
+        .arg(pdf)
+        .arg(&prefix)
+        .output()
+        .map_err(|e| format!("Não foi possível usar o pdftoppm: {e}"))?;
+    if !out.status.success() {
+        return Err("O pdftoppm não conseguiu ler este PDF.".into());
+    }
+    let png = prefix.with_extension("png");
+    let pm = Pixmap::load_png(&png).map_err(|e| e.to_string());
+    let _ = std::fs::remove_file(&png);
+    pm
+}
+
+/// Resultados das threads: páginas desenhadas e miniaturas.
+#[derive(Default)]
+struct Jobs {
+    /// (página, dpi) → imagem.
+    page: Option<(usize, u32, Result<Pixmap, String>)>,
+    thumbs: HashMap<usize, Pixmap>,
+    thumbs_done: bool,
+}
+
 struct Viewer {
     path: Option<PathBuf>,
+    doc: Option<Doc>,
+    index: usize,
     image: Option<Image>,
     error: Option<String>,
     /// None = ajustar à janela.
@@ -107,11 +189,38 @@ struct Viewer {
     last_title: String,
     /// Diálogo Abrir aberto.
     open_fb: Option<FileBrowser>,
+    sidebar: bool,
+    /// Giro (em quartos de volta) aplicado às páginas do PDF.
+    turns: i32,
+    jobs: Arc<Mutex<Jobs>>,
+    /// Página de PDF sendo desenhada: (página, dpi).
+    pending: Option<(usize, u32)>,
+    shown_dpi: u32,
+    thumbs_started: bool,
+    side_scroll: f32,
 }
 
 impl Viewer {
     fn new(path: Option<PathBuf>) -> Self {
-        let mut v = Self { path: None, image: None, error: None, zoom: None, pan: (0.0, 0.0), drag_from: None, last_title: String::new(), open_fb: None };
+        let mut v = Self {
+            path: None,
+            doc: None,
+            index: 0,
+            image: None,
+            error: None,
+            zoom: None,
+            pan: (0.0, 0.0),
+            drag_from: None,
+            last_title: String::new(),
+            open_fb: None,
+            sidebar: false,
+            turns: 0,
+            jobs: Arc::default(),
+            pending: None,
+            shown_dpi: 0,
+            thumbs_started: false,
+            side_scroll: 0.0,
+        };
         if let Some(p) = path {
             v.load(p);
         }
@@ -119,7 +228,49 @@ impl Viewer {
     }
 
     fn load(&mut self, p: PathBuf) {
-        match decode(&p) {
+        self.zoom = None;
+        self.pan = (0.0, 0.0);
+        self.turns = 0;
+        self.image = None;
+        self.error = None;
+        self.pending = None;
+        self.shown_dpi = 0;
+        self.thumbs_started = false;
+        self.side_scroll = 0.0;
+        *self.jobs.lock().unwrap() = Jobs::default();
+        if is_pdf(&p) {
+            let info = std::process::Command::new("pdfinfo").arg(&p).output();
+            match info {
+                Ok(o) if o.status.success() => {
+                    let (pages, size_pt) = parse_pdfinfo(&String::from_utf8_lossy(&o.stdout));
+                    self.doc = Some(Doc::Pdf { path: p.clone(), pages: pages.max(1), size_pt });
+                    self.index = 0;
+                    // Um PDF abre com as miniaturas à mostra (como no 10.4).
+                    self.sidebar = pages > 1;
+                }
+                _ => {
+                    self.doc = None;
+                    self.error = Some("Não foi possível abrir este PDF (o pdfinfo do poppler está instalado?).".into());
+                }
+            }
+            self.path = Some(p);
+            return;
+        }
+        // Imagem: a lista é a das imagens da mesma pasta.
+        let dir = p.parent().map(Path::to_path_buf).unwrap_or_default();
+        let mut list: Vec<PathBuf> = std::fs::read_dir(&dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|q| is_image(q)).collect();
+        list.sort_by_key(|q| q.file_name().map(|n| n.to_string_lossy().to_lowercase()));
+        if !list.contains(&p) {
+            list.insert(0, p.clone());
+        }
+        self.index = list.iter().position(|q| *q == p).unwrap_or(0);
+        self.doc = Some(Doc::Images(list));
+        self.show_image(&p);
+        self.path = Some(p);
+    }
+
+    fn show_image(&mut self, p: &Path) {
+        match decode(p) {
             Ok(img) => {
                 self.image = Some(Image::new(img));
                 self.error = None;
@@ -129,27 +280,113 @@ impl Viewer {
                 self.error = Some(e);
             }
         }
-        self.path = Some(p);
-        self.zoom = None;
-        self.pan = (0.0, 0.0);
     }
 
-    /// Imagem seguinte/anterior da mesma pasta.
-    fn step(&mut self, delta: isize) {
-        let Some(cur) = self.path.clone() else { return };
-        let Some(dir) = cur.parent() else { return };
-        let Ok(rd) = std::fs::read_dir(dir) else { return };
-        let mut list: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| is_image(p)).collect();
-        list.sort_by_key(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase()));
-        if list.is_empty() {
+    /// Vai para a página/imagem `i` do documento.
+    fn go(&mut self, i: usize) {
+        let Some(doc) = &self.doc else { return };
+        let n = doc.len();
+        if n == 0 {
             return;
         }
-        let i = list.iter().position(|p| *p == cur).unwrap_or(0) as isize;
-        let n = list.len() as isize;
-        let next = list[((i + delta) % n + n) as usize % n as usize].clone();
-        if next != cur {
-            self.load(next);
+        let i = i.min(n - 1);
+        if i == self.index && self.image.is_some() {
+            return;
         }
+        self.index = i;
+        self.zoom = None;
+        self.pan = (0.0, 0.0);
+        match doc {
+            Doc::Images(list) => {
+                let p = list[i].clone();
+                self.show_image(&p);
+                self.path = Some(p);
+            }
+            Doc::Pdf { .. } => {
+                self.image = None;
+                self.shown_dpi = 0;
+            }
+        }
+    }
+
+    fn step(&mut self, delta: isize) {
+        let Some(doc) = &self.doc else { return };
+        let n = doc.len() as isize;
+        if n == 0 {
+            return;
+        }
+        let next = match doc {
+            // Imagens dão a volta; páginas param no começo e no fim.
+            Doc::Images(_) => ((self.index as isize + delta) % n + n) % n,
+            Doc::Pdf { .. } => (self.index as isize + delta).clamp(0, n - 1),
+        };
+        self.go(next as usize);
+    }
+
+    /// Pede a página do PDF no dpi que a tela precisa (numa thread).
+    fn want_pdf_page(&mut self, area: Rect, ui_scale: f32) {
+        let Some(Doc::Pdf { path, size_pt, .. }) = &self.doc else { return };
+        // Ajustada à janela (ou no zoom), em pixels reais.
+        let (pw, ph) = if self.turns % 2 == 0 { *size_pt } else { (size_pt.1, size_pt.0) };
+        let fit = ((area.w - 24.0) / pw).min((area.h - 24.0) / ph);
+        let k = self.zoom.unwrap_or(fit).max(0.1);
+        let dpi = ((72.0 * k * ui_scale).round() as u32).clamp(24, 300);
+        // Já tem algo próximo, ou já pediu.
+        if self.image.is_some() && (self.shown_dpi as f32 - dpi as f32).abs() < dpi as f32 * 0.15 {
+            return;
+        }
+        if self.pending == Some((self.index, dpi)) {
+            return;
+        }
+        self.pending = Some((self.index, dpi));
+        let (path, page, jobs) = (path.clone(), self.index, self.jobs.clone());
+        std::thread::spawn(move || {
+            let r = render_pdf_page(&path, page + 1, dpi, "pagina");
+            jobs.lock().unwrap().page = Some((page, dpi, r));
+        });
+    }
+
+    /// Miniaturas numa thread: as imagens reduzidas ou as páginas a 18 dpi.
+    fn start_thumbs(&mut self) {
+        if self.thumbs_started {
+            return;
+        }
+        let Some(doc) = &self.doc else { return };
+        self.thumbs_started = true;
+        let jobs = self.jobs.clone();
+        match doc {
+            Doc::Images(list) => {
+                let list = list.clone();
+                std::thread::spawn(move || {
+                    for (i, p) in list.iter().enumerate() {
+                        if let Ok(img) = decode(p) {
+                            let k = THUMB as f32 / img.width().max(img.height()) as f32;
+                            let t = scaled(&img, k.min(1.0));
+                            jobs.lock().unwrap().thumbs.insert(i, t);
+                        }
+                    }
+                    jobs.lock().unwrap().thumbs_done = true;
+                });
+            }
+            Doc::Pdf { path, pages, .. } => {
+                let (path, pages) = (path.clone(), *pages);
+                std::thread::spawn(move || {
+                    for i in 0..pages.min(500) {
+                        if let Ok(t) = render_pdf_page(&path, i + 1, 14, "mini") {
+                            jobs.lock().unwrap().thumbs.insert(i, t);
+                        }
+                    }
+                    jobs.lock().unwrap().thumbs_done = true;
+                });
+            }
+        }
+    }
+
+    /// Escala do PDF que cabe na área, em relação ao papel (100% = 72 dpi).
+    fn pdf_fit(&self, area: Rect) -> Option<f32> {
+        let Some(Doc::Pdf { size_pt, .. }) = &self.doc else { return None };
+        let (pw, ph) = if self.turns % 2 == 0 { *size_pt } else { (size_pt.1, size_pt.0) };
+        Some(((area.w - 24.0) / pw).min((area.h - 24.0) / ph))
     }
 
     fn fit_scale(&self, area: Rect) -> f32 {
@@ -171,14 +408,19 @@ impl Viewer {
             self.image = Some(Image::new(rotate(&img.levels[0], cw)));
             self.pan = (0.0, 0.0);
         }
+        self.turns = (self.turns + if cw { 1 } else { 3 }) % 4;
     }
 
     fn action(&mut self, a: &str, ui: &mut Ui, area: Rect) {
-        let k = self.scale(area);
+        // No PDF o zoom é em relação ao papel; nas imagens, aos pixels.
+        let k = match self.pdf_fit(area) {
+            Some(fit) => self.zoom.unwrap_or(fit),
+            None => self.scale(area),
+        };
         match a {
             "open" => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(|d| d.to_path_buf()));
-                self.open_fb = Some(FileBrowser::open(dir, &["png", "jpg", "jpeg"]));
+                self.open_fb = Some(FileBrowser::open(dir, &["png", "jpg", "jpeg", "pdf"]));
             }
             "bigger" => self.set_zoom(k * 1.25),
             "smaller" => self.set_zoom(k / 1.25),
@@ -194,13 +436,120 @@ impl Viewer {
             "rot-right" => self.rotate(true),
             "next" => self.step(1),
             "prev" => self.step(-1),
+            "first" => self.go(0),
+            "last" => self.go(usize::MAX),
+            "sidebar" => self.sidebar = !self.sidebar,
             "close" => ui.close = true,
             "reveal" => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()));
                 let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).filter(|p| p.is_file()).unwrap_or_else(|| "glove-files".into());
-                let _ = std::process::Command::new(exe).arg(dir).spawn();
+                if let Ok(mut c) = std::process::Command::new(exe).arg(dir).spawn() {
+                    std::thread::spawn(move || c.wait());
+                }
             }
             _ => {}
+        }
+    }
+
+    /// Barra de ferramentas em metal claro, com rótulos embaixo (como no Preview da era).
+    fn toolbar(&mut self, ui: &mut Ui) -> Option<&'static str> {
+        let w = ui.c.w;
+        ui.c.fill_rect(0.0, 0.0, w, TOOLBAR_H, &vgrad(0.0, TOOLBAR_H, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(204, 204, 208, 255))]));
+        ui.c.hline(0.0, TOOLBAR_H - 1.0, w, rgba(140, 140, 146, 255));
+        let has = self.image.is_some() || self.pending.is_some();
+        let n = self.doc.as_ref().map(Doc::len).unwrap_or(0);
+        let mut act = None;
+        let y = 8.0;
+        let label = |ui: &mut Ui, t: &str, cx: f32| {
+            let tw = ui.text_width(t, 10.0, false);
+            ui.fonts.draw(ui.c, t, cx - tw / 2.0, TOOLBAR_H - 7.0, 10.0, false, rgba(40, 40, 44, 255));
+        };
+        let mut x = 22.0;
+        // Miniaturas
+        if ui.segmented_in(Rect::new(x, y, SEGMENT_W, SEGMENT_H), &[Glyph::Sidebar], self.sidebar.then_some(0), &[n > 0]).is_some() {
+            act = Some("sidebar");
+        }
+        label(ui, "Miniaturas", x + SEGMENT_W / 2.0);
+        x += SEGMENT_W + 36.0;
+        // Anterior / Próxima
+        let nav = [n > 1 && (matches!(self.doc, Some(Doc::Images(_))) || self.index > 0), n > 1 && (matches!(self.doc, Some(Doc::Images(_))) || self.index + 1 < n)];
+        match ui.segmented_in(Rect::new(x, y, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::Back, Glyph::Forward], None, &nav) {
+            Some(0) => act = Some("prev"),
+            Some(_) => act = Some("next"),
+            None => {}
+        }
+        let pg = if n > 0 { format!("{} de {n}", self.index + 1) } else { "Anterior/Próxima".into() };
+        label(ui, &pg, x + SEGMENT_W);
+        x += 2.0 * SEGMENT_W + 30.0;
+        // Zoom
+        match ui.segmented_in(Rect::new(x, y, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::Minus, Glyph::Plus], None, &[has, has]) {
+            Some(0) => act = Some("smaller"),
+            Some(_) => act = Some("bigger"),
+            None => {}
+        }
+        label(ui, "Zoom", x + SEGMENT_W);
+        x += 2.0 * SEGMENT_W + 30.0;
+        // Girar
+        match ui.segmented_in(Rect::new(x, y, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::RotateLeft, Glyph::RotateRight], None, &[has, has]) {
+            Some(0) => act = Some("rot-left"),
+            Some(_) => act = Some("rot-right"),
+            None => {}
+        }
+        label(ui, "Girar", x + SEGMENT_W);
+        act
+    }
+
+    /// Lateral com as miniaturas; clique vai para a página.
+    fn side(&mut self, ui: &mut Ui, top: f32, h: f32) {
+        let Some(doc) = &self.doc else { return };
+        let n = doc.len();
+        let names: Vec<String> = match doc {
+            Doc::Images(l) => l.iter().map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()).collect(),
+            Doc::Pdf { .. } => (1..=n).map(|i| i.to_string()).collect(),
+        };
+        self.start_thumbs();
+        let r = Rect::new(0.0, top, SIDEBAR_W, h);
+        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(222, 226, 232, 255)));
+        ui.c.vline(r.w - 0.5, r.y, r.h, rgba(150, 150, 156, 255));
+        let cell = THUMB as f32 + 30.0;
+        self.side_scroll = (self.side_scroll - ui.scroll_in(r) * 1.0).clamp(0.0, (n as f32 * cell - h + 10.0).max(0.0));
+        let jobs = self.jobs.lock().unwrap();
+        let first = (self.side_scroll / cell) as usize;
+        let mut go = None;
+        for i in first..n.min(first + (h / cell) as usize + 2) {
+            let y = top + 8.0 + i as f32 * cell - self.side_scroll;
+            let box_r = Rect::new((SIDEBAR_W - THUMB as f32) / 2.0, y, THUMB as f32, THUMB as f32);
+            if i == self.index {
+                ui.c.fill(rrect(box_r.x - 4.0, box_r.y - 4.0, box_r.w + 8.0, box_r.h + 22.0, 5.0), &solid(rgba(160, 180, 210, 255)));
+            }
+            match jobs.thumbs.get(&i) {
+                Some(t) => {
+                    let (tw, th) = (t.width() as f32 / ui.c.scale.max(1.0), t.height() as f32 / ui.c.scale.max(1.0));
+                    let k = (THUMB as f32 / t.width().max(t.height()) as f32).min(1.0);
+                    let (dw, dh) = (t.width() as f32 * k, t.height() as f32 * k);
+                    let _ = (tw, th);
+                    let (dx, dy) = (box_r.x + (box_r.w - dw) / 2.0, box_r.y + (box_r.h - dh) / 2.0);
+                    ui.c.fill_rect(dx + 1.0, dy + 2.0, dw, dh, &solid(rgba(0, 0, 0, 50)));
+                    let s = ui.c.scale;
+                    let paint = PixmapPaint { quality: FilterQuality::Bilinear, ..Default::default() };
+                    ui.c.draw_pixmap_t(t.as_ref(), &paint, Transform::from_row(k * s, 0.0, 0.0, k * s, dx * s, dy * s));
+                }
+                None => ui.c.stroke(rrect(box_r.x + 20.0, box_r.y + 10.0, box_r.w - 40.0, box_r.h - 20.0, 2.0), &solid(rgba(160, 160, 166, 255)), 1.0),
+            }
+            let name = ui.fonts.ellipsize(&names[i], 10.0, false, SIDEBAR_W - 10.0);
+            let tw = ui.text_width(&name, 10.0, false);
+            ui.fonts.draw(ui.c, &name, (SIDEBAR_W - tw) / 2.0, y + THUMB as f32 + 13.0, 10.0, false, rgba(40, 40, 44, 255));
+            if ui.hit(Rect::new(0.0, y - 4.0, SIDEBAR_W - 1.0, cell)).clicked {
+                go = Some(i);
+            }
+        }
+        let busy = !jobs.thumbs_done;
+        drop(jobs);
+        if busy {
+            ui.wake_after(Duration::from_millis(250));
+        }
+        if let Some(i) = go {
+            self.go(i);
         }
     }
 }
@@ -208,7 +557,36 @@ impl Viewer {
 impl App for Viewer {
     fn ui(&mut self, ui: &mut Ui) {
         let (w, h) = (ui.c.w, ui.c.h);
-        let area = Rect::new(0.0, 0.0, w, h - 15.0);
+        let left = if self.sidebar && self.doc.is_some() { SIDEBAR_W } else { 0.0 };
+        let area = Rect::new(left, TOOLBAR_H, w - left, h - 15.0 - TOOLBAR_H);
+
+        // Página de PDF pronta?
+        let done = self.jobs.lock().unwrap().page.take();
+        if let Some((page, dpi, r)) = done {
+            if page == self.index {
+                match r {
+                    Ok(mut pm) => {
+                        for _ in 0..self.turns {
+                            pm = rotate(&pm, true);
+                        }
+                        // A imagem vem no dpi certo: mostra a 1:1 em pixels reais.
+                        self.image = Some(Image::new(pm));
+                        self.shown_dpi = dpi;
+                        self.error = None;
+                    }
+                    Err(e) => self.error = Some(e),
+                }
+            }
+            if self.pending.is_some_and(|p| p == (page, dpi)) {
+                self.pending = None;
+            }
+        }
+        if matches!(self.doc, Some(Doc::Pdf { .. })) {
+            self.want_pdf_page(area, ui.c.scale);
+        }
+        if self.pending.is_some() {
+            ui.wake_after(Duration::from_millis(120));
+        }
 
         // Teclado e menus
         let mut acts: Vec<String> = Vec::new();
@@ -223,11 +601,12 @@ impl App for Viewer {
                 "Ctrl+W" => "close",
                 "Ctrl+O" => "open",
                 "Ctrl+Shift+R" => "reveal",
-                "Right" => "next",
-                "Left" => "prev",
+                "Ctrl+Shift+M" => "sidebar",
                 _ => match k.key {
-                    Key::Right | Key::Down => "next",
-                    Key::Left | Key::Up => "prev",
+                    Key::Right | Key::Down | Key::PageDown => "next",
+                    Key::Left | Key::Up | Key::PageUp => "prev",
+                    Key::Home => "first",
+                    Key::End => "last",
                     _ => "",
                 },
             };
@@ -240,16 +619,47 @@ impl App for Viewer {
         if self.open_fb.is_some() {
             acts.clear();
         }
+        if let Some(a) = self.toolbar(ui) {
+            acts.push(a.into());
+        }
         for a in acts {
             self.action(&a, ui, area);
         }
 
         // Fundo
         ui.c.fill_rect(area.x, area.y, area.w, area.h, &solid(rgba(108, 110, 116, 255)));
+        if left > 0.0 {
+            self.side(ui, TOOLBAR_H, h - 15.0 - TOOLBAR_H);
+        }
 
-        let k = self.scale(area);
+        // PDF: a imagem tem o dpi da tela; o zoom "real" é em relação ao papel.
+        let pdf_k = match (&self.doc, self.shown_dpi) {
+            (Some(Doc::Pdf { .. }), d) if d > 0 => Some(72.0 / d as f32),
+            _ => None,
+        };
+        let k = match pdf_k {
+            // Mostra a página do PDF do tamanho pedido (ajustada ou no zoom).
+            Some(base) => {
+                let fit = self.fit_scale(area);
+                match self.zoom {
+                    Some(z) => {
+                        let Some(Doc::Pdf { size_pt, .. }) = &self.doc else { unreachable!() };
+                        let iw = self.image.as_ref().map(|i| i.size().0).unwrap_or(1.0);
+                        let pw = if self.turns % 2 == 0 { size_pt.0 } else { size_pt.1 };
+                        let _ = base;
+                        z * pw / iw
+                    }
+                    None => fit,
+                }
+            }
+            None => self.scale(area),
+        };
         let name = self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Visualizador".into());
-        let title = if self.image.is_some() { format!("{name} ({:.0}%)", k * 100.0) } else { name };
+        let title = match &self.doc {
+            Some(Doc::Pdf { pages, .. }) => format!("{name} (página {} de {pages})", self.index + 1),
+            _ if self.image.is_some() => format!("{name} ({:.0}%)", k * 100.0),
+            _ => name,
+        };
         if title != self.last_title {
             ui.set_title(&title);
             self.last_title = title;
@@ -280,23 +690,34 @@ impl App for Viewer {
             let x = area.x + (area.w - dw) / 2.0 + self.pan.0;
             let y = area.y + (area.h - dh) / 2.0 + self.pan.1;
 
+            // Só dentro da área (o zoom não passa por cima da barra nem da lateral).
+            let s = ui.c.scale;
+            let old = ui.c.clip();
+            let mut clip = [(area.x * s).floor() as i32, (area.y * s).floor() as i32, ((area.x + area.w) * s).ceil() as i32, ((area.y + area.h) * s).ceil() as i32];
+            if let Some(o) = old {
+                clip = [clip[0].max(o[0]), clip[1].max(o[1]), clip[2].min(o[2]), clip[3].min(o[3])];
+            }
+            ui.c.set_clip(Some(clip));
             // Sombra suave sob a imagem
             ui.c.fill(rrect(x - 1.0, y + 2.0, dw + 2.0, dh + 2.0, 2.0), &solid(rgba(0, 0, 0, 70)));
-            let s = ui.c.scale;
             let (lvl, f) = img.level_for(k * s);
             let paint = PixmapPaint { quality: if k * s >= 1.0 { FilterQuality::Nearest } else { FilterQuality::Bilinear }, ..Default::default() };
             let ks = k * s * f;
             ui.c.draw_pixmap_t(lvl.as_ref(), &paint, Transform::from_row(ks, 0.0, 0.0, ks, x * s, y * s));
+            ui.c.set_clip(old);
+        } else if self.pending.is_some() {
+            let (cx, cy) = (area.x + area.w / 2.0, area.y + area.h / 2.0);
+            ui.area(Rect::new(cx - 12.0, cy - 12.0, 24.0, 24.0), |ui| ui.spinner(24.0));
         } else {
-            let msg = self.error.clone().unwrap_or_else(|| "Abra uma imagem com Arquivo › Abrir… (Ctrl+O) ou pelo Arquivos.".into());
+            let msg = self.error.clone().unwrap_or_else(|| "Abra uma imagem ou um PDF com Arquivo › Abrir… (Ctrl+O) ou pelo Arquivos.".into());
             let tw = ui.text_width(&msg, 13.0, false);
-            ui.fonts.draw(ui.c, &msg, (w - tw) / 2.0, h / 2.0, 13.0, false, Color::WHITE);
+            ui.fonts.draw(ui.c, &msg, area.x + (area.w - tw) / 2.0, area.y + area.h / 2.0, 13.0, false, Color::WHITE);
         }
 
         // Faixa inferior (puxador de redimensionar)
         ui.c.fill_rect(0.0, h - 15.0, w, 15.0, &vgrad(h - 15.0, h, &[(0.0, rgba(232, 232, 236, 255)), (1.0, rgba(214, 214, 218, 255))]));
         ui.c.hline(0.0, h - 15.0, w, rgba(150, 150, 156, 255));
-        // Diálogo Abrir (só imagens que o Visualizador lê).
+        // Diálogo Abrir.
         if let Some(fb) = &mut self.open_fb {
             if let Some(c) = ui.file_sheet(fb) {
                 self.open_fb = None;
@@ -310,6 +731,7 @@ impl App for Viewer {
 
     fn menus(&self) -> Vec<Menu> {
         let has = self.image.is_some();
+        let pdf = matches!(self.doc, Some(Doc::Pdf { .. }));
         vec![
             Menu::new(
                 "Arquivo",
@@ -323,6 +745,8 @@ impl App for Viewer {
             Menu::new(
                 "Visualizar",
                 vec![
+                    MenuItem::new("sidebar", if self.sidebar { "Ocultar Miniaturas" } else { "Mostrar Miniaturas" }, "Ctrl+Shift+M").enabled(self.doc.is_some()),
+                    MenuItem::Separator,
                     MenuItem::new("bigger", "Ampliar", "Ctrl+equal").enabled(has),
                     MenuItem::new("smaller", "Reduzir", "Ctrl+minus").enabled(has),
                     MenuItem::Separator,
@@ -337,20 +761,50 @@ impl App for Viewer {
                     MenuItem::new("rot-right", "Girar à direita", "Ctrl+R").enabled(has),
                 ],
             ),
-            Menu::new("Ir", vec![MenuItem::new("next", "Próxima imagem", "Right"), MenuItem::new("prev", "Imagem anterior", "Left")]),
+            Menu::new(
+                "Ir",
+                vec![
+                    MenuItem::new("next", if pdf { "Próxima página" } else { "Próxima imagem" }, "Right"),
+                    MenuItem::new("prev", if pdf { "Página anterior" } else { "Imagem anterior" }, "Left"),
+                    MenuItem::Separator,
+                    MenuItem::new("first", "Primeira", "Home"),
+                    MenuItem::new("last", "Última", "End"),
+                ],
+            ),
         ]
+    }
+
+    fn close_requested(&mut self) -> bool {
+        let _ = std::fs::remove_dir_all(cache_dir());
+        true
     }
 }
 
 fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);
     let viewer = Viewer::new(path);
-    // Janela do tamanho da imagem (dentro de limites razoáveis).
-    let (w, h) = viewer.image.as_ref().map(|i| i.size()).unwrap_or((640.0, 480.0));
-    let k = (900.0 / w).min(650.0 / h).min(1.0);
-    let size = (((w * k) as u32 + 24).max(320), ((h * k) as u32 + 24 + 15).max(240));
+    // Janela do tamanho da imagem (dentro de limites razoáveis); PDF em formato de página.
+    let (w, h) = match &viewer.doc {
+        Some(Doc::Pdf { size_pt, .. }) => (size_pt.0 * 1.2, size_pt.1 * 1.2),
+        _ => viewer.image.as_ref().map(|i| i.size()).unwrap_or((640.0, 480.0)),
+    };
+    // Cabe com a barra de menu, a de ferramentas e o Dock numa tela pequena.
+    let k = (900.0 / w).min(520.0 / h).min(1.0);
+    let side = if viewer.sidebar { SIDEBAR_W as u32 } else { 0 };
+    let size = (((w * k) as u32 + 24 + side).max(480), ((h * k) as u32 + 24 + 15 + TOOLBAR_H as u32).max(300));
     let opts = WindowOptions { title: "Visualizador".into(), app_id: "glove.Viewer".into(), size, fixed: false };
     if let Err(e) = run(opts, viewer) {
         eprintln!("glove-view: {e}");
+    }
+    let _ = std::fs::remove_dir_all(cache_dir());
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn le_o_pdfinfo() {
+        let (n, s) = super::parse_pdfinfo("Title: x\nPages:          12\nPage size:      595.276 x 841.89 pts (A4)\n");
+        assert_eq!(n, 12);
+        assert!((s.0 - 595.276).abs() < 0.01 && (s.1 - 841.89).abs() < 0.01);
     }
 }

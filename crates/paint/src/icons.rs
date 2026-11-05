@@ -935,6 +935,11 @@ pub enum Glyph {
     AlignLeft,
     AlignCenter,
     AlignRight,
+    /// Seta curva girando para a esquerda / direita.
+    RotateLeft,
+    RotateRight,
+    /// Gaveta lateral (miniaturas).
+    Sidebar,
 }
 
 /// Desenha o glifo centrado em (cx, cy), num quadrado de `s` pontos.
@@ -949,6 +954,34 @@ pub fn glyph(pm: &mut Canvas, g: Glyph, cx: f32, cy: f32, s: f32, color: Color) 
                 let x = cx - q - gap / 2.0 + dx * (q + gap);
                 let y = cy - q - gap / 2.0 + dy * (q + gap);
                 pm.stroke(rrect(x + 0.5, y + 0.5, q - 1.0, q - 1.0, 0.5), &ink, 1.0);
+            }
+        }
+        Glyph::RotateLeft | Glyph::RotateRight => {
+            let left = g == Glyph::RotateLeft;
+            let r = s * 0.36;
+            let mut pb = PathBuilder::new();
+            let (a0, a1) = (-2.6f32, 1.2f32);
+            for i in 0..=14 {
+                let a = a0 + (a1 - a0) * i as f32 / 14.0;
+                let (x, y) = (cx + if left { -1.0 } else { 1.0 } * r * a.cos(), cy + r * a.sin());
+                if i == 0 { pb.move_to(x, y) } else { pb.line_to(x, y) }
+            }
+            pm.stroke(pb.finish(), &ink, 1.4);
+            // Ponta da seta no começo do arco.
+            let (tx, ty) = (cx + if left { -1.0 } else { 1.0 } * r * a0.cos(), cy + r * a0.sin());
+            let d = if left { 1.0 } else { -1.0 };
+            let mut pb = PathBuilder::new();
+            pb.move_to(tx - d * s * 0.2, ty - s * 0.02);
+            pb.line_to(tx + d * s * 0.06, ty - s * 0.2);
+            pb.line_to(tx + d * s * 0.08, ty + s * 0.1);
+            pb.close();
+            pm.fill(pb.finish(), &ink);
+        }
+        Glyph::Sidebar => {
+            pm.stroke(rrect(cx - h + 0.5, cy - h * 0.75 + 0.5, s - 1.0, s * 0.75 * 2.0 - 1.0, 1.0), &ink, 1.0);
+            pm.fill_rect(cx - h + s * 0.32, cy - h * 0.75, 1.0, s * 0.75 * 2.0, &ink);
+            for i in 0..3 {
+                pm.fill_rect(cx - h + s * 0.08, cy - h * 0.5 + i as f32 * s * 0.22, s * 0.16, s * 0.12, &ink);
             }
         }
         Glyph::AlignLeft | Glyph::AlignCenter | Glyph::AlignRight => {
