@@ -97,6 +97,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
+    // Tela de login (greetd): quiosque, com a configuração do sistema.
+    let greeter = std::env::args().any(|a| a == "--greeter");
+    if greeter {
+        // Seguro: ainda não há outras threads.
+        unsafe { std::env::set_var("GLOVE_CONFIG_DIR", std::env::var_os("GLOVE_CONFIG_DIR").unwrap_or_else(|| "/etc/glove/login".into())) };
+    }
+
     let mut event_loop: EventLoop<CalloopData> = EventLoop::try_new()?;
     let display: Display<Glove> = Display::new()?;
     let display_handle = display.handle();
@@ -181,7 +188,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    state.start_session_panel(commands);
+    if greeter {
+        // Só o app de login (ou o comando dado), e o Glove termina junto com ele.
+        state.greeter = true;
+        let cmd = commands.first().cloned().unwrap_or_else(|| "glove-login".into());
+        state.greeter_child = state.spawn_child(&cmd);
+        if state.greeter_child.is_none() {
+            tracing::error!("modo login: não consegui abrir '{cmd}'");
+            return Ok(());
+        }
+    } else {
+        state.start_session_panel(commands);
+    }
 
     let mut data = CalloopData { state, display_handle, backend };
     if matches!(data.backend, Backend::Drm(_)) {
@@ -191,7 +209,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     event_loop.run(None, &mut data, |data| {
         // Recolhe apps que terminaram (sem zumbis). Não usamos SIGCHLD = SIG_IGN:
         // ele impede esperar por comandos (wpctl, systemctl) e passaria para os apps.
-        unsafe { while libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) > 0 {} }
+        loop {
+            let pid = unsafe { libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) };
+            if pid <= 0 {
+                break;
+            }
+            // Tela de login: o app de login terminou (sessão iniciada ou erro).
+            if data.state.greeter_child == Some(pid as u32) {
+                tracing::info!("app de login terminou");
+                data.state.loop_signal.stop();
+            }
+        }
         data.state.space.refresh();
         data.state.popups.cleanup();
         data.state.minimized.retain(|(w, _)| w.alive());

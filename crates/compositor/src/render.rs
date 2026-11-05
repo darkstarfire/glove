@@ -65,6 +65,21 @@ impl Glove {
             self.cursor_elements(renderer, sc, &mut out);
         }
 
+        // Tela de login: só as janelas (o app de login) sobre o papel de parede.
+        if self.greeter {
+            if !self.idle.screen_off {
+                for w in self.space.elements().rev() {
+                    let Some(loc) = self.space.element_location(w) else { continue };
+                    let render_loc = loc - w.geometry().loc;
+                    out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+                }
+                if let Some(b) = &c.wallpaper {
+                    out.extend(mem(renderer, (0, 0).into(), b, sc));
+                }
+            }
+            return out;
+        }
+
         // Troca de apps por cima de tudo (menos o cursor).
         if let (Some(s), Some((x, y))) = (&self.switcher, self.switcher_pos()) {
             if let Some(t) = &s.tex {

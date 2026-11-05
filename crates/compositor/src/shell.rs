@@ -427,6 +427,10 @@ impl Glove {
 
     pub fn hit_test(&self, pos: Point<f64, Logical>) -> Hit {
         let (px, py) = (pos.x, pos.y);
+        // Tela de login: só a janela do app de login responde.
+        if self.greeter {
+            return self.space.element_under(pos).map(|(w, _)| Hit::Client(w.clone())).unwrap_or(Hit::Desktop);
+        }
 
         if let Some(m) = &self.chrome.menu {
             // O submenu mais interno fica por cima.
@@ -604,6 +608,10 @@ impl Glove {
     /// Área útil: abaixo da barra de menu e acima do Dock.
     pub fn work_area(&self) -> Rectangle<i32, Logical> {
         let (w, h) = self.output_size();
+        // Tela de login: a tela inteira.
+        if self.greeter {
+            return Rectangle::new((0, 0).into(), (w, h).into());
+        }
         // Espaço reservado para o Dock (tamanho dos ícones + prateleira); escondido, nada.
         let reserve = if self.config.dock.autohide { 0 } else { (self.config.dock.size.clamp(24, 128) as f32 * 0.62 + 30.0) as i32 };
         match chrome::DockSide::from_config(&self.config.dock.position) {
@@ -667,8 +675,12 @@ impl Glove {
         let top = deco_top(w);
         let off = (self.cascade % 6) * 26;
         self.cascade += 1;
-        let x = area.loc.x + ((area.size.w - size.w) / 2).max(0) + off - 65;
-        let y = area.loc.y + top + ((area.size.h - size.h - top) / 3).max(8) + off;
+        let (x, y) = if self.greeter {
+            // Tela de login: o painel no centro, um pouco acima do meio.
+            (area.loc.x + (area.size.w - size.w) / 2, area.loc.y + ((area.size.h - size.h) as f32 * 0.42) as i32)
+        } else {
+            (area.loc.x + ((area.size.w - size.w) / 2).max(0) + off - 65, area.loc.y + top + ((area.size.h - size.h - top) / 3).max(8) + off)
+        };
         // Só posiciona: não muda a ordem nem o foco.
         self.space.map_element(w.clone(), (x.max(0), y.max(MENUBAR_H + top)), false);
         if self.focused_window().as_ref() == Some(w) {

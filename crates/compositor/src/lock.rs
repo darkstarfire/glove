@@ -154,7 +154,8 @@ impl Glove {
     }
 
     pub fn lock_screen(&mut self) {
-        if self.lock.is_some() {
+        // A tela de login não bloqueia (não há sessão para proteger).
+        if self.lock.is_some() || self.greeter {
             return;
         }
         tracing::info!("tela bloqueada");

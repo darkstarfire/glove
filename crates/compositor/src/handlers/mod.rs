@@ -67,13 +67,16 @@ delegate_output!(Glove);
 // Bordas: o Glove prefere desenhar as próprias barras de título.
 impl XdgDecorationHandler for Glove {
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
-        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ServerSide));
+        // Tela de login: sem barras de título.
+        let mode = if self.greeter { DecorationMode::ClientSide } else { DecorationMode::ServerSide };
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(mode));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }
     }
 
     fn request_mode(&mut self, toplevel: ToplevelSurface, mode: DecorationMode) {
+        let mode = if self.greeter { DecorationMode::ClientSide } else { mode };
         toplevel.with_pending_state(|s| s.decoration_mode = Some(mode));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
@@ -81,7 +84,8 @@ impl XdgDecorationHandler for Glove {
     }
 
     fn unset_mode(&mut self, toplevel: ToplevelSurface) {
-        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ServerSide));
+        let mode = if self.greeter { DecorationMode::ClientSide } else { DecorationMode::ServerSide };
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(mode));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }

@@ -100,7 +100,7 @@ Arquitetura escolhida (ver [4-sessao-login.md](analise/4-sessao-login.md)): **gr
 Glove roda em modo quiosque (`glove --greeter`) e o app `glove-login` (glove-kit) conversa com o greetd.
 Meta: tela de login inteira abaixo de 25 MB.
 
-- [ ] 5.1 Modo quiosque do compositor (`--greeter`: sem Dock nem menus) (M)
+- [x] 5.1 Modo quiosque do compositor (`--greeter`: sem Dock nem menus) (M)
 - [ ] 5.2 Cliente do protocolo do greetd e `glove-login`: lista de usuários com fotos, senha, painel que balança no erro, Reiniciar/Desligar (G)
 - [ ] 5.3 Avatares originais desenhados por código; `data/greetd/` + `instalar-login.sh` (com volta ao gerenciador anterior) (M)
 - [ ] 5.4 Splash de boot e desligamento: tema Plymouth com arte gerada por código (`glove-arte`) (M)

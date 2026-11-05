@@ -333,6 +333,10 @@ impl Default for Config {
 }
 
 pub fn dir() -> PathBuf {
+    // A tela de login (glove --greeter) usa a configuração do sistema.
+    if let Some(d) = std::env::var_os("GLOVE_CONFIG_DIR") {
+        return PathBuf::from(d);
+    }
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))

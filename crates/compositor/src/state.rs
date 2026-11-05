@@ -132,6 +132,10 @@ pub struct Glove {
     pub min_commit_pending: bool,
     /// Quando o clique no Dock começou (para o clique segurado abrir o menu).
     pub dock_press_at: Option<std::time::Instant>,
+    /// Modo quiosque da tela de login (glove --greeter).
+    pub greeter: bool,
+    /// Processo do app de login: quando ele termina, o Glove termina.
+    pub greeter_child: Option<u32>,
 }
 
 impl Glove {
@@ -218,6 +222,8 @@ impl Glove {
             min_frame_timer: false,
             min_commit_pending: false,
             dock_press_at: None,
+            greeter: false,
+            greeter_child: None,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,
@@ -356,17 +362,36 @@ impl Glove {
         } else {
             command.to_string()
         };
+        let _ = self.run_command(&command, false);
+    }
+
+    /// Abre um programa só (sem `&&`) e devolve o pid dele (o `sh` vira o programa).
+    pub fn spawn_child(&self, command: &str) -> Option<u32> {
+        let first = command.split_whitespace().next().unwrap_or("");
+        let command = if first.starts_with("glove-") {
+            command.replacen(first, &crate::shell::sibling_binary(first), 1)
+        } else {
+            command.to_string()
+        };
+        self.run_command(&command, true)
+    }
+
+    fn run_command(&self, command: &str, exec: bool) -> Option<u32> {
         let mut cmd = std::process::Command::new("sh");
         cmd.arg("-c")
-            .arg(&command)
+            .arg(if exec { format!("exec {command}") } else { command.to_string() })
             .env("WAYLAND_DISPLAY", &self.socket_name)
             .env("GDK_BACKEND", "wayland")
             .env("QT_QPA_PLATFORM", "wayland")
             .env("MOZ_ENABLE_WAYLAND", "1")
             .env("GLOVE_MENU_SOCKET", self.menu_socket.clone().unwrap_or_default())
             .env_remove("DISPLAY");
-        if let Err(e) = cmd.spawn() {
-            tracing::warn!("não consegui abrir '{command}': {e}");
+        match cmd.spawn() {
+            Ok(c) => Some(c.id()),
+            Err(e) => {
+                tracing::warn!("não consegui abrir '{command}': {e}");
+                None
+            }
         }
     }
 }

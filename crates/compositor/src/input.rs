@@ -310,6 +310,10 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(Some(KeyAction::Vt((vt - 0x1008FE00) as i32)));
             }
+            // Tela de login: nenhum atalho; tudo vai para o app de login.
+            if st.greeter {
+                return FilterResult::Forward;
+            }
             // Nome da tecla sem modificadores (independe do layout para letras).
             let raw = handle.raw_latin_sym_or_raw_current_sym().unwrap_or_else(|| handle.modified_sym());
             let name = smithay::input::keyboard::xkb::keysym_get_name(raw).to_lowercase();
@@ -611,7 +615,7 @@ impl Glove {
     fn on_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
         self.note_input();
         self.pointer_pos = pos;
-        if !self.locked() {
+        if !self.locked() && !self.greeter {
             self.hot_corner(pos);
         }
         if self.expose_active() {
@@ -813,6 +817,8 @@ impl Glove {
                         self.click_desk_icon();
                         swallow = true;
                     }
+                    // Tela de login: o app de login nunca perde o foco.
+                    Hit::Desktop if self.greeter => {}
                     Hit::Desktop => {
                         self.focus_window(None);
                         if self.chrome.desk_selected {
