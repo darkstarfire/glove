@@ -8,7 +8,7 @@ pub mod menu;
 mod platform;
 mod text;
 pub mod ui;
-pub use text::TextBuffer;
+pub use text::{Align, TextBuffer};
 
 pub use glove_paint as paint;
 pub use platform::{app_icon, local_time, run, theme_from_config, use_own_frame, App, WindowOptions};

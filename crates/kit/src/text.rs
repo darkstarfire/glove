@@ -37,6 +37,17 @@ pub struct TextBuffer {
     pub font_px: f32,
     /// Cor do papel (None = branco).
     pub paper: Option<(u8, u8, u8)>,
+    /// Alinhamento das linhas (só quando a linha cabe na largura).
+    pub align: Align,
+}
+
+/// Alinhamento das linhas no `text_area`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Align {
+    #[default]
+    Left,
+    Center,
+    Right,
 }
 
 const UNDO_MAX: usize = 1000;

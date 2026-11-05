@@ -2092,11 +2092,25 @@ impl<'a> Ui<'a> {
         let before_text_changed = buf.modified;
         let mut changed = false;
 
+        // Recuo da linha pelo alinhamento (linhas mais largas que a área ficam à esquerda).
+        let avail = tr.w - 2.0 * PAD - 2.0;
+        let align = buf.align;
+        let off = move |buf: &TextBuffer, start: usize| -> f32 {
+            if align == crate::text::Align::Left {
+                return 0.0;
+            }
+            let lw = width(&buf.text()[start..buf.line_end(start)]);
+            match align {
+                crate::text::Align::Center => ((avail - lw) / 2.0).max(0.0),
+                _ => (avail - lw).max(0.0),
+            }
+        };
         // Posição (relativa ao conteúdo) → byte no texto.
         let hit = |buf: &TextBuffer, starts: &[usize], x: f32, y: f32| -> usize {
             let line = ((y / lh).floor().max(0.0) as usize).min(starts.len() - 1);
             let start = starts[line];
             let end = buf.line_end(start);
+            let x = x - off(buf, start);
             let s = &buf.text()[start..end];
             let mut best = start;
             let mut prev_w = 0.0;
@@ -2195,7 +2209,7 @@ impl<'a> Ui<'a> {
                 }
                 let vertical = |buf: &mut TextBuffer, starts: &[usize], delta: isize| {
                     let (line, start) = buf.line_of(buf.cursor);
-                    let x = buf.want_x.unwrap_or_else(|| width(&buf.text()[start..buf.cursor]));
+                    let x = buf.want_x.unwrap_or_else(|| off(buf, start) + width(&buf.text()[start..buf.cursor]));
                     let target = (line as isize + delta).clamp(0, starts.len() as isize - 1) as usize;
                     let p = if delta < 0 && line == 0 {
                         0
@@ -2242,7 +2256,7 @@ impl<'a> Ui<'a> {
             } else if cy + lh + 2.0 * PAD > buf.scroll_y + r.h {
                 buf.scroll_y = cy + lh + 2.0 * PAD - r.h;
             }
-            let cx = width(&buf.text()[start..buf.cursor]);
+            let cx = off(buf, start) + width(&buf.text()[start..buf.cursor]);
             let vis = tr.w - 2.0 * PAD - 8.0;
             if cx < buf.scroll_x {
                 buf.scroll_x = (cx - 40.0).max(0.0);
@@ -2270,7 +2284,7 @@ impl<'a> Ui<'a> {
             let start = starts[line];
             let end = buf.line_end(start);
             let y = PAD + line as f32 * lh - buf.scroll_y;
-            let x0 = PAD - buf.scroll_x;
+            let x0 = PAD - buf.scroll_x + off(buf, start);
             if sel_a != sel_b && sel_a <= end && sel_b >= start {
                 let a = sel_a.max(start);
                 let b = sel_b.min(end);

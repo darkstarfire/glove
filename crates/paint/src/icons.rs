@@ -931,6 +931,10 @@ pub enum Glyph {
     Action,
     Plus,
     Minus,
+    /// Linhas de comprimentos diferentes, encostadas à esquerda/no meio/à direita.
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
 }
 
 /// Desenha o glifo centrado em (cx, cy), num quadrado de `s` pontos.
@@ -945,6 +949,19 @@ pub fn glyph(pm: &mut Canvas, g: Glyph, cx: f32, cy: f32, s: f32, color: Color) 
                 let x = cx - q - gap / 2.0 + dx * (q + gap);
                 let y = cy - q - gap / 2.0 + dy * (q + gap);
                 pm.stroke(rrect(x + 0.5, y + 0.5, q - 1.0, q - 1.0, 0.5), &ink, 1.0);
+            }
+        }
+        Glyph::AlignLeft | Glyph::AlignCenter | Glyph::AlignRight => {
+            let lens = [1.0, 0.6, 0.85, 0.5];
+            for (i, l) in lens.iter().enumerate() {
+                let y = (cy - h * 0.75 + i as f32 * h * 0.5).round() + 0.5;
+                let lw = (s * l).round();
+                let x = match g {
+                    Glyph::AlignLeft => cx - h,
+                    Glyph::AlignCenter => cx - lw / 2.0,
+                    _ => cx + h - lw,
+                };
+                pm.fill_rect(x.round(), y - 0.5, lw, 1.0, &ink);
             }
         }
         Glyph::ViewList => {
