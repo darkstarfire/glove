@@ -113,7 +113,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 6.3 Ícones de pastas especiais (Mesa, Documentos, Música, Imagens, Vídeos…), de tipos e emblema de atalho (M)
 - [x] 6.4 Copiar/colar/mover/arrastar com janela de progresso e alerta de substituição (G)
 - [x] 6.5 Renomear no lugar, menu de contexto, Duplicar, Criar atalho (M)
-- [ ] 6.6 Obter Informações (Ctrl+I) com seções Geral, Nome, Abrir com, Permissões, Comentários (G)
+- [x] 6.6 Obter Informações (Ctrl+I) com seções Geral, Nome, Abrir com, Permissões, Comentários (G)
 - [ ] 6.7 Menu Ir completo, "Ir para a pasta…" com Tab, pasta Aplicativos/Utilitários (M)
   - Apontamento (sessão no hardware): falta um jeito de achar e abrir os apps instalados no Linux.
     No 10.0–10.3 não havia Launchpad (10.7) nem Spotlight (10.4): os apps ficavam na pasta

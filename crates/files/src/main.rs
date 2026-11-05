@@ -1,5 +1,6 @@
 //! Arquivos: navegador de pastas do Glove (colunas, lista e ícones).
 
+mod info;
 mod ops;
 
 use std::collections::HashMap;
@@ -1235,6 +1236,7 @@ impl Files {
                 "Ctrl+BackSpace" => act.push("trash"),
                 "Ctrl+Shift+BackSpace" => act.push("empty-trash"),
                 "F2" => act.push("rename"),
+                "Ctrl+I" => act.push("info"),
                 "Ctrl+D" => act.push("duplicate"),
                 "Ctrl+L" => act.push("alias"),
                 "Ctrl+C" => act.push("copy"),
@@ -1324,8 +1326,12 @@ impl Files {
                     }
                 }
             }
-            // Obter Informações chega na etapa 6.6.
-            "info" => {}
+            // Uma janela de informações por item (como no Mac).
+            "info" => {
+                if let Some(p) = self.selected.clone().or_else(|| Some(self.current())) {
+                    let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--info").arg(p).spawn();
+                }
+            }
             "paste" => match self.clip.clone() {
                 Some((srcs, mv)) => {
                     let dir = self.current();
@@ -1491,6 +1497,7 @@ impl App for Files {
                     MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(sel && !self.in_trash()),
                     MenuItem::new("put-back", "Devolver", "").enabled(sel && self.in_trash()),
                     MenuItem::Separator,
+                    MenuItem::new("info", "Obter Informações", "Ctrl+I"),
                     MenuItem::new("rename", "Renomear", "F2").enabled(sel),
                     MenuItem::new("duplicate", "Duplicar", "Ctrl+D").enabled(sel && !self.in_trash()),
                     MenuItem::new("alias", "Criar Atalho", "Ctrl+L").enabled(sel && !self.in_trash()),
@@ -1536,6 +1543,15 @@ impl App for Files {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--info") {
+        let Some(p) = args.get(i + 1).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok()) else { return };
+        let opts = WindowOptions { title: "Informações".into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true };
+        if let Err(e) = run(opts, info::Info::new(p)) {
+            eprintln!("glove-files: {e}");
+        }
+        return;
+    }
     if std::env::args().any(|a| a == "--esvaziar-lixeira") {
         let count = std::fs::read_dir(trash_dir().join("files")).map(|d| d.count()).unwrap_or(0);
         if count == 0 {
