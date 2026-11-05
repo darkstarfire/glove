@@ -4,6 +4,28 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod sons;
+
+/// Painel Som.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Sound {
+    /// Nome do alerta (ver `sons::ALERTS`).
+    pub alert: String,
+    /// Volume do alerta, de 0 a 1.
+    pub alert_volume: f32,
+    /// "Pop" ao mudar o volume pelas teclas.
+    pub volume_feedback: bool,
+    /// Volume na barra de menu.
+    pub menu_extra: bool,
+}
+
+impl Default for Sound {
+    fn default() -> Self {
+        Self { alert: "Vidro".into(), alert_volume: 0.7, volume_feedback: true, menu_extra: true }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DockApp {
     pub name: String,
@@ -286,6 +308,8 @@ pub struct Config {
     pub dock: Dock,
     #[serde(default)]
     pub appearance: Appearance,
+    #[serde(default)]
+    pub sound: Sound,
     pub keyboard: Keyboard,
     pub pointer: Pointer,
     pub touchpad: Touchpad,
@@ -397,6 +421,7 @@ impl Default for Config {
             hot_corners: HotCorners::default(),
             welcome_done: false,
             appearance: Appearance::default(),
+            sound: Sound::default(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }

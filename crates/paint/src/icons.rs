@@ -61,6 +61,8 @@ pub enum PrefKind {
     Shortcuts,
     /// Quadro com a mesa (papel de parede).
     Desktop,
+    /// Alto-falante com ondas.
+    Sound,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -996,6 +998,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Keyboard => pref_keyboard(pm, x, y, s, false),
         PrefKind::Shortcuts => pref_keyboard(pm, x, y, s, true),
         PrefKind::Desktop => pref_desktop(pm, x, y, s),
+        PrefKind::Sound => pref_sound(pm, x, y, s),
     }
 }
 
@@ -1128,4 +1131,30 @@ fn pref_desktop(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pm.fill(pb.finish(), &solid(rgba(255, 255, 255, a)));
     }
     pm.stroke(rrect(sx, sy, sw, sh, 0.0), &solid(rgba(120, 88, 50, 200)), lw);
+}
+
+/// Alto-falante prateado com o cone escuro e as ondas saindo.
+fn pref_sound(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.14, y + s * 0.08, s * 0.5, s * 0.84);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.08), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.08), &linear(bx, 0.0, bx + bw, 0.0, &[(0.0, rgba(170, 174, 184, 255)), (0.45, rgba(240, 242, 246, 255)), (1.0, rgba(150, 154, 164, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.08), &solid(rgba(100, 104, 114, 255)), lw);
+    // Agudo e grave.
+    let cx = bx + bw / 2.0;
+    for (cy, r) in [(by + bh * 0.24, s * 0.08), (by + bh * 0.64, s * 0.17)] {
+        pm.fill(circle(cx, cy, r + s * 0.02), &solid(rgba(200, 202, 208, 255)));
+        pm.fill(circle(cx, cy, r), &radial(cx - r * 0.3, cy - r * 0.3, r * 1.4, &[(0.0, rgba(110, 114, 124, 255)), (1.0, rgba(30, 32, 38, 255))]));
+        pm.fill(circle(cx, cy, r * 0.28), &solid(rgba(150, 154, 164, 255)));
+    }
+    // Ondas.
+    for (k, a) in [(0.0, 220u8), (1.0, 150)] {
+        let r = s * (0.16 + k * 0.1);
+        let ox = bx + bw + s * 0.02;
+        let oy = by + bh * 0.5;
+        let mut pb = PathBuilder::new();
+        pb.move_to(ox + r * 0.35, oy - r);
+        pb.quad_to(ox + r * 1.15, oy, ox + r * 0.35, oy + r);
+        pm.stroke(pb.finish(), &solid(rgba(60, 120, 220, a)), (s * 0.045).max(1.0));
+    }
 }

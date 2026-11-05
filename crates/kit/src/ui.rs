@@ -366,6 +366,8 @@ pub struct Memory {
     pub(crate) app_icon: Option<Icon>,
     /// Sombra do alerta já desfocada: (largura, altura, escala) → canvas.
     alert_shadow: Option<((u32, u32, u32), Canvas)>,
+    /// Título do último alerta que já tocou o som (toca uma vez só).
+    alert_sounded: Option<String>,
     /// Seta de rolagem apertada: (id, próxima repetição).
     scroll_repeat: Option<(Id, std::time::Instant)>,
     /// Superfícies de rascunho reaproveitadas (recorte de áreas roláveis).
@@ -1486,6 +1488,11 @@ impl<'a> Ui<'a> {
     }
 
     fn alert_impl(&mut self, kind: AlertKind, title: &str, text: &str, buttons: &[&str], sheet: bool) -> Option<usize> {
+        // Avisos e erros tocam o alerta do painel Som uma vez ao aparecer.
+        if matches!(kind, AlertKind::Caution | AlertKind::Stop) && self.mem.alert_sounded.as_deref() != Some(title) {
+            self.mem.alert_sounded = Some(title.to_string());
+            glove_config::sons::alert();
+        }
         use std::time::Duration;
         self.set_enabled(true);
         let (w, h) = (self.c.w, self.c.h);

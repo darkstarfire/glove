@@ -3,6 +3,8 @@
 
 use std::time::{Duration, Instant};
 
+mod som;
+
 use glove_config::{Config, OutputsInfo};
 use glove_kit::{
     paint::{
@@ -24,6 +26,7 @@ enum Pane {
     Aparencia,
     Mesa,
     Monitor,
+    Som,
     Dock,
     Teclado,
     Mouse,
@@ -45,11 +48,12 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 8] = [
+const PANES: [PaneInfo; 9] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
     PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
+    PaneInfo { pane: Pane::Som, id: "som", icon: Icon::Pref(PrefKind::Sound), name: "Som", category: 1, keywords: "volume mudo alto-falante fone saída entrada microfone alerta efeitos sonoros" },
     PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear" },
     PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto" },
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
@@ -167,6 +171,9 @@ struct Prefs {
     kbd_tab: usize,
     /// Grupos abertos no painel Atalhos.
     open_groups: [bool; 3],
+    /// Aba do painel Som e os dispositivos (None = sem PipeWire).
+    sound_tab: usize,
+    audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
     /// Miniaturas de papel de parede já desenhadas.
@@ -217,6 +224,8 @@ impl Prefs {
             kbd_tab,
             open_groups: [true, false, false],
             desk_source: 0,
+            sound_tab: 0,
+            audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
             forward: Vec::new(),
@@ -232,6 +241,9 @@ impl Prefs {
             self.forward.clear();
             self.pane = p;
             self.ctx = None;
+            if p == Pane::Som {
+                self.audio = som::status();
+            }
         }
     }
 
@@ -1015,6 +1027,117 @@ impl Prefs {
 }
 
 impl Prefs {
+    fn som(&mut self, ui: &mut Ui) {
+        const SINK: &str = "@DEFAULT_AUDIO_SINK@";
+        const SOURCE: &str = "@DEFAULT_AUDIO_SOURCE@";
+        let mut tab = self.sound_tab;
+        let shown = tab;
+        ui.space(4.0);
+        ui.tab_box(&mut tab, &["Efeitos Sonoros", "Saída", "Entrada"], 280.0, |ui| match shown {
+            0 => {
+                ui.label("Escolher um alerta sonoro:");
+                let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| a.to_string()).collect();
+                let mut sel = glove_config::sons::ALERTS.iter().position(|a| *a == self.config.sound.alert);
+                if ui.list(&mut sel, &rows, ui.available_width(), 118.0) {
+                    if let Some(i) = sel {
+                        self.config.sound.alert = rows[i].clone();
+                        self.save();
+                        glove_config::sons::play(&rows[i], self.config.sound.alert_volume.max(0.3));
+                    }
+                }
+                ui.space(6.0);
+                let mut v = self.config.sound.alert_volume;
+                ui.form_row("Volume do alerta", 150.0, |ui| {
+                    let t = Ticks { count: 2, labels: &[(0.0, "Baixo"), (1.0, "Alto")], snap: false };
+                    if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, true) {
+                        self.config.sound.alert_volume = (v * 20.0).round() / 20.0;
+                        self.save();
+                    }
+                });
+                let mut fb = self.config.sound.volume_feedback;
+                ui.form_row("", 150.0, |ui| {
+                    if ui.checkbox(&mut fb, "Tocar retorno ao mudar o volume") {
+                        self.config.sound.volume_feedback = fb;
+                        self.save();
+                    }
+                });
+            }
+            n => {
+                let Some((sinks, sources)) = self.audio.clone() else {
+                    ui.small("O PipeWire não respondeu (o comando wpctl não está disponível).");
+                    return;
+                };
+                let (list, what) = if n == 1 { (&sinks, "a saída") } else { (&sources, "a entrada") };
+                let t = format!("Escolher um dispositivo para {what} de som:");
+                ui.label(&t);
+                let rows: Vec<String> = list.iter().map(|d| d.name.clone()).collect();
+                let mut sel = list.iter().position(|d| d.default);
+                if ui.list(&mut sel, &rows, ui.available_width(), 120.0) {
+                    if let Some(i) = sel {
+                        som::set_default(list[i].id);
+                        if let Some(a) = self.audio.as_mut() {
+                            let l = if n == 1 { &mut a.0 } else { &mut a.1 };
+                            for (k, d) in l.iter_mut().enumerate() {
+                                d.default = k == i;
+                            }
+                        }
+                    }
+                }
+                if rows.is_empty() {
+                    ui.small("Nenhum dispositivo encontrado.");
+                }
+                if n == 2 {
+                    ui.space(8.0);
+                    let mut v = sources.iter().find(|d| d.default).map_or(0.0, |d| d.volume);
+                    ui.form_row("Volume de entrada", 150.0, |ui| {
+                        let t = Ticks { count: 2, labels: &[(0.0, "Baixo"), (1.0, "Alto")], snap: false };
+                        if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, !sources.is_empty()) {
+                            som::set_volume(SOURCE, v);
+                            if let Some(d) = self.audio.as_mut().and_then(|a| a.1.iter_mut().find(|d| d.default)) {
+                                d.volume = v;
+                            }
+                        }
+                    });
+                }
+            }
+        });
+        self.sound_tab = tab;
+        ui.space(10.0);
+        // Volume de saída e mudo, embaixo de todas as abas (como no 10.4).
+        let out = self.audio.as_ref().and_then(|a| a.0.iter().find(|d| d.default).cloned());
+        let has = out.is_some();
+        let (mut vol, mut muted) = out.map_or((0.0, false), |d| (d.volume, d.muted));
+        ui.form_row("Volume de saída", 150.0, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing(14.0);
+                if ui.slider_ticks(&mut vol, 0.0, 1.0, 240.0, &Ticks { count: 0, labels: &[], snap: false }, has) {
+                    som::set_volume(SINK, vol);
+                    if muted && vol > 0.0 {
+                        som::set_mute(SINK, false);
+                        muted = false;
+                    }
+                    if let Some(d) = self.audio.as_mut().and_then(|a| a.0.iter_mut().find(|d| d.default)) {
+                        d.volume = vol;
+                        d.muted = muted;
+                    }
+                }
+                if ui.checkbox(&mut muted, "Mudo") && has {
+                    som::set_mute(SINK, muted);
+                    if let Some(d) = self.audio.as_mut().and_then(|a| a.0.iter_mut().find(|d| d.default)) {
+                        d.muted = muted;
+                    }
+                }
+            });
+        });
+        let mut extra = self.config.sound.menu_extra;
+        ui.form_row("", 150.0, |ui| {
+            if ui.checkbox(&mut extra, "Mostrar volume na barra de menu") {
+                self.config.sound.menu_extra = extra;
+                self.save();
+            }
+        });
+    }
+
     fn terminal(&mut self, ui: &mut Ui) {
         ui.heading("Fonte do Terminal");
         ui.indent(16.0, |ui| {
@@ -1060,6 +1183,7 @@ impl App for Prefs {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
             Pane::Mesa => self.mesa(ui),
+            Pane::Som => self.som(ui),
             Pane::Monitor => self.monitor(ui),
             Pane::Trackpad => self.trackpad(ui),
             Pane::Dock => self.dock(ui),
@@ -1088,7 +1212,7 @@ impl App for Prefs {
         // Contagem da confirmação de resolução; e os monitores conectados (cabo).
         if self.confirm.is_some() {
             Some(Duration::from_millis(500))
-        } else if self.pane == Pane::Monitor {
+        } else if matches!(self.pane, Pane::Monitor | Pane::Som) {
             Some(Duration::from_secs(2))
         } else {
             None
@@ -1100,6 +1224,9 @@ impl App for Prefs {
             self.revert();
         }
         self.outputs = OutputsInfo::load();
+        if self.pane == Pane::Som {
+            self.audio = som::status();
+        }
     }
 
     fn close_requested(&mut self) -> bool {

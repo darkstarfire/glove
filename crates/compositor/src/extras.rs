@@ -172,7 +172,7 @@ impl Glove {
         if self.config.monitor.menu_extra {
             v.push(ExtraKind::Display);
         }
-        if self.extras.volume.is_some() {
+        if self.extras.volume.is_some() && self.config.sound.menu_extra {
             v.push(ExtraKind::Volume);
         }
         if self.extras.battery.is_some() {
@@ -299,6 +299,10 @@ impl Glove {
         self.dirty = true;
         if show_osd {
             self.show_osd(OsdKind::Volume, level, muted);
+            // O "pop" no volume novo (como no 10.4), se ligado no painel Som.
+            if self.config.sound.volume_feedback && !muted {
+                glove_config::sons::play("Volume", 1.0);
+            }
         }
     }
 
