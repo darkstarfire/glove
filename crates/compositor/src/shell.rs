@@ -290,13 +290,15 @@ pub struct Chrome {
     pub out_size: (i32, i32),
     wallpaper_key: Option<(i32, i32, u64)>,
     pub wallpaper: Option<Tex>,
-    menubar_key: Option<(i32, Vec<String>, Vec<chrome::Extra>, String, Option<BarTarget>, Option<usize>, u64)>,
+    menubar_key: Option<(i32, Vec<String>, Vec<chrome::Extra>, String, Option<BarTarget>, Option<usize>, bool, u64)>,
     pub menubar: Option<Tex>,
     pub logo_range: (f32, f32),
     /// Faixas dos títulos de menu (o primeiro é o nome do app).
     pub title_ranges: Vec<(f32, f32)>,
     /// Faixas dos extras da barra (volume, bateria, monitor).
     pub extra_ranges: Vec<(f32, f32)>,
+    /// Faixa da lupa da Busca Rápida.
+    pub search_range: (f32, f32),
 
     pub dock_items: Vec<DockItem>,
     pub dock_actions: Vec<DockAction>,
@@ -359,6 +361,10 @@ pub enum Hit {
     ForceQuit(chrome::FqHit),
     /// Controle de volume (y relativo ao conteúdo).
     VolumeSlider(f32),
+    /// Lupa da Busca Rápida na barra.
+    SearchButton,
+    /// Painel da Busca Rápida (linha sob o mouse).
+    Search(Option<usize>),
     MenuBar { target: Option<BarTarget> },
     Dock(Option<usize>),
     Title { window: Window, button: Option<TitleButton>, group: bool },
@@ -393,6 +399,9 @@ impl Glove {
         if let Some(y) = self.volume_slider_y(pos) {
             return Hit::VolumeSlider(y);
         }
+        if let Some(r) = self.search_hit(pos) {
+            return Hit::Search(r);
+        }
         if let Some(h) = self.force_quit_hit(pos) {
             return Hit::ForceQuit(h);
         }
@@ -400,6 +409,10 @@ impl Glove {
             let (a, b) = self.chrome.logo_range;
             if px >= a as f64 && px < b as f64 {
                 return Hit::MenuBar { target: Some(BarTarget::Logo) };
+            }
+            let (sa, sb) = self.chrome.search_range;
+            if px >= sa as f64 && px < sb as f64 {
+                return Hit::SearchButton;
             }
             if let Some(k) = self.chrome.extra_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64) {
                 return Hit::MenuBar { target: Some(BarTarget::Extra(k)) };
@@ -658,6 +671,7 @@ impl Glove {
 
     pub fn open_bar_menu(&mut self, target: BarTarget) {
         self.close_volume_slider();
+        self.close_search();
         match target {
             BarTarget::Extra(k) => self.open_extra(k),
             BarTarget::Logo => self.open_main_menu(),
@@ -1069,13 +1083,15 @@ impl Glove {
         };
         let extras = self.extras_for_bar();
         let open_t = self.chrome.menu.as_ref().map(|m| m.target);
-        let key = (w, titles.clone(), extras.clone(), clock.clone(), open_t, open_extra, tgen);
+        let search_open = self.search.open;
+        let key = (w, titles.clone(), extras.clone(), clock.clone(), open_t, open_extra, search_open, tgen);
         if self.chrome.menubar_key.as_ref() != Some(&key) {
-            if let Some((pm, layout)) = chrome::menubar(&self.fonts, &self.theme, w as f32, &titles, &extras, &clock, open, open_extra, sc) {
+            if let Some((pm, layout)) = chrome::menubar(&self.fonts, &self.theme, w as f32, &titles, &extras, &clock, open, open_extra, search_open, sc) {
                 self.chrome.menubar = Some(to_tex(pm));
                 self.chrome.logo_range = layout.logo;
                 self.chrome.title_ranges = layout.titles;
                 self.chrome.extra_ranges = layout.extras;
+                self.chrome.search_range = layout.search;
             }
             self.chrome.menubar_key = Some(key);
         }
@@ -1117,6 +1133,7 @@ impl Glove {
 
         self.prepare_force_quit();
         self.prepare_startup();
+        self.prepare_search();
         self.prepare_lock();
         self.prepare_extras();
         self.prepare_wait_cursor();

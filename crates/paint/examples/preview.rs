@@ -31,7 +31,7 @@ fn main() {
     }
 
     let titles = vec!["Terminal".to_string(), "Shell".into(), "Editar".into()];
-    let (mb, _) = menubar(&fonts, &theme, w, &titles, &[Extra::Volume { level: 0.6, muted: false }, Extra::Battery { percent: 72, charging: true, show_percent: true }, Extra::Display], "Ter 19:47", Some(0), None, scale).unwrap();
+    let (mb, _) = menubar(&fonts, &theme, w, &titles, &[Extra::Volume { level: 0.6, muted: false }, Extra::Battery { percent: 72, charging: true, show_percent: true }, Extra::Display], "Ter 19:47", Some(0), None, false, scale).unwrap();
     screen.draw_canvas(&mb, 0.0, 0.0);
     let items = vec![
         MenuItem::item("Sobre o Glove"),

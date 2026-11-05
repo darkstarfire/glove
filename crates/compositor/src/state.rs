@@ -103,6 +103,8 @@ pub struct Glove {
     pub swallow_wake_release: bool,
     /// Painel "Iniciando sessão" (só na entrada).
     pub startup: Option<crate::startup::Startup>,
+    /// Busca Rápida.
+    pub search: crate::search::Search,
 }
 
 impl Glove {
@@ -173,6 +175,7 @@ impl Glove {
             idle: Default::default(),
             swallow_wake_release: false,
             startup: None,
+            search: Default::default(),
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

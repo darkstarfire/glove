@@ -132,6 +132,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Ctrl+Alt+Backspace | Sair do Glove (encerra a sessão) |
 | Ctrl+Alt+F1…F12 | Trocar de console (só na sessão própria) |
 | Teclas de volume e brilho | Mudam o volume (PipeWire) e o brilho (pelo logind, sem root), com aviso na tela |
+| Super+Espaço | Busca Rápida (também na lupa do canto da barra): apps instalados, Preferências e arquivos; Enter abre o primeiro |
 | Super+L | Bloquear a tela (também no menu principal; desbloqueia com a senha do usuário) |
 | Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
 

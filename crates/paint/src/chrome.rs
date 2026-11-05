@@ -196,14 +196,17 @@ pub struct MenuBarLayout {
     pub titles: Vec<(f32, f32)>,
     /// Faixa de cada extra (volume, bateria, monitor), à esquerda do relógio.
     pub extras: Vec<(f32, f32)>,
+    /// Lupa da Busca Rápida (canto direito).
+    pub search: (f32, f32),
 }
 
 pub const MENUBAR_PX: f32 = 14.0;
 
 /// `titles[0]` é o nome do app (em negrito). `open`: título aberto (0 = logo, 1.. = títulos);
 /// `open_extra`: extra aberto.
+/// `search_open`: a Busca Rápida está aberta (lupa realçada).
 #[allow(clippy::too_many_arguments)]
-pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], extras: &[Extra], clock: &str, open: Option<usize>, open_extra: Option<usize>, scale: f32) -> Option<(Canvas, MenuBarLayout)> {
+pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], extras: &[Extra], clock: &str, open: Option<usize>, open_extra: Option<usize>, search_open: bool, scale: f32) -> Option<(Canvas, MenuBarLayout)> {
     let h = MENUBAR_H as f32;
     let mut c = Canvas::new(w, h, scale)?;
     let claro = theme.variant == Variant::Claro;
@@ -243,10 +246,17 @@ pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], extras: 
         ranges.push((a, b));
         x = b;
     }
+    // Lupa da Busca Rápida no canto, num quadrado azul quando aberta (como no 10.4).
+    let search = (w - 32.0, w);
+    if search_open {
+        c.fill_rect(search.0, 0.0, search.1 - search.0, h - 1.0, &vgrad(0.0, h, &[(0.0, lighten(theme.accent, 0.15)), (1.0, darken(theme.accent, 0.15))]));
+    }
+    magnifier_glyph(&mut c, search.0 + 9.0, 4.0, 14.0, if search_open { Color::WHITE } else { theme.menu_text });
+    let right = search.0 - 4.0;
     let cw = fonts.measure(clock, MENUBAR_PX, false);
-    fonts.draw(&mut c, clock, w - cw - 14.0, 16.0, MENUBAR_PX, false, theme.menu_text);
-    let extra_ranges = draw_extras(&mut c, fonts, theme, extras, w - cw - 22.0, open_extra, &hot);
-    Some((c, MenuBarLayout { logo, titles: ranges, extras: extra_ranges }))
+    fonts.draw(&mut c, clock, right - cw - 8.0, 16.0, MENUBAR_PX, false, theme.menu_text);
+    let extra_ranges = draw_extras(&mut c, fonts, theme, extras, right - cw - 16.0, open_extra, &hot);
+    Some((c, MenuBarLayout { logo, titles: ranges, extras: extra_ranges, search }))
 }
 
 // ---------------------------------------------------------------------------
@@ -1230,5 +1240,128 @@ pub fn startup_panel(fonts: &Fonts, theme: &Theme, status: &str, progress: f32, 
     center(&mut c, "Glove", y0 + 104.0, 22.0, true, rgba(20, 20, 20, 255));
     center(&mut c, status, y0 + 132.0, 11.0, false, rgba(50, 50, 50, 255));
     progress_bar(&mut c, x0 + 40.0, y0 + 148.0, w - 80.0, 12.0, Some(progress.clamp(0.0, 1.0)), 0.0, theme.accent);
+    Some(c)
+}
+
+// ---------------------------------------------------------------------------
+// Busca Rápida
+// ---------------------------------------------------------------------------
+
+/// Lupa: aro e cabo, numa caixa de s × s.
+pub fn magnifier_glyph(c: &mut Canvas, x: f32, y: f32, s: f32, color: Color) {
+    let r = s * 0.32;
+    let (cx, cy) = (x + r + 1.0, y + r + 1.0);
+    c.stroke(circle(cx, cy, r), &solid(color), s * 0.13);
+    let mut pb = tiny_skia::PathBuilder::new();
+    let k = std::f32::consts::FRAC_1_SQRT_2;
+    pb.move_to(cx + r * k + 0.5, cy + r * k + 0.5);
+    pb.line_to(x + s - 0.5, y + s - 0.5);
+    c.stroke_round(pb.finish(), &solid(color), s * 0.18);
+}
+
+/// Uma linha de resultado.
+#[derive(Clone, Debug, PartialEq)]
+pub struct QsRow {
+    /// Nome da seção (só na primeira linha de cada uma).
+    pub section: Option<String>,
+    pub icon: Icon,
+    pub name: String,
+}
+
+pub const QS_W: f32 = 430.0;
+const QS_HEADER: f32 = 38.0;
+const QS_ROW_H: f32 = 21.0;
+const QS_LABEL_W: f32 = 118.0;
+const QS_PAD: f32 = 6.0;
+
+/// Altura do conteúdo do painel.
+pub fn quick_search_height(rows: usize, query_empty: bool, none: bool) -> f32 {
+    if query_empty {
+        QS_HEADER
+    } else if none {
+        QS_HEADER + 2.0 * QS_PAD + QS_ROW_H
+    } else {
+        QS_HEADER + 2.0 * QS_PAD + rows as f32 * QS_ROW_H
+    }
+}
+
+/// Linha sob o y do conteúdo.
+pub fn quick_search_row_at(rows: usize, y: f32) -> Option<usize> {
+    let i = ((y - QS_HEADER - QS_PAD) / QS_ROW_H).floor();
+    (i >= 0.0 && (i as usize) < rows).then_some(i as usize)
+}
+
+/// Painel da Busca Rápida com margem de sombra de menu (conteúdo em MENU_SHADOW, 0).
+#[allow(clippy::too_many_arguments)]
+pub fn quick_search(fonts: &Fonts, theme: &Theme, query: &str, caret: bool, rows: &[QsRow], selected: Option<usize>, searching: bool, scale: f32) -> Option<Canvas> {
+    let none = rows.is_empty();
+    let (w, h) = (QS_W, quick_search_height(rows.len(), query.is_empty(), none).ceil());
+    let m = MENU_SHADOW as f32;
+    let mut c = Canvas::new(w + 2.0 * m, h + m, scale)?;
+    let s = ShadowSpec { blur: 8.0, offset_y: 4.0, radius: 0.0, alpha: 0.45 };
+    if let Some(sh) = Canvas::shadow(-m, 0.0, w + 2.0 * m, h + m, w, h, &s, scale) {
+        c.draw_canvas(&sh, 0.0, 0.0);
+    }
+    let x0 = m;
+    c.fill_rect(x0, 0.0, w, h, &solid(rgba(250, 250, 251, 250)));
+
+    // Faixa de cima em azul, com o nome e o campo em cápsula.
+    let a = theme.accent;
+    c.fill_rect(x0, 0.0, w, QS_HEADER, &vgrad(0.0, QS_HEADER, &[(0.0, lighten(a, 0.35)), (1.0, lighten(a, 0.05))]));
+    c.hline(x0, QS_HEADER - 1.0, w, darken(a, 0.25));
+    fonts.draw(&mut c, "Busca Rápida", x0 + 12.0, 24.0, 13.0, true, Color::WHITE);
+    let (fx, fy, fw, fh) = (x0 + QS_LABEL_W, 8.0, w - QS_LABEL_W - 10.0, 22.0);
+    c.fill(rrect(fx, fy, fw, fh, fh / 2.0), &solid(Color::WHITE));
+    c.stroke(rrect(fx + 0.5, fy + 0.5, fw - 1.0, fh - 1.0, fh / 2.0), &solid(darken(a, 0.35)), 1.0);
+    magnifier_glyph(&mut c, fx + 7.0, fy + 5.0, 12.0, rgba(110, 110, 110, 255));
+    let tx = fx + 25.0;
+    let ink = rgba(20, 20, 20, 255);
+    // Texto longo: mostra o fim (onde se digita).
+    let mut shown = query.to_string();
+    while fonts.measure(&shown, 13.0, false) > fw - 40.0 && !shown.is_empty() {
+        shown.remove(0);
+    }
+    fonts.draw(&mut c, &shown, tx, fy + 15.5, 13.0, false, ink);
+    if caret {
+        let cx = tx + fonts.measure(&shown, 13.0, false) + 1.0;
+        c.fill_rect(cx, fy + 4.0, 1.0, fh - 8.0, &solid(ink));
+    }
+    if searching {
+        spinner(&mut c, fx + fw - 12.0, fy + fh / 2.0, 6.5, 0.0, rgba(110, 110, 110, 255));
+    }
+
+    if !query.is_empty() {
+        let y0 = QS_HEADER + QS_PAD;
+        if none {
+            fonts.draw(&mut c, "Nenhum resultado", x0 + QS_LABEL_W + 26.0, y0 + 15.0, 13.0, false, rgba(120, 120, 120, 255));
+        }
+        // Coluna das seções em cinza claro.
+        c.fill_rect(x0, QS_HEADER, QS_LABEL_W - 8.0, h - QS_HEADER, &solid(rgba(238, 240, 243, 255)));
+        for (i, r) in rows.iter().enumerate() {
+            let y = y0 + i as f32 * QS_ROW_H;
+            if let Some(sec) = &r.section {
+                if i > 0 {
+                    c.hline(x0, y - 0.5, w, rgba(222, 224, 228, 255));
+                }
+                let sw = fonts.measure(sec, 11.0, true);
+                fonts.draw(&mut c, sec, x0 + QS_LABEL_W - 16.0 - sw, y + 14.5, 11.0, true, rgba(110, 112, 118, 255));
+            }
+            let sel = selected == Some(i);
+            if sel {
+                c.fill_rect(x0 + QS_LABEL_W - 8.0, y, w - QS_LABEL_W + 8.0, QS_ROW_H, &solid(theme.menu_hot));
+            }
+            icons::draw_bare(&mut c, fonts, r.icon, x0 + QS_LABEL_W, y + 2.5, 16.0, None);
+            let mut name = r.name.clone();
+            let max = w - QS_LABEL_W - 34.0;
+            if fonts.measure(&name, 13.0, false) > max {
+                while fonts.measure(&format!("{name}…"), 13.0, false) > max && !name.is_empty() {
+                    name.pop();
+                }
+                name.push('…');
+            }
+            fonts.draw(&mut c, &name, x0 + QS_LABEL_W + 22.0, y + 15.0, 13.0, false, if sel { Color::WHITE } else { ink });
+        }
+    }
+    c.stroke(rrect(x0, 0.0, w, h, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
     Some(c)
 }

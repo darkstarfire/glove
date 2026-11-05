@@ -80,7 +80,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 3.6 Extras na barra de menu: volume, bateria e monitor, com menus próprios; teclas de volume e brilho (M)
 - [x] 3.7 Ociosidade: apagar a tela (DPMS), bloqueio de tela no compositor (senha via PAM) e tampa do notebook (G)
 - [x] 3.8 Painel "Iniciando sessão…" com barra de progresso ao entrar (P)
-- [ ] 3.9 **Busca Rápida** (como o Spotlight do 10.4): lupa no canto direito da barra de menu e
+- [x] 3.9 **Busca Rápida** (como o Spotlight do 10.4): lupa no canto direito da barra de menu e
   Super+Espaço; acha apps instalados (`.desktop`), Preferências e arquivos (índice leve em segundo
   plano), Enter abre o primeiro resultado. Resolve o "abrir apps" apontado no uso real (M)
 - [ ] 3.10 **Exposé** (10.3): F9/F10/F11 ou canto da tela espalha todas as janelas, só as do app,

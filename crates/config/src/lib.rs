@@ -197,6 +197,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("screenshot", "Captura de tela"),
     ("force_quit", "Forçar Encerrar"),
     ("lock", "Bloquear a tela"),
+    ("search", "Busca Rápida"),
     ("quit", "Sair do Glove"),
 ];
 
@@ -257,6 +258,7 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
         ("screenshot", "Print"),
         ("force_quit", "Ctrl+Alt+Escape"),
         ("lock", "Super+L"),
+        ("search", "Super+space"),
         ("quit", "Ctrl+Alt+BackSpace"),
     ]
     .into_iter()

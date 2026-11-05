@@ -12,6 +12,7 @@ mod menus;
 mod recent;
 mod render;
 mod shell;
+mod search;
 mod startup;
 mod state;
 mod udev;

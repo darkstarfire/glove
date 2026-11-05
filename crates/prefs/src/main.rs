@@ -86,7 +86,7 @@ struct Prefs {
 /// Grupos de atalhos (como no painel de atalhos do 10.4).
 const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
     ("Janelas", &["close", "minimize", "zoom", "cycle"]),
-    ("Aplicativos", &["terminal", "preferences", "hide", "hide_others"]),
+    ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
     ("Sistema", &["screenshot", "force_quit", "lock", "quit"]),
 ];
 

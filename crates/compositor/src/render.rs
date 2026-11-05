@@ -110,6 +110,12 @@ impl Glove {
         if let Some(t) = self.extras.osd.as_ref().and_then(|o| o.tex.as_ref()) {
             out.extend(mem(renderer, self.osd_pos(), t, sc));
         }
+        if self.search.open {
+            if let Some(t) = &self.search.tex {
+                let o = self.search_origin();
+                out.extend(mem(renderer, (o.x - glove_paint::chrome::MENU_SHADOW, o.y).into(), t, sc));
+            }
+        }
         if let Some(s) = &self.extras.slider {
             if let Some(t) = &s.tex {
                 out.extend(mem(renderer, (s.origin.x - glove_paint::chrome::MENU_SHADOW, s.origin.y).into(), t, sc));

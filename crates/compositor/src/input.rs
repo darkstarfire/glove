@@ -41,6 +41,10 @@ enum KeyAction {
     /// Ctrl+F2: abre a barra de menu pelo teclado.
     MenuBar,
     Lock,
+    /// Super+Espaço: abre ou fecha a Busca Rápida.
+    Search,
+    SearchKey(crate::lock::LockKey),
+    SearchMove(i32),
     /// Tecla com a tela bloqueada.
     LockKey(crate::lock::LockKey),
     /// Tecla com um menu aberto.
@@ -67,6 +71,7 @@ impl KeyAction {
             "force_quit" => Self::ForceQuit,
             "hide" => Self::Hide,
             "lock" => Self::Lock,
+            "search" => Self::Search,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
             _ => return None,
@@ -299,6 +304,19 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(k.map(KeyAction::LockKey));
             }
+            // Busca Rápida aberta: o texto vai para o campo (atalhos com Super/Ctrl seguem).
+            if st.search.open && !mods.logo && !mods.ctrl && !(st.nested && mods.alt) {
+                let k = match name.as_str() {
+                    "up" => Some(KeyAction::SearchMove(-1)),
+                    "down" => Some(KeyAction::SearchMove(1)),
+                    "backspace" => Some(KeyAction::SearchKey(crate::lock::LockKey::Backspace)),
+                    "return" | "kp_enter" => Some(KeyAction::SearchKey(crate::lock::LockKey::Enter)),
+                    "escape" => Some(KeyAction::SearchKey(crate::lock::LockKey::Escape)),
+                    _ => handle.modified_sym().key_char().map(|c| KeyAction::SearchKey(crate::lock::LockKey::Char(c))),
+                };
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(k);
+            }
             // Menu aberto: as teclas são dele (setas, Enter, Esc).
             if st.chrome.menu.is_some() {
                 let k = match name.as_str() {
@@ -398,6 +416,9 @@ impl Glove {
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
             Some(KeyAction::Lock) => self.lock_screen(),
+            Some(KeyAction::Search) => self.toggle_search(),
+            Some(KeyAction::SearchKey(k)) => self.search_key(k),
+            Some(KeyAction::SearchMove(d)) => self.search_move(d),
             Some(KeyAction::LockKey(k)) => self.lock_key(k),
             Some(KeyAction::Menu(k)) => self.menu_key(k),
             Some(KeyAction::VolumeUp) => self.step_volume(1.0),
@@ -440,6 +461,14 @@ impl Glove {
                         }
                     }
                 }
+            }
+        }
+
+        // Busca Rápida: o mouse escolhe a linha.
+        if let Hit::Search(Some(i)) = hit {
+            if self.search.selected != Some(i) {
+                self.search.selected = Some(i);
+                self.dirty = true;
             }
         }
 
@@ -573,6 +602,16 @@ impl Glove {
         }
         let mut then = Then::Nothing;
 
+        if state == ButtonState::Pressed && !pointer.is_grabbed() && self.search.open {
+            // Busca aberta: clique num resultado abre; na lupa ou fora, fecha.
+            match self.hit_test(pos) {
+                Hit::Search(Some(i)) => self.search_open_result(i),
+                Hit::Search(None) => {}
+                _ => self.close_search(),
+            }
+            self.chrome.swallow_release = true;
+            return;
+        }
         if state == ButtonState::Pressed && !pointer.is_grabbed() && self.extras.slider.is_some() {
             // Controle de volume aberto: clicar nele ajusta; fora, fecha.
             match self.hit_test(pos) {
@@ -604,13 +643,17 @@ impl Glove {
                 // Com o menu aberto: clicar no mesmo título fecha, em outro troca;
                 // fora dos menus, só fecha.
                 match hit {
-                    Hit::Menu(..) | Hit::VolumeSlider(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Search(_) => {}
                     Hit::MenuBar { target: Some(t) } if t != cur => self.open_bar_menu(t),
                     _ => self.close_menu(),
                 }
                 swallow = true;
             } else {
                 match hit {
+                    Hit::SearchButton => {
+                        self.open_search();
+                        swallow = true;
+                    }
                     Hit::MenuBar { target } => {
                         if let (Some(t), BTN_LEFT) = (target, button) {
                             self.open_bar_menu(t);
@@ -660,7 +703,7 @@ impl Glove {
                             self.dirty = true;
                         }
                     }
-                    Hit::Menu(..) | Hit::VolumeSlider(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Search(_) => {}
                 }
             }
             self.chrome.swallow_release = swallow;
