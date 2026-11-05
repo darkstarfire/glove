@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub mod arquivos;
+pub mod discos;
 pub mod inicio;
 pub mod rede;
 pub mod sons;

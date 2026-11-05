@@ -47,7 +47,7 @@ Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger
 
 | App | O que faz |
 |---|---|
-| Arquivos | Finder do Tiger: metal, barra lateral, colunas/lista/ícones, prévia com zoom, copiar/mover com progresso, Lixo, Obter Informações, pastas inteligentes, compactar, rótulos de cor, Abrir com, Preferências do Arquivos e Opções de Visualização |
+| Arquivos | Finder do Tiger: metal, barra lateral, colunas/lista/ícones, prévia com zoom, copiar/mover com progresso, Lixo, Obter Informações, pastas inteligentes, compactar, ejetar (⏏ na barra lateral, ou arrastar o disco para o Lixo), rótulos de cor, Abrir com, Preferências do Arquivos e Opções de Visualização |
 | Preferências | Grade "Mostrar Todos" com os painéis da era (Aparência, Mesa e Protetor, Dock, Monitores, Som, Rede, Energia, Teclado, Mouse, Trackpad, Data e Hora, Contas, Internacional, Itens de Início, Acesso Universal, Terminal…) |
 | Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font; arrastar um arquivo escreve o caminho |
 | Editor de Texto | Régua, alinhamento, Localizar/Substituir, desfazer, aviso de não salvo |
@@ -121,8 +121,7 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 - Log da sessão: `~/.local/state/glove/sessao.log`
 - Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
 
-Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): Imprimir,
-Conectar ao Servidor e Ejetar pela barra lateral do Arquivos.
+Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): Imprimir e Conectar ao Servidor.
 
 ## Atalhos (padrão, editáveis nas Preferências)
 

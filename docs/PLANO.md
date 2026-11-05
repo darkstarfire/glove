@@ -317,8 +317,12 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   acha o tipo pela extensão sem abrir o arquivo). **Opções de Visualização** (Ctrl+J): tamanho dos
   ícones e do texto, nome embaixo ou à direita, organizar por e fundo da vista de ícones. Tudo em
   `[files]` no config.toml, valendo na hora nas janelas abertas e na mesa (M)
-- [ ] 9.10.4 Arquivos: **Ejetar** na barra lateral e na mesa (botão ⏏, arrastar o disco para o Lixo vira
-  Ejetar) e o aviso "disco não foi ejetado corretamente" (`Finder-Eject-Warning`) (M)
+- [x] 9.10.4 Arquivos: **Ejetar** (`glove_config::discos`: desmonta as partições do disco e desliga o
+  aparelho pelo udisksctl, sem root; "disco em uso" vira um alerta claro): botão ⏏ ao lado de cada
+  pendrive na barra lateral, Arquivo ▸ Ejetar (Ctrl+E) no Arquivos e na mesa, "Ejetar “disco”" no menu
+  do ícone; arrastar o pendrive para o Lixo ejeta, e durante o arraste o Lixo do Dock vira o ⏏. Aviso
+  "disco não foi ejetado corretamente" (`Finder-Eject-Warning`) só quando o aparelho some sem ter sido
+  ejetado pelo Glove ou pelo Discos. `GLOVE_MOUNTS_FILE` simula montagens nos testes (M)
 - [ ] 9.10.5 Arquivos: **Conectar ao Servidor** (Ctrl+K: smb, sftp, ftp, webdav, com favoritos;
   `Finder-Connect-to-Server`) e item **Rede** na barra lateral com as máquinas vistas pelo Avahi
   (`Finder-Network`) (M)

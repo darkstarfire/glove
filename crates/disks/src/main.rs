@@ -150,6 +150,8 @@ impl Disks {
         // Ejetar desmonta as partições do disco e desliga o aparelho.
         let disk = if d.kind == "part" { d.parent.clone() } else { d.name.clone() };
         let parts: Vec<Dev> = self.devs.iter().filter(|x| x.parent == disk && !x.mount.is_empty()).cloned().collect();
+        // O aviso de "removido sem ejetar" não vale para este.
+        glove_config::discos::mark_ejected(&format!("/dev/{disk}"));
         for p in parts {
             let _ = std::process::Command::new("udisksctl").args(["unmount", "-b", &format!("/dev/{}", p.name)]).output();
         }

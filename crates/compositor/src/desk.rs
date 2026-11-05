@@ -96,6 +96,8 @@ pub enum DeskCmd {
     NewWindow,
     Go(PathBuf),
     Background,
+    /// Ejetar os pendrives escolhidos.
+    Eject,
     /// Rótulo de cor (0 tira).
     Label(u8),
     /// Abrir com o app (id do .desktop).
@@ -150,6 +152,8 @@ pub struct Desk {
     /// Onde o menu de contexto do fundo foi aberto (a pasta nova nasce ali).
     menu_at: Option<Point<f64, Logical>>,
     typed: (String, Option<Instant>),
+    /// Pendrives montados na última conferida (para notar o que sumiu sem ejetar).
+    removable_prev: Vec<glove_config::discos::Mount>,
     /// Extensões à mostra na última leitura (mudou nas Preferências: relê os nomes).
     show_ext: Option<bool>,
     layout_key: Option<(Vec<String>, (i32, i32, i32, i32), (u32, u32, bool), String)>,
@@ -378,7 +382,15 @@ impl Glove {
         if d.show_disks {
             mounts.push(("Disco".to_string(), PathBuf::from("/")));
         }
-        let removable = crate::shell::removable_mounts();
+        let removable_now = glove_config::discos::removable_mounts();
+        // Sumiu um pendrive e o aparelho não existe mais, sem o Glove ter ejetado: arrancado.
+        for m in &self.desk.removable_prev {
+            if !removable_now.iter().any(|n| n.path == m.path) && !Path::new(&m.dev).exists() && !glove_config::discos::take_ejected(&m.dev) {
+                self.spawn(&format!("glove-files --aviso-ejetar {}", quote(Path::new(&m.name))));
+            }
+        }
+        self.desk.removable_prev = removable_now.clone();
+        let removable: Vec<(String, PathBuf)> = removable_now.into_iter().map(|m| (m.name, m.path)).collect();
         // Mídia Removível: um disco novo (não os que já estavam na partida) abre no Arquivos.
         if !self.desk.mounts.is_empty() || self.desk.dir_stamp.is_some() {
             let known: Vec<&PathBuf> = self.desk.mounts.iter().map(|m| &m.1).collect();
@@ -823,12 +835,16 @@ impl Glove {
         let args = files.iter().map(|p| quote(p)).collect::<Vec<_>>().join(" ");
         match self.chrome.dock_actions.get(i).cloned() {
             Some(DockAction::Trash) => {
-                // Discos não vão para o Lixo (no Tiger, arrastar o disco ejeta: etapa 9.10.4).
+                // Pendrives arrastados para o Lixo são ejetados (como no Tiger); o disco do sistema fica.
                 let mounts: Vec<PathBuf> = self.desk.mounts.iter().map(|m| m.1.clone()).collect();
+                for p in files.iter().filter(|p| mounts.contains(p)) {
+                    self.spawn(&format!("glove-files --ejetar {}", quote(p)));
+                }
                 let files: Vec<String> = files.iter().filter(|p| !mounts.contains(p)).map(|p| quote(p)).collect();
                 if !files.is_empty() {
                     self.spawn(&format!("glove-files --lixo {}", files.join(" ")));
                 }
+                self.desk.selected.clear();
             }
             Some(DockAction::App(idx)) => {
                 if let Some(app) = self.config.dock_apps.get(idx).cloned() {
@@ -837,6 +853,13 @@ impl Glove {
             }
             _ => {}
         }
+    }
+
+    /// Arrastando só pendrives (o Lixo do Dock vira Ejetar).
+    pub fn desk_dragging_disks(&self) -> bool {
+        self.desk.drag.as_ref().is_some_and(|d| {
+            !d.paths.is_empty() && d.paths.iter().all(|p| self.desk.items.iter().any(|i| &i.path == p && i.kind == DeskKind::Removable))
+        })
     }
 
     /// Copiar ou mover para `dest` pelo Arquivos (janela de progresso se demorar).
@@ -954,6 +977,14 @@ impl Glove {
             _ => format!("Compactar {n} itens"),
         };
         let mut v = vec![MenuNode::new(MenuItem::item(many("Abrir")), act(DeskCmd::Open))];
+        // Pendrives: Ejetar logo abaixo de Abrir.
+        if !chosen.is_empty() && chosen.iter().all(|i| i.kind == DeskKind::Removable) {
+            let label = match chosen.as_slice() {
+                [one] => format!("Ejetar “{}”", one.name),
+                _ => format!("Ejetar {n} discos"),
+            };
+            v.push(MenuNode::new(MenuItem::item(label), act(DeskCmd::Eject)));
+        }
         // Abrir com: só para um arquivo (não pastas nem discos).
         if let [it] = chosen.as_slice() {
             if matches!(it.kind, DeskKind::File) {
@@ -1057,6 +1088,7 @@ impl Glove {
                 MenuNode::new(on(MenuItem::item("Duplicar").with_shortcut("Ctrl+D"), files), act(DeskCmd::Duplicate)),
                 MenuNode::new(on(MenuItem::item("Criar Atalho").with_shortcut("Ctrl+L"), one), act(DeskCmd::Alias)),
                 MenuNode::new(on(MenuItem::item("Compactar"), files), act(DeskCmd::Compress)),
+                MenuNode::new(on(MenuItem::item("Ejetar").with_shortcut("Ctrl+E"), any && chosen.iter().all(|i| i.kind == DeskKind::Removable)), act(DeskCmd::Eject)),
                 MenuNode::sep(),
                 MenuNode::new(on(MenuItem::item("Mover para a Lixeira").with_shortcut("Ctrl+BackSpace"), files), act(DeskCmd::Trash)),
             ],
@@ -1198,6 +1230,13 @@ impl Glove {
             DeskCmd::NewWindow => self.spawn("glove-files"),
             DeskCmd::Go(p) => self.spawn(&format!("glove-files {}", quote(&p))),
             DeskCmd::Background => self.run_menu_action(MenuAction::OpenPrefs("mesa".into())),
+            DeskCmd::Eject => {
+                for it in chosen.iter().filter(|i| i.kind == DeskKind::Removable) {
+                    self.spawn(&format!("glove-files --ejetar {}", quote(&it.path)));
+                }
+                self.desk.selected.clear();
+                self.dirty = true;
+            }
             DeskCmd::Label(n) => {
                 for it in &chosen {
                     let _ = glove_config::arquivos::set_label(&it.path, n);
@@ -1323,6 +1362,7 @@ impl Glove {
                 (DeskKeyKind::Char('i'), _) => Some(DeskCmd::Info),
                 (DeskKeyKind::Char('d'), false) => Some(DeskCmd::Duplicate),
                 (DeskKeyKind::Char('l'), _) => Some(DeskCmd::Alias),
+                (DeskKeyKind::Char('e'), _) => Some(DeskCmd::Eject),
                 (DeskKeyKind::Char('j'), _) => Some(DeskCmd::ViewOptions),
                 (DeskKeyKind::Char('a'), _) => Some(DeskCmd::SelectAll),
                 (DeskKeyKind::Char('c'), false) => Some(DeskCmd::Copy),

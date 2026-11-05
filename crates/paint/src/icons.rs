@@ -19,6 +19,8 @@ pub enum Icon {
     Trash,
     /// Lixeira com papéis (há itens nela).
     TrashFull,
+    /// Símbolo de ejetar (o Lixo do Dock enquanto se arrasta um disco).
+    Eject,
     Disk,
     /// Arquivo de texto.
     Document,
@@ -190,6 +192,7 @@ impl Icon {
             Icon::Settings => "preferences-system",
             Icon::Trash => "user-trash",
             Icon::TrashFull => "user-trash-full",
+            Icon::Eject => "media-eject",
             Icon::Disk => "drive-harddisk",
             Icon::Document => "text-x-generic",
             Icon::Picture => "image-x-generic",
@@ -339,6 +342,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Clock(h, m) => clock(pm, x, y, s, h, m),
         Icon::Trash => trash(pm, x, y, s, false),
         Icon::TrashFull => trash(pm, x, y, s, true),
+        Icon::Eject => eject(pm, x, y, s),
         Icon::Disk => disk(pm, x, y, s),
         Icon::Document => page(pm, x, y, s, true),
         Icon::File => page(pm, x, y, s, false),
@@ -764,6 +768,26 @@ fn clock(pm: &mut Canvas, x: f32, y: f32, s: f32, h: u8, m: u8) {
     }
     pm.fill(circle(cx, cy, (s * 0.035).max(1.2)), &solid(rgba(215, 50, 40, 255)));
     pm.fill(oval(cx - fr * 0.7, cy - fr * 0.92, fr * 1.4, fr * 0.8), &vgrad(cy - fr, cy - fr * 0.1, &[(0.0, rgba(255, 255, 255, 130)), (1.0, rgba(255, 255, 255, 0))]));
+}
+
+/// Ejetar: triângulo sobre uma barra, em grafite brilhante (como o do Dock do Tiger).
+fn eject(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let (cx, top, base) = (x + s * 0.5, y + s * 0.16, y + s * 0.6);
+    let half = s * 0.36;
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx, top);
+    pb.line_to(cx + half, base);
+    pb.line_to(cx - half, base);
+    pb.close();
+    let tri = pb.finish();
+    let bar = rrect(cx - half, y + s * 0.68, half * 2.0, s * 0.14, s * 0.03);
+    let g = vgrad(y + s * 0.1, y + s * 0.85, &[(0.0, rgba(150, 154, 164, 255)), (0.5, rgba(70, 74, 84, 255)), (1.0, rgba(40, 42, 50, 255))]);
+    for p in [tri.clone(), bar.clone()] {
+        pm.fill(p.clone(), &g);
+        pm.stroke(p, &solid(rgba(20, 20, 26, 220)), (s / 48.0).max(1.0));
+    }
+    // Brilho em cima.
+    pm.fill(oval(cx - half * 0.45, top + s * 0.08, half * 0.9, s * 0.2), &vgrad(top, top + s * 0.28, &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(255, 255, 255, 0))]));
 }
 
 /// Lixeira de metal escovado com nervuras verticais e tampa com alça.

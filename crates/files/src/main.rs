@@ -204,6 +204,17 @@ fn sort_entries(v: &mut [Entry], by: &str) {
     }
 }
 
+/// Símbolo ⏏ (triângulo sobre uma barra) com centro em (cx, cy).
+fn draw_eject(c: &mut glove_kit::paint::draw::Canvas, cx: f32, cy: f32, r: f32, col: Color) {
+    let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+    pb.move_to(cx, cy - r);
+    pb.line_to(cx + r, cy + r * 0.25);
+    pb.line_to(cx - r, cy + r * 0.25);
+    pb.close();
+    c.fill(pb.finish(), &solid(col));
+    c.fill_rect(cx - r, cy + r * 0.55, 2.0 * r, r * 0.45, &solid(col));
+}
+
 /// Cor do rótulo `n` (1 a 7); 0 = sem rótulo.
 fn label_color(n: u8) -> Option<Color> {
     let (r, g, b) = *glove_config::arquivos::LABEL_COLORS.get((n as usize).checked_sub(1)?)?;
@@ -583,6 +594,8 @@ struct Files {
     cfg: glove_config::arquivos::Files,
     /// Submenu aberto no menu de contexto: (qual, topo da linha que o abriu).
     ctx_sub: Option<(String, f32)>,
+    /// Pendrives montados (relidos a cada 2 s para a barra lateral).
+    mounts: (Option<std::time::Instant>, Vec<glove_config::discos::Mount>),
 }
 
 impl Files {
@@ -628,7 +641,31 @@ impl Files {
             search_scope: home(),
             cfg: glove_config::Config::load().files,
             ctx_sub: None,
+            mounts: (None, Vec::new()),
         }
+    }
+
+    /// Pendrives montados (lista guardada por 2 s).
+    fn removable(&mut self) -> Vec<glove_config::discos::Mount> {
+        if self.mounts.0.is_none_or(|t| t.elapsed().as_secs() >= 2) {
+            self.mounts = (Some(std::time::Instant::now()), glove_config::discos::removable_mounts());
+        }
+        self.mounts.1.clone()
+    }
+
+    /// O disco removível em que está a pasta à vista ou o item escolhido.
+    fn ejectable(&mut self) -> Option<PathBuf> {
+        let here = self.selected.clone().unwrap_or_else(|| self.current());
+        self.removable().into_iter().map(|m| m.path).find(|m| here.starts_with(m))
+    }
+
+    fn eject(&mut self, mount: PathBuf) {
+        // Sair da pasta do disco antes (senão ele fica "em uso" por esta janela).
+        if self.base.starts_with(&mount) {
+            self.go(home());
+        }
+        self.mounts.0 = None;
+        let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--ejetar").arg(mount));
     }
 
     /// Colar/soltar `srcs` em `dir`: pergunta antes se algum nome já existe lá.
@@ -1435,12 +1472,18 @@ impl Files {
 
     /// Lugares da barra lateral: (nome, ícone, pasta); None = divisória.
     /// Lugares da barra lateral, sem os que as Preferências do Arquivos escondem.
-    fn places(hidden: &[String]) -> Vec<Option<(String, Icon, PathBuf)>> {
+    fn places(hidden: &[String], mounts: &[glove_config::discos::Mount]) -> Vec<Option<(String, Icon, PathBuf)>> {
         let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
         let shown = |id: &str| !hidden.iter().any(|h| h == id);
         let mut v = vec![];
         if shown("disco") {
             v.push(Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))));
+        }
+        // Pendrives e discos externos (com o ⏏), como no Tiger.
+        for m in mounts {
+            v.push(Some((m.name.clone(), Icon::Disk, m.path.clone())));
+        }
+        if !v.is_empty() {
             v.push(None);
         }
         // Cada lugar com um desenho próprio (como na lateral do Tiger), não a pasta.
@@ -1495,7 +1538,9 @@ impl Files {
     fn sidebar(&mut self, ui: &mut Ui, r: Rect) {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         let mut y = r.y + 4.0;
-        for place in Self::places(&self.cfg.sidebar_hidden) {
+        let mounts = self.removable();
+        let mut eject: Option<PathBuf> = None;
+        for place in Self::places(&self.cfg.sidebar_hidden, &mounts) {
             if y + SIDE_ROW > r.y + r.h {
                 break;
             }
@@ -1519,12 +1564,28 @@ impl Files {
             let icon = if icon == Icon::Folder { special_folder(&path).map(Icon::SpecialFolder).unwrap_or(icon) } else { icon };
             icons::draw_bare(ui.c, ui.fonts, icon, r.x + 6.0, y + 3.0, 24.0, None);
             let col = if here { Color::WHITE } else { rgba(20, 20, 24, 255) };
-            let name = ui.fonts.ellipsize(&name, 12.0, true, r.w - 42.0);
+            let removable = mounts.iter().any(|m| m.path == path);
+            let name = ui.fonts.ellipsize(&name, 12.0, true, r.w - if removable { 62.0 } else { 42.0 });
             ui.fonts.draw(ui.c, &name, r.x + 36.0, y + 19.5, 12.0, here, col);
+            if removable {
+                // Botão ⏏ à direita da linha.
+                let er = Rect::new(r.x + r.w - 24.0, y + 6.0, 18.0, 18.0);
+                let eh = ui.hit(er);
+                let ec = if here { Color::WHITE } else if eh.hover { rgba(40, 40, 46, 255) } else { rgba(110, 110, 118, 255) };
+                draw_eject(ui.c, er.x + 9.0, er.y + 9.0, 6.0, ec);
+                if eh.clicked {
+                    eject = Some(path.clone());
+                    y += SIDE_ROW;
+                    continue;
+                }
+            }
             if h.clicked {
                 self.go(path);
             }
             y += SIDE_ROW;
+        }
+        if let Some(m) = eject {
+            self.eject(m);
         }
     }
 
@@ -2109,6 +2170,7 @@ impl Files {
                 "Ctrl+3" => act.push("view-columns"),
                 "Ctrl+H" => act.push("hidden"),
                 "Ctrl+J" => act.push("view-options"),
+                "Ctrl+E" => act.push("eject"),
                 "Ctrl+comma" => act.push("prefs"),
                 "Ctrl+bracketleft" => act.push("back"),
                 "Ctrl+bracketright" => act.push("forward"),
@@ -2253,6 +2315,11 @@ impl Files {
                 }
             }
             "close" => ui.close = true,
+            "eject" => {
+                if let Some(m) = self.ejectable() {
+                    self.eject(m);
+                }
+            }
             "view-options" => {
                 let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--opcoes"));
             }
@@ -2475,6 +2542,7 @@ impl App for Files {
                     MenuItem::new("alias", "Criar Atalho", "Ctrl+L").enabled(sel && !self.in_trash()),
                     MenuItem::new("compress", &self.compress_label(), "").enabled(sel && !self.in_trash()),
                     MenuItem::submenu("Rótulo", labels),
+                    MenuItem::new("eject", "Ejetar", "Ctrl+E").enabled(self.mounts.1.iter().any(|m| self.selected.clone().unwrap_or_else(|| self.current()).starts_with(&m.path))),
                     MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar janela", "Ctrl+W"),
@@ -2548,6 +2616,8 @@ fn main() {
         Some("--opcoes-mesa") => return mesa::view_options(),
         Some("--opcoes") => return preferencias::view_options(),
         Some("--preferencias") => return preferencias::preferences(),
+        Some("--ejetar") if args.len() > 2 => return mesa::eject(PathBuf::from(&args[2])),
+        Some("--aviso-ejetar") if args.len() > 2 => return mesa::eject_warning(args[2].clone()),
         Some("--duplicar") => return mesa::duplicate(args[2..].iter().map(PathBuf::from).collect()),
         Some("--lixo") => {
             for p in &args[2..] {

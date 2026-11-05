@@ -1583,7 +1583,9 @@ impl Glove {
         }
         // Lixeira sempre no fim, do outro lado do separador.
         let trash_icon = if self.chrome.trash_full.0 { Icon::TrashFull } else { Icon::Trash };
-        items.push(DockItem { icon: trash_icon, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
+        // Arrastando só discos da mesa: o Lixo vira Ejetar (como no Tiger).
+        let (trash_icon, trash_label) = if self.desk_dragging_disks() { (Icon::Eject, "Ejetar") } else { (trash_icon, "Lixeira") };
+        items.push(DockItem { icon: trash_icon, label: trash_label.into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
         actions.push(DockAction::Trash);
         (items, actions)
     }
@@ -1833,37 +1835,3 @@ impl Glove {
     }
 }
 
-/// Discos removíveis montados (pendrives, cartões): /media/<usuário>/… e
-/// /run/media/<usuário>/… em /proc/mounts, com o nome da pasta.
-pub fn removable_mounts() -> Vec<(String, std::path::PathBuf)> {
-    let user = std::env::var("USER").unwrap_or_default();
-    parse_mounts(&std::fs::read_to_string("/proc/mounts").unwrap_or_default(), &user)
-}
-
-fn parse_mounts(text: &str, user: &str) -> Vec<(String, std::path::PathBuf)> {
-    let prefixes = [format!("/media/{user}/"), format!("/run/media/{user}/")];
-    let mut out = Vec::new();
-    for l in text.lines() {
-        let Some(mp) = l.split_whitespace().nth(1) else { continue };
-        // Espaços vêm como \040 no /proc/mounts.
-        let mp = mp.replace("\\040", " ");
-        if prefixes.iter().any(|p| mp.starts_with(p.as_str())) {
-            let p = std::path::PathBuf::from(&mp);
-            let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            if !out.iter().any(|(_, q)| *q == p) {
-                out.push((name, p));
-            }
-        }
-    }
-    out
-}
-
-#[cfg(test)]
-mod mesa_tests {
-    #[test]
-    fn pendrives() {
-        let m = "/dev/sda1 / ext4 rw 0 0\n/dev/sdb1 /media/ana/MEU\\040PEN vfat rw 0 0\n/dev/sdc1 /run/media/ana/Fotos exfat rw 0 0\n/dev/sdd1 /media/beto/X vfat rw 0 0\n";
-        let v = super::parse_mounts(m, "ana");
-        assert_eq!(v.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), ["MEU PEN", "Fotos"]);
-    }
-}

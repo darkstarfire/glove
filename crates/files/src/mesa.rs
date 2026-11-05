@@ -280,3 +280,39 @@ impl App for ViewOptions {
         });
     }
 }
+
+/// Ejetar o disco montado em `mount` (pela mesa, pela barra lateral ou pelo Lixo).
+/// Só abre janela se não der certo.
+pub fn eject(mount: PathBuf) {
+    if let Err(e) = glove_config::discos::eject(&mount) {
+        let opts = WindowOptions { title: "Ejetar".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
+        let _ = run(opts, Notice { kind: glove_kit::AlertKind::Stop, title: "Não foi possível ejetar o disco.".into(), text: e });
+    }
+}
+
+/// Aviso de disco arrancado sem ejetar (como o do Tiger).
+pub fn eject_warning(name: String) {
+    let opts = WindowOptions { title: "Disco".into(), app_id: "glove.Files".into(), size: (460, 140), fixed: true, min_size: None };
+    let _ = run(
+        opts,
+        Notice {
+            kind: glove_kit::AlertKind::Caution,
+            title: format!("O disco “{name}” não foi ejetado corretamente."),
+            text: "Se possível, ejete o disco antes de desconectá-lo ou desligá-lo. Para ejetar, arraste o disco para o Lixo ou clique em ⏏ ao lado dele no Arquivos.".into(),
+        },
+    );
+}
+
+struct Notice {
+    kind: glove_kit::AlertKind,
+    title: String,
+    text: String,
+}
+
+impl App for Notice {
+    fn ui(&mut self, ui: &mut Ui) {
+        if ui.alert_window(self.kind, &self.title, &self.text, &["OK"]).is_some() {
+            ui.close = true;
+        }
+    }
+}
