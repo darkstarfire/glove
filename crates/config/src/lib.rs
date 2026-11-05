@@ -24,12 +24,55 @@ pub struct Dock {
     pub position: String,
     /// Some e reaparece quando o mouse encosta na borda.
     pub autohide: bool,
+    /// Ícone pula enquanto o app abre.
+    pub animate_launch: bool,
+    /// Efeito de minimizar: "escala" (o único por enquanto).
+    pub minimize_effect: String,
 }
 
 impl Default for Dock {
     fn default() -> Self {
-        Self { size: 56, magnification: true, max_size: 80, position: "embaixo".into(), autohide: false }
+        Self { size: 56, magnification: true, max_size: 80, position: "embaixo".into(), autohide: false, animate_launch: true, minimize_effect: "escala".into() }
     }
+}
+
+/// Painel Aparência.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Appearance {
+    /// Cor do texto selecionado (ver `HIGHLIGHTS`).
+    pub highlight: String,
+    /// Clique duplo na barra de título minimiza a janela.
+    pub double_click_minimizes: bool,
+    /// Clique no trilho da barra de rolagem vai até ali (em vez de uma página).
+    pub scroll_jump: bool,
+    /// Quantos itens em Itens Recentes (apps e documentos).
+    pub recent_apps: u32,
+    pub recent_docs: u32,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Self { highlight: "azul".into(), double_click_minimizes: false, scroll_jump: false, recent_apps: 10, recent_docs: 10 }
+    }
+}
+
+/// Cores de destaque do texto selecionado: (id, nome, r, g, b).
+pub const HIGHLIGHTS: [(&str, &str, u8, u8, u8); 8] = [
+    ("azul", "Azul", 181, 213, 255),
+    ("grafite", "Grafite", 199, 208, 219),
+    ("prata", "Prata", 214, 214, 220),
+    ("dourado", "Dourado", 252, 236, 152),
+    ("laranja", "Laranja", 255, 210, 160),
+    ("roxo", "Roxo", 226, 200, 245),
+    ("vermelho", "Vermelho", 255, 190, 190),
+    ("verde", "Verde", 196, 240, 180),
+];
+
+/// Cor de destaque pelo id (azul se não conhecer).
+pub fn highlight_rgb(id: &str) -> (u8, u8, u8) {
+    let h = HIGHLIGHTS.iter().find(|h| h.0 == id).unwrap_or(&HIGHLIGHTS[0]);
+    (h.2, h.3, h.4)
 }
 
 /// Cantos ativos: "todas", "app" ou "mesa" (Exposé); vazio = nada.
@@ -86,11 +129,15 @@ pub struct Pointer {
     pub acceleration: bool,
     /// Botões trocados (canhoto).
     pub left_handed: bool,
+    /// Multiplica a rolagem (0,25 a 4).
+    pub scroll_speed: f64,
+    /// Tempo máximo entre os cliques de um clique duplo, em ms (mouse e trackpad).
+    pub double_click_ms: u32,
 }
 
 impl Default for Pointer {
     fn default() -> Self {
-        Self { natural_scroll: false, speed: 0.0, acceleration: true, left_handed: false }
+        Self { natural_scroll: false, speed: 0.0, acceleration: true, left_handed: false, scroll_speed: 1.0, double_click_ms: 400 }
     }
 }
 
@@ -105,11 +152,13 @@ pub struct Touchpad {
     pub disable_while_typing: bool,
     /// Clique com dois dedos = botão direito (em vez de canto inferior direito).
     pub two_finger_right_click: bool,
+    /// Tocar duas vezes e arrastar.
+    pub tap_drag: bool,
 }
 
 impl Default for Touchpad {
     fn default() -> Self {
-        Self { tap_to_click: true, natural_scroll: true, speed: 0.0, disable_while_typing: true, two_finger_right_click: true }
+        Self { tap_to_click: true, natural_scroll: true, speed: 0.0, disable_while_typing: true, two_finger_right_click: true, tap_drag: true }
     }
 }
 
@@ -123,11 +172,13 @@ pub struct Monitor {
     pub mode: String,
     /// Escala da interface; 0 = automática (pela densidade da tela).
     pub scale: f64,
+    /// Menu de monitores (brilho, resolução) na barra de menu.
+    pub menu_extra: bool,
 }
 
 impl Default for Monitor {
     fn default() -> Self {
-        Self { output: String::new(), mode: String::new(), scale: 0.0 }
+        Self { output: String::new(), mode: String::new(), scale: 0.0, menu_extra: true }
     }
 }
 
@@ -233,6 +284,8 @@ pub struct Config {
     pub terminal_font: String,
     pub terminal_font_size: f32,
     pub dock: Dock,
+    #[serde(default)]
+    pub appearance: Appearance,
     pub keyboard: Keyboard,
     pub pointer: Pointer,
     pub touchpad: Touchpad,
@@ -343,6 +396,7 @@ impl Default for Config {
             energy: Energy::default(),
             hot_corners: HotCorners::default(),
             welcome_done: false,
+            appearance: Appearance::default(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }

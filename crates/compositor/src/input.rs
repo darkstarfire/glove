@@ -256,7 +256,10 @@ impl Glove {
                 let source = event.source();
                 // Na sessão própria quem inverte é o libinput (mouse e touchpad separados).
                 let sign = if self.nested && self.config.pointer.natural_scroll { -1.0 } else { 1.0 };
-                let amount = |a| sign * event.amount(a).unwrap_or_else(|| event.amount_v120(a).unwrap_or(0.0) * 15.0 / 120.0);
+                // Velocidade de rolagem das Preferências (só nos valores contínuos;
+                // os "cliques" da roda continuam sendo um clique cada).
+                let speed = self.config.pointer.scroll_speed.clamp(0.25, 4.0);
+                let amount = |a| sign * speed * event.amount(a).unwrap_or_else(|| event.amount_v120(a).unwrap_or(0.0) * 15.0 / 120.0);
                 let mut frame = AxisFrame::new(event.time_msec()).source(source);
                 for axis in [Axis::Horizontal, Axis::Vertical] {
                     let v = amount(axis);
@@ -793,7 +796,17 @@ impl Glove {
                     Hit::Title { window, button: None, .. } => {
                         self.focus_window(Some(window.clone()));
                         if button == BTN_LEFT {
-                            then = Then::Move(window);
+                            // Clique duplo na barra de título minimiza (se ligado em Aparência).
+                            let now = std::time::Instant::now();
+                            let double = self.title_click.as_ref().is_some_and(|(w, t)| *w == window && now.duration_since(*t).as_millis() < self.config.pointer.double_click_ms as u128);
+                            if double && self.config.appearance.double_click_minimizes {
+                                self.title_click = None;
+                                self.minimize_window(&window);
+                                swallow = true;
+                            } else {
+                                self.title_click = Some((window.clone(), now));
+                                then = Then::Move(window);
+                            }
                         }
                     }
                     Hit::Resize(window, edges) => {

@@ -1686,6 +1686,12 @@ impl<'a> Ui<'a> {
                 if my >= ty && my < ty + thumb_h {
                     self.mem.slider_grab = Some(grab);
                     self.mem.scroll.insert(grab, my - ty);
+                } else if crate::platform::SCROLL_JUMP.load(std::sync::atomic::Ordering::Relaxed) {
+                    // "Rolar até aqui": o meio do puxador vai para o clique e já pode arrastar.
+                    let room = (track.h - thumb_h).max(1.0);
+                    *offset = ((my - track.y - thumb_h / 2.0) / room * max).clamp(0.0, max);
+                    self.mem.slider_grab = Some(grab);
+                    self.mem.scroll.insert(grab, thumb_h / 2.0);
                 } else {
                     let page = (view - line).max(line);
                     *offset += if my < ty { -page } else { page };
@@ -2207,7 +2213,7 @@ impl<'a> Ui<'a> {
         };
         sc.clear(buf.paper.map(|(r, g, b)| rgba(r, g, b, 255)).unwrap_or(Color::WHITE));
         let (sel_a, sel_b) = buf.selection();
-        let sel_color = if focused { lighten(self.theme.accent, 0.62) } else { rgba(212, 212, 216, 255) };
+        let sel_color = if focused { self.theme.highlight } else { rgba(212, 212, 216, 255) };
         let first = (buf.scroll_y / lh).floor() as usize;
         let count = (r.h / lh).ceil() as usize + 2;
         for line in first..(first + count).min(starts.len()) {

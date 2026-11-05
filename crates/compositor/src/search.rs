@@ -219,9 +219,10 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
 }
 
 /// Painéis das Preferências: (nome, argumento do glove-prefs).
-const PREFS: [(&str, &str); 8] = [
+const PREFS: [(&str, &str); 9] = [
     ("Aparência", "aparencia"),
-    ("Monitor", "monitor"),
+    ("Mesa (papel de parede)", "mesa"),
+    ("Monitores", "monitor"),
     ("Dock", "dock"),
     ("Teclado", "teclado"),
     ("Mouse", "mouse"),

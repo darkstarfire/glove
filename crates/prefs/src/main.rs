@@ -22,12 +22,12 @@ enum Pane {
     /// A grade com todos os painéis ("Mostrar Todos").
     Todos,
     Aparencia,
+    Mesa,
     Monitor,
     Dock,
     Teclado,
     Mouse,
     Trackpad,
-    Atalhos,
     Terminal,
 }
 
@@ -46,12 +46,12 @@ struct PaneInfo {
 }
 
 const PANES: [PaneInfo; 8] = [
-    PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema papel de parede fundo mesa imagem rolagem grafite azul" },
+    PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
+    PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
-    PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitor", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
-    PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação" },
-    PaneInfo { pane: Pane::Atalhos, id: "atalhos", icon: Icon::Pref(PrefKind::Shortcuts), name: "Atalhos de Teclado", category: 1, keywords: "teclas combinação exposé captura bloquear forçar encerrar" },
-    PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade ponteiro rolagem clique duplo" },
+    PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
+    PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear" },
+    PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto" },
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
@@ -129,6 +129,31 @@ const LAYOUTS: [(&str, &str, &str); 10] = [
 
 const WALLPAPERS: [(&str, &str); 3] = [("ondas", "Ondas"), ("aurora", "Aurora"), ("liso", "Liso")];
 
+/// Cores sólidas para a mesa (como a coleção do 10.4, em tons próprios).
+const SOLID_COLORS: [(u8, u8, u8); 10] = [
+    (38, 84, 160),
+    (60, 120, 200),
+    (110, 160, 210),
+    (40, 110, 90),
+    (110, 140, 70),
+    (150, 60, 50),
+    (200, 140, 60),
+    (100, 80, 140),
+    (90, 94, 102),
+    (170, 172, 178),
+];
+
+/// Nome do papel de parede para mostrar ("Ondas", "Cor sólida", "foto.png").
+fn wallpaper_name(style: &str) -> String {
+    if let Some((_, n)) = WALLPAPERS.iter().find(|(i, _)| *i == style || (style.is_empty() && *i == "ondas")) {
+        return n.to_string();
+    }
+    if style.starts_with("cor:") {
+        return "Cor sólida".into();
+    }
+    std::path::Path::new(style).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| style.to_string())
+}
+
 struct Prefs {
     config: Config,
     pane: Pane,
@@ -142,6 +167,10 @@ struct Prefs {
     kbd_tab: usize,
     /// Grupos abertos no painel Atalhos.
     open_groups: [bool; 3],
+    /// Coleção escolhida no painel Mesa.
+    desk_source: usize,
+    /// Miniaturas de papel de parede já desenhadas.
+    thumbs: std::collections::HashMap<String, Option<glove_kit::paint::draw::Canvas>>,
     /// Histórico das setas da barra.
     back: Vec<Pane>,
     forward: Vec<Pane>,
@@ -174,15 +203,21 @@ impl Prefs {
         }
         images.sort();
         let arg = std::env::args().nth(1).unwrap_or_default();
-        let pane = PANES.iter().find(|i| i.id == arg).map_or(Pane::Todos, |i| i.pane);
+        // "atalhos" é a segunda aba do Teclado (como no 10.4).
+        let (pane, kbd_tab) = match arg.as_str() {
+            "atalhos" => (Pane::Teclado, 1),
+            a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
+        };
         Self {
             config: Config::load(),
             pane,
             images,
             outputs: OutputsInfo::load(),
             confirm: None,
-            kbd_tab: 0,
+            kbd_tab,
             open_groups: [true, false, false],
+            desk_source: 0,
+            thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
             forward: Vec::new(),
             search: String::new(),
@@ -399,41 +434,149 @@ impl Prefs {
     }
 
     fn aparencia(&mut self, ui: &mut Ui) {
-        ui.heading("Tema");
+        // Formulário da era: rótulos à direita, controles numa coluna comum.
+        const LW: f32 = 210.0;
+        ui.space(4.0);
+        let names: Vec<String> = Variant::ALL.iter().map(|v| v.label().to_string()).collect();
         let mut v = Variant::ALL.iter().position(|v| v.id() == self.config.theme).unwrap_or(0);
-        let labels: Vec<&str> = Variant::ALL.iter().map(|v| v.label()).collect();
-        ui.indent(16.0, |ui| {
-            ui.spacing(4.0);
+        ui.form_row("Aparência", LW, |ui| {
             ui.horizontal(|ui| {
-                ui.spacing(18.0);
-                if ui.radio_group(&mut v, &labels) {
+                if ui.popup(&mut v, &names, 130.0) {
                     self.config.theme = Variant::ALL[v].id().into();
                     self.save();
                 }
+                ui.small("Para botões, menus e janelas");
             });
-            ui.small("Claro: sóbrio, como o fim da era (padrão). Listras: gel azul e listras finas. Metal: barras de metal escovado. Grafite: tons de cinza.");
+        });
+        ui.space(4.0);
+        let names: Vec<String> = glove_config::HIGHLIGHTS.iter().map(|h| h.1.to_string()).collect();
+        let mut h = glove_config::HIGHLIGHTS.iter().position(|h| h.0 == self.config.appearance.highlight).unwrap_or(0);
+        ui.form_row("Cor de destaque", LW, |ui| {
+            ui.horizontal(|ui| {
+                if ui.popup(&mut h, &names, 130.0) {
+                    self.config.appearance.highlight = glove_config::HIGHLIGHTS[h].0.into();
+                    self.save();
+                }
+                ui.small("Para texto selecionado");
+            });
         });
         ui.space(10.0);
         ui.separator();
-        ui.space(6.0);
-        ui.heading("Papel de parede");
-        let mut options: Vec<String> = WALLPAPERS.iter().map(|(_, l)| l.to_string()).collect();
-        let mut ids: Vec<String> = WALLPAPERS.iter().map(|(i, _)| i.to_string()).collect();
-        for p in &self.images {
-            options.push(p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
-            ids.push(p.to_string_lossy().into_owned());
-        }
-        let mut cur = ids.iter().position(|i| *i == self.config.wallpaper).unwrap_or(0);
-        ui.indent(16.0, |ui| {
+        ui.space(8.0);
+        let mut jump = usize::from(self.config.appearance.scroll_jump);
+        ui.form_row("Clicar na barra de rolagem para", LW, |ui| {
+            if ui.radio_group(&mut jump, &["Ir para a página seguinte", "Ir para o ponto clicado"]) {
+                self.config.appearance.scroll_jump = jump == 1;
+                self.save();
+            }
+        });
+        ui.space(4.0);
+        let mut dbl = self.config.appearance.double_click_minimizes;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut dbl, "Minimizar ao clicar duas vezes na barra de título") {
+                self.config.appearance.double_click_minimizes = dbl;
+                self.save();
+            }
+        });
+        ui.space(10.0);
+        ui.separator();
+        ui.space(8.0);
+        const COUNTS: [u32; 7] = [0, 5, 10, 15, 20, 30, 50];
+        let names: Vec<String> = COUNTS.iter().map(|n| if *n == 0 { "Nenhum".to_string() } else { n.to_string() }).collect();
+        let mut apps = COUNTS.iter().position(|n| *n == self.config.appearance.recent_apps).unwrap_or(2);
+        let mut docs = COUNTS.iter().position(|n| *n == self.config.appearance.recent_docs).unwrap_or(2);
+        ui.form_row("Itens recentes", LW, |ui| {
             ui.horizontal(|ui| {
-                ui.label_right("Imagem:", 70.0);
-                if ui.popup(&mut cur, &options, 260.0) {
-                    self.config.wallpaper = ids[cur].clone();
+                if ui.popup(&mut apps, &names, 90.0) {
+                    self.config.appearance.recent_apps = COUNTS[apps];
                     self.save();
                 }
+                ui.small("Aplicativos");
             });
-            ui.small("Imagens PNG da sua pasta Imagens também aparecem na lista.");
+            ui.horizontal(|ui| {
+                if ui.popup(&mut docs, &names, 90.0) {
+                    self.config.appearance.recent_docs = COUNTS[docs];
+                    self.save();
+                }
+                ui.small("Documentos");
+            });
         });
+    }
+
+    /// Mesa: a imagem atual em destaque, as coleções à esquerda e as miniaturas à direita.
+    fn mesa(&mut self, ui: &mut Ui) {
+        let (x0, y0) = ui.cursor();
+        let w = ui.available_width();
+        // Poço com a imagem atual.
+        let (pw, ph) = (128.0, 88.0);
+        let cur = self.config.wallpaper.clone();
+        ui.c.fill(rrect(x0 - 3.0, y0 - 3.0, pw + 6.0, ph + 6.0, 3.0), &solid(rgba(0, 0, 0, 30)));
+        ui.c.stroke(rrect(x0 - 2.5, y0 - 2.5, pw + 5.0, ph + 5.0, 3.0), &solid(rgba(0, 0, 0, 70)), 1.0);
+        self.draw_thumb(ui, &cur, Rect::new(x0, y0, pw, ph));
+        ui.fonts.draw(ui.c, &wallpaper_name(&cur), x0 + pw + 20.0, y0 + 40.0, 13.0, true, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, "Clique numa imagem para usar na mesa.", x0 + pw + 20.0, y0 + 58.0, 11.0, false, rgba(90, 90, 96, 255));
+        ui.alloc(w, ph + 16.0);
+        // Coleções.
+        let sources = ["Imagens do Glove", "Cores Sólidas", "Pasta Imagens"];
+        let mut sel = Some(self.desk_source);
+        let rows: Vec<String> = sources.iter().map(|s| s.to_string()).collect();
+        let (lx, ly) = ui.cursor();
+        let list_h = 230.0;
+        ui.area(Rect::new(lx, ly, 150.0, list_h), |ui| {
+            if ui.list(&mut sel, &rows, 150.0, list_h) {
+                if let Some(s) = sel {
+                    self.desk_source = s;
+                }
+            }
+        });
+        // Miniaturas da coleção.
+        let items: Vec<String> = match self.desk_source {
+            0 => WALLPAPERS.iter().map(|(i, _)| i.to_string()).collect(),
+            1 => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
+            _ => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
+        };
+        let gx = lx + 166.0;
+        let gw = w - 166.0;
+        ui.c.fill_rect(gx, ly, gw, list_h, &solid(rgba(255, 255, 255, 255)));
+        ui.c.stroke(rrect(gx + 0.5, ly + 0.5, gw - 1.0, list_h - 1.0, 0.0), &solid(rgba(130, 130, 135, 255)), 1.0);
+        if items.is_empty() {
+            ui.fonts.draw(ui.c, "Ponha imagens PNG na sua pasta Imagens.", gx + 14.0, ly + 24.0, 11.0, false, rgba(110, 110, 116, 255));
+        }
+        let (tw, th, gap) = (88.0, 62.0, 10.0);
+        let per_row = ((gw - gap) / (tw + gap)).floor().max(1.0) as usize;
+        let mut chosen = None;
+        for (i, it) in items.iter().enumerate() {
+            let (col, row) = ((i % per_row) as f32, (i / per_row) as f32);
+            let r = Rect::new(gx + gap + col * (tw + gap), ly + gap + row * (th + gap), tw, th);
+            if r.y + r.h > ly + list_h {
+                break;
+            }
+            if *it == cur {
+                ui.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, 3.0), &solid(ui.theme.accent));
+            }
+            self.draw_thumb(ui, it, r);
+            if ui.hit(r).clicked {
+                chosen = Some(it.clone());
+            }
+        }
+        if let Some(c) = chosen {
+            self.config.wallpaper = c;
+            self.save();
+            ui.redraw = true;
+        }
+        ui.alloc(w, list_h);
+    }
+
+    /// Miniatura de um papel de parede (guardada; os PNG só são lidos uma vez).
+    fn draw_thumb(&mut self, ui: &mut Ui, style: &str, r: Rect) {
+        let key = format!("{style}@{}x{}", r.w, r.h);
+        if !self.thumbs.contains_key(&key) {
+            let c = glove_kit::paint::wallpaper::render_style(ui.theme, style, r.w, r.h, ui.c.scale);
+            self.thumbs.insert(key.clone(), c);
+        }
+        if let Some(Some(c)) = self.thumbs.get(&key) {
+            ui.c.draw_canvas(c, r.x, r.y);
+        }
     }
 
     fn dock(&mut self, ui: &mut Ui) {
@@ -453,16 +596,14 @@ impl Prefs {
         let mut mag = self.config.dock.magnification;
         let mut max = self.config.dock.max_size as f32;
         let min = self.config.dock.size as f32;
-        ui.form_row("Ampliação", LW, |ui| {
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut mag, "Ampliação") {
+                self.config.dock.magnification = mag;
+                self.save();
+            }
             let t = Ticks { count: 2, labels: &[(0.0, "Mínima"), (1.0, "Máxima")], snap: false };
             if ui.slider_ticks(&mut max, min, 128.0, 240.0, &t, mag) {
                 self.config.dock.max_size = max.round() as u32;
-                self.save();
-            }
-        });
-        ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut mag, "Ampliar ícones ao passar o mouse") {
-                self.config.dock.magnification = mag;
                 self.save();
             }
         });
@@ -470,12 +611,27 @@ impl Prefs {
         let words = ["esquerda", "embaixo", "direita"];
         let mut pos = words.iter().position(|w| *w == self.config.dock.position).unwrap_or(1);
         ui.form_row("Posição na tela", LW, |ui| {
-            if ui.radio_group(&mut pos, &["À esquerda", "Embaixo", "À direita"]) {
-                self.config.dock.position = words[pos].to_string();
+            ui.horizontal(|ui| {
+                ui.spacing(14.0);
+                if ui.radio_group(&mut pos, &["Esquerda", "Embaixo", "Direita"]) {
+                    self.config.dock.position = words[pos].to_string();
+                    self.save();
+                }
+            });
+        });
+        ui.space(6.0);
+        let mut effect = 0;
+        ui.form_row("Minimizar usando", LW, |ui| {
+            ui.popup(&mut effect, &["Efeito Escala".to_string()], 160.0);
+        });
+        ui.space(6.0);
+        let mut anim = self.config.dock.animate_launch;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut anim, "Animar a abertura de aplicativos") {
+                self.config.dock.animate_launch = anim;
                 self.save();
             }
         });
-        ui.space(6.0);
         let mut hide = self.config.dock.autohide;
         ui.form_row("", LW, |ui| {
             if ui.checkbox(&mut hide, "Ocultar e mostrar o Dock automaticamente") {
@@ -489,7 +645,10 @@ impl Prefs {
         let mut tab = self.kbd_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &["Repetição", "Layout"], 300.0, |ui| match shown {
+        // A aba de atalhos cresce com os grupos abertos.
+        let open_rows: usize = SHORTCUT_GROUPS.iter().zip(self.open_groups).filter(|(_, o)| *o).map(|((_, a), _)| a.len()).sum();
+        let height = if shown == 1 { 120.0 + SHORTCUT_GROUPS.len() as f32 * 24.0 + open_rows as f32 * 30.0 } else { 240.0 };
+        ui.tab_box(&mut tab, &["Teclado", "Atalhos de Teclado"], height, |ui| match shown {
             0 => {
                 const LW: f32 = 170.0;
                 let mut delay = self.config.keyboard.repeat_delay as f32;
@@ -512,29 +671,29 @@ impl Prefs {
                         self.save();
                     }
                 });
-                ui.space(10.0);
+                ui.space(8.0);
                 ui.form_row("Teste aqui", LW, |ui| {
                     let mut test = TEST.with(|t| t.borrow().clone());
                     if ui.text_field(&mut test, 220.0) {
                         TEST.with(|t| *t.borrow_mut() = test);
                     }
                 });
-            }
-            _ => {
+                ui.space(8.0);
                 let names: Vec<String> = LAYOUTS.iter().map(|(_, _, n)| n.to_string()).collect();
                 let mut cur = LAYOUTS
                     .iter()
                     .position(|(l, v, _)| *l == self.config.keyboard.layout && *v == self.config.keyboard.variant)
                     .unwrap_or(0);
-                ui.form_row("Layout do teclado", 150.0, |ui| {
-                    if ui.popup(&mut cur, &names, 260.0) {
+                ui.form_row("Layout do teclado", LW, |ui| {
+                    if ui.popup(&mut cur, &names, 240.0) {
                         self.config.keyboard.layout = LAYOUTS[cur].0.into();
                         self.config.keyboard.variant = LAYOUTS[cur].1.into();
                         self.save();
                     }
                 });
-                ui.form_note(150.0, "Vale na hora para todos os apps.");
+                ui.form_note(LW, "Vale na hora para todos os apps.");
             }
+            _ => self.atalhos(ui),
         });
         self.kbd_tab = tab;
     }
@@ -544,67 +703,102 @@ impl Prefs {
     }
 
     fn monitor(&mut self, ui: &mut Ui) {
+        const LW: f32 = 150.0;
         let nested = self.nested();
         let outputs = self.outputs.clone().unwrap_or_default();
+        let active = outputs.outputs.iter().find(|o| o.active).cloned().unwrap_or_default();
         if nested {
             ui.small("O Glove está numa janela dentro de outro desktop: a resolução é a da janela.");
             ui.small("O que for escolhido aqui vale quando você entrar na sessão Glove.");
-            ui.space(8.0);
+            ui.space(10.0);
         } else {
-            ui.heading("Monitor");
-            let mut names = vec!["Automático (externo, se houver)".to_string()];
-            let mut ids = vec![String::new()];
-            for o in &outputs.outputs {
-                names.push(o.description.clone());
-                ids.push(o.name.clone());
-            }
-            let mut cur = ids.iter().position(|i| *i == self.config.monitor.output).unwrap_or(0);
-            ui.indent(16.0, |ui| {
-                if ui.popup(&mut cur, &names, 300.0) {
-                    self.ask_confirm();
-                    self.config.monitor.output = ids[cur].clone();
-                    self.config.monitor.mode.clear();
-                    self.save();
-                }
-            });
-            ui.space(8.0);
-
-            let active = outputs.outputs.iter().find(|o| o.active).cloned().unwrap_or_default();
-            ui.heading("Resolução");
-            let mut names = vec![format!("Recomendada ({})", mode_label(&active.preferred))];
-            let mut ids = vec![String::new()];
+            // Resoluções (sem repetir as frequências) à esquerda; o resto à direita.
+            let mut sizes: Vec<(u32, u32)> = Vec::new();
             for m in &active.modes {
-                names.push(mode_label(m));
-                ids.push(m.clone());
+                if let Some((w, h, _)) = glove_config::parse_mode(m) {
+                    if !sizes.contains(&(w, h)) {
+                        sizes.push((w, h));
+                    }
+                }
             }
-            let mut cur = ids.iter().position(|i| *i == self.config.monitor.mode).unwrap_or(0);
-            ui.indent(16.0, |ui| {
-                if ui.popup(&mut cur, &names, 300.0) {
-                    self.ask_confirm();
-                    self.config.monitor.mode = ids[cur].clone();
-                    self.save();
-                }
-                if !active.current.is_empty() {
-                    let t = format!("Em uso: {}", mode_label(&active.current));
-                    ui.small(&t);
-                }
+            let current = glove_config::parse_mode(if self.config.monitor.mode.is_empty() { &active.current } else { &self.config.monitor.mode });
+            let mut rows = vec![format!("Recomendada ({})", mode_label(&active.preferred).split(',').next().unwrap_or(""))];
+            rows.extend(sizes.iter().map(|(w, h)| format!("{w} × {h}")));
+            let mut sel = if self.config.monitor.mode.is_empty() { Some(0) } else { current.and_then(|(w, h, _)| sizes.iter().position(|s| *s == (w, h))).map(|i| i + 1) };
+            ui.horizontal(|ui| {
+                ui.spacing(18.0);
+                ui.column(220.0, |ui| {
+                    ui.label("Resoluções:");
+                    if ui.list(&mut sel, &rows, 220.0, 180.0) {
+                        self.ask_confirm();
+                        self.config.monitor.mode = match sel {
+                            Some(i) if i > 0 => {
+                                // A frequência mais alta da resolução escolhida.
+                                let (w, h) = sizes[i - 1];
+                                active.modes.iter().filter(|m| glove_config::parse_mode(m).is_some_and(|(a, b, _)| (a, b) == (w, h))).max_by_key(|m| glove_config::parse_mode(m).map(|x| x.2)).cloned().unwrap_or_default()
+                            }
+                            _ => String::new(),
+                        };
+                        self.save();
+                    }
+                });
+                ui.column(ui.available_width(), |ui| {
+                    ui.space(20.0);
+                    if outputs.outputs.len() > 1 {
+                        let mut names = vec!["Automático".to_string()];
+                        let mut ids = vec![String::new()];
+                        for o in &outputs.outputs {
+                            names.push(o.description.clone());
+                            ids.push(o.name.clone());
+                        }
+                        let mut cur = ids.iter().position(|i| *i == self.config.monitor.output).unwrap_or(0);
+                        ui.label("Monitor:");
+                        if ui.popup(&mut cur, &names, 220.0) {
+                            self.ask_confirm();
+                            self.config.monitor.output = ids[cur].clone();
+                            self.config.monitor.mode.clear();
+                            self.save();
+                        }
+                        ui.space(6.0);
+                    }
+                    // Frequências da resolução em uso.
+                    if let (Some((w, h, _)), false) = (current, self.config.monitor.mode.is_empty()) {
+                        let modes: Vec<&String> = active.modes.iter().filter(|m| glove_config::parse_mode(m).is_some_and(|(a, b, _)| (a, b) == (w, h))).collect();
+                        let names: Vec<String> = modes.iter().map(|m| glove_config::parse_mode(m).map(|x| format!("{} Hz", x.2)).unwrap_or_default()).collect();
+                        let mut cur = modes.iter().position(|m| **m == self.config.monitor.mode).unwrap_or(0);
+                        ui.label("Taxa de atualização:");
+                        if ui.popup(&mut cur, &names, 120.0) {
+                            self.ask_confirm();
+                            self.config.monitor.mode = modes[cur].clone();
+                            self.save();
+                        }
+                        ui.space(6.0);
+                    }
+                    if !active.current.is_empty() {
+                        let t = format!("Em uso: {}", mode_label(&active.current));
+                        ui.small(&t);
+                    }
+                });
             });
-            ui.space(8.0);
+            ui.space(10.0);
         }
-
-        ui.heading("Tamanho da interface");
-        let auto = outputs.outputs.iter().find(|o| o.active).map(|o| o.auto_scale).unwrap_or(1.0);
-        let names: Vec<String> = SCALES
-            .iter()
-            .map(|v| if *v == 0.0 { format!("Automático ({})", scale_label(auto)) } else { scale_label(*v) })
-            .collect();
+        let auto = active.auto_scale.max(1.0);
+        let names: Vec<String> = SCALES.iter().map(|v| if *v == 0.0 { format!("Automático ({})", scale_label(auto)) } else { scale_label(*v) }).collect();
         let mut cur = SCALES.iter().position(|v| *v == self.config.monitor.scale).unwrap_or(0);
-        ui.indent(16.0, |ui| {
-            if ui.popup(&mut cur, &names, 200.0) {
+        ui.form_row("Tamanho da interface", LW, |ui| {
+            if ui.popup(&mut cur, &names, 180.0) {
                 self.config.monitor.scale = SCALES[cur];
                 self.save();
             }
-            ui.small("Maior = textos e janelas maiores. Automático segue a densidade da tela.");
+        });
+        ui.form_note(LW, "Maior = textos e janelas maiores. Automático segue a densidade da tela.");
+        ui.space(6.0);
+        let mut extra = self.config.monitor.menu_extra;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut extra, "Mostrar monitores na barra de menu") {
+                self.config.monitor.menu_extra = extra;
+                self.save();
+            }
         });
 
         if let Some((_, _, until)) = &self.confirm {
@@ -645,100 +839,144 @@ impl Prefs {
         }
     }
 
+    /// Velocidade do clique duplo: slider de 0 (muito lenta, 900 ms) a 1 (rápida, 200 ms).
+    fn double_click_row(&mut self, ui: &mut Ui, lw: f32) {
+        let mut v = (900.0 - self.config.pointer.double_click_ms as f32) / 700.0;
+        ui.form_row("Velocidade do clique duplo", lw, |ui| {
+            let t = Ticks { count: 8, labels: &[(0.0, "Muito lenta"), (1.0, "Rápida")], snap: false };
+            if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, true) {
+                self.config.pointer.double_click_ms = (900.0 - v * 700.0).round() as u32;
+                self.save();
+            }
+        });
+        // Área de teste: o clique duplo troca o texto.
+        ui.form_row("", lw, |ui| {
+            let r = ui.alloc(240.0, 30.0);
+            let ok = TEST_DBL.with(|t| t.get());
+            ui.c.fill(rrect(r.x, r.y, r.w, r.h, 4.0), &solid(if ok { rgba(220, 238, 214, 255) } else { rgba(255, 255, 255, 200) }));
+            ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 4.0), &solid(rgba(0, 0, 0, 60)), 1.0);
+            let t = if ok { "Clique duplo reconhecido!" } else { "Clique duas vezes aqui para testar" };
+            let tw = ui.text_width(t, 11.0, false);
+            ui.fonts.draw(ui.c, t, r.x + (r.w - tw) / 2.0, r.y + 19.0, 11.0, false, rgba(60, 60, 66, 255));
+            let h = ui.hit(r);
+            if h.double {
+                TEST_DBL.with(|t| t.set(!t.get()));
+            }
+        });
+    }
+
     fn mouse(&mut self, ui: &mut Ui) {
+        const LW: f32 = 210.0;
         let p = self.config.pointer.clone();
-        ui.heading("Velocidade do cursor");
+        ui.space(6.0);
         let mut speed = p.speed as f32;
-        ui.indent(16.0, |ui| {
+        ui.form_row("Velocidade de rastreamento", LW, |ui| {
+            let t = Ticks { count: 10, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+            if ui.slider_ticks(&mut speed, -1.0, 1.0, 240.0, &t, true) {
+                self.config.pointer.speed = (speed as f64 * 20.0).round() / 20.0;
+                self.save();
+            }
+        });
+        ui.space(6.0);
+        let mut scroll = p.scroll_speed.clamp(0.25, 3.0) as f32;
+        ui.form_row("Velocidade de rolagem", LW, |ui| {
+            let t = Ticks { count: 8, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+            if ui.slider_ticks(&mut scroll, 0.25, 3.0, 240.0, &t, true) {
+                self.config.pointer.scroll_speed = (scroll as f64 * 20.0).round() / 20.0;
+                self.save();
+            }
+        });
+        ui.space(6.0);
+        self.double_click_row(ui, LW);
+        ui.space(10.0);
+        let mut primary = usize::from(p.left_handed);
+        ui.form_row("Botão principal do mouse", LW, |ui| {
             ui.horizontal(|ui| {
-                ui.small("Lenta");
-                if ui.slider(&mut speed, -1.0, 1.0, 300.0) {
-                    self.config.pointer.speed = (speed as f64 * 20.0).round() / 20.0;
+                ui.spacing(14.0);
+                if ui.radio_group(&mut primary, &["Esquerdo", "Direito"]) {
+                    self.config.pointer.left_handed = primary == 1;
                     self.save();
                 }
-                ui.small("Rápida");
             });
-            let mut acc = p.acceleration;
+        });
+        ui.space(4.0);
+        let mut acc = p.acceleration;
+        ui.form_row("", LW, |ui| {
             if ui.checkbox(&mut acc, "Aceleração (anda mais quando o mouse se move rápido)") {
                 self.config.pointer.acceleration = acc;
                 self.save();
             }
-        });
-        ui.space(8.0);
-        ui.heading("Rolagem e botões");
-        ui.indent(16.0, |ui| {
             let mut nat = p.natural_scroll;
             if ui.checkbox(&mut nat, "Rolagem natural (o conteúdo acompanha a roda)") {
                 self.config.pointer.natural_scroll = nat;
                 self.save();
             }
-            let mut left = p.left_handed;
-            if ui.checkbox(&mut left, "Trocar os botões (para canhotos)") {
-                self.config.pointer.left_handed = left;
-                self.save();
-            }
         });
         if self.nested() {
-            ui.space(10.0);
+            ui.space(8.0);
             ui.separator();
-            ui.space(6.0);
-            ui.small("Dentro de outro desktop só a rolagem vale agora; o resto vale na sessão Glove.");
+            ui.space(4.0);
+            ui.small("Dentro de outro desktop só a rolagem e o clique duplo valem agora; o resto vale na sessão Glove.");
         }
     }
 
     fn trackpad(&mut self, ui: &mut Ui) {
+        const LW: f32 = 210.0;
         let t = self.config.touchpad.clone();
-        ui.heading("Clique");
-        ui.indent(16.0, |ui| {
+        ui.space(6.0);
+        let mut speed = t.speed as f32;
+        ui.form_row("Velocidade de rastreamento", LW, |ui| {
+            let ticks = Ticks { count: 10, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+            if ui.slider_ticks(&mut speed, -1.0, 1.0, 240.0, &ticks, true) {
+                self.config.touchpad.speed = (speed as f64 * 20.0).round() / 20.0;
+                self.save();
+            }
+        });
+        ui.space(6.0);
+        self.double_click_row(ui, LW);
+        ui.space(10.0);
+        ui.form_row("Gestos do trackpad", LW, |ui| {
             let mut tap = t.tap_to_click;
             if ui.checkbox(&mut tap, "Tocar para clicar") {
                 self.config.touchpad.tap_to_click = tap;
                 self.save();
             }
-            ui.space(4.0);
-            ui.small("Clique secundário:");
-            let mut v = if t.two_finger_right_click { 0 } else { 1 };
-            ui.horizontal(|ui| {
-                ui.spacing(18.0);
-                if ui.radio_group(&mut v, &["Com dois dedos", "No canto inferior direito"]) {
-                    self.config.touchpad.two_finger_right_click = v == 0;
-                    self.save();
-                }
-            });
-        });
-        ui.space(8.0);
-        ui.heading("Movimento");
-        ui.indent(16.0, |ui| {
-            let mut speed = t.speed as f32;
-            ui.horizontal(|ui| {
-                ui.small("Lenta");
-                if ui.slider(&mut speed, -1.0, 1.0, 300.0) {
-                    self.config.touchpad.speed = (speed as f64 * 20.0).round() / 20.0;
-                    self.save();
-                }
-                ui.small("Rápida");
-            });
+            let mut drag = t.tap_drag;
+            if ui.checkbox(&mut drag, "Tocar duas vezes e arrastar") {
+                self.config.touchpad.tap_drag = drag;
+                self.save();
+            }
             let mut nat = t.natural_scroll;
             if ui.checkbox(&mut nat, "Rolagem natural (o conteúdo acompanha os dedos)") {
                 self.config.touchpad.natural_scroll = nat;
                 self.save();
             }
-            let mut dwt = t.disable_while_typing;
+        });
+        ui.space(6.0);
+        let mut v = if t.two_finger_right_click { 0 } else { 1 };
+        ui.form_row("Clique secundário", LW, |ui| {
+            if ui.radio_group(&mut v, &["Com dois dedos", "No canto inferior direito"]) {
+                self.config.touchpad.two_finger_right_click = v == 0;
+                self.save();
+            }
+        });
+        ui.space(6.0);
+        let mut dwt = t.disable_while_typing;
+        ui.form_row("", LW, |ui| {
             if ui.checkbox(&mut dwt, "Ignorar o trackpad enquanto digito") {
                 self.config.touchpad.disable_while_typing = dwt;
                 self.save();
             }
         });
         if self.nested() {
-            ui.space(10.0);
+            ui.space(8.0);
             ui.separator();
-            ui.space(6.0);
+            ui.space(4.0);
             ui.small("Dentro de outro desktop o trackpad segue o desktop de lá; isto vale na sessão Glove.");
         }
     }
 
     fn atalhos(&mut self, ui: &mut Ui) {
-        ui.heading("Atalhos de teclado");
         ui.small("Clique num atalho e pressione a nova combinação (Esc cancela).");
         ui.space(4.0);
         for (gi, (group, actions)) in SHORTCUT_GROUPS.iter().enumerate() {
@@ -809,6 +1047,7 @@ impl Prefs {
 
 thread_local! {
     static TEST: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+    static TEST_DBL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 impl App for Prefs {
@@ -820,12 +1059,12 @@ impl App for Prefs {
         let (_, used) = ui.area_size(Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0), |ui| match self.pane {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
+            Pane::Mesa => self.mesa(ui),
             Pane::Monitor => self.monitor(ui),
             Pane::Trackpad => self.trackpad(ui),
             Pane::Dock => self.dock(ui),
             Pane::Teclado => self.teclado(ui),
             Pane::Mouse => self.mouse(ui),
-            Pane::Atalhos => self.atalhos(ui),
             Pane::Terminal => self.terminal(ui),
         });
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
@@ -922,6 +1161,8 @@ mod tests {
     fn busca_de_paineis() {
         use super::{matches, Pane};
         assert_eq!(matches("resolu"), vec![Pane::Monitor]);
+        assert_eq!(matches("atalhos"), vec![Pane::Teclado]);
+        assert_eq!(matches("papel parede"), vec![Pane::Mesa]);
         assert_eq!(matches("aparencia"), vec![Pane::Aparencia]);
         assert!(matches("rolagem").contains(&Pane::Mouse));
         assert!(matches("").is_empty());

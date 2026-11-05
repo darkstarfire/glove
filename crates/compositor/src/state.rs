@@ -62,6 +62,8 @@ pub struct Glove {
     pub minimized: Vec<(Window, Point<i32, Logical>)>,
     /// Janelas escondidas por "Ocultar" (não aparecem no Dock) e onde estavam.
     pub hidden: Vec<(Window, Point<i32, Logical>)>,
+    /// Último clique numa barra de título (para o clique duplo).
+    pub title_click: Option<(Window, std::time::Instant)>,
     /// Há algo novo para desenhar.
     pub dirty: bool,
     /// Rodando dentro de outro desktop (atalhos usam Alt em vez de Super).
@@ -187,6 +189,7 @@ impl Glove {
             chrome: Chrome::default(),
             minimized: Vec::new(),
             hidden: Vec::new(),
+            title_click: None,
             dirty: true,
             nested: false,
             cascade: 0,

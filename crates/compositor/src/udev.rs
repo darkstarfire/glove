@@ -324,6 +324,7 @@ fn configure_device(d: &mut libinput::Device, config: &glove_config::Config) {
     if touchpad {
         let t = &config.touchpad;
         let _ = d.config_tap_set_enabled(t.tap_to_click);
+        let _ = d.config_tap_set_drag_enabled(t.tap_drag);
         if d.config_accel_is_available() {
             let _ = d.config_accel_set_speed(t.speed.clamp(-1.0, 1.0));
         }

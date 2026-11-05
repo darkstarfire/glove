@@ -59,6 +59,8 @@ pub enum PrefKind {
     Keyboard,
     /// Teclado com a tecla de atalho acesa.
     Shortcuts,
+    /// Quadro com a mesa (papel de parede).
+    Desktop,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -993,6 +995,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Dock => pref_dock(pm, x, y, s),
         PrefKind::Keyboard => pref_keyboard(pm, x, y, s, false),
         PrefKind::Shortcuts => pref_keyboard(pm, x, y, s, true),
+        PrefKind::Desktop => pref_desktop(pm, x, y, s),
     }
 }
 
@@ -1103,4 +1106,26 @@ fn pref_keyboard(pm: &mut Canvas, x: f32, y: f32, s: f32, hot: bool) {
         pm.fill(p.clone(), &vgrad(ly, ly + l, &[(0.0, rgba(255, 230, 90, 255)), (1.0, rgba(240, 160, 30, 255))]));
         pm.stroke(p, &solid(rgba(160, 100, 20, 255)), lw);
     }
+}
+
+/// Moldura de madeira clara com a paisagem de ondas azuis.
+fn pref_desktop(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.14, s * 0.88, s * 0.7);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.03), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(236, 210, 160, 255)), (1.0, rgba(180, 140, 90, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.03), &solid(rgba(120, 88, 50, 255)), lw);
+    let m = s * 0.07;
+    let (sx, sy, sw, sh) = (bx + m, by + m, bw - 2.0 * m, bh - 2.0 * m);
+    pm.fill_rect(sx, sy, sw, sh, &vgrad(sy, sy + sh, &[(0.0, rgba(30, 80, 180, 255)), (1.0, rgba(90, 160, 235, 255))]));
+    for (k, a) in [(0.45, 120u8), (0.7, 80)] {
+        let mut pb = PathBuilder::new();
+        pb.move_to(sx, sy + sh * k);
+        pb.quad_to(sx + sw * 0.4, sy + sh * (k - 0.3), sx + sw, sy + sh * (k - 0.05));
+        pb.line_to(sx + sw, sy + sh * (k + 0.08));
+        pb.quad_to(sx + sw * 0.45, sy + sh * (k - 0.15), sx, sy + sh * (k + 0.15));
+        pb.close();
+        pm.fill(pb.finish(), &solid(rgba(255, 255, 255, a)));
+    }
+    pm.stroke(rrect(sx, sy, sw, sh, 0.0), &solid(rgba(120, 88, 50, 200)), lw);
 }

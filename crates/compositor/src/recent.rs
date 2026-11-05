@@ -4,7 +4,8 @@
 use std::path::PathBuf;
 
 /// Quantos itens de cada tipo o menu mostra.
-pub const MAX: usize = 10;
+/// Quantos guardar; o menu mostra quantos as Preferências pedirem (até isso).
+pub const MAX: usize = 50;
 
 #[derive(Default)]
 pub struct Recent {

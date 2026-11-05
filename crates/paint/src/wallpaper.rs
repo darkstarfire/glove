@@ -50,8 +50,22 @@ pub fn render_style(theme: &Theme, style: &str, w: f32, h: f32, scale: f32) -> O
         "aurora" => aurora(theme, w, h, scale),
         "liso" => plain(theme, w, h, scale),
         "ondas" | "" => render(theme, w, h, scale),
+        c if c.starts_with("cor:") => solid_color(c, w, h, scale).or_else(|| render(theme, w, h, scale)),
         path => image(path, w, h, scale).or_else(|| render(theme, w, h, scale)),
     }
+}
+
+/// Cor sólida: "cor:R,G,B".
+pub fn parse_color(style: &str) -> Option<(u8, u8, u8)> {
+    let mut it = style.strip_prefix("cor:")?.split(',').map(|v| v.trim().parse::<u8>().ok());
+    Some((it.next()??, it.next()??, it.next()??))
+}
+
+fn solid_color(style: &str, w: f32, h: f32, scale: f32) -> Option<Canvas> {
+    let (r, g, b) = parse_color(style)?;
+    let mut c = Canvas::new(w, h, scale)?;
+    c.fill_rect(0.0, 0.0, w, h, &solid(rgba(r, g, b, 255)));
+    Some(c)
 }
 
 fn plain(theme: &Theme, w: f32, h: f32, scale: f32) -> Option<Canvas> {

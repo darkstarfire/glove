@@ -561,7 +561,7 @@ impl Glove {
     /// Clique num ícone da mesa: seleciona; clique duplo abre no Arquivos.
     pub fn click_desk_icon(&mut self, i: usize) {
         let now = std::time::Instant::now();
-        let double = self.chrome.desk_selected == Some(i) && self.chrome.desk_last_click.is_some_and(|t| now.duration_since(t).as_millis() < 450);
+        let double = self.chrome.desk_selected == Some(i) && self.chrome.desk_last_click.is_some_and(|t| now.duration_since(t).as_millis() < self.config.pointer.double_click_ms as u128);
         self.chrome.desk_selected = Some(i);
         self.chrome.desk_last_click = Some(now);
         if double {
@@ -886,13 +886,14 @@ impl Glove {
             .apps
             .iter()
             .filter_map(|id| self.config.dock_apps.iter().find(|a| &a.app_id == id))
+            .take(self.config.appearance.recent_apps as usize)
             .map(|a| MenuNode::new(MenuItem::item(format!("  {}", a.name)), Some(MenuAction::RecentApp(a.app_id.clone()))))
             .collect();
         let has_apps = !apps.is_empty();
         if has_apps { v.extend(apps) } else { v.push(none()) }
         v.push(MenuNode::sep());
         v.push(header("Documentos"));
-        let docs = self.recent.documents();
+        let docs: Vec<_> = self.recent.documents().into_iter().take(self.config.appearance.recent_docs as usize).collect();
         let has_docs = !docs.is_empty();
         for p in docs {
             let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -1560,7 +1561,7 @@ const BOUNCE_MAX: std::time::Duration = std::time::Duration::from_secs(8);
 
 impl Glove {
     pub fn start_bounce(&mut self, app_id: &str) {
-        if app_id.is_empty() || self.launching.iter().any(|l| l.0.eq_ignore_ascii_case(app_id)) {
+        if app_id.is_empty() || !self.config.dock.animate_launch || self.launching.iter().any(|l| l.0.eq_ignore_ascii_case(app_id)) {
             return;
         }
         self.launching.push((app_id.to_string(), std::time::Instant::now(), None));

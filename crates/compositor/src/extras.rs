@@ -168,7 +168,10 @@ impl Glove {
 
     /// Extras na ordem da barra (da esquerda para a direita, antes do relógio).
     pub fn extra_kinds(&self) -> Vec<ExtraKind> {
-        let mut v = vec![ExtraKind::Display];
+        let mut v = Vec::new();
+        if self.config.monitor.menu_extra {
+            v.push(ExtraKind::Display);
+        }
         if self.extras.volume.is_some() {
             v.push(ExtraKind::Volume);
         }

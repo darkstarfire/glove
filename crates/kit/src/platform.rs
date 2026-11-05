@@ -117,8 +117,19 @@ pub fn app_icon(app_id: &str) -> glove_paint::icons::Icon {
 
 pub fn theme_from_config() -> Theme {
     let c = glove_config::Config::load();
-    Theme::new(Variant::from_config(&c.theme))
+    let mut t = Theme::new(Variant::from_config(&c.theme));
+    let (r, g, b) = glove_config::highlight_rgb(&c.appearance.highlight);
+    t.highlight = glove_paint::draw::rgba(r, g, b, 255);
+    // Ajustes que o kit lê a cada clique (clique duplo, trilho da rolagem).
+    DOUBLE_CLICK_MS.store(c.pointer.double_click_ms.clamp(150, 1500), std::sync::atomic::Ordering::Relaxed);
+    SCROLL_JUMP.store(c.appearance.scroll_jump, std::sync::atomic::Ordering::Relaxed);
+    t
 }
+
+/// Tempo do clique duplo (Preferências ▸ Mouse).
+pub(crate) static DOUBLE_CLICK_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(400);
+/// Clicar no trilho da barra de rolagem vai até ali (Preferências ▸ Aparência).
+pub(crate) static SCROLL_JUMP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 struct Runner<A: App> {
     registry_state: RegistryState,
@@ -969,10 +980,10 @@ impl<A: App> PointerHandler for Runner<A> {
                     self.last_serial = serial;
                     self.input.down = true;
                     self.input.pressed = true;
-                    // Clique duplo/triplo: até 400 ms e perto do anterior.
+                    // Clique duplo/triplo: dentro do tempo das Preferências e perto do anterior.
                     let (t0, p0, n) = self.last_click;
                     let near = (p0.0 - self.input.pos.0).abs() < 4.0 && (p0.1 - self.input.pos.1).abs() < 4.0;
-                    let count = if time.wrapping_sub(t0) < 400 && near { (n % 3) + 1 } else { 1 };
+                    let count = if time.wrapping_sub(t0) < DOUBLE_CLICK_MS.load(std::sync::atomic::Ordering::Relaxed) && near { (n % 3) + 1 } else { 1 };
                     self.last_click = (time, self.input.pos, count);
                     self.input.clicks = count;
                 }

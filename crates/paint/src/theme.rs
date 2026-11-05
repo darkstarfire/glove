@@ -73,6 +73,8 @@ pub struct Theme {
     pub body_a: Color,
     pub body_b: Color,
     pub wallpaper: [Color; 3],
+    /// Fundo do texto selecionado (cor de destaque do painel Aparência).
+    pub highlight: Color,
 }
 
 pub const TITLE_H: i32 = 22;
@@ -113,6 +115,7 @@ impl Theme {
             body_a: if claro { rgba(240, 240, 240, 255) } else { rgba(232, 232, 232, 255) },
             body_b: if claro { rgba(243, 243, 243, 255) } else { rgba(242, 242, 242, 255) },
             wallpaper,
+            highlight: if graphite { rgba(199, 208, 219, 255) } else { rgba(181, 213, 255, 255) },
         }
     }
 }
