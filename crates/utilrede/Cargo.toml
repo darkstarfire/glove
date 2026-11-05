@@ -1,0 +1,9 @@
+[package]
+name = "glove-utilrede"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-kit = { path = "../kit" }
+libc = "0.2.191"

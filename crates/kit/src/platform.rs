@@ -279,6 +279,8 @@ struct Runner<A: App> {
     pointer: Option<wl_pointer::WlPointer>,
     loop_handle: LoopHandle<'static, Runner<A>>,
     qh: QueueHandle<Runner<A>>,
+    /// O relógio do `App::tick` está rodando (para de rodar quando o app devolve None).
+    tick_active: std::rc::Rc<std::cell::Cell<bool>>,
     // Área de transferência
     data_manager: Option<DataDeviceManagerState>,
     data_device: Option<DataDevice>,
@@ -374,15 +376,22 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
     }
 
     // Timer só para apps que pedem (ex.: relógio); acorda alinhado ao próximo segundo.
+    // Se o app só pedir depois (um trabalho começou), `ensure_tick` liga o timer.
+    let tick_active = std::rc::Rc::new(std::cell::Cell::new(false));
     if let Some(first) = app.tick() {
+        tick_active.set(true);
+        let flag = tick_active.clone();
         event_loop
             .handle()
-            .insert_source(Timer::from_duration(first), |_, _, st: &mut Runner<A>| {
+            .insert_source(Timer::from_duration(first), move |_, _, st: &mut Runner<A>| {
                 st.app.on_tick();
                 st.redraw_all();
                 match st.app.tick() {
                     Some(d) => TimeoutAction::ToDuration(d),
-                    None => TimeoutAction::Drop,
+                    None => {
+                        flag.set(false);
+                        TimeoutAction::Drop
+                    }
                 }
             })
             .map_err(|e| e.to_string())?;
@@ -409,6 +418,7 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         pointer: None,
         loop_handle: event_loop.handle(),
         qh: qh.clone(),
+        tick_active,
         data_manager,
         data_device: None,
         clip_source: None,
@@ -579,7 +589,29 @@ impl<A: App> Runner<A> {
         }
     }
 
+    /// O app passou a pedir o relógio (`tick`) depois de aberto: liga o timer.
+    fn ensure_tick(&mut self) {
+        if self.tick_active.get() {
+            return;
+        }
+        let Some(first) = self.app.tick() else { return };
+        self.tick_active.set(true);
+        let flag = self.tick_active.clone();
+        let _ = self.loop_handle.insert_source(Timer::from_duration(first), move |_, _, st: &mut Runner<A>| {
+            st.app.on_tick();
+            st.redraw_all();
+            match st.app.tick() {
+                Some(d) => TimeoutAction::ToDuration(d),
+                None => {
+                    flag.set(false);
+                    TimeoutAction::Drop
+                }
+            }
+        });
+    }
+
     fn draw_now(&mut self) {
+        self.ensure_tick();
         // Espera o compositor mostrar o quadro anterior: nunca desenha mais
         // rápido que a tela (importante quando chega muita saída de uma vez).
         if !self.w.configured || !(self.w.dirty || self.w.anim_dirty) || self.w.frame_pending {

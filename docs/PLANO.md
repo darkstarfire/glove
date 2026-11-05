@@ -354,8 +354,12 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   alerta), Trancar/Destrancar e Mudar a Senha do Chaveiro (folha com senha atual, nova e confirmação).
   Fala com o Secret Service pelo D-Bus (zbus; sessão local "plain"); `GLOVE_CHAVES_TESTE=1` mostra
   itens de mentira e `--contar` só conta chaveiros e itens (diagnóstico sem dados pessoais) (M)
-- [ ] 9.10.10 **Utilitário de Rede** (`Network-Utility`): Informações, Ping, Lookup, Traceroute, Whois,
-  Finger e varredura de portas, com as ferramentas do sistema (M)
+- [x] 9.10.10 **Utilitário de Rede** (`glove-utilrede`, `Network-Utility`, em Utilitários): abas Informações
+  (cada interface, as de verdade primeiro: tipo, estado, endereço físico, IPs, velocidade, pacotes e
+  erros), Ping, Lookup (host/dig, com o tipo de registro), Traceroute (traceroute ou tracepath),
+  Whois (protocolo falado direto: IANA e o servidor indicado), Finger (porta 79) e Portas (varredura TCP
+  de/até, 64 de cada vez, com o nome do serviço); saída em fonte fixa que acompanha o fim, botão Parar.
+  O kit agora liga o relógio do `App::tick` também quando o app só passa a pedir depois de aberto (M)
 - [ ] 9.10.11 Preferências que faltam: **Segurança** (senha ao sair do repouso e do protetor, sair após
   inatividade, firewall pelo ufw), **Busca Rápida** (categorias e ordem, privacidade),
   **CDs e DVDs** (ação ao inserir), **Exposé e Painel** num painel próprio (`System-Preferences-*`) (M)
