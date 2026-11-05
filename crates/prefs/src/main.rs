@@ -255,7 +255,7 @@ struct Prefs {
 
 /// Grupos de atalhos (como no painel de atalhos do 10.4).
 const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
-    ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop"]),
+    ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
     ("Sistema", &["screenshot", "screenshot_area", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
 ];
@@ -771,7 +771,7 @@ impl Prefs {
         ui.space(8.0);
         // Cantos ativos (o mesmo ajuste do Exposé).
         ui.label("Cantos ativos:");
-        const ACTIONS: [(&str, &str); 5] = [("", "—"), ("todas", "Todas as janelas"), ("app", "Janelas do app"), ("mesa", "Mesa"), ("protetor", "Iniciar o protetor de tela")];
+        const ACTIONS: [(&str, &str); 6] = [("", "—"), ("todas", "Todas as janelas"), ("app", "Janelas do app"), ("mesa", "Mesa"), ("painel", "Painel de Widgets"), ("protetor", "Iniciar o protetor de tela")];
         let names: Vec<String> = ACTIONS.iter().map(|a| a.1.to_string()).collect();
         let hc = self.config.hot_corners.clone();
         let mut corners = [hc.top_left, hc.top_right, hc.bottom_left, hc.bottom_right];

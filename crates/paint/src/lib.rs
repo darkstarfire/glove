@@ -12,6 +12,7 @@ pub mod icons;
 pub mod saver;
 pub mod theme;
 pub mod wallpaper;
+pub mod widgets;
 
 pub use font::Fonts;
 pub use theme::{Theme, Variant};

@@ -26,6 +26,8 @@ Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger
   mesa, para pastas, para o Lixo, para janelas e das janelas para a mesa), renomear no lugar,
   Organizar por, Limpar e Opções de Visualização (Ctrl+J); com a mesa em foco a barra mostra os
   menus do Arquivos
+- **Painel de Widgets** (F12): Relógio, Calendário, Calculadora, Clima (Open-Meteo), Lembrete,
+  Monitor e Dicionário sobre a tela escurecida, com a barra de widgets do "+"
 - **Busca Rápida** (Super+Espaço): apps instalados, Preferências e arquivos
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
@@ -119,7 +121,7 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 - Log da sessão: `~/.local/state/glove/sessao.log`
 - Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
 
-Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): Painel de Widgets (F12), Imprimir,
+Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): Imprimir,
 Conectar ao Servidor e Ejetar pela barra lateral do Arquivos.
 
 ## Atalhos (padrão, editáveis nas Preferências)
@@ -136,6 +138,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+↑ | Zoom |
 | Ctrl+clique no Dock | Abre mais uma instância do app (o clique simples traz o que já está aberto) |
 | Super+Tab | Trocar de app: faixa de ícones no meio da tela (Tab/← → andam, Q encerra, H oculta, Esc cancela; soltar o Super troca) |
+| F12 | Painel de Widgets (de novo, Esc ou clique fora fecha) |
 | F9 / F10 / F11 | Exposé: todas as janelas / só as do app / mostrar a mesa (de novo, ou Esc, volta) |
 | Super+, | Preferências |
 | Print / Shift+Print | Captura da tela inteira / de uma área (ou de uma janela, pelo app Captura) |

@@ -119,6 +119,8 @@ pub struct Glove {
     pub search: crate::search::Search,
     /// A mesa: itens da pasta Mesa e discos (ver desk.rs).
     pub desk: crate::desk::Desk,
+    /// Painel de Widgets (F12).
+    pub dashboard: crate::dashboard::Dashboard,
     /// Exposé em andamento.
     pub expose: Option<crate::expose::Expose>,
     /// O mouse saiu dos cantos desde o último disparo.
@@ -244,6 +246,7 @@ impl Glove {
             startup: None,
             search: Default::default(),
             desk: Default::default(),
+            dashboard: Default::default(),
             expose: None,
             corner_armed: true,
             switcher: None,

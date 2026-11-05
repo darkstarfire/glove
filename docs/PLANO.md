@@ -298,10 +298,15 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   organizado por, discos e pendrives na mesa (`[desk]` no config.toml). O glove-files ganhou
   `--abrir`, `--transferir`, `--duplicar`, `--lixo` e `--opcoes-mesa`. "Abrir com ▸" e Rótulo ficam
   com a 9.10.3 (G)
-- [ ] 9.10.2 **Painel de Widgets** (`Dashboard`, F12): camada escurecida sobre a mesa com widgets
-  originais (Relógio, Calculadora, Calendário, Clima, Lembrete, Dicionário, Conversor de unidades,
-  Monitor), barra de widgets com o "+" para adicionar e fechar, posição guardada; tecla e canto ativo
-  no painel "Exposé e Painel" das Preferências (G)
+- [x] 9.10.2 **Painel de Widgets** (`Dashboard`, F12 ou canto ativo "Painel de Widgets"): a tela escurece
+  e os widgets aparecem (com transição); desenhados pelo compositor, com arte própria
+  (`paint/widgets.rs`): Relógio (cidade do fuso), Calendário (mês com setas), Calculadora (mouse e
+  teclado, memória), Clima (Open-Meteo pelo `curl` numa thread: agora, máx/mín e 6 dias; clique na
+  cidade para trocar), Lembrete (texto guardado), Monitor (processador e memória) e Dicionário (Enter
+  abre o Dicionário). O "+" no canto abre a barra de widgets (clique põe o widget no espaço livre mais
+  perto do meio) e mostra o × de fechar em cada um; arrastar move; clique fora, Esc ou F12 fecham.
+  Widgets e posições em `~/.config/glove/painel.toml`; atalho editável em Preferências ▸ Teclado e
+  opção nos cantos ativos. Conversor de unidades fica para depois (G)
 - [ ] 9.10.3 Arquivos: **Preferências do Arquivos** (Geral: itens na mesa, pasta das novas janelas;
   Rótulos; Barra Lateral; Avançado: extensões, aviso ao esvaziar o Lixo), **rótulos de cor** (também no
   menu dos ícones da mesa), **Abrir com ▸** nos menus de contexto do Arquivos e da mesa,

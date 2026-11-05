@@ -1509,6 +1509,7 @@ impl Glove {
 
         // Ícones da mesa
         self.prepare_desk();
+        self.prepare_dashboard();
 
         self.prepare_force_quit();
         self.prepare_startup();

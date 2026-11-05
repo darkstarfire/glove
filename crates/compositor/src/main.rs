@@ -4,6 +4,7 @@ mod grabs;
 mod handlers;
 mod input;
 mod appmenu;
+mod dashboard;
 mod desk;
 mod dockmenu;
 mod ending;

@@ -294,6 +294,33 @@ impl Glove {
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
         }
+        // Painel de Widgets: por cima de tudo (menos do cursor), sobre a tela escurecida.
+        let dash = &self.dashboard;
+        if dash.alpha > 0.0 {
+            let a = Some(dash.alpha);
+            if let Some((_, t)) = &dash.button_tex {
+                out.extend(mem_alpha(renderer, self.dash_button_pos(), t, sc, a));
+            }
+            if let (true, Some((_, t))) = (dash.bar, &dash.close_tex) {
+                for w in dash.widgets.iter().rev() {
+                    let c = glove_paint::widgets::CLOSE as i32;
+                    out.extend(mem_alpha(renderer, (w.x - c / 2 + 2, w.y - c / 2 + 2).into(), t, sc, a));
+                }
+            }
+            if let (true, Some((_, t))) = (dash.bar, &dash.bar_tex) {
+                let (_, sh) = self.output_size();
+                out.extend(mem_alpha(renderer, (0, sh - glove_paint::widgets::BAR_H as i32).into(), t, sc, a));
+            }
+            let m = glove_paint::widgets::M as i32;
+            for w in dash.widgets.iter().rev() {
+                if let Some((_, t)) = &w.tex {
+                    out.extend(mem_alpha(renderer, (w.x - m, w.y - m).into(), t, sc, a));
+                }
+            }
+            if let Some(d) = &dash.dim {
+                out.push(GloveElement::Solid(SolidColorRenderElement::from_buffer(d, (0, 0), sc, 1.0, Kind::Unspecified)));
+            }
+        }
         // Ícones da mesa sendo arrastados: translúcidos, seguindo o mouse.
         if let Some(off) = self.desk_drag_offset() {
             for p in self.desk.drag.as_ref().map(|d| d.paths.as_slice()).unwrap_or_default() {

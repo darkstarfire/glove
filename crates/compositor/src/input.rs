@@ -76,6 +76,10 @@ enum KeyAction {
     BrightnessDown,
     /// Tecla com a mesa em foco.
     Desk(crate::desk::DeskKey),
+    /// F12: abre ou fecha o Painel de Widgets.
+    Dashboard,
+    /// Tecla com o Painel aberto.
+    DashKey(crate::desk::DeskKey),
 }
 
 impl KeyAction {
@@ -101,6 +105,7 @@ impl KeyAction {
             "expose_all" => Self::ExposeAll,
             "expose_app" => Self::ExposeApp,
             "expose_desktop" => Self::ExposeDesktop,
+            "dashboard" => Self::Dashboard,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
             _ => return None,
@@ -414,6 +419,16 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(Some(KeyAction::RegionEsc));
             }
+            // Painel aberto: F12 fecha; as outras teclas vão para o widget escolhido.
+            if st.dashboard.open && !mods.logo && !(st.nested && mods.alt) {
+                if name == "f12" {
+                    st.suppressed_keys.push(code);
+                    return FilterResult::Intercept(Some(KeyAction::Dashboard));
+                }
+                let ch = handle.modified_sym().key_char();
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(crate::desk::desk_key_of(&name, ch, mods.ctrl, mods.shift, true).map(KeyAction::DashKey));
+            }
             // Exposé: Esc volta.
             if st.expose.is_some() && name == "escape" {
                 st.suppressed_keys.push(code);
@@ -572,6 +587,8 @@ impl Glove {
             Some(KeyAction::ExposeEsc) => self.leave_expose(None),
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
             Some(KeyAction::Desk(k)) => self.desk_key(k),
+            Some(KeyAction::Dashboard) => self.toggle_dashboard(),
+            Some(KeyAction::DashKey(k)) => self.dashboard_key(k),
             Some(KeyAction::SearchMove(d)) => self.search_move(d),
             Some(KeyAction::LockKey(k)) => self.lock_key(k),
             Some(KeyAction::Menu(k)) => self.menu_key(k),
@@ -715,6 +732,15 @@ impl Glove {
         if !self.locked() && !self.greeter {
             self.hot_corner(pos);
         }
+        if self.dashboard_active() {
+            // Painel aberto: o mouse é dele (arrastar widgets).
+            self.dashboard_motion(pos);
+            let pointer = self.seat.get_pointer().unwrap();
+            let serial = SERIAL_COUNTER.next_serial();
+            pointer.motion(self, None, &MotionEvent { location: pos, serial, time });
+            pointer.frame(self);
+            return;
+        }
         if self.expose_active() {
             // Nenhum app vê o mouse durante o Exposé.
             self.expose_motion(pos);
@@ -769,6 +795,13 @@ impl Glove {
             return;
         }
         if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {
+            return;
+        }
+        if self.dashboard_active() {
+            if button == BTN_LEFT {
+                let pos = self.pointer_pos;
+                self.dashboard_button(pos, state == ButtonState::Pressed);
+            }
             return;
         }
         if self.expose_active() {
@@ -1062,6 +1095,7 @@ fn debug_keycode(k: &str) -> (u32, bool) {
         "f9" => return (67, false),
         "f10" => return (68, false),
         "f11" => return (87, false),
+        "f12" => return (88, false),
         "mute" => return (113, false),
         "voldown" => return (114, false),
         "volup" => return (115, false),

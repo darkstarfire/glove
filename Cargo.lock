@@ -939,13 +939,14 @@ dependencies = [
 
 [[package]]
 name = "glove"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "bitflags 2.13.2",
  "glove-config",
  "glove-paint",
  "libc",
  "serde",
+ "serde_json",
  "smithay",
  "toml",
  "tracing",
@@ -954,14 +955,14 @@ dependencies = [
 
 [[package]]
 name = "glove-about"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-agenda"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -969,28 +970,28 @@ dependencies = [
 
 [[package]]
 name = "glove-ajuda"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-arquivo"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-arte"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-paint",
 ]
 
 [[package]]
 name = "glove-boasvindas"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -998,14 +999,14 @@ dependencies = [
 
 [[package]]
 name = "glove-calc"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-chars"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1014,7 +1015,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chess"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1022,14 +1023,14 @@ dependencies = [
 
 [[package]]
 name = "glove-clock"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-config"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "libc",
  "serde",
@@ -1038,14 +1039,14 @@ dependencies = [
 
 [[package]]
 name = "glove-contatos"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-correio"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "base64",
  "glove-kit",
@@ -1059,7 +1060,7 @@ dependencies = [
 
 [[package]]
 name = "glove-dicionario"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "flate2",
  "glove-kit",
@@ -1067,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "glove-disks"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1075,14 +1076,14 @@ dependencies = [
 
 [[package]]
 name = "glove-edit"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-files"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1091,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "glove-find"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1099,21 +1100,21 @@ dependencies = [
 
 [[package]]
 name = "glove-fontes"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-info"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-kit"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-paint",
@@ -1126,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "glove-login"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1134,7 +1135,7 @@ dependencies = [
 
 [[package]]
 name = "glove-monitor"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1142,7 +1143,7 @@ dependencies = [
 
 [[package]]
 name = "glove-musica"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1151,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "glove-navegador"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1159,7 +1160,7 @@ dependencies = [
 
 [[package]]
 name = "glove-notes"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1167,7 +1168,7 @@ dependencies = [
 
 [[package]]
 name = "glove-paint"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "ab_glyph",
  "libc",
@@ -1177,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "glove-portal"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "zbus",
@@ -1185,7 +1186,7 @@ dependencies = [
 
 [[package]]
 name = "glove-prefs"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1195,21 +1196,21 @@ dependencies = [
 
 [[package]]
 name = "glove-registros"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-sair"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-shot"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1217,7 +1218,7 @@ dependencies = [
 
 [[package]]
 name = "glove-term"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "alacritty_terminal",
  "glove-config",
@@ -1227,14 +1228,14 @@ dependencies = [
 
 [[package]]
 name = "glove-video"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-view"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "glove-kit",
 ]
@@ -1326,6 +1327,12 @@ dependencies = [
  "libc",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "itoa"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jni"
@@ -2422,6 +2429,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.154"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
 ]
 
 [[package]]
@@ -3891,6 +3911,12 @@ name = "zlib-rs"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
+
+[[package]]
+name = "zmij"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zune-core"
