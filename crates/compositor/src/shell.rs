@@ -87,12 +87,21 @@ pub fn window_surface(w: &Window) -> Option<&WlSurface> {
 
 pub fn window_info(w: &Window) -> (String, String) {
     let Some(s) = window_surface(w) else { return Default::default() };
-    with_states(s, |st| {
+    let (title, id) = with_states(s, |st| {
         st.data_map
             .get::<XdgToplevelSurfaceData>()
             .and_then(|d| d.lock().ok().map(|d| (d.title.clone().unwrap_or_default(), d.app_id.clone().unwrap_or_default())))
             .unwrap_or_default()
-    })
+    });
+    (title, canonical_app_id(id))
+}
+
+/// Os navegadores que o glove-navegador abre contam como o "Navegador" do Dock.
+pub fn canonical_app_id(id: String) -> String {
+    match id.to_ascii_lowercase().as_str() {
+        "firefox" | "firefox_firefox" | "org.mozilla.firefox" | "netsurf" | "netsurf-gtk" | "netsurf-gtk3" => "glove.Navegador".into(),
+        _ => id,
+    }
 }
 
 /// A janela pediu (e recebeu) bordas desenhadas pelo Glove?
@@ -140,6 +149,7 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
         "glove.Disks" => return "Discos".into(),
         "glove.Chess" => return "Xadrez".into(),
         "glove.Arquivo" => return "Utilitário de Arquivo".into(),
+        "glove.Navegador" => return "Navegador".into(),
         id if id.starts_with("glove.") => return "Glove".into(),
         _ => {}
     }

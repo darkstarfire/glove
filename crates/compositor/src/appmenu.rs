@@ -59,7 +59,7 @@ impl Glove {
         // Itens do próprio app (Sobre, Preferências…) ou o "Sobre" genérico dos apps do Glove.
         let own = self.focused_menus().into_iter().find(|m| m.title == APP_MENU).map(|m| m.items).unwrap_or_default();
         let own_about = own.iter().any(|e| e.id == "about");
-        if !own_about && app_id.starts_with("glove.") && !matches!(app_id.as_str(), "glove.About" | "glove.Sair") {
+        if !own_about && app_id.starts_with("glove.") && !matches!(app_id.as_str(), "glove.About" | "glove.Sair" | "glove.Navegador") {
             nodes.push(MenuNode::new(MenuItem::item(format!("Sobre {}", with_article(&app))), Some(MenuAction::AboutApp(app_id.clone(), app.clone()))));
         }
         if !own.is_empty() {

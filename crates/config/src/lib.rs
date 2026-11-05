@@ -493,6 +493,9 @@ pub struct Config {
     pub access: Access,
     #[serde(default)]
     pub saver: Saver,
+    /// Navegador do glove-navegador ("" = pela memória: NetSurf ou Firefox).
+    #[serde(default)]
+    pub navegador: String,
     /// Ao conectar um pendrive ou disco: "abrir" (no Arquivos) ou "nada".
     #[serde(default = "default_removable")]
     pub removable_action: String,
@@ -531,7 +534,7 @@ pub fn default_prefs_favorites() -> Vec<String> {
 }
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
-pub const DOCK_REV: u32 = 2;
+pub const DOCK_REV: u32 = 3;
 
 fn default_removable() -> String {
     "abrir".into()
@@ -582,7 +585,7 @@ pub fn default_dock_apps() -> Vec<DockApp> {
     vec![
         app("Arquivos", "folder", "glove-files", "glove.Files"),
         app("Terminal", "terminal", "glove-term", "glove.Terminal"),
-        app("Navegador", "globe", "mkdir -p ~/.cache/glove/firefox && firefox --no-remote --profile ~/.cache/glove/firefox", "firefox"),
+        app("Navegador", "globe", "glove-navegador", "glove.Navegador"),
         app("Editor de Texto", "editor", "glove-edit", "glove.TextEditor"),
         app("Lembretes", "notes", "glove-notes", "glove.Notes"),
         app("Calculadora", "calculator", "glove-calc", "glove.Calculator"),
@@ -625,6 +628,7 @@ impl Default for Config {
             access: Access::default(),
             saver: Saver::default(),
             removable_action: default_removable(),
+            navegador: String::new(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }
@@ -714,6 +718,12 @@ impl Config {
             ("org.gnome.Calculator", "glove.Calculator"),
         ];
         for a in &mut self.dock_apps {
+            // O Firefox direto (perfil do Glove) virou o glove-navegador (NetSurf ou Firefox).
+            if a.app_id == "firefox" && a.command.contains(".cache/glove/firefox") {
+                if let Some(d) = defaults.iter().find(|d| d.app_id == "glove.Navegador") {
+                    *a = d.clone();
+                }
+            }
             if let Some((_, new_id)) = replace.iter().find(|(old, _)| a.app_id.eq_ignore_ascii_case(old)) {
                 if let Some(d) = defaults.iter().find(|d| d.app_id == *new_id) {
                     *a = d.clone();
