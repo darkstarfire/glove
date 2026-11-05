@@ -9,7 +9,7 @@ próprios para os recursos (ex.: "Busca Rápida", não o nome da Apple).
 barra de menu translúcida). As fases 0 e 1 foram feitas olhando o 10.0–10.3; a etapa 2.0 compara
 o Glove com o Tiger e decide o que muda.
 
-Depois de cumprir tudo da era (fases 1 a 9.10), vem a **Fase 10**: o Glove "como deveria ter sido",
+Depois de cumprir tudo da era (fases 1 a 9.11), vem a **Fase 10**: o Glove "como deveria ter sido",
 com ferramentas de luxo e recursos modernos, mantendo o visual gel.
 
 O levantamento comparou 334 capturas de referência com o Glove atual. As análises
@@ -370,9 +370,33 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
 - Pular: Classic, .Mac/iDisk, AirPort, iSync, Internet Connect (coberto por Rede), Automator e
   Editor de Scripts (não há AppleScript no Linux); iChat fica na 10.9 (Mensagens)
 
+## Fase 9.11 — Ícones no estilo do Tiger (comparação de 05/11/2026)
+
+Comparando lado a lado os ícones do Glove (`cargo run -p glove-paint --example icones -- folha.png`) com
+os do 10.4, todos ficaram fora da linguagem do Tiger: estão num estilo vetorial plano, de frente, com
+degradês lisos, luz fraca, a elipse cinza de sombra embaixo e pouco detalhe. Os do Tiger são objetos
+"de verdade": em perspectiva (vistos um pouco de cima e de lado), com materiais (metal escovado com
+reflexo forte, vidro, couro, madeira, papel), luz de cima com brilhos marcados, sombra no formato do
+objeto e muitos detalhes pequenos, ocupando o quadro todo.
+
+Regra: **arte própria**, com os ícones da Apple só como referência de estilo (luz, perspectiva,
+materiais, paleta). Nenhum arquivo deles entra no projeto, e nenhum desenho decalca ou copia a
+composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do Safari, a maçã).
+
+- [ ] 9.11.1 Base no glove-paint: desenho em perspectiva (planos inclinados), materiais reutilizáveis
+  (metal, vidro, couro, papel, madeira, plástico), iluminação padrão de cima, sombra no formato do objeto
+  no lugar da elipse, e o ícone ocupando o quadro (G)
+- [ ] 9.11.2 Primeiro lote, para aprovar a direção: Arquivos, Terminal, Calculadora, Relógio, Correio,
+  Agenda, Contatos e Lixo (vazio e cheio), com a folha nova ao lado da do Tiger (G)
+- [ ] 9.11.3 Os outros apps do Dock e de Aplicativos/Utilitários (Navegador, Editor, Lembretes, Busca,
+  Caracteres, Captura, Monitor, Xadrez, Música, Vídeo, Registros, Informações, Ajuda, Dicionário, Livro de
+  Fontes, Acesso às Chaves, Utilitário de Rede, Discos, Preferências) (G)
+- [ ] 9.11.4 Documentos e tipos de arquivo, pastas especiais, discos, pendrives e servidores (M)
+- [ ] 9.11.5 Painéis das Preferências e os ícones pequenos (barra lateral, menus, mesa) (M)
+
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
-Ideias para depois das fases 1 a 9.10: o que veio depois do Tiger (ou nunca veio), redesenhado no
+Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no
 visual gel. Cada uma será detalhada antes de começar.
 
 - [ ] 10.1 Grade de apps em tela cheia (como o Launchpad), com pastas e busca
