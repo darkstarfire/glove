@@ -5,14 +5,19 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use glove_kit::{
-    paint::{draw::*, icons::{self, Icon}, Color},
+    paint::{draw::*, icons::{self, Icon}, Color, Theme, Variant},
     run,
     ui::Key,
     App, Column, Glyph, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, Ui, WindowOptions, SCROLLBAR_W, SEARCH_H, SEGMENT_H, SEGMENT_W,
 };
 
-const TOOLBAR_H: f32 = 62.0;
-const STATUS_H: f32 = 20.0;
+/// Barra de ferramentas em metal, emendada no título (como no Tiger).
+const TOOLBAR_H: f32 = 40.0;
+/// Faixa de baixo em metal, com o status.
+const BOTTOM_H: f32 = 22.0;
+/// Barra lateral com discos e lugares.
+const SIDEBAR_W: f32 = 158.0;
+const SIDE_ROW: f32 = 22.0;
 const ROW_H: f32 = 18.0;
 const COL_W: f32 = 200.0;
 
@@ -78,6 +83,20 @@ fn home() -> PathBuf {
 fn xdg_dir(names: &[&str]) -> PathBuf {
     let h = home();
     names.iter().map(|n| h.join(n)).find(|p| p.is_dir()).unwrap_or(h)
+}
+
+/// Pasta do usuário pelo ~/.config/user-dirs.dirs (ex.: "MUSIC" → ~/Músicas).
+/// None se não estiver definida ou for a própria pasta pessoal.
+fn user_dir(key: &str) -> Option<PathBuf> {
+    let h = home();
+    let text = std::fs::read_to_string(h.join(".config/user-dirs.dirs")).ok()?;
+    let line = text.lines().find(|l| l.starts_with(&format!("XDG_{key}_DIR=")))?;
+    let v = line.split_once('=')?.1.trim().trim_matches('"');
+    let p = match v.strip_prefix("$HOME") {
+        Some(rest) => h.join(rest.trim_start_matches('/')),
+        None => PathBuf::from(v),
+    };
+    (p != h && p.is_dir()).then_some(p)
 }
 
 fn trash_dir() -> PathBuf {
@@ -223,6 +242,8 @@ struct Files {
     last_title: String,
     /// A seleção mudou pelo teclado: rolar a lista até ela.
     reveal: bool,
+    /// Menu da engrenagem (ações) aberto.
+    gear_open: bool,
 }
 
 impl Files {
@@ -241,6 +262,7 @@ impl Files {
             message: None,
             last_title: String::new(),
             reveal: false,
+            gear_open: false,
         }
     }
 
@@ -361,11 +383,12 @@ impl Files {
 
     fn toolbar(&mut self, ui: &mut Ui) {
         let w = ui.c.w;
-        ui.c.fill_rect(0.0, 0.0, w, TOOLBAR_H, &vgrad(0.0, TOOLBAR_H, &[(0.0, rgba(246, 246, 246, 255)), (1.0, rgba(214, 214, 218, 255))]));
-        ui.c.pinstripes(0.0, 0.0, w, TOOLBAR_H, rgba(255, 255, 255, 0), rgba(255, 255, 255, 60));
-        ui.c.hline(0.0, TOOLBAR_H - 1.0, w, rgba(130, 130, 136, 255));
+        // Continua o degradê do título em metal (o Glove desenha o título deste app em metal).
+        let metal = Theme::new(Variant::Metal);
+        ui.c.brushed_metal(0.0, 0.0, w, TOOLBAR_H, metal.metal_bottom, darken(metal.metal_bottom, 0.1));
+        ui.c.hline(0.0, TOOLBAR_H - 1.0, w, rgba(110, 110, 116, 255));
+        let cy = (TOOLBAR_H - SEGMENT_H) / 2.0;
         // Voltar / Avançar: segmentado momentâneo, apagado quando não há para onde ir.
-        let cy = 20.0;
         let nav = [!self.back.is_empty(), !self.forward.is_empty()];
         match ui.segmented_in(Rect::new(12.0, cy, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::Back, Glyph::Forward], None, &nav) {
             Some(0) => self.go_back(),
@@ -379,26 +402,14 @@ impl Files {
         if let Some(i) = ui.segmented_in(Rect::new(vx, cy, 3.0 * SEGMENT_W, SEGMENT_H), &[Glyph::ViewIcons, Glyph::ViewList, Glyph::ViewColumns], sel, &[]) {
             self.view = views[i];
         }
-        // Lugares (à direita)
-        let places = [
-            ("Computador", Icon::Disk, PathBuf::from("/")),
-            ("Início", Icon::Folder, home()),
-            ("Documentos", Icon::Folder, xdg_dir(&["Documentos", "Documents"])),
-            ("Imagens", Icon::Folder, xdg_dir(&["Imagens", "Pictures"])),
-        ];
-        let mut px = w - 12.0;
-        for (label, icon, path) in places.iter().rev() {
-            let tw = (ui.text_width(label, 11.0, false) + 12.0).max(58.0);
-            px -= tw;
-            if ui.toolbar_item_in(Rect::new(px, 4.0, tw, TOOLBAR_H - 8.0), *icon, label, false) {
-                self.go(path.clone());
-            }
-            px -= 4.0;
+        // Engrenagem: menu de ações.
+        let gx = vx + 3.0 * SEGMENT_W + 12.0;
+        if ui.segmented_in(Rect::new(gx, cy, SEGMENT_W + 8.0, SEGMENT_H), &[Glyph::Action], None, &[]).is_some() {
+            self.gear_open = !self.gear_open;
         }
-        // Busca: abre a Busca já procurando nesta pasta.
-        let sx = vx + 3.0 * SEGMENT_W + 16.0;
-        let sw = (px - 12.0 - sx).min(200.0);
-        if sw >= 90.0 && ui.search_field_in(Rect::new(sx, cy, sw, SEARCH_H), &mut self.search, "Buscar nesta pasta") {
+        // Busca em cápsula, à direita: abre a Busca já procurando nesta pasta.
+        let sw = (w - gx - SEGMENT_W - 40.0).min(190.0);
+        if sw >= 90.0 && ui.search_field_in(Rect::new(w - 12.0 - sw, (TOOLBAR_H - SEARCH_H) / 2.0, sw, SEARCH_H), &mut self.search, "Buscar") {
             let q = self.search.trim().to_string();
             if !q.is_empty() {
                 let _ = std::process::Command::new(sibling("glove-find")).arg(&q).arg(self.current()).spawn();
@@ -406,10 +417,111 @@ impl Files {
         }
     }
 
+    /// Menu da engrenagem, por cima de tudo, logo abaixo do botão.
+    fn gear_menu(&mut self, ui: &mut Ui) {
+        if !self.gear_open {
+            return;
+        }
+        let sel = self.selected.is_some();
+        let items: [(&str, &str, bool); 5] = [
+            ("new-folder", "Nova pasta", true),
+            ("open", "Abrir", sel),
+            ("trash", "Mover para a Lixeira", sel),
+            ("", "", false),
+            ("hidden", if self.hidden { "Esconder arquivos ocultos" } else { "Mostrar arquivos ocultos" }, true),
+        ];
+        let x = 12.0 + 5.0 * SEGMENT_W + 24.0;
+        let (mw, row) = (210.0, 20.0);
+        let mh = items.iter().map(|i| if i.0.is_empty() { 9.0 } else { row }).sum::<f32>() + 8.0;
+        let y0 = TOOLBAR_H - 4.0;
+        ui.c.fill_rect(x + 3.0, y0 + 4.0, mw, mh, &solid(rgba(0, 0, 0, 50)));
+        ui.c.fill_rect(x, y0, mw, mh, &solid(rgba(246, 247, 249, 252)));
+        ui.c.stroke(rrect(x + 0.5, y0 + 0.5, mw - 1.0, mh - 1.0, 0.0), &solid(rgba(0, 0, 0, 80)), 1.0);
+        let mut y = y0 + 4.0;
+        let mut chosen = None;
+        for (id, label, on) in items {
+            if id.is_empty() {
+                ui.c.hline(x + 1.0, y + 4.0, mw - 2.0, rgba(214, 214, 218, 255));
+                y += 9.0;
+                continue;
+            }
+            let r = Rect::new(x, y, mw, row);
+            let h = ui.hit(r);
+            if h.hover && on {
+                ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(ui.theme.menu_hot));
+            }
+            let col = if !on { rgba(160, 160, 160, 255) } else if h.hover { Color::WHITE } else { rgba(20, 20, 20, 255) };
+            ui.fonts.draw(ui.c, label, x + 16.0, y + 14.5, 13.0, false, col);
+            if h.clicked && on {
+                chosen = Some(id);
+            }
+            y += row;
+        }
+        if let Some(id) = chosen {
+            self.gear_open = false;
+            self.action(id, ui);
+        } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
+            self.gear_open = false;
+        }
+    }
+
+    /// Lugares da barra lateral: (nome, ícone, pasta); None = divisória.
+    fn places() -> Vec<Option<(String, Icon, PathBuf)>> {
+        let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
+        let mut v = vec![Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))), None];
+        let mut add = |name: &str, icon: Icon, p: PathBuf| {
+            if p.is_dir() {
+                v.push(Some((name.to_string(), icon, p)));
+            }
+        };
+        // Pastas do usuário como o sistema as define (nomes e caminhos variam por idioma).
+        let add_user = |name: &str, key: &str, add: &mut dyn FnMut(&str, Icon, PathBuf)| {
+            if let Some(p) = user_dir(key) {
+                add(name, Icon::Folder, p);
+            }
+        };
+        add_user("Mesa", "DESKTOP", &mut add);
+        add(&user, Icon::Folder, home());
+        add("Aplicativos", Icon::Folder, PathBuf::from("/usr/share/applications"));
+        add_user("Documentos", "DOCUMENTS", &mut add);
+        add_user("Downloads", "DOWNLOAD", &mut add);
+        add_user("Imagens", "PICTURES", &mut add);
+        add_user("Música", "MUSIC", &mut add);
+        add_user("Vídeos", "VIDEOS", &mut add);
+        v
+    }
+
+    fn sidebar(&mut self, ui: &mut Ui, r: Rect) {
+        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(231, 235, 241, 255)));
+        ui.c.vline(r.x + r.w - 1.0, r.y, r.h, rgba(160, 162, 168, 255));
+        let mut y = r.y + 6.0;
+        for place in Self::places() {
+            let Some((name, icon, path)) = place else {
+                ui.c.hline(r.x + 10.0, y + 4.0, r.w - 20.0, rgba(196, 198, 204, 255));
+                y += 10.0;
+                continue;
+            };
+            let row = Rect::new(r.x, y, r.w - 1.0, SIDE_ROW);
+            let here = self.base == path;
+            let h = ui.hit(row);
+            if here {
+                ui.c.fill_rect(row.x, row.y, row.w, row.h, &vgrad(row.y, row.y + row.h, &[(0.0, lighten(ui.theme.accent, 0.25)), (1.0, ui.theme.accent)]));
+            }
+            icons::draw_bare(ui.c, ui.fonts, icon, r.x + 12.0, y + 3.0, 16.0, None);
+            let col = if here { Color::WHITE } else { rgba(30, 30, 34, 255) };
+            ui.fonts.draw(ui.c, &name, r.x + 34.0, y + 15.5, 12.0, here, col);
+            if h.clicked {
+                self.go(path);
+            }
+            y += SIDE_ROW;
+        }
+    }
+
     fn status(&mut self, ui: &mut Ui, y: f32) {
         let w = ui.c.w;
-        ui.c.fill_rect(0.0, y, w, STATUS_H, &vgrad(y, y + STATUS_H, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(222, 222, 226, 255))]));
-        ui.c.hline(0.0, y + STATUS_H - 1.0, w, rgba(150, 150, 156, 255));
+        let metal = Theme::new(Variant::Metal);
+        ui.c.brushed_metal(0.0, y, w, BOTTOM_H, metal.metal_top, metal.metal_bottom);
+        ui.c.hline(0.0, y, w, rgba(110, 110, 116, 255));
         let cur = self.current();
         let n = self.list(&cur).map(|v| v.len()).unwrap_or(0);
         let mut text = format!("{n} {}", if n == 1 { "item" } else { "itens" });
@@ -420,7 +532,7 @@ impl Files {
             text = m.clone();
         }
         let tw = ui.text_width(&text, 11.0, false);
-        ui.fonts.draw(ui.c, &text, (w - tw) / 2.0, y + 14.0, 11.0, false, rgba(60, 60, 60, 255));
+        ui.fonts.draw(ui.c, &text, (w - tw) / 2.0, y + 15.0, 11.0, false, rgba(40, 40, 40, 255));
     }
 
     // -----------------------------------------------------------------------
@@ -775,18 +887,29 @@ impl App for Files {
             ui.set_title(&title);
             self.last_title = title;
         }
-        self.toolbar(ui);
-        self.status(ui, TOOLBAR_H);
         let (w, h) = (ui.c.w, ui.c.h);
-        let area = Rect::new(0.0, TOOLBAR_H + STATUS_H, w, h - TOOLBAR_H - STATUS_H - 15.0);
+        // Com o menu da engrenagem aberto, um clique fora só o fecha.
+        // (O menu fica embaixo da engrenagem; fora dele e da barra, fecha.)
+        if self.gear_open && ui.mouse_pressed() {
+            let (px, py) = ui.pointer();
+            let mx = 12.0 + 5.0 * SEGMENT_W + 24.0;
+            let inside_menu = px >= mx && px < mx + 210.0 && py >= TOOLBAR_H - 4.0 && py < TOOLBAR_H + 120.0;
+            if !inside_menu && py > TOOLBAR_H {
+                self.gear_open = false;
+            }
+        }
+        self.toolbar(ui);
+        let body_h = h - TOOLBAR_H - BOTTOM_H;
+        self.sidebar(ui, Rect::new(0.0, TOOLBAR_H, SIDEBAR_W, body_h));
+        let area = Rect::new(SIDEBAR_W, TOOLBAR_H, w - SIDEBAR_W, body_h);
         match self.view {
             View::Columns => self.columns_view(ui, area),
             View::List => self.list_view(ui, area),
             View::Icons => self.icons_view(ui, area),
         }
-        // Faixa inferior (onde fica o puxador de redimensionar)
-        ui.c.fill_rect(0.0, h - 15.0, w, 15.0, &vgrad(h - 15.0, h, &[(0.0, rgba(232, 232, 236, 255)), (1.0, rgba(214, 214, 218, 255))]));
-        ui.c.hline(0.0, h - 15.0, w, rgba(150, 150, 156, 255));
+        // Faixa de baixo em metal com o status (e o puxador de redimensionar).
+        self.status(ui, h - BOTTOM_H);
+        self.gear_menu(ui);
     }
 
     fn menus(&self) -> Vec<Menu> {
@@ -834,7 +957,7 @@ impl App for Files {
 
 fn main() {
     let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(home);
-    let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (780, 470), fixed: false };
+    let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false };
     if let Err(e) = run(opts, Files::new(start)) {
         eprintln!("glove-files: {e}");
     }

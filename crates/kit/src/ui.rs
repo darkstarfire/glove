@@ -642,6 +642,11 @@ impl<'a> Ui<'a> {
         self.input.pos
     }
 
+    /// O botão do mouse foi pressionado neste quadro (em qualquer lugar da janela).
+    pub fn mouse_pressed(&self) -> bool {
+        self.input.pressed
+    }
+
     /// O mouse se moveu neste quadro.
     pub fn moved(&self) -> bool {
         self.input.moved

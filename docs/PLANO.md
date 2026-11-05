@@ -108,7 +108,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 
 ## Fase 6 — Arquivos
 
-- [ ] 6.1 Janela do Tiger: barra de ferramentas unida ao título em metal, Voltar/Avançar, segmentado de visualização, engrenagem, busca em cápsula e **barra lateral** (discos, Mesa, Início, Aplicativos, Documentos…) (G)
+- [x] 6.1 Janela do Tiger: barra de ferramentas unida ao título em metal, Voltar/Avançar, segmentado de visualização, engrenagem, busca em cápsula e **barra lateral** (discos, Mesa, Início, Aplicativos, Documentos…) (G)
 - [ ] 6.2 Lixeira: Esvaziar com alerta, Devolver, ícone cheia/vazia no Dock (M)
 - [ ] 6.3 Ícones de pastas especiais (Mesa, Documentos, Música, Imagens, Vídeos…), de tipos e emblema de atalho (M)
 - [ ] 6.4 Copiar/colar/mover/arrastar com janela de progresso e alerta de substituição (G)
