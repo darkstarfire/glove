@@ -219,6 +219,8 @@ pub enum MenuAction {
     SetWifi(bool),
     /// Relógio da barra com ponteiros (true) ou números.
     ClockAnalog(bool),
+    /// Layout de teclado do Menu de Entrada ("us:intl").
+    SetLayout(String),
     /// Entrar numa rede: (nome, pede senha).
     JoinWifi(String, bool),
     /// Fecha todas as janelas do app em foco.
@@ -1127,6 +1129,11 @@ impl Glove {
             }
             MenuAction::OpenPrefs(pane) => self.spawn(&format!("glove-prefs {pane}")),
             MenuAction::SetWifi(on) => self.set_wifi(on),
+            MenuAction::SetLayout(id) => {
+                let (l, v) = glove_config::split_layout(&id);
+                let (l, v) = (l.to_string(), v.to_string());
+                self.set_layout(&l, &v);
+            }
             MenuAction::ClockAnalog(on) => {
                 let mut c = self.config.clone();
                 c.clock.analog = on;

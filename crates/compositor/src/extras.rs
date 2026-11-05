@@ -36,6 +36,7 @@ pub struct BatteryInfo {
 /// Qual extra está em cada posição da barra.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExtraKind {
+    Input,
     Display,
     Wifi,
     Volume,
@@ -205,6 +206,9 @@ impl Glove {
     /// Extras na ordem da barra (da esquerda para a direita, antes do relógio).
     pub fn extra_kinds(&self) -> Vec<ExtraKind> {
         let mut v = Vec::new();
+        if self.config.keyboard.show_input_menu && !self.config.keyboard.input_menu.is_empty() {
+            v.push(ExtraKind::Input);
+        }
         if self.config.monitor.menu_extra {
             v.push(ExtraKind::Display);
         }
@@ -228,6 +232,7 @@ impl Glove {
             .into_iter()
             .map(|k| match k {
                 ExtraKind::Display => Extra::Display,
+                ExtraKind::Input => Extra::Input { badge: glove_config::layout_badge(&self.config.keyboard.layout, &self.config.keyboard.variant) },
                 ExtraKind::Clock => {
                     let c = &self.config.clock;
                     let (.., h, m, _) = crate::shell::local_now();
@@ -268,6 +273,10 @@ impl Glove {
             }
             ExtraKind::Display => {
                 let nodes = self.display_menu();
+                self.show_menu(BarTarget::Extra(k), nodes);
+            }
+            ExtraKind::Input => {
+                let nodes = self.input_menu();
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
             ExtraKind::Clock => {
@@ -312,6 +321,38 @@ impl Glove {
         v.push(MenuNode::sep());
         v.push(MenuNode::new(MenuItem::item("Abrir Economizador de Energia…"), Some(MenuAction::OpenPrefs("energia".into()))));
         v
+    }
+
+    /// Menu de Entrada: os layouts escolhidos, com o atual marcado.
+    fn input_menu(&self) -> Vec<MenuNode> {
+        let k = &self.config.keyboard;
+        let cur = glove_config::layout_id(&k.layout, &k.variant);
+        let mut v: Vec<MenuNode> = k
+            .input_menu
+            .iter()
+            .map(|id| {
+                let (l, var) = glove_config::split_layout(id);
+                let name = glove_config::KEYBOARD_LAYOUTS.iter().find(|x| x.0 == l && x.1 == var).map(|x| x.2.to_string()).unwrap_or_else(|| id.clone());
+                MenuNode::new(MenuItem::check(name, *id == cur), Some(MenuAction::SetLayout(id.clone())))
+            })
+            .collect();
+        v.push(MenuNode::sep());
+        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Teclado…"), Some(MenuAction::OpenPrefs("entrada".into()))));
+        v
+    }
+
+    /// Troca o layout de teclado agora e guarda na configuração.
+    pub fn set_layout(&mut self, layout: &str, variant: &str) {
+        let mut c = self.config.clone();
+        c.keyboard.layout = layout.to_string();
+        c.keyboard.variant = variant.to_string();
+        if let Err(e) = c.save() {
+            tracing::warn!("não salvou o layout: {e}");
+        }
+        self.config.keyboard.layout = layout.to_string();
+        self.config.keyboard.variant = variant.to_string();
+        self.apply_keyboard();
+        self.dirty = true;
     }
 
     /// Menu do relógio: a data por extenso, digital/analógico e o painel.

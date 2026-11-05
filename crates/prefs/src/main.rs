@@ -3,7 +3,10 @@
 
 use std::time::{Duration, Instant};
 
+use glove_config::KEYBOARD_LAYOUTS as LAYOUTS;
+
 mod datahora;
+mod inicio;
 mod rede;
 mod som;
 
@@ -32,6 +35,7 @@ enum Pane {
     Energia,
     Rede,
     DataHora,
+    Inicio,
     Dock,
     Teclado,
     Mouse,
@@ -53,7 +57,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 12] = [
+const PANES: [PaneInfo; 13] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -65,6 +69,7 @@ const PANES: [PaneInfo; 12] = [
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
     PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
     PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
+    PaneInfo { pane: Pane::Inicio, id: "inicio", icon: Icon::Pref(PrefKind::LoginItems), name: "Itens de Início", category: 3, keywords: "abrir ao entrar autostart iniciar sessão login aplicativos automático" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
 
@@ -126,18 +131,6 @@ fn mode_label(m: &str) -> String {
     }
 }
 
-const LAYOUTS: [(&str, &str, &str); 10] = [
-    ("br", "", "Português (Brasil, ABNT2)"),
-    ("us", "", "Inglês (EUA)"),
-    ("us", "intl", "Inglês (EUA, internacional)"),
-    ("pt", "", "Português (Portugal)"),
-    ("latam", "", "Espanhol (América Latina)"),
-    ("es", "", "Espanhol (Espanha)"),
-    ("gb", "", "Inglês (Reino Unido)"),
-    ("fr", "", "Francês"),
-    ("de", "", "Alemão"),
-    ("it", "", "Italiano"),
-];
 
 const WALLPAPERS: [(&str, &str); 3] = [("ondas", "Ondas"), ("aurora", "Aurora"), ("liso", "Liso")];
 
@@ -186,6 +179,7 @@ struct Prefs {
     energy_source: usize,
     rede: rede::Rede,
     datahora: datahora::DataHora,
+    inicio: inicio::Inicio,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
@@ -204,7 +198,7 @@ struct Prefs {
 const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
     ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
-    ("Sistema", &["screenshot", "force_quit", "lock", "quit"]),
+    ("Sistema", &["screenshot", "force_quit", "lock", "input_next", "quit"]),
 ];
 
 impl Prefs {
@@ -215,6 +209,9 @@ impl Prefs {
         }
         if p.pane == Pane::DataHora {
             p.datahora.refresh();
+        }
+        if p.pane == Pane::Inicio {
+            p.inicio.refresh();
         }
         // "glove-prefs rede --entrar REDE" (do menu Wi-Fi): já pede a senha dela.
         let args: Vec<String> = std::env::args().collect();
@@ -244,6 +241,7 @@ impl Prefs {
         // "atalhos" é a segunda aba do Teclado (como no 10.4).
         let (pane, kbd_tab) = match arg.as_str() {
             "atalhos" => (Pane::Teclado, 1),
+            "entrada" => (Pane::Teclado, 2),
             a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
         };
         Self {
@@ -260,6 +258,7 @@ impl Prefs {
             energy_source: usize::from(on_battery()),
             rede: rede::Rede::default(),
             datahora: datahora::DataHora::default(),
+            inicio: inicio::Inicio::default(),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -284,6 +283,9 @@ impl Prefs {
             }
             if p == Pane::DataHora {
                 self.datahora.refresh();
+            }
+            if p == Pane::Inicio {
+                self.inicio.refresh();
             }
         }
     }
@@ -700,8 +702,12 @@ impl Prefs {
         ui.space(4.0);
         // A aba de atalhos cresce com os grupos abertos.
         let open_rows: usize = SHORTCUT_GROUPS.iter().zip(self.open_groups).filter(|(_, o)| *o).map(|((_, a), _)| a.len()).sum();
-        let height = if shown == 1 { 120.0 + SHORTCUT_GROUPS.len() as f32 * 24.0 + open_rows as f32 * 30.0 } else { 240.0 };
-        ui.tab_box(&mut tab, &["Teclado", "Atalhos de Teclado"], height, |ui| match shown {
+        let height = match shown {
+            1 => 120.0 + SHORTCUT_GROUPS.len() as f32 * 24.0 + open_rows as f32 * 30.0,
+            2 => 380.0,
+            _ => 240.0,
+        };
+        ui.tab_box(&mut tab, &["Teclado", "Atalhos de Teclado", "Menu de Entrada"], height, |ui| match shown {
             0 => {
                 const LW: f32 = 170.0;
                 let mut delay = self.config.keyboard.repeat_delay as f32;
@@ -732,10 +738,10 @@ impl Prefs {
                     }
                 });
                 ui.space(8.0);
-                let names: Vec<String> = LAYOUTS.iter().map(|(_, _, n)| n.to_string()).collect();
+                let names: Vec<String> = LAYOUTS.iter().map(|l| l.2.to_string()).collect();
                 let mut cur = LAYOUTS
                     .iter()
-                    .position(|(l, v, _)| *l == self.config.keyboard.layout && *v == self.config.keyboard.variant)
+                    .position(|l| l.0 == self.config.keyboard.layout && l.1 == self.config.keyboard.variant)
                     .unwrap_or(0);
                 ui.form_row("Layout do teclado", LW, |ui| {
                     if ui.popup(&mut cur, &names, 240.0) {
@@ -746,7 +752,8 @@ impl Prefs {
                 });
                 ui.form_note(LW, "Vale na hora para todos os apps.");
             }
-            _ => self.atalhos(ui),
+            1 => self.atalhos(ui),
+            _ => self.menu_entrada(ui),
         });
         self.kbd_tab = tab;
     }
@@ -1026,6 +1033,36 @@ impl Prefs {
             ui.separator();
             ui.space(4.0);
             ui.small("Dentro de outro desktop o trackpad segue o desktop de lá; isto vale na sessão Glove.");
+        }
+    }
+
+    /// Menu de Entrada: os layouts que a barra e a tecla de troca oferecem.
+    fn menu_entrada(&mut self, ui: &mut Ui) {
+        ui.small("Marque os layouts que você usa. A barra de menu e Super+Alt+espaço passam por eles.");
+        ui.space(6.0);
+        for (l, v, name, badge) in LAYOUTS {
+            let id = glove_config::layout_id(l, v);
+            let mut on = self.config.keyboard.input_menu.contains(&id);
+            let label = format!("{name}  ({badge})");
+            ui.push_id(&id, |ui| {
+                if ui.checkbox(&mut on, &label) {
+                    let list = &mut self.config.keyboard.input_menu;
+                    if on {
+                        // Mantém a ordem da tabela.
+                        list.push(id.clone());
+                        list.sort_by_key(|x| LAYOUTS.iter().position(|t| glove_config::layout_id(t.0, t.1) == *x).unwrap_or(99));
+                    } else {
+                        list.retain(|x| *x != id);
+                    }
+                    self.save();
+                }
+            });
+        }
+        ui.space(8.0);
+        let mut show = self.config.keyboard.show_input_menu;
+        if ui.checkbox(&mut show, "Mostrar o Menu de Entrada na barra de menu") {
+            self.config.keyboard.show_input_menu = show;
+            self.save();
         }
     }
 
@@ -1342,7 +1379,7 @@ thread_local! {
 impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
         // Com a folha da senha aberta, só ela responde.
-        let sheet = self.pane == Pane::Rede && self.rede.prompt.is_some();
+        let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some()) || (self.pane == Pane::Inicio && self.inicio.sheet_open());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -1364,6 +1401,7 @@ impl App for Prefs {
                     self.save();
                 }
             }
+            Pane::Inicio => self.inicio.ui(ui),
             Pane::DataHora => {
                 let mut c = self.config.clock.clone();
                 if self.datahora.ui(ui, &mut c) {
@@ -1380,7 +1418,11 @@ impl App for Prefs {
         });
         if sheet {
             ui.set_enabled(true);
-            self.rede.prompt_sheet(ui);
+            if self.pane == Pane::Rede {
+                self.rede.prompt_sheet(ui);
+            } else {
+                self.inicio.picker_sheet(ui);
+            }
         }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
         ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, 720.0), true);

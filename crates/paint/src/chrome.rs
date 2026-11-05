@@ -1079,6 +1079,8 @@ pub enum Extra {
     Display,
     /// Wi-Fi: ligado e quantas ondas acesas (0 = sem rede).
     Wifi { on: bool, bars: u8 },
+    /// Menu de Entrada: a sigla do layout ("BR").
+    Input { badge: String },
     /// Relógio (o último à direita): o texto, ou (hora, minuto) no mostrador de ponteiros.
     Clock { text: String, analog: Option<(u8, u8)> },
 }
@@ -1091,6 +1093,7 @@ fn extra_width(fonts: &Fonts, e: &Extra) -> f32 {
         Extra::Battery { .. } => 36.0,
         Extra::Display => 30.0,
         Extra::Wifi { .. } => 30.0,
+        Extra::Input { badge } => fonts.measure(badge, 10.0, true) + 22.0,
         Extra::Clock { analog: Some(_), .. } => 28.0,
         Extra::Clock { text, .. } => fonts.measure(text, MENUBAR_PX, false) + 16.0,
     }
@@ -1235,6 +1238,13 @@ fn draw_extras(c: &mut Canvas, fonts: &Fonts, theme: &Theme, extras: &[Extra], r
             }
             Extra::Display => display_glyph(c, a + 7.0, 3.0, col),
             Extra::Wifi { on, bars } => wifi_glyph(c, a + 15.0, 16.0, *on, *bars, col),
+            Extra::Input { badge } => {
+                // Sigla numa plaquinha (como a bandeirinha do 10.4, sem bandeira).
+                let tw = fonts.measure(badge, 10.0, true);
+                c.fill(rrect(a + 7.0, 4.0, tw + 8.0, 14.0, 3.0), &solid(col));
+                let ink = if is_open { theme.accent } else { Color::WHITE };
+                fonts.draw(c, badge, a + 11.0, 15.0, 10.0, true, ink);
+            }
             Extra::Clock { analog: Some((h, m)), .. } => clock_glyph(c, a + 14.0, 11.0, *h, *m, col),
             Extra::Clock { text, .. } => fonts.draw(c, text, a + 8.0, 16.0, MENUBAR_PX, false, col),
         }

@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod inicio;
 pub mod rede;
 pub mod sons;
 
@@ -110,6 +111,46 @@ impl Default for Dock {
     }
 }
 
+/// Layouts de teclado conhecidos: (layout, variante, nome, sigla da barra).
+pub const KEYBOARD_LAYOUTS: [(&str, &str, &str, &str); 10] = [
+    ("br", "", "Português (Brasil, ABNT2)", "BR"),
+    ("us", "", "Inglês (EUA)", "US"),
+    ("us", "intl", "Inglês (EUA, internacional)", "US+"),
+    ("pt", "", "Português (Portugal)", "PT"),
+    ("latam", "", "Espanhol (América Latina)", "LA"),
+    ("es", "", "Espanhol (Espanha)", "ES"),
+    ("gb", "", "Inglês (Reino Unido)", "GB"),
+    ("fr", "", "Francês", "FR"),
+    ("de", "", "Alemão", "DE"),
+    ("it", "", "Italiano", "IT"),
+];
+
+/// "us:intl" → ("us", "intl").
+pub fn split_layout(id: &str) -> (&str, &str) {
+    id.split_once(':').unwrap_or((id, ""))
+}
+
+/// ("us", "intl") → "us:intl".
+pub fn layout_id(layout: &str, variant: &str) -> String {
+    if variant.is_empty() { layout.to_string() } else { format!("{layout}:{variant}") }
+}
+
+/// Sigla curta para a barra ("BR", "US+").
+pub fn layout_badge(layout: &str, variant: &str) -> String {
+    KEYBOARD_LAYOUTS.iter().find(|l| l.0 == layout && l.1 == variant).map(|l| l.3.to_string()).unwrap_or_else(|| layout.to_uppercase())
+}
+
+/// O próximo layout do Menu de Entrada depois do atual.
+pub fn next_layout(k: &Keyboard) -> Option<(String, String)> {
+    if k.input_menu.len() < 2 {
+        return None;
+    }
+    let cur = layout_id(&k.layout, &k.variant);
+    let i = k.input_menu.iter().position(|l| *l == cur).map_or(0, |i| (i + 1) % k.input_menu.len());
+    let (l, v) = split_layout(&k.input_menu[i]);
+    Some((l.to_string(), v.to_string()))
+}
+
 /// Painel Aparência.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -208,6 +249,10 @@ impl Energy {
 pub struct Keyboard {
     pub layout: String,
     pub variant: String,
+    /// Layouts do Menu de Entrada ("br", "us:intl"…); a tecla de troca passa por eles.
+    pub input_menu: Vec<String>,
+    /// Menu de Entrada na barra de menu.
+    pub show_input_menu: bool,
     /// Atraso antes de repetir, em ms.
     pub repeat_delay: u32,
     /// Repetições por segundo.
@@ -216,7 +261,7 @@ pub struct Keyboard {
 
 impl Default for Keyboard {
     fn default() -> Self {
-        Self { layout: "br".into(), variant: String::new(), repeat_delay: 300, repeat_rate: 30 }
+        Self { layout: "br".into(), variant: String::new(), input_menu: vec!["br".into(), "us".into()], show_input_menu: false, repeat_delay: 300, repeat_rate: 30 }
     }
 }
 
@@ -368,6 +413,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("force_quit", "Forçar Encerrar"),
     ("lock", "Bloquear a tela"),
     ("search", "Busca Rápida"),
+    ("input_next", "Próximo layout de teclado"),
     ("quit", "Sair do Glove"),
 ];
 
@@ -458,6 +504,7 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
         ("force_quit", "Ctrl+Alt+Escape"),
         ("lock", "Super+L"),
         ("search", "Super+space"),
+        ("input_next", "Super+Alt+space"),
         ("quit", "Ctrl+Alt+BackSpace"),
     ]
     .into_iter()

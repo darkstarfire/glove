@@ -67,6 +67,14 @@ impl Glove {
             for c in std::mem::take(&mut s.commands) {
                 self.spawn(&c);
             }
+            // Itens de Início (autostart do XDG que vale no Glove). Dentro de outro
+            // desktop, não: os de lá já estão rodando e viriam em dobro.
+            if !self.greeter && !self.nested {
+                for c in glove_config::inicio::commands() {
+                    tracing::info!("item de início: {c}");
+                    self.spawn(&c);
+                }
+            }
             // Primeira vez: o assistente de boas-vindas.
             if !self.config.welcome_done {
                 self.spawn("glove-boasvindas");

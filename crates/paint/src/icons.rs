@@ -69,6 +69,8 @@ pub enum PrefKind {
     Network,
     /// Folha de calendário com um relógio na frente.
     DateTime,
+    /// Lista de apps com a seta verde de "abrir".
+    LoginItems,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1008,6 +1010,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Energy => pref_energy(pm, x, y, s),
         PrefKind::Network => pref_network(pm, x, y, s),
         PrefKind::DateTime => pref_datetime(pm, x, y, s),
+        PrefKind::LoginItems => pref_login_items(pm, x, y, s),
     }
 }
 
@@ -1251,4 +1254,28 @@ fn pref_datetime(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     hand(pm, std::f32::consts::TAU * 10.0 / 12.0, r * 0.45, (s * 0.04).max(1.2));
     hand(pm, std::f32::consts::TAU * 2.0 / 12.0, r * 0.68, (s * 0.03).max(1.0));
     pm.fill(circle(cx, cy, s * 0.025), &solid(rgba(200, 50, 40, 255)));
+}
+
+/// Folha com uma lista de itens e o botão verde de "abrir" na frente.
+fn pref_login_items(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.1, y + s * 0.06, s * 0.62, s * 0.78);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.04), &solid(rgba(0, 0, 0, 45)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(226, 228, 234, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(110, 112, 120, 255)), lw);
+    let colors = [rgba(70, 130, 230, 255), rgba(240, 170, 50, 255), rgba(120, 190, 80, 255), rgba(150, 100, 210, 255)];
+    for (k, c) in colors.iter().enumerate() {
+        let yy = by + bh * (0.1 + k as f32 * 0.2);
+        gel_rect(pm, bx + bw * 0.1, yy, bw * 0.16, bw * 0.16, s * 0.02, *c);
+        pm.fill_rect(bx + bw * 0.34, yy + bw * 0.05, bw * 0.52, bw * 0.06, &solid(rgba(150, 152, 160, 255)));
+    }
+    // Botão verde redondo com a seta.
+    let (cx, cy, r) = (x + s * 0.7, y + s * 0.72, s * 0.2);
+    gel_circle(pm, cx, cy, r, rgba(70, 180, 60, 255));
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r * 0.3, cy - r * 0.45);
+    pb.line_to(cx + r * 0.5, cy);
+    pb.line_to(cx - r * 0.3, cy + r * 0.45);
+    pb.close();
+    pm.fill(pb.finish(), &solid(rgba(255, 255, 255, 240)));
 }

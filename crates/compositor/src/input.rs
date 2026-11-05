@@ -42,6 +42,8 @@ enum KeyAction {
     /// Ctrl+F2: abre a barra de menu pelo teclado.
     MenuBar,
     Lock,
+    /// Próximo layout do Menu de Entrada.
+    InputNext,
     /// Tecla com a troca de apps aberta (ou Super+Shift+Tab para abrir voltando).
     Switcher(crate::switcher::SwitcherKey),
     SwitcherBack,
@@ -79,6 +81,7 @@ impl KeyAction {
             "force_quit" => Self::ForceQuit,
             "hide" => Self::Hide,
             "lock" => Self::Lock,
+            "input_next" => Self::InputNext,
             "search" => Self::Search,
             "expose_all" => Self::ExposeAll,
             "expose_app" => Self::ExposeApp,
@@ -417,11 +420,15 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(Some(KeyAction::MenuBar));
             }
-            let action = st.bindings.iter().find_map(|b| {
-                // Dentro de outro desktop o Super costuma ser capturado: Alt vale como Super.
-                let logo_ok = if b.logo { mods.logo || (st.nested && mods.alt && !b.alt) } else { !mods.logo };
-                let alt_ok = if b.logo && st.nested && !b.alt { true } else { b.alt == mods.alt };
-                (b.key == name && b.ctrl == mods.ctrl && b.shift == mods.shift && logo_ok && alt_ok).then_some(b.action)
+            // Primeiro o atalho exato (Super+Alt+espaço não vira Super+espaço).
+            let exact = st.bindings.iter().find_map(|b| (b.key == name && b.ctrl == mods.ctrl && b.shift == mods.shift && b.logo == mods.logo && b.alt == mods.alt).then_some(b.action));
+            let action = exact.or_else(|| {
+                st.bindings.iter().find_map(|b| {
+                    // Dentro de outro desktop o Super costuma ser capturado: Alt vale como Super.
+                    let logo_ok = if b.logo { mods.logo || (st.nested && mods.alt && !b.alt) } else { !mods.logo };
+                    let alt_ok = if b.logo && st.nested && !b.alt { true } else { b.alt == mods.alt };
+                    (b.key == name && b.ctrl == mods.ctrl && b.shift == mods.shift && logo_ok && alt_ok).then_some(b.action)
+                })
             });
             match action {
                 Some(a) => {
@@ -481,6 +488,11 @@ impl Glove {
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
             Some(KeyAction::Lock) => self.lock_screen(),
+            Some(KeyAction::InputNext) => {
+                if let Some((l, v)) = glove_config::next_layout(&self.config.keyboard) {
+                    self.set_layout(&l, &v);
+                }
+            }
             Some(KeyAction::Search) => self.toggle_search(),
             Some(KeyAction::ExposeAll) => self.toggle_expose(crate::expose::ExposeMode::All),
             Some(KeyAction::ExposeApp) => self.toggle_expose(crate::expose::ExposeMode::App),
