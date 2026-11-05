@@ -756,6 +756,7 @@ pub fn extra_apps() -> Vec<DockApp> {
         app("Ajuda", "help", "glove-ajuda", "glove.Ajuda"),
         app("Dicionário", "dictionary", "glove-dicionario", "glove.Dicionario"),
         app("Livro de Fontes", "fontbook", "glove-fontes", "glove.Fontes"),
+        app("Acesso às Chaves", "keychain", "glove-chaves", "glove.Chaves"),
     ]
 }
 

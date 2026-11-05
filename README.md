@@ -59,6 +59,7 @@ Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger
 | Lembretes | Notas adesivas coloridas, todas num processo só |
 | Dicionário | Dicionários livres StarDict e DICT |
 | Livro de Fontes e Caracteres | Ver, instalar e desativar fontes; mapa de caracteres |
+| Acesso às Chaves | Senhas guardadas no chaveiro do sistema: ver, copiar, apagar, trancar e mudar a senha do chaveiro |
 | Monitor, Registros, Informações do Sistema, Discos | Processos e gráficos, logs do journal, hardware, discos e pendrives |
 | Busca, Captura, Utilitário de Arquivo | Achar arquivos, capturar a tela, compactar/expandir |
 | Calculadora, Relógio, Xadrez, Ajuda, Sobre o Glove | Calculadora científica, relógio no Dock, xadrez com 3 níveis, ajuda com busca |
@@ -220,7 +221,7 @@ crates/disks       Discos (`glove-disks`)            crates/find       Busca (`g
 crates/shot        Captura (`glove-shot`)            crates/arquivo    Utilitário de Arquivo (`glove-arquivo`)
 crates/calc        Calculadora (`glove-calc`)        crates/clock      Relógio (`glove-clock`)
 crates/chess       Xadrez (`glove-chess`)            crates/ajuda      Ajuda (`glove-ajuda`)
-crates/about       Sobre o Glove (`glove-about`)
+crates/about       Sobre o Glove (`glove-about`)       crates/chaves     Acesso às Chaves (`glove-chaves`)
 data/              sessão, greetd, Plymouth, portais e instaladores
 ```
 

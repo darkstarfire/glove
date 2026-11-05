@@ -348,8 +348,12 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   palavras, rodapé com nome e página); imagens vão direto ao CUPS e viram PDF para salvar. No Editor,
   no Visualizador (imagem ou PDF) e no Correio (a mensagem aberta, com De/Para/Data/Assunto). O
   Navegador (Firefox/NetSurf) já tem o imprimir dele (M)
-- [ ] 9.10.9 **Acesso às Chaves** (`Keychain-Access`): ver, copiar e apagar senhas guardadas (Secret
-  Service), trocar a senha do chaveiro (M)
+- [x] 9.10.9 **Acesso às Chaves** (`glove-chaves`, `Keychain-Access`, em Utilitários): chaveiros à esquerda
+  (o "login" primeiro), as senhas guardadas numa tabela com busca (nome, tipo — senha de rede, de
+  Wi-Fi, de app — e data), detalhes com conta e onde, Mostrar senha, Copiar senha, Apagar (com
+  alerta), Trancar/Destrancar e Mudar a Senha do Chaveiro (folha com senha atual, nova e confirmação).
+  Fala com o Secret Service pelo D-Bus (zbus; sessão local "plain"); `GLOVE_CHAVES_TESTE=1` mostra
+  itens de mentira e `--contar` só conta chaveiros e itens (diagnóstico sem dados pessoais) (M)
 - [ ] 9.10.10 **Utilitário de Rede** (`Network-Utility`): Informações, Ping, Lookup, Traceroute, Whois,
   Finger e varredura de portas, com as ferramentas do sistema (M)
 - [ ] 9.10.11 Preferências que faltam: **Segurança** (senha ao sair do repouso e do protetor, sair após

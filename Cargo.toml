@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/paint", "crates/config", "crates/kit", "crates/compositor", "crates/about", "crates/prefs", "crates/calc", "crates/clock", "crates/editor", "crates/files", "crates/viewer", "crates/term", "crates/notes", "crates/monitor", "crates/shot", "crates/chars", "crates/find", "crates/disks", "crates/chess", "crates/sair", "crates/login", "crates/arte", "crates/boasvindas", "crates/arquivo", "crates/navegador", "crates/musica", "crates/contatos", "crates/agenda", "crates/video", "crates/registros", "crates/info", "crates/ajuda", "crates/dicionario", "crates/fontes", "crates/correio", "crates/portal"]
+members = ["crates/paint", "crates/config", "crates/kit", "crates/compositor", "crates/about", "crates/prefs", "crates/calc", "crates/clock", "crates/editor", "crates/files", "crates/viewer", "crates/term", "crates/notes", "crates/monitor", "crates/shot", "crates/chars", "crates/find", "crates/disks", "crates/chess", "crates/sair", "crates/login", "crates/arte", "crates/boasvindas", "crates/arquivo", "crates/navegador", "crates/musica", "crates/contatos", "crates/agenda", "crates/video", "crates/registros", "crates/info", "crates/ajuda", "crates/dicionario", "crates/fontes", "crates/correio", "crates/portal", "crates/chaves"]
 
 [workspace.package]
-version = "0.9.8"
+version = "0.9.9"
 edition = "2024"
 license = "GPL-3.0-or-later"
 

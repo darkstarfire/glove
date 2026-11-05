@@ -21,6 +21,8 @@ pub enum Icon {
     TrashFull,
     /// Símbolo de ejetar (o Lixo do Dock enquanto se arrasta um disco).
     Eject,
+    /// Chaveiro com duas chaves douradas (Acesso às Chaves).
+    Keychain,
     Disk,
     /// Arquivo de texto.
     Document,
@@ -172,6 +174,7 @@ impl Icon {
             "info" => Icon::Info,
             "help" => Icon::Help,
             "dictionary" => Icon::Dictionary,
+            "keychain" | "chaves" => Icon::Keychain,
             "fontbook" => Icon::FontBook,
             "mail" => Icon::Mail,
             "" | "generic" => Icon::Generic,
@@ -210,6 +213,7 @@ impl Icon {
             Icon::Info => "dialog-information",
             Icon::Help => "help-browser",
             Icon::Dictionary => "accessories-dictionary",
+            Icon::Keychain => "dialog-password",
             Icon::FontBook => "font-x-generic",
             Icon::Mail => "mail-client",
             Icon::Display => "video-display",
@@ -361,6 +365,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Info => info(pm, fonts, x, y, s),
         Icon::Help => help(pm, fonts, x, y, s),
         Icon::Dictionary => dictionary(pm, fonts, x, y, s),
+        Icon::Keychain => keychain(pm, x, y, s),
         Icon::FontBook => font_book(pm, fonts, x, y, s),
         Icon::Clip => clip(pm, x, y, s),
         Icon::Mail => mail(pm, x, y, s),
@@ -768,6 +773,37 @@ fn clock(pm: &mut Canvas, x: f32, y: f32, s: f32, h: u8, m: u8) {
     }
     pm.fill(circle(cx, cy, (s * 0.035).max(1.2)), &solid(rgba(215, 50, 40, 255)));
     pm.fill(oval(cx - fr * 0.7, cy - fr * 0.92, fr * 1.4, fr * 0.8), &vgrad(cy - fr, cy - fr * 0.1, &[(0.0, rgba(255, 255, 255, 130)), (1.0, rgba(255, 255, 255, 0))]));
+}
+
+/// Chaveiro: argola prateada com duas chaves douradas.
+fn keychain(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let (cx, cy, r) = (x + s * 0.36, y + s * 0.3, s * 0.17);
+    pm.stroke(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(240, 242, 246, 255)), (0.5, rgba(140, 144, 154, 255)), (1.0, rgba(220, 222, 228, 255))]), s * 0.05);
+    let key = |pm: &mut Canvas, ang: f32, len: f32| {
+        let (c, sn) = (ang.cos(), ang.sin());
+        // Cabeça redonda com furo, haste e dentes.
+        let (hx, hy) = (cx + c * r * 1.05, cy + sn * r * 1.05);
+        let hr = s * 0.11;
+        let (kx, ky) = (hx + c * hr, hy + sn * hr);
+        let gold = linear(kx - hr, ky - hr, kx + hr, ky + hr, &[(0.0, rgba(255, 238, 150, 255)), (0.5, rgba(214, 160, 40, 255)), (1.0, rgba(250, 214, 100, 255))]);
+        let mut pb = PathBuilder::new();
+        let (ex, ey) = (kx + c * len, ky + sn * len);
+        pb.move_to(kx, ky);
+        pb.line_to(ex, ey);
+        pm.stroke(pb.finish(), &gold, s * 0.075);
+        for k in [0.62, 0.82] {
+            let (tx, ty) = (kx + c * len * k, ky + sn * len * k);
+            let mut pb = PathBuilder::new();
+            pb.move_to(tx, ty);
+            pb.line_to(tx - sn * s * 0.09, ty + c * s * 0.09);
+            pm.stroke(pb.finish(), &gold, s * 0.06);
+        }
+        pm.fill(circle(kx, ky, hr), &gold);
+        pm.stroke(circle(kx, ky, hr), &solid(rgba(150, 100, 20, 200)), (s / 64.0).max(0.8));
+        pm.fill(circle(kx, ky, hr * 0.38), &solid(rgba(90, 60, 10, 255)));
+    };
+    key(pm, 0.75, s * 0.42);
+    key(pm, 1.35, s * 0.36);
 }
 
 /// Ejetar: triângulo sobre uma barra, em grafite brilhante (como o do Dock do Tiger).

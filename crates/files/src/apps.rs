@@ -81,7 +81,7 @@ pub fn all() -> Vec<App> {
         .chain(glove_config::extra_apps())
         .filter(|a| a.app_id.starts_with("glove."))
         .map(|a| App {
-            utility: matches!(a.app_id.as_str(), "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Registros" | "glove.Info"),
+            utility: matches!(a.app_id.as_str(), "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Registros" | "glove.Info" | "glove.Chaves"),
             name: a.name,
             path: PathBuf::from(GLOVE).join(&a.app_id),
             icon: Icon::from_name(&a.icon),
