@@ -647,6 +647,16 @@ impl<'a> Ui<'a> {
         self.input.pressed
     }
 
+    /// O botão do mouse foi solto neste quadro.
+    pub fn mouse_released(&self) -> bool {
+        self.input.released
+    }
+
+    /// O botão do mouse está pressionado.
+    pub fn mouse_down(&self) -> bool {
+        self.input.down
+    }
+
     /// O mouse se moveu neste quadro.
     pub fn moved(&self) -> bool {
         self.input.moved

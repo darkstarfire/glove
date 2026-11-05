@@ -1,6 +1,10 @@
 //! Arquivos: navegador de pastas do Glove (colunas, lista e ícones).
 
+mod ops;
+
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -276,6 +280,11 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// Caminho de um file:// (com %XX).
+fn ops_decode(s: &str) -> String {
+    percent_decode(s)
+}
+
 /// Devolver: põe um item da Lixeira de volta onde estava. Devolve o destino.
 fn put_back(item: &Path) -> Result<PathBuf, String> {
     put_back_in(&trash_dir(), item)
@@ -377,6 +386,18 @@ struct Files {
     reveal: bool,
     /// Menu da engrenagem (ações) aberto.
     gear_open: bool,
+    /// Copiar/Recortar: os itens e se é para mover ao colar.
+    clip: Option<(Vec<PathBuf>, bool)>,
+    /// Esperando o texto da área de transferência (colar vindo de outro app).
+    paste_wait: bool,
+    /// Nomes repetidos: a pergunta antes de copiar (itens, nomes, mover).
+    ask: Option<(Vec<ops::Item>, Vec<String>, bool)>,
+    /// Cópia em andamento: progresso, verbo ("Copiando"/"Movendo") e quantos itens.
+    job: Option<(Arc<ops::Progress>, &'static str, usize)>,
+    /// Arrastar: item, onde começou e se já virou arraste.
+    drag: Option<(PathBuf, (f32, f32), bool)>,
+    /// Pasta sob o mouse durante o arraste (neste quadro).
+    drop_target: Option<PathBuf>,
 }
 
 impl Files {
@@ -396,6 +417,123 @@ impl Files {
             last_title: String::new(),
             reveal: false,
             gear_open: false,
+            clip: None,
+            paste_wait: false,
+            ask: None,
+            job: None,
+            drag: None,
+            drop_target: None,
+        }
+    }
+
+    /// Colar/soltar `srcs` em `dir`: pergunta antes se algum nome já existe lá.
+    fn transfer(&mut self, srcs: Vec<PathBuf>, dir: PathBuf, mv: bool) {
+        if srcs.is_empty() || self.job.is_some() {
+            return;
+        }
+        // Soltar na mesma pasta não faz nada.
+        if mv && srcs.iter().all(|s| s.parent() == Some(dir.as_path())) {
+            return;
+        }
+        let (items, clashes) = ops::plan(&srcs, &dir);
+        if clashes.is_empty() {
+            self.start_job(items, mv);
+        } else {
+            self.ask = Some((items, clashes, mv));
+        }
+    }
+
+    fn start_job(&mut self, items: Vec<ops::Item>, mv: bool) {
+        let n = items.len();
+        self.job = Some((ops::start(items, mv), if mv { "Movendo" } else { "Copiando" }, n));
+        if mv {
+            self.clip = None;
+        }
+    }
+
+    /// Alerta de nome repetido (folha da janela).
+    fn ask_sheet(&mut self, ui: &mut Ui) {
+        let Some((_, names, _)) = &self.ask else { return };
+        let title = if names.len() == 1 {
+            format!("Já existe um item chamado “{}” nesta pasta.", names[0])
+        } else {
+            format!("Já existem {} itens com esses nomes nesta pasta.", names.len())
+        };
+        let text = "Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora.";
+        match ui.alert(glove_kit::AlertKind::Caution, &title, text, &["Parar", "Manter os dois", "Substituir"]) {
+            Some(0) => self.ask = None,
+            Some(c) => {
+                let (mut items, _, mv) = self.ask.take().unwrap();
+                ops::resolve(&mut items, if c == 1 { ops::Conflict::KeepBoth } else { ops::Conflict::Replace });
+                self.start_job(items, mv);
+            }
+            None => {}
+        }
+    }
+
+    /// Painel de progresso da cópia, embaixo da janela, com Cancelar.
+    fn job_panel(&mut self, ui: &mut Ui) {
+        let Some((p, verb, n)) = &self.job else { return };
+        if p.finished.load(Ordering::Relaxed) {
+            if let Some(e) = p.error.lock().unwrap().clone() {
+                self.message = Some(e);
+            }
+            self.job = None;
+            self.cache.clear();
+            ui.redraw = true;
+            return;
+        }
+        ui.wake_after(std::time::Duration::from_millis(100));
+        let (w, h) = (ui.c.w, ui.c.h);
+        let (pw, ph) = (380.0, 92.0);
+        let (x, y) = ((w - pw) / 2.0, h - BOTTOM_H - ph - 12.0);
+        ui.c.fill(rrect(x + 2.0, y + 4.0, pw, ph, 8.0), &solid(rgba(0, 0, 0, 60)));
+        ui.c.fill(rrect(x, y, pw, ph, 8.0), &solid(ui.theme.body_b));
+        ui.c.pinstripes(x, y + 8.0, pw, ph - 16.0, ui.theme.body_a, ui.theme.body_b);
+        ui.c.stroke(rrect(x + 0.5, y + 0.5, pw - 1.0, ph - 1.0, 8.0), &solid(rgba(0, 0, 0, 90)), 1.0);
+        let label = format!("{verb} {n} {}…", if *n == 1 { "item" } else { "itens" });
+        ui.fonts.draw(ui.c, &label, x + 16.0, y + 22.0, 13.0, true, rgba(20, 20, 20, 255));
+        let cur = p.current.lock().unwrap().clone();
+        let cur = ui.fonts.ellipsize(&cur, 11.0, false, pw - 32.0);
+        ui.fonts.draw(ui.c, &cur, x + 16.0, y + 40.0, 11.0, false, rgba(70, 70, 70, 255));
+        let total = p.total.load(Ordering::Relaxed);
+        let frac = if total == 0 { None } else { Some((p.done.load(Ordering::Relaxed) as f32 / total as f32).min(1.0)) };
+        ui.progress_in(Rect::new(x + 16.0, y + 54.0, pw - 130.0, 12.0), frac);
+        let p2 = p.clone();
+        ui.area(Rect::new(x + pw - 104.0, y + 50.0, 90.0, 22.0), |ui| {
+            if ui.button("Cancelar") {
+                p2.cancel.store(true, Ordering::Relaxed);
+            }
+        });
+    }
+
+    /// Arrastar: começa depois de 5 pontos; mostra o item seguindo o mouse; soltar
+    /// numa pasta move (com Ctrl, copia).
+    fn drag_frame(&mut self, ui: &mut Ui) {
+        let Some((path, start, active)) = self.drag.clone() else { return };
+        let (px, py) = ui.pointer();
+        if ui.mouse_down() && !active && ((px - start.0).powi(2) + (py - start.1).powi(2)) > 25.0 {
+            self.drag = Some((path.clone(), start, true));
+        }
+        if active {
+            // O item "fantasma" seguindo o mouse.
+            let name = display_name(&path);
+            let tw = ui.text_width(&name, 12.0, false);
+            ui.c.fill(rrect(px + 10.0, py + 6.0, tw + 34.0, 22.0, 4.0), &solid(rgba(60, 110, 200, 150)));
+            let kind = kind_of(&path, path.is_dir());
+            let e = Entry { name: name.clone(), path: path.clone(), kind, size: 0, modified: None, link: false };
+            e.draw_icon(ui.c, ui.fonts, px + 13.0, py + 9.0, 16.0);
+            ui.fonts.draw(ui.c, &name, px + 34.0, py + 21.0, 12.0, false, Color::WHITE);
+            ui.wake_after(std::time::Duration::from_millis(30));
+        }
+        if ui.mouse_released() {
+            self.drag = None;
+            if let (true, Some(target)) = (active, self.drop_target.clone()) {
+                if target != path {
+                    let copy = ui.mods().ctrl;
+                    self.transfer(vec![path], target, !copy);
+                }
+            }
         }
     }
 
@@ -643,6 +781,10 @@ impl Files {
             let row = Rect::new(r.x, y, r.w - 1.0, SIDE_ROW);
             let here = self.base == path;
             let h = ui.hit(row);
+            if h.hover && self.drag.as_ref().is_some_and(|d| d.2) {
+                self.drop_target = Some(path.clone());
+                ui.c.stroke(rrect(row.x + 2.0, row.y + 1.0, row.w - 4.0, row.h - 2.0, 4.0), &solid(ui.theme.accent), 2.0);
+            }
             if here {
                 ui.c.fill_rect(row.x, row.y, row.w, row.h, &vgrad(row.y, row.y + row.h, &[(0.0, lighten(ui.theme.accent, 0.25)), (1.0, ui.theme.accent)]));
             }
@@ -731,6 +873,10 @@ impl Files {
             let resp = ui.hit(Rect::new(r.x, top, r.w - 1.0, bot - top));
             if resp.pressed {
                 action = Some((e.clone(), resp.double));
+                self.drag = Some((e.path.clone(), ui.pointer(), false));
+            }
+            if resp.hover && e.kind == Kind::Folder && self.drag.as_ref().is_some_and(|d| d.2) {
+                self.drop_target = Some(e.path.clone());
             }
         }
         let accent = ui.theme.accent;
@@ -864,6 +1010,10 @@ impl Files {
                 let resp = ui.hit(r);
                 if resp.pressed {
                     action = Some((e.clone(), resp.double));
+                    self.drag = Some((e.path.clone(), ui.pointer(), false));
+                }
+                if resp.hover && e.kind == Kind::Folder && self.drag.as_ref().is_some_and(|d| d.2) {
+                    self.drop_target = Some(e.path.clone());
                 }
             }
         }
@@ -912,6 +1062,9 @@ impl Files {
                 "Ctrl+O" => act.push("open"),
                 "Ctrl+BackSpace" => act.push("trash"),
                 "Ctrl+Shift+BackSpace" => act.push("empty-trash"),
+                "Ctrl+C" => act.push("copy"),
+                "Ctrl+X" => act.push("cut"),
+                "Ctrl+V" => act.push("paste"),
                 "Ctrl+W" => act.push("close"),
                 "Ctrl+1" => act.push("view-icons"),
                 "Ctrl+2" => act.push("view-list"),
@@ -954,6 +1107,24 @@ impl Files {
                 }
             }
             "trash" => self.trash_selected(),
+            "copy" | "cut" => {
+                if let Some(p) = self.selected.clone() {
+                    // Para outros apps, o caminho vai também como texto (file://).
+                    ui.copy(&format!("file://{}", p.display()));
+                    self.clip = Some((vec![p], a == "cut"));
+                    self.message = Some(if a == "cut" { "Recortado: cole (Ctrl+V) na pasta de destino.".into() } else { "Copiado.".into() });
+                }
+            }
+            "paste" => match self.clip.clone() {
+                Some((srcs, mv)) => {
+                    let dir = self.current();
+                    self.transfer(srcs, dir, mv);
+                }
+                None => {
+                    ui.request_paste();
+                    self.paste_wait = true;
+                }
+            },
             "put-back" => {
                 if let Some(p) = self.selected.clone() {
                     match put_back(&p) {
@@ -1044,6 +1215,21 @@ impl App for Files {
             self.last_title = title;
         }
         let (w, h) = (ui.c.w, ui.c.h);
+        self.drop_target = None;
+        // Colar vindo de outro app: o texto chega num quadro seguinte.
+        if self.paste_wait {
+            if let Some(t) = ui.take_paste() {
+                self.paste_wait = false;
+                let srcs: Vec<PathBuf> = t
+                    .lines()
+                    .map(|l| l.trim())
+                    .filter_map(|l| l.strip_prefix("file://").map(|p| PathBuf::from(ops_decode(p))).or_else(|| l.starts_with('/').then(|| PathBuf::from(l))))
+                    .filter(|p| p.exists())
+                    .collect();
+                let dir = self.current();
+                self.transfer(srcs, dir, false);
+            }
+        }
         // Com o menu da engrenagem aberto, um clique fora só o fecha.
         // (O menu fica embaixo da engrenagem; fora dele e da barra, fecha.)
         if self.gear_open && ui.mouse_pressed() {
@@ -1066,6 +1252,10 @@ impl App for Files {
         // Faixa de baixo em metal com o status (e o puxador de redimensionar).
         self.status(ui, h - BOTTOM_H);
         self.gear_menu(ui);
+        self.job_panel(ui);
+        self.drag_frame(ui);
+        ui.set_enabled(self.ask.is_none());
+        self.ask_sheet(ui);
     }
 
     fn menus(&self) -> Vec<Menu> {
@@ -1083,6 +1273,14 @@ impl App for Files {
                     MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar janela", "Ctrl+W"),
+                ],
+            ),
+            Menu::new(
+                "Editar",
+                vec![
+                    MenuItem::new("cut", "Recortar", "Ctrl+X").enabled(sel),
+                    MenuItem::new("copy", "Copiar", "Ctrl+C").enabled(sel),
+                    MenuItem::new("paste", "Colar", "Ctrl+V"),
                 ],
             ),
             Menu::new(
