@@ -28,6 +28,16 @@ impl Default for Dock {
     }
 }
 
+/// Cantos ativos: "todas", "app" ou "mesa" (Exposé); vazio = nada.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HotCorners {
+    pub top_left: String,
+    pub top_right: String,
+    pub bottom_left: String,
+    pub bottom_right: String,
+}
+
 /// Economia de energia e bloqueio.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -193,6 +203,9 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("hide_others", "Ocultar os outros apps"),
     ("zoom", "Zoom da janela"),
     ("cycle", "Trocar de janela"),
+    ("expose_all", "Exposé: todas as janelas"),
+    ("expose_app", "Exposé: janelas do app"),
+    ("expose_desktop", "Exposé: mostrar a mesa"),
     ("preferences", "Abrir Preferências"),
     ("screenshot", "Captura de tela"),
     ("force_quit", "Forçar Encerrar"),
@@ -226,6 +239,8 @@ pub struct Config {
     pub trash_command: String,
     #[serde(default)]
     pub energy: Energy,
+    #[serde(default)]
+    pub hot_corners: HotCorners,
     /// Porcentagem ao lado do ícone da bateria na barra de menu.
     #[serde(default)]
     pub battery_percent: bool,
@@ -254,6 +269,9 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
         ("hide_others", "Super+Alt+H"),
         ("zoom", "Super+Up"),
         ("cycle", "Super+Tab"),
+        ("expose_all", "F9"),
+        ("expose_app", "F10"),
+        ("expose_desktop", "F11"),
         ("preferences", "Super+Comma"),
         ("screenshot", "Print"),
         ("force_quit", "Ctrl+Alt+Escape"),
@@ -304,6 +322,7 @@ impl Default for Config {
             trash_command: "glove-files ~/.local/share/Trash/files".into(),
             battery_percent: false,
             energy: Energy::default(),
+            hot_corners: HotCorners::default(),
             dock_rev: DOCK_REV,
         }
     }

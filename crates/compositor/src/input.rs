@@ -41,6 +41,10 @@ enum KeyAction {
     /// Ctrl+F2: abre a barra de menu pelo teclado.
     MenuBar,
     Lock,
+    ExposeAll,
+    ExposeApp,
+    ExposeDesktop,
+    ExposeEsc,
     /// Super+Espaço: abre ou fecha a Busca Rápida.
     Search,
     SearchKey(crate::lock::LockKey),
@@ -72,6 +76,9 @@ impl KeyAction {
             "hide" => Self::Hide,
             "lock" => Self::Lock,
             "search" => Self::Search,
+            "expose_all" => Self::ExposeAll,
+            "expose_app" => Self::ExposeApp,
+            "expose_desktop" => Self::ExposeDesktop,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
             _ => return None,
@@ -304,6 +311,11 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(k.map(KeyAction::LockKey));
             }
+            // Exposé: Esc volta.
+            if st.expose.is_some() && name == "escape" {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::ExposeEsc));
+            }
             // Busca Rápida aberta: o texto vai para o campo (atalhos com Super/Ctrl seguem).
             if st.search.open && !mods.logo && !mods.ctrl && !(st.nested && mods.alt) {
                 let k = match name.as_str() {
@@ -417,6 +429,10 @@ impl Glove {
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
             Some(KeyAction::Lock) => self.lock_screen(),
             Some(KeyAction::Search) => self.toggle_search(),
+            Some(KeyAction::ExposeAll) => self.toggle_expose(crate::expose::ExposeMode::All),
+            Some(KeyAction::ExposeApp) => self.toggle_expose(crate::expose::ExposeMode::App),
+            Some(KeyAction::ExposeDesktop) => self.toggle_expose(crate::expose::ExposeMode::Desktop),
+            Some(KeyAction::ExposeEsc) => self.leave_expose(None),
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
             Some(KeyAction::SearchMove(d)) => self.search_move(d),
             Some(KeyAction::LockKey(k)) => self.lock_key(k),
@@ -533,6 +549,19 @@ impl Glove {
     fn on_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
         self.note_input();
         self.pointer_pos = pos;
+        if !self.locked() {
+            self.hot_corner(pos);
+        }
+        if self.expose_active() {
+            // Nenhum app vê o mouse durante o Exposé.
+            self.expose_motion(pos);
+            let pointer = self.seat.get_pointer().unwrap();
+            let serial = SERIAL_COUNTER.next_serial();
+            pointer.motion(self, None, &MotionEvent { location: pos, serial, time });
+            pointer.frame(self);
+            self.dirty = true;
+            return;
+        }
         if self.locked() {
             // Nenhum app vê o mouse com a tela bloqueada.
             let pointer = self.seat.get_pointer().unwrap();
@@ -570,6 +599,14 @@ impl Glove {
             return;
         }
         if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {
+            return;
+        }
+        if self.expose_active() {
+            if state == ButtonState::Pressed {
+                let pos = self.pointer_pos;
+                self.expose_click(pos);
+                self.swallow_wake_release = true;
+            }
             return;
         }
         if self.locked() {
@@ -797,6 +834,9 @@ fn debug_keycode(k: &str) -> (u32, bool) {
         "/" => return (53, false),
         "|" => return (43, true),
         "f2" => return (60, false),
+        "f9" => return (67, false),
+        "f10" => return (68, false),
+        "f11" => return (87, false),
         "mute" => return (113, false),
         "voldown" => return (114, false),
         "volup" => return (115, false),

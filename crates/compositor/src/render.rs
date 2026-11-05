@@ -14,6 +14,8 @@ use smithay::{
         element::{
             texture::TextureRenderElement,
             surface::{render_elements_from_surface_tree, WaylandSurfaceRenderElement},
+            solid::{SolidColorRenderElement},
+            utils::RescaleRenderElement,
             AsRenderElements, Kind,
         },
         gles::GlesRenderer,
@@ -28,6 +30,9 @@ render_elements! {
     pub GloveElement<=GlesRenderer>;
     Surface=WaylandSurfaceRenderElement<GlesRenderer>,
     Texture=TextureRenderElement<GlesTexture>,
+    Scaled=RescaleRenderElement<WaylandSurfaceRenderElement<GlesRenderer>>,
+    ScaledTexture=RescaleRenderElement<TextureRenderElement<GlesTexture>>,
+    Solid=SolidColorRenderElement,
 }
 
 fn mem(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, scale: f64) -> Option<GloveElement> {
@@ -142,6 +147,9 @@ impl Glove {
             out.extend(mem(renderer, c.dock_pos(), b, sc));
         }
 
+        if self.expose.is_some() {
+            self.expose_elements(renderer, sc, &mut out);
+        } else {
         for w in self.space.elements().rev() {
             let Some(loc) = self.space.element_location(w) else { continue };
             let render_loc = loc - w.geometry().loc;
@@ -157,6 +165,7 @@ impl Glove {
                 }
             }
         }
+        }
 
         if let Some(b) = &c.desk_icon {
             out.extend(mem(renderer, self.desk_icon_rect().loc, b, sc));
@@ -169,6 +178,60 @@ impl Glove {
 }
 
 impl Glove {
+    /// Janelas no Exposé: encolhidas e movidas conforme a animação; fundo escurecido.
+    fn expose_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
+        use smithay::backend::renderer::element::Kind;
+        let Some(e) = &self.expose else { return };
+        // Título da janela sob o mouse, no meio dela.
+        if let (Some((i, t)), Some(_)) = (&e.label, e.hover) {
+            let r = e.current(*i);
+            let x = (r.loc.x + (r.size.w - t.size.w as f64) / 2.0).round() as i32;
+            let y = (r.loc.y + r.size.h / 2.0 - t.size.h as f64 / 2.0).round() as i32;
+            out.extend(mem(renderer, (x, y).into(), t, sc));
+        }
+        for w in self.space.elements().rev() {
+            let Some(i) = e.item_of(w) else { continue };
+            let r = e.current(i);
+            let from = e.items[i].from;
+            let s = (r.size.w / from.size.w).max(0.01);
+            let top = crate::shell::deco_top(w) as f64;
+            // Conteúdo: desenhado num ponto P e encolhido em volta dele.
+            let geo = w.geometry().loc.to_f64();
+            let px = r.loc.x - geo.x * s;
+            let py = r.loc.y + top * s - geo.y * s;
+            let origin = Point::<f64, Logical>::from((px, py)).to_physical(sc).to_i32_round();
+            let surf = w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, origin, Scale::from(sc), 1.0);
+            out.extend(surf.into_iter().map(|el| GloveElement::Scaled(RescaleRenderElement::from_element(el, origin, s))));
+            if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
+                if let Some(t) = &deco.borrow().title {
+                    let o = Point::<f64, Logical>::from((r.loc.x, r.loc.y)).to_physical(sc).to_i32_round();
+                    if let Some(buf) = t.upload(renderer) {
+                        let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
+                        let el = TextureRenderElement::from_texture_buffer(o.to_f64(), &buf, None, Some(src), Some(t.size), Kind::Unspecified);
+                        out.push(GloveElement::ScaledTexture(RescaleRenderElement::from_element(el, o, s)));
+                    }
+                }
+            }
+        }
+        // Fundo escurecido (menos no modo mesa); no modo app, as outras janelas ficam embaixo dele.
+        if e.mode != crate::expose::ExposeMode::Desktop {
+            out.push(GloveElement::Solid(SolidColorRenderElement::from_buffer(&e.dim, (0, 0), sc, 1.0, Kind::Unspecified)));
+            for w in self.space.elements().rev() {
+                if e.item_of(w).is_some() {
+                    continue;
+                }
+                let Some(loc) = self.space.element_location(w) else { continue };
+                let render_loc = loc - w.geometry().loc;
+                out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+                if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
+                    if let Some(t) = &deco.borrow().title {
+                        out.extend(mem(renderer, (loc.x, loc.y - TITLE_H).into(), t, sc));
+                    }
+                }
+            }
+        }
+    }
+
     fn cursor_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
         use smithay::input::pointer::{CursorImageStatus, CursorImageSurfaceData};
         let pos = self.pointer_pos;

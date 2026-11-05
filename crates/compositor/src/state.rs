@@ -105,6 +105,10 @@ pub struct Glove {
     pub startup: Option<crate::startup::Startup>,
     /// Busca Rápida.
     pub search: crate::search::Search,
+    /// Exposé em andamento.
+    pub expose: Option<crate::expose::Expose>,
+    /// O mouse saiu dos cantos desde o último disparo.
+    pub corner_armed: bool,
 }
 
 impl Glove {
@@ -176,6 +180,8 @@ impl Glove {
             swallow_wake_release: false,
             startup: None,
             search: Default::default(),
+            expose: None,
+            corner_armed: true,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

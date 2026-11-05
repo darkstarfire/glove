@@ -83,7 +83,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 3.9 **Busca Rápida** (como o Spotlight do 10.4): lupa no canto direito da barra de menu e
   Super+Espaço; acha apps instalados (`.desktop`), Preferências e arquivos (índice leve em segundo
   plano), Enter abre o primeiro resultado. Resolve o "abrir apps" apontado no uso real (M)
-- [ ] 3.10 **Exposé** (10.3): F9/F10/F11 ou canto da tela espalha todas as janelas, só as do app,
+- [x] 3.10 **Exposé** (10.3): F9/F10/F11 ou canto da tela espalha todas as janelas, só as do app,
   ou mostra a mesa; clique traz a janela à frente. Feito no compositor (M)
 
 ## Fase 4 — Dock completo

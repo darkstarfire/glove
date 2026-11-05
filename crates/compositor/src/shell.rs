@@ -1134,6 +1134,7 @@ impl Glove {
         self.prepare_force_quit();
         self.prepare_startup();
         self.prepare_search();
+        self.prepare_expose();
         self.prepare_lock();
         self.prepare_extras();
         self.prepare_wait_cursor();

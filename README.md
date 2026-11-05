@@ -126,6 +126,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+Alt+H | Ocultar os outros apps |
 | Super+↑ | Zoom |
 | Super+Tab | Trocar de janela |
+| F9 / F10 / F11 | Exposé: todas as janelas / só as do app / mostrar a mesa (de novo, ou Esc, volta) |
 | Super+, | Preferências |
 | Print | Captura de tela em ~/Imagens |
 | Ctrl+Alt+Esc | Forçar Encerrar (lista os apps; marca os que não respondem) |
@@ -147,6 +148,16 @@ Tela apagada e bloqueio (até o painel Economizador de Energia, etapa 7.4, só p
 [energy]
 screen_off_minutes = 10   # parado por N minutos apaga a tela (0 = nunca)
 require_password = true   # pede a senha ao voltar (tela apagada, Repouso, tampa fechada)
+```
+
+Cantos ativos do Exposé (vazio = nada; "todas", "app" ou "mesa"):
+
+```toml
+[hot_corners]
+top_left = ""
+top_right = ""
+bottom_left = ""
+bottom_right = "mesa"
 ```
 
 O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serviço

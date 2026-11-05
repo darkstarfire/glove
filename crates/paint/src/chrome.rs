@@ -1365,3 +1365,24 @@ pub fn quick_search(fonts: &Fonts, theme: &Theme, query: &str, caret: bool, rows
     c.stroke(rrect(x0, 0.0, w, h, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
     Some(c)
 }
+
+// ---------------------------------------------------------------------------
+// Exposé
+// ---------------------------------------------------------------------------
+
+/// Título da janela sob o mouse no Exposé: cápsula escura translúcida, texto branco.
+pub fn expose_label(fonts: &Fonts, text: &str, scale: f32) -> Option<Canvas> {
+    let px = 13.0;
+    let mut t = text.to_string();
+    while fonts.measure(&t, px, true) > 420.0 && t.chars().count() > 1 {
+        t.pop();
+    }
+    if t.len() < text.len() {
+        t.push('…');
+    }
+    let (w, h) = ((fonts.measure(&t, px, true) + 28.0).ceil(), 26.0);
+    let mut c = Canvas::new(w, h, scale)?;
+    c.fill(rrect(0.0, 0.0, w, h, h / 2.0), &solid(rgba(20, 20, 24, 170)));
+    fonts.draw(&mut c, &t, 14.0, 17.5, px, true, Color::WHITE);
+    Some(c)
+}
