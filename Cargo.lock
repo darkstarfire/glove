@@ -792,6 +792,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-dicionario"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-disks"
 version = "0.1.0"
 dependencies = [

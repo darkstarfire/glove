@@ -46,6 +46,8 @@ pub enum Icon {
     Info,
     /// Bola azul brilhante com um "?" (Ajuda).
     Help,
+    /// Livro escuro com "Aa" dourado (Dicionário).
+    Dictionary,
     /// Tela plana (preferência de Monitor).
     Display,
     Mouse,
@@ -159,6 +161,7 @@ impl Icon {
             "logs" => Icon::Logs,
             "info" => Icon::Info,
             "help" => Icon::Help,
+            "dictionary" => Icon::Dictionary,
             _ => Icon::Generic,
         }
     }
@@ -204,6 +207,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Logs => logs(pm, x, y, s),
         Icon::Info => info(pm, fonts, x, y, s),
         Icon::Help => help(pm, fonts, x, y, s),
+        Icon::Dictionary => dictionary(pm, fonts, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
@@ -1780,4 +1784,26 @@ fn help(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
     let px = r * 1.3;
     let tw = fonts.measure("?", px, true);
     fonts.draw(pm, "?", cx - tw / 2.0, cy + px * 0.36, px, true, rgba(255, 255, 255, 255));
+}
+
+/// Livro de capa escura com as páginas à mostra e "Aa" em dourado.
+fn dictionary(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.16, y + s * 0.08, s * 0.66, s * 0.82);
+    pm.fill(rrect(bx + s * 0.02, by + s * 0.03, bw + s * 0.04, bh, s * 0.04), &solid(rgba(0, 0, 0, 60)));
+    // Páginas (à direita e embaixo da capa).
+    pm.fill(rrect(bx + s * 0.06, by + s * 0.04, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(252, 250, 240, 255)), (1.0, rgba(214, 208, 190, 255))]));
+    for k in 1..5 {
+        pm.fill_rect(bx + bw + s * 0.06 - k as f32 * s * 0.012, by + s * 0.08, lw * 0.5, bh - s * 0.1, &solid(rgba(190, 184, 166, 255)));
+    }
+    // Capa.
+    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(70, 60, 64, 255)), (1.0, rgba(30, 24, 28, 255))]));
+    pm.fill_rect(bx, by, s * 0.08, bh, &solid(rgba(20, 16, 18, 255)));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(10, 8, 10, 255)), lw);
+    // Moldura dourada e "Aa".
+    let gold = rgba(222, 186, 92, 255);
+    pm.stroke(rrect(bx + s * 0.14, by + s * 0.1, bw - s * 0.22, bh - s * 0.2, s * 0.02), &solid(gold), lw);
+    let px = s * 0.3;
+    let tw = fonts.measure("Aa", px, true);
+    fonts.draw(pm, "Aa", bx + s * 0.04 + (bw - tw) / 2.0, by + bh * 0.58, px, true, gold);
 }

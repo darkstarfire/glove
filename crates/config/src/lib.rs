@@ -613,6 +613,7 @@ pub fn extra_apps() -> Vec<DockApp> {
         app("Registros", "logs", "glove-registros", "glove.Registros"),
         app("Informações do Sistema", "info", "glove-info", "glove.Info"),
         app("Ajuda", "help", "glove-ajuda", "glove.Ajuda"),
+        app("Dicionário", "dictionary", "glove-dicionario", "glove.Dicionario"),
     ]
 }
 

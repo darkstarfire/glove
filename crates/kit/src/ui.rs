@@ -1231,8 +1231,17 @@ impl<'a> Ui<'a> {
 
     /// Campo de busca num retângulo livre (altura recomendada: `SEARCH_H`).
     pub fn search_field_in(&mut self, r: Rect, value: &mut String, placeholder: &str) -> bool {
+        self.search_field_focus(r, value, placeholder, false)
+    }
+
+    /// Campo de busca; `autofocus` põe o cursor nele (ex.: ao abrir o app).
+    pub fn search_field_focus(&mut self, r: Rect, value: &mut String, placeholder: &str, autofocus: bool) -> bool {
         let id = self.next_id();
         let clear_id = self.next_id();
+        if autofocus {
+            self.mem.focus = Some(id);
+            self.mem.cursor.insert(id, value.chars().count());
+        }
         let clear = Rect::new(r.x + r.w - 19.0, r.y + (r.h - 14.0) / 2.0, 14.0, 14.0);
         // O "x" vem antes do campo, para o clique nele não mover o cursor.
         let mut cleared = false;

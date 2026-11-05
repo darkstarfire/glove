@@ -1,0 +1,9 @@
+[package]
+name = "glove-dicionario"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-kit = { path = "../kit" }
+flate2 = "1"
