@@ -48,6 +48,8 @@ pub enum Icon {
     Help,
     /// Livro escuro com "Aa" dourado (Dicionário).
     Dictionary,
+    /// Livro claro com um "F" grande e uma fita (Livro de Fontes).
+    FontBook,
     /// Tela plana (preferência de Monitor).
     Display,
     Mouse,
@@ -162,6 +164,7 @@ impl Icon {
             "info" => Icon::Info,
             "help" => Icon::Help,
             "dictionary" => Icon::Dictionary,
+            "fontbook" => Icon::FontBook,
             _ => Icon::Generic,
         }
     }
@@ -208,6 +211,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Info => info(pm, fonts, x, y, s),
         Icon::Help => help(pm, fonts, x, y, s),
         Icon::Dictionary => dictionary(pm, fonts, x, y, s),
+        Icon::FontBook => font_book(pm, fonts, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
@@ -1806,4 +1810,28 @@ fn dictionary(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
     let px = s * 0.3;
     let tw = fonts.measure("Aa", px, true);
     fonts.draw(pm, "Aa", bx + s * 0.04 + (bw - tw) / 2.0, by + bh * 0.58, px, true, gold);
+}
+
+/// Livro de capa clara com um "F" grande e uma fita vermelha.
+fn font_book(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.16, y + s * 0.08, s * 0.66, s * 0.82);
+    pm.fill(rrect(bx + s * 0.02, by + s * 0.03, bw + s * 0.04, bh, s * 0.04), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(rrect(bx + s * 0.06, by + s * 0.04, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(252, 252, 250, 255)), (1.0, rgba(210, 210, 206, 255))]));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(240, 236, 226, 255)), (1.0, rgba(196, 188, 170, 255))]));
+    pm.fill_rect(bx, by, s * 0.08, bh, &vgrad(by, by + bh, &[(0.0, rgba(150, 140, 120, 255)), (1.0, rgba(110, 100, 84, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(110, 100, 84, 255)), lw);
+    // Fita.
+    let rx = bx + bw * 0.74;
+    let mut pb = PathBuilder::new();
+    pb.move_to(rx, by);
+    pb.line_to(rx + s * 0.08, by);
+    pb.line_to(rx + s * 0.08, by + bh * 0.42);
+    pb.line_to(rx + s * 0.04, by + bh * 0.36);
+    pb.line_to(rx, by + bh * 0.42);
+    pb.close();
+    pm.fill(pb.finish(), &vgrad(by, by + bh * 0.4, &[(0.0, rgba(220, 50, 40, 255)), (1.0, rgba(160, 20, 20, 255))]));
+    let px = s * 0.5;
+    let tw = fonts.measure("F", px, true);
+    fonts.draw(pm, "F", bx + s * 0.04 + (bw - s * 0.1 - tw) / 2.0, by + bh * 0.7, px, true, rgba(40, 36, 32, 255));
 }

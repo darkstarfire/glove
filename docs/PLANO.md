@@ -158,7 +158,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 8.11 Vídeo (mpv com controles próprios), Registros, Informações do Sistema, Ajuda (M cada)
 - [ ] 8.12 Correio (por último) (G)
 - [x] 8.13 Dicionário (10.4) com dicionários livres (formato DICT/StarDict) (M)
-- [ ] 8.14 Livro de Fontes (10.3): ver, instalar e desativar fontes (M)
+- [x] 8.14 Livro de Fontes (10.3): ver, instalar e desativar fontes (M)
 
 ## Fase 9 — Sessão avançada
 

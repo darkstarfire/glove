@@ -126,6 +126,17 @@ impl Fonts {
         }
     }
 
+    /// Fonte de um arquivo (o `index` escolhe a fonte dentro de um .ttc).
+    pub fn load_file(path: &std::path::Path, index: u32) -> Option<Self> {
+        let data = std::fs::read(path).ok()?;
+        Some(new_fonts(FontVec::try_from_vec_and_index(data, index).ok()?, None))
+    }
+
+    /// Se a fonte principal tem o caractere (sem contar as reservas).
+    pub fn has_char(&self, ch: char) -> bool {
+        self.regular.glyph_id(ch).0 != 0
+    }
+
     /// Fonte de largura fixa (terminal).
     pub fn load_mono() -> Option<Self> {
         Some(new_fonts(load(MONO_REGULAR)?, load(MONO_BOLD)))

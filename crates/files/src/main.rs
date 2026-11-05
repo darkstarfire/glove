@@ -446,6 +446,7 @@ fn open_file(e: &Entry) {
     let mut cmd = match e.kind {
         Kind::Text if !chosen_other("text/plain") => Command::new(sibling("glove-edit")),
         Kind::Picture if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["png", "jpg", "jpeg"].contains(&x.to_ascii_lowercase().as_str())) && !chosen_other("image/png") => Command::new(sibling("glove-view")),
+        _ if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["ttf", "otf", "ttc"].contains(&x.to_ascii_lowercase().as_str())) && !chosen_other("font/ttf") => Command::new(sibling("glove-fontes")),
         Kind::Archive if expandable(&e.path) => {
             let mut c = Command::new(sibling("glove-arquivo"));
             c.arg("expandir");
