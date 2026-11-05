@@ -379,6 +379,8 @@ degradês lisos, luz fraca, a elipse cinza de sombra embaixo e pouco detalhe. Os
 reflexo forte, vidro, couro, madeira, papel), luz de cima com brilhos marcados, sombra no formato do
 objeto e muitos detalhes pequenos, ocupando o quadro todo.
 
+Ordem: primeiro desenhar todos os ícones no código; só depois de aprovados vira o tema (9.11.6).
+
 Regra: **arte própria**, com os ícones da Apple só como referência de estilo (luz, perspectiva,
 materiais, paleta). Nenhum arquivo deles entra no projeto, e nenhum desenho decalca ou copia a
 composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do Safari, a maçã).
@@ -393,6 +395,10 @@ composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do 
   Fontes, Acesso às Chaves, Utilitário de Rede, Discos, Preferências) (G)
 - [ ] 9.11.4 Documentos e tipos de arquivo, pastas especiais, discos, pendrives e servidores (M)
 - [ ] 9.11.5 Painéis das Preferências e os ícones pequenos (barra lateral, menus, mesa) (M)
+- [ ] 9.11.6 Depois de todos aprovados: **tema de ícones "Glove"** gerado a partir do código pelo
+  `glove-arte` (PNGs de 16 a 256 px, 1× e 2×, nomes no padrão freedesktop), instalado em
+  `~/.local/share/icons/Glove` e usado pelo Glove (desenhando na hora só o que muda, como o relógio do
+  Dock) e pelos apps GTK/Qt; publicado num **repositório próprio** no GitHub (M)
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
