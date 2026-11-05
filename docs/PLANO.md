@@ -129,7 +129,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 
 ## Fase 7 — Preferências
 
-- [ ] 7.1 Janela "Mostrar Todos": grade em 4 categorias, barra com favoritos, altura muda por painel (M)
+- [x] 7.1 Janela "Mostrar Todos": grade em 4 categorias, barra com favoritos, altura muda por painel (M)
 - [ ] 7.2 Refazer no layout da era: Aparência (destaque, duplo clique minimiza), Mesa, Dock, Teclado (+ aba Atalhos), Mouse, Trackpad, Monitores (M)
 - [ ] 7.3 Som: volume, mudo, entrada/saída (PipeWire/PulseAudio) (M)
 - [ ] 7.4 Economizador de Energia: repouso, tela, ações (logind, UPower) (M)

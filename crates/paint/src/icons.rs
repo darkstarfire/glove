@@ -43,6 +43,22 @@ pub enum Icon {
     ArchiveFile,
     PdfFile,
     CodeFile,
+    /// Painéis das Preferências.
+    Pref(PrefKind),
+}
+
+/// Ícones dos painéis das Preferências (desenhos próprios).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PrefKind {
+    /// Grade de painéis ("Mostrar Todos").
+    ShowAll,
+    /// Paleta com as cores de destaque.
+    Appearance,
+    /// Prateleira de vidro com ícones.
+    Dock,
+    Keyboard,
+    /// Teclado com a tecla de atalho acesa.
+    Shortcuts,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -137,6 +153,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
             folder(pm, x, y, s);
             folder_emblem(pm, k, x + s * 0.5, y + s * 0.6, s * 0.3);
         }
+        Icon::Pref(k) => pref_icon(pm, k, x, y, s),
         Icon::AudioFile => typed_page(pm, x, y, s, 1),
         Icon::VideoFile => typed_page(pm, x, y, s, 2),
         Icon::ArchiveFile => typed_page(pm, x, y, s, 3),
@@ -963,4 +980,127 @@ pub fn magnifier(pm: &mut Canvas, cx: f32, cy: f32, s: f32, color: Color) {
     pb.move_to(ox + r * 0.75, oy + r * 0.75);
     pb.line_to(cx + s * 0.42, cy + s * 0.42);
     pm.stroke_round(pb.finish(), &solid(color), (s * 0.18).max(1.8));
+}
+
+// ---------------------------------------------------------------------------
+// Painéis das Preferências
+// ---------------------------------------------------------------------------
+
+fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
+    match k {
+        PrefKind::ShowAll => pref_show_all(pm, x, y, s),
+        PrefKind::Appearance => pref_appearance(pm, x, y, s),
+        PrefKind::Dock => pref_dock(pm, x, y, s),
+        PrefKind::Keyboard => pref_keyboard(pm, x, y, s, false),
+        PrefKind::Shortcuts => pref_keyboard(pm, x, y, s, true),
+    }
+}
+
+/// Doze quadradinhos coloridos, como uma janela cheia de painéis.
+fn pref_show_all(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.14, s * 0.84, s * 0.72);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 45)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(200, 203, 210, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(110, 114, 124, 255)), lw);
+    let colors = [
+        rgba(70, 130, 230, 255), rgba(120, 190, 80, 255), rgba(240, 170, 50, 255), rgba(150, 100, 210, 255),
+        rgba(220, 80, 70, 255), rgba(90, 170, 210, 255), rgba(140, 145, 155, 255), rgba(60, 170, 140, 255),
+        rgba(230, 120, 170, 255), rgba(100, 110, 200, 255), rgba(200, 160, 90, 255), rgba(80, 140, 90, 255),
+    ];
+    let (cw, ch) = (bw * 0.17, bh * 0.22);
+    for (i, c) in colors.iter().enumerate() {
+        let (col, row) = ((i % 4) as f32, (i / 4) as f32);
+        let cx = bx + bw * 0.08 + col * (cw + bw * 0.06);
+        let cy = by + bh * 0.1 + row * (ch + bh * 0.08);
+        gel_rect(pm, cx, cy, cw, ch, s * 0.03, *c);
+    }
+}
+
+/// Paleta de pintor com as cores de destaque (azul e grafite) e um pincel.
+fn pref_appearance(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let mut pb = PathBuilder::new();
+    let (cx, cy) = (x + s * 0.48, y + s * 0.52);
+    pb.move_to(cx + s * 0.38, cy - s * 0.05);
+    pb.cubic_to(cx + s * 0.42, cy - s * 0.4, cx - s * 0.3, cy - s * 0.46, cx - s * 0.42, cy - s * 0.06);
+    pb.cubic_to(cx - s * 0.5, cy + s * 0.3, cx - s * 0.05, cy + s * 0.46, cx + s * 0.16, cy + s * 0.34);
+    pb.cubic_to(cx + s * 0.3, cy + s * 0.26, cx + s * 0.06, cy + s * 0.12, cx + s * 0.2, cy + s * 0.06);
+    pb.cubic_to(cx + s * 0.3, cy + s * 0.02, cx + s * 0.36, cy + s * 0.06, cx + s * 0.38, cy - s * 0.05);
+    pb.close();
+    let path = pb.finish();
+    pm.fill(path.clone().map(|p| p.transform(tiny_skia::Transform::from_translate(s * 0.015, s * 0.03))).flatten(), &solid(rgba(0, 0, 0, 45)));
+    pm.fill(path.clone(), &vgrad(y + s * 0.1, y + s * 0.9, &[(0.0, rgba(236, 214, 170, 255)), (1.0, rgba(196, 160, 104, 255))]));
+    pm.stroke(path, &solid(rgba(130, 98, 56, 255)), lw);
+    // Furo do polegar
+    pm.fill(oval(x + s * 0.24, y + s * 0.56, s * 0.12, s * 0.09), &solid(rgba(255, 255, 255, 0)));
+    pm.fill(oval(x + s * 0.24, y + s * 0.56, s * 0.12, s * 0.09), &vgrad(y + s * 0.56, y + s * 0.65, &[(0.0, rgba(150, 118, 70, 255)), (1.0, rgba(220, 196, 150, 255))]));
+    // Tintas
+    for (dx, dy, c) in [(0.3, 0.3, rgba(60, 120, 230, 255)), (0.5, 0.24, rgba(130, 138, 150, 255)), (0.68, 0.34, rgba(230, 70, 60, 255)), (0.44, 0.44, rgba(250, 200, 50, 255))] {
+        gel_circle(pm, x + s * dx, y + s * dy, s * 0.075, c);
+    }
+}
+
+/// Mesa azul com a prateleira de vidro e quatro ícones.
+fn pref_dock(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.12, s * 0.88, s * 0.72);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 45)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(60, 120, 210, 255)), (1.0, rgba(25, 60, 150, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(30, 50, 100, 255)), lw);
+    // Vidro em perspectiva
+    let (gy, gh) = (by + bh * 0.62, bh * 0.24);
+    let mut pb = PathBuilder::new();
+    pb.move_to(bx + bw * 0.14, gy);
+    pb.line_to(bx + bw * 0.86, gy);
+    pb.line_to(bx + bw * 0.95, gy + gh);
+    pb.line_to(bx + bw * 0.05, gy + gh);
+    pb.close();
+    pm.fill(pb.finish(), &vgrad(gy, gy + gh, &[(0.0, rgba(255, 255, 255, 150)), (1.0, rgba(220, 230, 245, 200))]));
+    let colors = [rgba(70, 140, 235, 255), rgba(120, 190, 80, 255), rgba(240, 170, 50, 255), rgba(150, 155, 165, 255)];
+    let iw = bw * 0.15;
+    for (i, c) in colors.iter().enumerate() {
+        let ix = bx + bw * 0.16 + i as f32 * (iw + bw * 0.04);
+        gel_rect(pm, ix, gy - iw * 0.55, iw, iw, s * 0.03, *c);
+    }
+}
+
+/// Teclado visto de cima; `hot` acende uma tecla (atalhos).
+fn pref_keyboard(pm: &mut Canvas, x: f32, y: f32, s: f32, hot: bool) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.04, y + s * 0.24, s * 0.92, s * 0.52);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(235, 237, 242, 255)), (1.0, rgba(175, 179, 188, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(100, 104, 114, 255)), lw);
+    let (kx, ky) = (bx + bw * 0.05, by + bh * 0.1);
+    let (cols, rows) = (8, 3);
+    let kw = (bw * 0.9 - (cols - 1) as f32 * s * 0.012) / cols as f32;
+    let kh = (bh * 0.62 - (rows - 1) as f32 * s * 0.012) / rows as f32;
+    for r in 0..rows {
+        for c in 0..cols {
+            let px = kx + c as f32 * (kw + s * 0.012);
+            let py = ky + r as f32 * (kh + s * 0.012);
+            let lit = hot && r == 1 && c == 1;
+            let (top, bot) = if lit { (rgba(120, 180, 250, 255), rgba(40, 100, 210, 255)) } else { (rgba(255, 255, 255, 255), rgba(214, 216, 222, 255)) };
+            pm.fill(rrect(px, py, kw, kh, s * 0.015), &vgrad(py, py + kh, &[(0.0, top), (1.0, bot)]));
+        }
+    }
+    // Barra de espaço
+    let sy = ky + rows as f32 * (kh + s * 0.012);
+    pm.fill(rrect(bx + bw * 0.25, sy, bw * 0.5, kh * 0.9, s * 0.015), &vgrad(sy, sy + kh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(214, 216, 222, 255))]));
+    if hot {
+        // Raio sobre o canto: "faz na hora".
+        let (lx, ly, l) = (x + s * 0.66, y + s * 0.02, s * 0.3);
+        let mut pb = PathBuilder::new();
+        pb.move_to(lx + l * 0.55, ly);
+        pb.line_to(lx + l * 0.1, ly + l * 0.58);
+        pb.line_to(lx + l * 0.45, ly + l * 0.58);
+        pb.line_to(lx + l * 0.3, ly + l);
+        pb.line_to(lx + l * 0.9, ly + l * 0.38);
+        pb.line_to(lx + l * 0.55, ly + l * 0.38);
+        pb.close();
+        let p = pb.finish();
+        pm.fill(p.clone(), &vgrad(ly, ly + l, &[(0.0, rgba(255, 230, 90, 255)), (1.0, rgba(240, 160, 30, 255))]));
+        pm.stroke(p, &solid(rgba(160, 100, 20, 255)), lw);
+    }
 }

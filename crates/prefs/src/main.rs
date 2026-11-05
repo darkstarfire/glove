@@ -5,16 +5,22 @@ use std::time::{Duration, Instant};
 
 use glove_config::{Config, OutputsInfo};
 use glove_kit::{
-    paint::{draw::*, icons::Icon, Variant},
-    run, App, Rect, Ticks, Ui, WindowOptions,
+    paint::{
+        draw::*,
+        icons::{Icon, PrefKind},
+        Color, Variant,
+    },
+    run, App, Glyph, Menu, MenuItem, Rect, Ticks, Ui, WindowOptions, SEGMENT_H, SEGMENT_W,
 };
 
 const W: u32 = 660;
 const H: u32 = 480;
 const TOOLBAR_H: f32 = 78.0;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum Pane {
+    /// A grade com todos os painéis ("Mostrar Todos").
+    Todos,
     Aparencia,
     Monitor,
     Dock,
@@ -25,16 +31,71 @@ enum Pane {
     Terminal,
 }
 
-const PANES: [(Pane, Icon, &str); 8] = [
-    (Pane::Aparencia, Icon::Window, "Aparência"),
-    (Pane::Monitor, Icon::Display, "Monitor"),
-    (Pane::Dock, Icon::Generic, "Dock"),
-    (Pane::Teclado, Icon::TextEditor, "Teclado"),
-    (Pane::Mouse, Icon::Mouse, "Mouse"),
-    (Pane::Trackpad, Icon::Trackpad, "Trackpad"),
-    (Pane::Atalhos, Icon::Settings, "Atalhos"),
-    (Pane::Terminal, Icon::Terminal, "Terminal"),
+/// Categorias da grade (como no 10.4). As vazias não aparecem.
+const CATEGORIES: [&str; 4] = ["Pessoal", "Hardware", "Internet e Rede", "Sistema"];
+
+struct PaneInfo {
+    pane: Pane,
+    /// Argumento do glove-prefs (e nome nos favoritos).
+    id: &'static str,
+    icon: Icon,
+    name: &'static str,
+    category: usize,
+    /// Palavras que a busca também encontra.
+    keywords: &'static str,
+}
+
+const PANES: [PaneInfo; 8] = [
+    PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema papel de parede fundo mesa imagem rolagem grafite azul" },
+    PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
+    PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitor", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
+    PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação" },
+    PaneInfo { pane: Pane::Atalhos, id: "atalhos", icon: Icon::Pref(PrefKind::Shortcuts), name: "Atalhos de Teclado", category: 1, keywords: "teclas combinação exposé captura bloquear forçar encerrar" },
+    PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade ponteiro rolagem clique duplo" },
+    PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
+    PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
+
+fn info(p: Pane) -> Option<&'static PaneInfo> {
+    PANES.iter().find(|i| i.pane == p)
+}
+
+/// Minúsculas e sem acentos (a busca acha "aparencia" e "Aparência").
+fn norm(s: &str) -> String {
+    s.chars()
+        .flat_map(|c| c.to_lowercase())
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ã' => 'a',
+            'é' | 'ê' => 'e',
+            'í' => 'i',
+            'ó' | 'ô' | 'õ' => 'o',
+            'ú' | 'ü' => 'u',
+            'ç' => 'c',
+            c => c,
+        })
+        .collect()
+}
+
+/// Painéis que combinam com a busca (todas as palavras, no nome ou nas palavras-chave).
+fn matches(query: &str) -> Vec<Pane> {
+    let words: Vec<String> = norm(query).split_whitespace().map(String::from).collect();
+    if words.is_empty() {
+        return Vec::new();
+    }
+    PANES
+        .iter()
+        .filter(|i| {
+            let hay = norm(&format!("{} {}", i.name, i.keywords));
+            words.iter().all(|w| hay.split_whitespace().any(|h| h.starts_with(w.as_str())))
+        })
+        .map(|i| i.pane)
+        .collect()
+}
+
+/// Grade: largura de cada célula e altura de cada faixa de categoria.
+const CELL_W: f32 = 80.0;
+const CELL_H: f32 = 78.0;
+const BAND_LABEL: f32 = 22.0;
 
 const SCALES: [f64; 8] = [0.0, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 /// Tempo para confirmar uma resolução nova antes de voltar à anterior.
@@ -81,6 +142,13 @@ struct Prefs {
     kbd_tab: usize,
     /// Grupos abertos no painel Atalhos.
     open_groups: [bool; 3],
+    /// Histórico das setas da barra.
+    back: Vec<Pane>,
+    forward: Vec<Pane>,
+    /// Texto da busca da barra.
+    search: String,
+    /// Menu de contexto de um painel da grade: (posição, painel).
+    ctx: Option<((f32, f32), Pane)>,
 }
 
 /// Grupos de atalhos (como no painel de atalhos do 10.4).
@@ -105,17 +173,46 @@ impl Prefs {
             }
         }
         images.sort();
-        let pane = match std::env::args().nth(1).as_deref() {
-            Some("dock") => Pane::Dock,
-            Some("teclado") => Pane::Teclado,
-            Some("mouse") => Pane::Mouse,
-            Some("monitor") => Pane::Monitor,
-            Some("trackpad") => Pane::Trackpad,
-            Some("atalhos") => Pane::Atalhos,
-            Some("terminal") => Pane::Terminal,
-            _ => Pane::Aparencia,
-        };
-        Self { config: Config::load(), pane, images, outputs: OutputsInfo::load(), confirm: None, kbd_tab: 0, open_groups: [true, false, false] }
+        let arg = std::env::args().nth(1).unwrap_or_default();
+        let pane = PANES.iter().find(|i| i.id == arg).map_or(Pane::Todos, |i| i.pane);
+        Self {
+            config: Config::load(),
+            pane,
+            images,
+            outputs: OutputsInfo::load(),
+            confirm: None,
+            kbd_tab: 0,
+            open_groups: [true, false, false],
+            back: Vec::new(),
+            forward: Vec::new(),
+            search: String::new(),
+            ctx: None,
+        }
+    }
+
+    /// Abre um painel, guardando o atual para a seta Voltar.
+    fn go(&mut self, p: Pane) {
+        if p != self.pane {
+            self.back.push(self.pane);
+            self.forward.clear();
+            self.pane = p;
+            self.ctx = None;
+        }
+    }
+
+    fn favorites(&self) -> Vec<&'static PaneInfo> {
+        self.config.prefs_favorites.iter().filter_map(|f| PANES.iter().find(|i| i.id == f)).collect()
+    }
+
+    fn toggle_favorite(&mut self, p: Pane) {
+        let Some(i) = info(p) else { return };
+        let favs = &mut self.config.prefs_favorites;
+        if let Some(at) = favs.iter().position(|f| f == i.id) {
+            favs.remove(at);
+        } else {
+            favs.push(i.id.to_string());
+        }
+        self.save();
     }
 
     fn save(&self) {
@@ -124,24 +221,181 @@ impl Prefs {
         }
     }
 
+    /// Barra: setas, "Mostrar Todos", os favoritos e a busca (10.2 + 10.4).
     fn toolbar(&mut self, ui: &mut Ui) {
         let w = ui.c.w;
         // Faixa clara com brilho, separada do conteúdo por uma linha.
         ui.c.fill_rect(0.0, 0.0, w, TOOLBAR_H, &vgrad(0.0, TOOLBAR_H, &[(0.0, rgba(250, 250, 250, 255)), (1.0, rgba(214, 214, 218, 255))]));
         ui.c.pinstripes(0.0, 0.0, w, TOOLBAR_H, rgba(255, 255, 255, 0), rgba(255, 255, 255, 70));
         ui.c.hline(0.0, TOOLBAR_H - 1.0, w, rgba(120, 120, 124, 255));
-        let total: f32 = PANES.iter().map(|(_, _, l)| (ui.text_width(l, 11.0, false) + 12.0).max(64.0)).sum::<f32>() + 6.0 * (PANES.len() as f32 - 1.0);
-        ui.area(Rect::new((w - total) / 2.0, 10.0, total, TOOLBAR_H), |ui| {
-            ui.spacing(6.0);
+        let mid = 10.0 + 58.0 / 2.0;
+        let nav = [!self.back.is_empty(), !self.forward.is_empty()];
+        match ui.segmented_in(Rect::new(12.0, mid - SEGMENT_H / 2.0, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::Back, Glyph::Forward], None, &nav) {
+            Some(0) => {
+                if let Some(p) = self.back.pop() {
+                    self.forward.push(self.pane);
+                    self.pane = p;
+                }
+            }
+            Some(_) => {
+                if let Some(p) = self.forward.pop() {
+                    self.back.push(self.pane);
+                    self.pane = p;
+                }
+            }
+            None => {}
+        }
+        let favs = self.favorites();
+        let mut chosen = None;
+        ui.area(Rect::new(12.0 + 2.0 * SEGMENT_W + 10.0, 10.0, w - 340.0, TOOLBAR_H), |ui| {
+            ui.spacing(4.0);
             ui.horizontal(|ui| {
-                for (p, icon, label) in PANES {
-                    if ui.icon_tile(icon, label, self.pane == p) && self.pane != p {
-                        self.pane = p;
-                        ui.redraw = true;
+                if ui.icon_tile(Icon::Pref(PrefKind::ShowAll), "Mostrar Todos", false) {
+                    chosen = Some(Pane::Todos);
+                }
+                // Divisória entre "Mostrar Todos" e os favoritos.
+                let r = ui.alloc(9.0, 58.0);
+                ui.c.vline(r.x + 4.0, r.y + 8.0, 42.0, rgba(0, 0, 0, 40));
+                ui.c.vline(r.x + 5.0, r.y + 8.0, 42.0, rgba(255, 255, 255, 160));
+                for f in &favs {
+                    // Os que não cabem antes da busca ficam de fora.
+                    if ui.available_width() < (ui.text_width(f.name, 11.0, false) + 12.0).max(64.0) {
+                        break;
+                    }
+                    if ui.icon_tile(f.icon, f.name, false) {
+                        chosen = Some(f.pane);
                     }
                 }
             });
         });
+        if let Some(p) = chosen {
+            self.search.clear();
+            self.go(p);
+            ui.redraw = true;
+        }
+        // Busca (como no 10.4): destaca os painéis que combinam.
+        let before = self.search.clone();
+        ui.search_field_in(Rect::new(w - 172.0, mid - glove_kit::SEARCH_H / 2.0, 160.0, glove_kit::SEARCH_H), &mut self.search, "Buscar");
+        if self.search != before && !self.search.trim().is_empty() && self.pane != Pane::Todos {
+            self.go(Pane::Todos);
+        }
+    }
+
+    /// A grade "Mostrar Todos": uma faixa por categoria, alternando o fundo.
+    fn show_all(&mut self, ui: &mut Ui) {
+        let w = ui.c.w;
+        let found = matches(&self.search);
+        let searching = !self.search.trim().is_empty();
+        let per_row = ((w - 40.0) / CELL_W).floor().max(1.0) as usize;
+        let mut y = TOOLBAR_H;
+        let mut cells: Vec<(Rect, &'static PaneInfo)> = Vec::new();
+        let mut band = 0;
+        for (ci, cat) in CATEGORIES.iter().enumerate() {
+            let items: Vec<&'static PaneInfo> = PANES.iter().filter(|i| i.category == ci).collect();
+            if items.is_empty() {
+                continue;
+            }
+            let rows = items.len().div_ceil(per_row);
+            let bh = BAND_LABEL + rows as f32 * CELL_H + 6.0;
+            if band % 2 == 1 {
+                ui.c.fill_rect(0.0, y, w, bh, &solid(rgba(236, 236, 238, 255)));
+            } else {
+                ui.c.fill_rect(0.0, y, w, bh, &solid(rgba(250, 250, 250, 255)));
+            }
+            ui.c.hline(0.0, y + bh - 1.0, w, rgba(205, 205, 208, 255));
+            ui.fonts.draw(ui.c, cat, 14.0, y + 17.0, 12.0, true, rgba(60, 60, 64, 255));
+            for (k, i) in items.into_iter().enumerate() {
+                let (col, row) = ((k % per_row) as f32, (k / per_row) as f32);
+                cells.push((Rect::new(20.0 + col * CELL_W, y + BAND_LABEL + row * CELL_H, CELL_W, CELL_H), i));
+            }
+            y += bh;
+            band += 1;
+        }
+        let draw_cell = |ui: &mut Ui, r: &Rect, i: &PaneInfo, ink: Color| {
+            glove_kit::paint::icons::draw(ui.c, ui.fonts, i.icon, r.x + (r.w - 32.0) / 2.0, r.y + 6.0, 32.0, None);
+            // Nome em até duas linhas, centrado.
+            for (n, l) in wrap2(ui, i.name, r.w - 6.0).iter().enumerate() {
+                let tw = ui.text_width(l, 11.0, false);
+                ui.fonts.draw(ui.c, l, r.x + (r.w - tw) / 2.0, r.y + 52.0 + n as f32 * 13.0, 11.0, false, ink);
+            }
+        };
+        for (r, i) in &cells {
+            draw_cell(ui, r, i, rgba(20, 20, 20, 255));
+        }
+        // Na busca, escurece tudo e acende os painéis encontrados.
+        if searching {
+            ui.c.fill_rect(0.0, TOOLBAR_H, w, y - TOOLBAR_H, &solid(rgba(0, 0, 0, 120)));
+            for (r, i) in cells.iter().filter(|(_, i)| found.contains(&i.pane)) {
+                let (cx, cy) = (r.x + r.w / 2.0, r.y + 30.0);
+                ui.c.fill(circle(cx, cy, 44.0), &radial(cx, cy, 44.0, &[(0.0, rgba(255, 255, 255, 255)), (0.6, rgba(255, 255, 255, 220)), (1.0, rgba(255, 255, 255, 0))]));
+                draw_cell(ui, r, i, rgba(20, 20, 20, 255));
+            }
+        }
+        let mut open = None;
+        // Com o menu de contexto aberto, os cliques são dele.
+        let menu_open = self.ctx.is_some();
+        for (r, i) in cells.iter().filter(|_| !menu_open) {
+            if ui.hit(*r).clicked {
+                open = Some(i.pane);
+            }
+            if ui.right_clicked(*r) {
+                self.ctx = Some((ui.pointer(), i.pane));
+            }
+        }
+        if searching && ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Enter) {
+            open = found.first().copied();
+        }
+        if let Some(p) = open {
+            self.search.clear();
+            self.go(p);
+            ui.redraw = true;
+        }
+        self.pane_menu(ui);
+        // A janela termina junto com a última faixa.
+        ui.alloc(w, y - TOOLBAR_H - 44.0);
+    }
+
+    /// Menu de contexto da grade: pôr ou tirar o painel da barra.
+    fn pane_menu(&mut self, ui: &mut Ui) {
+        let Some(((x, y), p)) = self.ctx else { return };
+        let Some(i) = info(p) else { return };
+        let fav = self.config.prefs_favorites.iter().any(|f| f == i.id);
+        let items = [format!("Abrir “{}”", i.name), if fav { "Tirar da Barra".to_string() } else { "Pôr na Barra".to_string() }];
+        let (mw, row) = (190.0, 20.0);
+        let mh = row * items.len() as f32 + 8.0;
+        let x = x.min(ui.c.w - mw - 4.0);
+        ui.c.fill_rect(x + 3.0, y + 4.0, mw, mh, &solid(rgba(0, 0, 0, 50)));
+        ui.c.fill_rect(x, y, mw, mh, &solid(rgba(246, 247, 249, 252)));
+        ui.c.stroke(rrect(x + 0.5, y + 0.5, mw - 1.0, mh - 1.0, 0.0), &solid(rgba(0, 0, 0, 80)), 1.0);
+        let mut chosen = None;
+        for (n, label) in items.iter().enumerate() {
+            let r = Rect::new(x, y + 4.0 + n as f32 * row, mw, row);
+            let h = ui.hit(r);
+            if h.hover {
+                ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(ui.theme.menu_hot));
+            }
+            ui.fonts.draw(ui.c, label, x + 16.0, r.y + 14.5, 13.0, false, if h.hover { glove_kit::paint::Color::WHITE } else { rgba(20, 20, 20, 255) });
+            if h.clicked {
+                chosen = Some(n);
+            }
+        }
+        match chosen {
+            Some(0) => {
+                self.ctx = None;
+                self.go(p);
+            }
+            Some(_) => {
+                self.ctx = None;
+                self.toggle_favorite(p);
+            }
+            None if ui.mouse_pressed() || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) => {
+                let (px, py) = ui.pointer();
+                if !(px >= x && px < x + mw && py >= y && py < y + mh) {
+                    self.ctx = None;
+                }
+            }
+            None => {}
+        }
     }
 
     fn aparencia(&mut self, ui: &mut Ui) {
@@ -559,9 +813,12 @@ thread_local! {
 
 impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
+        self.keyboard(ui);
         self.toolbar(ui);
         let (w, h) = (ui.c.w, ui.c.h);
+        ui.set_title(info(self.pane).map_or("Preferências", |i| i.name));
         let (_, used) = ui.area_size(Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0), |ui| match self.pane {
+            Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
             Pane::Monitor => self.monitor(ui),
             Pane::Trackpad => self.trackpad(ui),
@@ -573,6 +830,14 @@ impl App for Prefs {
         });
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
         ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, 720.0), true);
+    }
+
+    fn menus(&self) -> Vec<Menu> {
+        let mut items = vec![MenuItem::new("todos", "Mostrar Todos", "Ctrl+L"), MenuItem::Separator];
+        let mut sorted: Vec<&PaneInfo> = PANES.iter().collect();
+        sorted.sort_by_key(|i| norm(i.name));
+        items.extend(sorted.into_iter().map(|i| MenuItem::new(&format!("pane:{}", i.id), i.name, "").checked(self.pane == i.pane)));
+        vec![Menu::new("Visualizar", items)]
     }
 
     fn config_changed(&mut self) {
@@ -605,6 +870,44 @@ impl App for Prefs {
     }
 }
 
+impl Prefs {
+    /// Atalhos e ações do menu Visualizar.
+    fn keyboard(&mut self, ui: &mut Ui) {
+        let mut acts: Vec<String> = ui.menu_actions().to_vec();
+        if ui.keys().iter().any(|k| k.combo == "Ctrl+L") {
+            acts.push("todos".into());
+        }
+        if ui.keys().iter().any(|k| k.combo == "Ctrl+bracketleft") && !self.back.is_empty() {
+            let p = self.back.pop().unwrap();
+            self.forward.push(self.pane);
+            self.pane = p;
+        }
+        for a in acts {
+            if a == "todos" {
+                self.go(Pane::Todos);
+            } else if let Some(i) = a.strip_prefix("pane:").and_then(|id| PANES.iter().find(|i| i.id == id)) {
+                self.go(i.pane);
+            }
+            ui.redraw = true;
+        }
+    }
+}
+
+/// Quebra o nome em até duas linhas que caibam em `max`.
+fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
+    if ui.text_width(t, 11.0, false) <= max {
+        return vec![t.to_string()];
+    }
+    let words: Vec<&str> = t.split(' ').collect();
+    for cut in (1..words.len()).rev() {
+        let a = words[..cut].join(" ");
+        if ui.text_width(&a, 11.0, false) <= max {
+            return vec![a, words[cut..].join(" ")];
+        }
+    }
+    vec![t.to_string()]
+}
+
 fn main() {
     let opts = WindowOptions { title: "Preferências".into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true };
     if let Err(e) = run(opts, Prefs::new()) {
@@ -615,6 +918,15 @@ fn main() {
 #[cfg(test)]
 mod tests {
     /// Todo atalho do Glove aparece em algum grupo do painel Atalhos.
+    #[test]
+    fn busca_de_paineis() {
+        use super::{matches, Pane};
+        assert_eq!(matches("resolu"), vec![Pane::Monitor]);
+        assert_eq!(matches("aparencia"), vec![Pane::Aparencia]);
+        assert!(matches("rolagem").contains(&Pane::Mouse));
+        assert!(matches("").is_empty());
+    }
+
     #[test]
     fn grupos_cobrem_todos_os_atalhos() {
         for (action, _) in glove_config::ACTIONS {

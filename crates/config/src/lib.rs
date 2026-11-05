@@ -255,6 +255,13 @@ pub struct Config {
     /// Versão da lista padrão do Dock já aplicada (para acrescentar apps novos).
     #[serde(default)]
     pub dock_rev: u32,
+    /// Painéis na barra das Preferências (ao lado de "Mostrar Todos").
+    #[serde(default = "default_prefs_favorites")]
+    pub prefs_favorites: Vec<String>,
+}
+
+pub fn default_prefs_favorites() -> Vec<String> {
+    ["monitor", "dock", "teclado"].map(String::from).to_vec()
 }
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
@@ -337,6 +344,7 @@ impl Default for Config {
             hot_corners: HotCorners::default(),
             welcome_done: false,
             dock_rev: DOCK_REV,
+            prefs_favorites: default_prefs_favorites(),
         }
     }
 }
