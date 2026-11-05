@@ -36,6 +36,28 @@ pub enum Icon {
     Display,
     Mouse,
     Trackpad,
+    /// Pasta especial: a pasta azul com um desenho em relevo na frente.
+    SpecialFolder(FolderKind),
+    AudioFile,
+    VideoFile,
+    ArchiveFile,
+    PdfFile,
+    CodeFile,
+}
+
+/// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FolderKind {
+    Desktop,
+    Documents,
+    Downloads,
+    Pictures,
+    Music,
+    Videos,
+    Applications,
+    Home,
+    Public,
+    Templates,
 }
 
 impl Icon {
@@ -105,7 +127,187 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
+        Icon::SpecialFolder(k) => {
+            folder(pm, x, y, s);
+            folder_emblem(pm, k, x + s * 0.5, y + s * 0.6, s * 0.3);
+        }
+        Icon::AudioFile => typed_page(pm, x, y, s, 1),
+        Icon::VideoFile => typed_page(pm, x, y, s, 2),
+        Icon::ArchiveFile => typed_page(pm, x, y, s, 3),
+        Icon::PdfFile => typed_page(pm, x, y, s, 4),
+        Icon::CodeFile => typed_page(pm, x, y, s, 5),
     }
+}
+
+/// Desenho em relevo na frente da pasta: azul escuro com um brilho embaixo.
+fn folder_emblem(pm: &mut Canvas, k: FolderKind, cx: f32, cy: f32, s: f32) {
+    let dark = rgba(25, 75, 150, 200);
+    let light = rgba(200, 230, 255, 140);
+    for (dy, col) in [(s * 0.04, light), (0.0, dark)] {
+        emblem(pm, k, cx, cy + dy, s, col);
+    }
+}
+
+fn emblem(pm: &mut Canvas, k: FolderKind, cx: f32, cy: f32, s: f32, col: Color) {
+    let w = (s * 0.12).max(1.0);
+    let ink = solid(col);
+    let h = s / 2.0;
+    let mut pb = PathBuilder::new();
+    match k {
+        FolderKind::Desktop => {
+            pm.stroke(rrect(cx - h, cy - h * 0.75, s, h * 1.3, s * 0.06), &ink, w);
+            pm.fill_rect(cx - s * 0.08, cy + h * 0.55, s * 0.16, s * 0.14, &ink);
+            pm.fill_rect(cx - s * 0.25, cy + h * 0.82, s * 0.5, w, &ink);
+        }
+        FolderKind::Documents | FolderKind::Templates => {
+            pm.stroke(rrect(cx - h * 0.7, cy - h, s * 0.7, s, s * 0.04), &ink, w);
+            for i in 0..3 {
+                let y = cy - h * 0.45 + i as f32 * s * 0.22;
+                pm.fill_rect(cx - h * 0.45, y, s * 0.45, w * 0.8, &ink);
+            }
+        }
+        FolderKind::Downloads => {
+            pb.move_to(cx, cy - h);
+            pb.line_to(cx, cy + h * 0.35);
+            pb.move_to(cx - h * 0.55, cy - h * 0.15);
+            pb.line_to(cx, cy + h * 0.4);
+            pb.line_to(cx + h * 0.55, cy - h * 0.15);
+            pb.move_to(cx - h, cy + h * 0.5);
+            pb.line_to(cx - h, cy + h);
+            pb.line_to(cx + h, cy + h);
+            pb.line_to(cx + h, cy + h * 0.5);
+            pm.stroke_round(pb.finish(), &ink, w);
+        }
+        FolderKind::Pictures => {
+            pm.stroke(rrect(cx - h, cy - h * 0.75, s, h * 1.5, s * 0.06), &ink, w);
+            pb.move_to(cx - h * 0.8, cy + h * 0.6);
+            pb.line_to(cx - h * 0.2, cy - h * 0.1);
+            pb.line_to(cx + h * 0.2, cy + h * 0.3);
+            pb.line_to(cx + h * 0.45, cy + h * 0.05);
+            pb.line_to(cx + h * 0.8, cy + h * 0.6);
+            pb.close();
+            pm.fill(pb.finish(), &ink);
+            pm.fill(circle(cx + h * 0.45, cy - h * 0.35, s * 0.08), &ink);
+        }
+        FolderKind::Music => {
+            pm.fill(oval(cx - h * 0.75, cy + h * 0.35, s * 0.36, s * 0.26), &ink);
+            pm.fill_rect(cx - h * 0.05, cy - h, w, h * 1.55, &ink);
+            pb.move_to(cx - h * 0.05 + w, cy - h);
+            pb.quad_to(cx + h * 0.4, cy - h * 0.7, cx + h * 0.6, cy - h * 0.2);
+            pm.stroke_round(pb.finish(), &ink, w);
+        }
+        FolderKind::Videos => {
+            pm.stroke(rrect(cx - h, cy - h * 0.7, s, h * 1.4, s * 0.04), &ink, w);
+            for i in 0..4 {
+                let x = cx - h * 0.8 + i as f32 * s * 0.24;
+                pm.fill_rect(x, cy - h * 0.55, s * 0.1, s * 0.08, &ink);
+                pm.fill_rect(x, cy + h * 0.39, s * 0.1, s * 0.08, &ink);
+            }
+        }
+        FolderKind::Applications => {
+            // Um "A" de régua e lápis, sem letra.
+            pb.move_to(cx - h * 0.8, cy + h);
+            pb.line_to(cx, cy - h);
+            pb.line_to(cx + h * 0.8, cy + h);
+            pb.move_to(cx - h * 0.45, cy + h * 0.2);
+            pb.line_to(cx + h * 0.45, cy + h * 0.2);
+            pm.stroke_round(pb.finish(), &ink, w * 1.2);
+        }
+        FolderKind::Home => {
+            pb.move_to(cx - h, cy);
+            pb.line_to(cx, cy - h);
+            pb.line_to(cx + h, cy);
+            pb.move_to(cx - h * 0.7, cy - h * 0.2);
+            pb.line_to(cx - h * 0.7, cy + h);
+            pb.line_to(cx + h * 0.7, cy + h);
+            pb.line_to(cx + h * 0.7, cy - h * 0.2);
+            pm.stroke_round(pb.finish(), &ink, w);
+            pm.fill_rect(cx - s * 0.08, cy + h * 0.3, s * 0.16, h * 0.7, &ink);
+        }
+        FolderKind::Public => {
+            pm.fill(circle(cx, cy - h * 0.45, s * 0.17), &ink);
+            pm.fill(rrect4(cx - h * 0.65, cy + h * 0.05, s * 0.65, h * 0.95, [s * 0.3, s * 0.3, 0.0, 0.0]), &ink);
+        }
+    }
+}
+
+/// Página com o desenho do tipo: 1 música, 2 vídeo, 3 compactado, 4 PDF, 5 código.
+fn typed_page(pm: &mut Canvas, x: f32, y: f32, s: f32, kind: u8) {
+    page(pm, x, y, s, false);
+    let (cx, cy) = (x + s * 0.5, y + s * 0.55);
+    let w = (s / 28.0).max(1.0);
+    let mut pb = PathBuilder::new();
+    match kind {
+        1 => {
+            let ink = solid(rgba(130, 60, 180, 255));
+            pm.fill(oval(cx - s * 0.17, cy + s * 0.07, s * 0.16, s * 0.11), &ink);
+            pm.fill(oval(cx + s * 0.03, cy + s * 0.03, s * 0.16, s * 0.11), &ink);
+            pm.fill_rect(cx - s * 0.03, cy - s * 0.18, w * 1.3, s * 0.3, &ink);
+            pm.fill_rect(cx + s * 0.17, cy - s * 0.22, w * 1.3, s * 0.3, &ink);
+            pm.fill(rrect(cx - s * 0.03, cy - s * 0.24, s * 0.21, s * 0.07, 0.0), &ink);
+        }
+        2 => {
+            let ink = solid(rgba(40, 40, 50, 255));
+            pm.fill(rrect(cx - s * 0.2, cy - s * 0.15, s * 0.4, s * 0.3, s * 0.02), &ink);
+            for i in 0..4 {
+                let xx = cx - s * 0.17 + i as f32 * s * 0.1;
+                pm.fill_rect(xx, cy - s * 0.13, s * 0.05, s * 0.04, &solid(Color::WHITE));
+                pm.fill_rect(xx, cy + s * 0.09, s * 0.05, s * 0.04, &solid(Color::WHITE));
+            }
+            pb.move_to(cx - s * 0.05, cy - s * 0.06);
+            pb.line_to(cx + s * 0.08, cy);
+            pb.line_to(cx - s * 0.05, cy + s * 0.06);
+            pb.close();
+            pm.fill(pb.finish(), &solid(Color::WHITE));
+        }
+        3 => {
+            // Zíper descendo pelo meio da página.
+            let ink = solid(rgba(90, 90, 100, 255));
+            for i in 0..8 {
+                let yy = y + s * 0.12 + i as f32 * s * 0.07;
+                let xx = if i % 2 == 0 { cx - s * 0.06 } else { cx };
+                pm.fill_rect(xx, yy, s * 0.06, s * 0.035, &ink);
+            }
+            pm.fill(rrect(cx - s * 0.07, y + s * 0.68, s * 0.14, s * 0.12, s * 0.02), &ink);
+        }
+        4 => {
+            pm.fill(rrect(cx - s * 0.24, cy - s * 0.1, s * 0.48, s * 0.18, s * 0.03), &solid(rgba(200, 30, 30, 255)));
+            for i in 0..3 {
+                pm.fill_rect(cx - s * 0.2, cy + s * 0.14 + i as f32 * s * 0.06, s * 0.4, w, &solid(rgba(150, 150, 160, 255)));
+            }
+        }
+        _ => {
+            // < / >
+            let ink = solid(rgba(40, 110, 60, 255));
+            pb.move_to(cx - s * 0.08, cy - s * 0.1);
+            pb.line_to(cx - s * 0.2, cy);
+            pb.line_to(cx - s * 0.08, cy + s * 0.1);
+            pb.move_to(cx + s * 0.08, cy - s * 0.1);
+            pb.line_to(cx + s * 0.2, cy);
+            pb.line_to(cx + s * 0.08, cy + s * 0.1);
+            pb.move_to(cx + s * 0.04, cy - s * 0.14);
+            pb.line_to(cx - s * 0.04, cy + s * 0.14);
+            pm.stroke_round(pb.finish(), &ink, w * 1.4);
+        }
+    }
+}
+
+/// Marca de atalho: setinha curva num quadradinho branco, no canto de baixo à esquerda.
+pub fn alias_badge(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let b = s * 0.32;
+    let (bx, by) = (x + s * 0.08, y + s - b - s * 0.06);
+    pm.fill(rrect(bx, by, b, b, b * 0.18), &solid(Color::WHITE));
+    pm.stroke(rrect(bx, by, b, b, b * 0.18), &solid(rgba(60, 60, 66, 255)), (s / 64.0).max(0.8));
+    let mut pb = PathBuilder::new();
+    pb.move_to(bx + b * 0.25, by + b * 0.8);
+    pb.quad_to(bx + b * 0.25, by + b * 0.35, bx + b * 0.68, by + b * 0.35);
+    pm.stroke_round(pb.finish(), &solid(rgba(20, 20, 24, 255)), (b * 0.12).max(1.0));
+    let mut t = PathBuilder::new();
+    t.move_to(bx + b * 0.6, by + b * 0.16);
+    t.line_to(bx + b * 0.85, by + b * 0.35);
+    t.line_to(bx + b * 0.6, by + b * 0.54);
+    t.close();
+    pm.fill(t.finish(), &solid(rgba(20, 20, 24, 255)));
 }
 
 fn gloss(pm: &mut Canvas, x: f32, y: f32, w: f32, h: f32, r: f32) {

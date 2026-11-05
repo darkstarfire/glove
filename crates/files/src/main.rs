@@ -32,7 +32,12 @@ enum View {
 enum Kind {
     Folder,
     Text,
+    Code,
     Picture,
+    Audio,
+    Video,
+    Archive,
+    Pdf,
     Other,
 }
 
@@ -43,14 +48,21 @@ struct Entry {
     kind: Kind,
     size: u64,
     modified: Option<SystemTime>,
+    /// Atalho (link simbólico): ganha a setinha no ícone.
+    link: bool,
 }
 
 impl Entry {
     fn icon(&self) -> Icon {
         match self.kind {
-            Kind::Folder => Icon::Folder,
+            Kind::Folder => special_folder(&self.path).map(Icon::SpecialFolder).unwrap_or(Icon::Folder),
             Kind::Text => Icon::Document,
+            Kind::Code => Icon::CodeFile,
             Kind::Picture => Icon::Picture,
+            Kind::Audio => Icon::AudioFile,
+            Kind::Video => Icon::VideoFile,
+            Kind::Archive => Icon::ArchiveFile,
+            Kind::Pdf => Icon::PdfFile,
             Kind::Other => Icon::File,
         }
     }
@@ -58,8 +70,20 @@ impl Entry {
         match self.kind {
             Kind::Folder => "Pasta",
             Kind::Text => "Documento de texto",
+            Kind::Code => "Código-fonte",
             Kind::Picture => "Imagem",
+            Kind::Audio => "Áudio",
+            Kind::Video => "Vídeo",
+            Kind::Archive => "Arquivo compactado",
+            Kind::Pdf => "Documento PDF",
             Kind::Other => "Documento",
+        }
+    }
+    /// Desenha o ícone (com a marca de atalho, se for um link).
+    fn draw_icon(&self, c: &mut glove_kit::paint::draw::Canvas, fonts: &glove_kit::paint::Fonts, x: f32, y: f32, s: f32) {
+        icons::draw(c, fonts, self.icon(), x, y, s, None);
+        if self.link {
+            icons::alias_badge(c, x, y, s);
         }
     }
 }
@@ -70,8 +94,13 @@ fn kind_of(path: &Path, is_dir: bool) -> Kind {
     }
     let ext = path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
     match ext.as_str() {
-        "txt" | "md" | "rs" | "toml" | "json" | "c" | "h" | "cpp" | "py" | "sh" | "log" | "conf" | "ini" | "csv" | "xml" | "html" | "css" | "js" | "ts" | "yaml" | "yml" | "desktop" => Kind::Text,
+        "txt" | "md" | "log" | "conf" | "ini" | "csv" | "desktop" | "rtf" => Kind::Text,
+        "rs" | "toml" | "json" | "c" | "h" | "cpp" | "hpp" | "py" | "sh" | "xml" | "html" | "css" | "js" | "ts" | "yaml" | "yml" | "go" | "java" | "rb" | "lua" => Kind::Code,
         "png" | "jpg" | "jpeg" | "gif" | "bmp" | "webp" | "svg" | "tif" | "tiff" => Kind::Picture,
+        "mp3" | "ogg" | "oga" | "flac" | "wav" | "m4a" | "opus" | "aac" => Kind::Audio,
+        "mp4" | "mkv" | "webm" | "avi" | "mov" | "m4v" | "ogv" => Kind::Video,
+        "zip" | "tar" | "gz" | "tgz" | "xz" | "bz2" | "7z" | "rar" | "zst" | "deb" | "rpm" => Kind::Archive,
+        "pdf" => Kind::Pdf,
         _ => Kind::Other,
     }
 }
@@ -83,6 +112,23 @@ fn home() -> PathBuf {
 fn xdg_dir(names: &[&str]) -> PathBuf {
     let h = home();
     names.iter().map(|n| h.join(n)).find(|p| p.is_dir()).unwrap_or(h)
+}
+
+/// Pasta especial (Mesa, Documentos…) desta pasta, se for uma delas.
+/// As pastas do usuário são lidas uma vez só.
+fn special_folder(p: &Path) -> Option<icons::FolderKind> {
+    use icons::FolderKind as F;
+    static MAP: std::sync::OnceLock<Vec<(PathBuf, F)>> = std::sync::OnceLock::new();
+    let map = MAP.get_or_init(|| {
+        let mut v = vec![(home(), F::Home), (PathBuf::from("/usr/share/applications"), F::Applications)];
+        for (key, k) in [("DESKTOP", F::Desktop), ("DOCUMENTS", F::Documents), ("DOWNLOAD", F::Downloads), ("PICTURES", F::Pictures), ("MUSIC", F::Music), ("VIDEOS", F::Videos), ("PUBLICSHARE", F::Public), ("TEMPLATES", F::Templates)] {
+            if let Some(d) = user_dir(key) {
+                v.push((d, k));
+            }
+        }
+        v
+    });
+    map.iter().find(|(d, _)| d == p).map(|(_, k)| *k)
 }
 
 /// Pasta do usuário pelo ~/.config/user-dirs.dirs (ex.: "MUSIC" → ~/Músicas).
@@ -159,6 +205,7 @@ fn read_dir(dir: &Path, hidden: bool) -> Result<Vec<Entry>, String> {
                 return None;
             }
             let path = e.path();
+            let link = e.file_type().is_ok_and(|t| t.is_symlink());
             let meta = std::fs::metadata(&path).ok();
             let is_dir = meta.as_ref().is_some_and(|m| m.is_dir());
             Some(Entry {
@@ -167,6 +214,7 @@ fn read_dir(dir: &Path, hidden: bool) -> Result<Vec<Entry>, String> {
                 modified: meta.as_ref().and_then(|m| m.modified().ok()),
                 name,
                 path,
+                link,
             })
         })
         .collect();
@@ -598,6 +646,7 @@ impl Files {
             if here {
                 ui.c.fill_rect(row.x, row.y, row.w, row.h, &vgrad(row.y, row.y + row.h, &[(0.0, lighten(ui.theme.accent, 0.25)), (1.0, ui.theme.accent)]));
             }
+            let icon = if icon == Icon::Folder { special_folder(&path).map(Icon::SpecialFolder).unwrap_or(icon) } else { icon };
             icons::draw_bare(ui.c, ui.fonts, icon, r.x + 12.0, y + 3.0, 16.0, None);
             let col = if here { Color::WHITE } else { rgba(30, 30, 34, 255) };
             ui.fonts.draw(ui.c, &name, r.x + 34.0, y + 15.5, 12.0, here, col);
@@ -694,7 +743,7 @@ impl Files {
                     let col = if last { accent } else { rgba(200, 204, 212, 255) };
                     c.fill_rect(0.0, y, r.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(col, 0.15)), (1.0, col)]));
                 }
-                icons::draw(c, fonts, e.icon(), 6.0, y + 1.5, 16.0, None);
+                e.draw_icon(c, fonts, 6.0, y + 1.5, 16.0);
                 let ink = if on && last { Color::WHITE } else { rgba(20, 20, 20, 255) };
                 let name = fonts.ellipsize(&e.name, 12.0, false, r.w - 44.0);
                 fonts.draw(c, &name, 26.0, y + 14.0, 12.0, false, ink);
@@ -721,7 +770,7 @@ impl Files {
     fn preview(&mut self, ui: &mut Ui, e: &Entry, r: Rect) {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         let cx = r.x + r.w / 2.0;
-        icons::draw(ui.c, ui.fonts, e.icon(), cx - 48.0, r.y + 24.0, 96.0, None);
+        e.draw_icon(ui.c, ui.fonts, cx - 48.0, r.y + 24.0, 96.0);
         let mut y = r.y + 140.0;
         let name = ui.fonts.ellipsize(&e.name, 13.0, true, r.w - 20.0);
         let tw = ui.text_width(&name, 13.0, true);
@@ -831,7 +880,7 @@ impl Files {
                 if on {
                     c.fill(rrect(x + cw / 2.0 - 30.0, y, 60.0, 56.0, 6.0), &solid(rgba(0, 0, 0, 40)));
                 }
-                icons::draw(c, fonts, e.icon(), x + cw / 2.0 - 26.0, y + 2.0, 52.0, None);
+                e.draw_icon(c, fonts, x + cw / 2.0 - 26.0, y + 2.0, 52.0);
                 let name = fonts.ellipsize(&e.name, 12.0, false, cw - 8.0);
                 let tw = fonts.measure(&name, 12.0, false);
                 let (lx, ly) = (x + (cw - tw) / 2.0, y + 72.0);

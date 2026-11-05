@@ -81,6 +81,21 @@ fn main() {
     for i in 0..36u64 {
         avatar(&mut screen, 20.0 + (i % 12) as f32 * 70.0, h - 360.0 + (i / 12) as f32 * 70.0, 60.0, i * 7 % 6 + (i / 6) * 6);
     }
+    // Pastas especiais, tipos de arquivo e marca de atalho.
+    {
+        use glove_paint::icons::FolderKind as F;
+        let list = [
+            Icon::SpecialFolder(F::Desktop), Icon::SpecialFolder(F::Documents), Icon::SpecialFolder(F::Downloads), Icon::SpecialFolder(F::Pictures),
+            Icon::SpecialFolder(F::Music), Icon::SpecialFolder(F::Videos), Icon::SpecialFolder(F::Applications), Icon::SpecialFolder(F::Home),
+            Icon::SpecialFolder(F::Public), Icon::AudioFile, Icon::VideoFile, Icon::ArchiveFile, Icon::PdfFile, Icon::CodeFile,
+        ];
+        for (i, ic) in list.iter().enumerate() {
+            let x = 20.0 + i as f32 * 74.0;
+            glove_paint::icons::draw_bare(&mut screen, &fonts, *ic, x, 300.0, 64.0, None);
+        }
+        glove_paint::icons::draw_bare(&mut screen, &fonts, Icon::Document, 20.0, 380.0, 64.0, None);
+        glove_paint::icons::alias_badge(&mut screen, 20.0, 380.0, 64.0);
+    }
     screen.pm.save_png(&out).unwrap();
     println!("salvo em {out}");
 }

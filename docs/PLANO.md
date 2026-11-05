@@ -110,7 +110,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 
 - [x] 6.1 Janela do Tiger: barra de ferramentas unida ao título em metal, Voltar/Avançar, segmentado de visualização, engrenagem, busca em cápsula e **barra lateral** (discos, Mesa, Início, Aplicativos, Documentos…) (G)
 - [x] 6.2 Lixeira: Esvaziar com alerta, Devolver, ícone cheia/vazia no Dock (M)
-- [ ] 6.3 Ícones de pastas especiais (Mesa, Documentos, Música, Imagens, Vídeos…), de tipos e emblema de atalho (M)
+- [x] 6.3 Ícones de pastas especiais (Mesa, Documentos, Música, Imagens, Vídeos…), de tipos e emblema de atalho (M)
 - [ ] 6.4 Copiar/colar/mover/arrastar com janela de progresso e alerta de substituição (G)
 - [ ] 6.5 Renomear no lugar, menu de contexto, Duplicar, Criar atalho (M)
 - [ ] 6.6 Obter Informações (Ctrl+I) com seções Geral, Nome, Abrir com, Permissões, Comentários (G)
