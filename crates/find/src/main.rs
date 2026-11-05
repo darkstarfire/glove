@@ -6,20 +6,75 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use glove_kit::{
-    paint::{draw::*, icons::{self, Icon}, Color},
+    paint::{draw::*, icons::{self, Icon}},
     run,
     ui::Key,
-    App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    App, Column, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, Ui, WindowOptions,
 };
 
-const ROW_H: f32 = 20.0;
+/// Altura do painel de caminho (embaixo dos resultados).
+const PATH_H: f32 = 96.0;
 const MAX_RESULTS: usize = 5000;
 const SKIP: [&str; 5] = ["/proc", "/sys", "/dev", "/run", "/snap"];
 
+/// Um resultado, já com o que as colunas mostram.
+#[derive(Clone)]
+struct Hit {
+    path: PathBuf,
+    dir: bool,
+    size: u64,
+    modified: Option<std::time::SystemTime>,
+}
+
 #[derive(Default)]
 struct Shared {
-    results: Vec<PathBuf>,
+    results: Vec<Hit>,
     done: bool,
+}
+
+fn human_size(b: u64) -> String {
+    let f = b as f64;
+    let s = if f >= 1e9 { format!("{:.1} GB", f / 1e9) } else if f >= 1e6 { format!("{:.1} MB", f / 1e6) } else if f >= 1e3 { format!("{:.0} KB", f / 1e3) } else { format!("{b} bytes") };
+    s.replace('.', ",")
+}
+
+/// "Hoje, 14:30", "Ontem, 09:05" ou "05/11/2026, 14:30".
+fn human_date(t: Option<std::time::SystemTime>) -> String {
+    let Some(t) = t else { return "--".into() };
+    let secs = t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    let tm = |s: i64| unsafe {
+        let mut tm: libc::tm = std::mem::zeroed();
+        let t = s as libc::time_t;
+        libc::localtime_r(&t, &mut tm);
+        tm
+    };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    let (a, n, y) = (tm(secs), tm(now), tm(now - 86_400));
+    let same = |x: &libc::tm, z: &libc::tm| x.tm_year == z.tm_year && x.tm_yday == z.tm_yday;
+    let hm = format!("{:02}:{:02}", a.tm_hour, a.tm_min);
+    if same(&a, &n) {
+        format!("Hoje, {hm}")
+    } else if same(&a, &y) {
+        format!("Ontem, {hm}")
+    } else {
+        format!("{:02}/{:02}/{}, {hm}", a.tm_mday, a.tm_mon + 1, a.tm_year + 1900)
+    }
+}
+
+fn kind_name(h: &Hit) -> &'static str {
+    if h.dir {
+        return "Pasta";
+    }
+    match h.path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref() {
+        Some("png" | "jpg" | "jpeg" | "gif" | "webp" | "svg") => "Imagem",
+        Some("txt" | "md") => "Documento de texto",
+        Some("rs" | "py" | "c" | "h" | "js" | "sh" | "toml" | "json") => "Código",
+        Some("pdf") => "PDF",
+        Some("mp3" | "ogg" | "flac" | "wav") => "Áudio",
+        Some("mp4" | "mkv" | "webm" | "avi") => "Vídeo",
+        Some("zip" | "gz" | "xz" | "tar" | "7z") => "Arquivo compactado",
+        _ => "Documento",
+    }
 }
 
 struct Find {
@@ -31,9 +86,10 @@ struct Find {
     /// Geração da busca atual (buscas antigas param ao ver que mudou).
     generation: Arc<AtomicU64>,
     searching: bool,
-    view: Vec<PathBuf>,
+    view: Vec<Hit>,
+    /// Índice em `view` do item escolhido.
     selected: Option<usize>,
-    scroll: f32,
+    table: TableState,
     wake_r: OwnedFd,
     wake_w: Arc<OwnedFd>,
 }
@@ -98,7 +154,8 @@ fn walk(root: PathBuf, needle: String, geracao: u64, current: Arc<AtomicU64>, sh
             let path = e.path();
             let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
             if name.to_lowercase().contains(&needle) {
-                batch.push(path.clone());
+                let md = e.metadata().ok();
+                batch.push(Hit { path: path.clone(), dir: is_dir, size: md.as_ref().map(|m| m.len()).unwrap_or(0), modified: md.and_then(|m| m.modified().ok()) });
                 found += 1;
             }
             if is_dir && !SKIP.iter().any(|s| path == Path::new(s)) {
@@ -160,7 +217,7 @@ impl Find {
             searching: false,
             view: Vec::new(),
             selected: None,
-            scroll: 0.0,
+            table: TableState::sorted_by(0, true),
             wake_r: r,
             wake_w: Arc::new(w),
         }
@@ -172,7 +229,7 @@ impl Find {
         self.shared = Arc::default();
         self.view.clear();
         self.selected = None;
-        self.scroll = 0.0;
+        self.table.scroll = 0.0;
         if q.is_empty() {
             self.searching = false;
             return;
@@ -238,53 +295,99 @@ impl App for Find {
             acts.push("search".into());
         }
 
-        // Resultados
-        let content = self.view.len() as f32 * ROW_H;
-        let area = ui.scroll_area(Rect::new(0.0, bar, w, h - bar - 22.0), &mut self.scroll, content, ROW_H);
-        let first = (self.scroll / ROW_H).floor() as usize;
-        let count = (area.h / ROW_H).ceil() as usize + 1;
-        for i in first..(first + count).min(self.view.len()) {
-            let y = area.y + i as f32 * ROW_H - self.scroll;
-            let (top, bot) = (y.max(area.y), (y + ROW_H).min(area.y + area.h));
-            if bot > top {
-                let r = ui.hit(Rect::new(0.0, top, area.w, bot - top));
-                if r.pressed {
-                    self.selected = Some(i);
-                    if r.double {
-                        acts.push("open".into());
+        // Resultados numa tabela ordenável (Nome, Data, Tamanho, Tipo).
+        let cols = [Column::new("Nome", 0.4), Column::new("Data de modificação", 0.26), Column::new("Tamanho", 0.14).right(), Column::new("Tipo", 0.2)];
+        let mut order: Vec<usize> = (0..self.view.len()).collect();
+        let (col, asc) = self.table.sort.unwrap_or((0, true));
+        let v = &self.view;
+        order.sort_by(|&a, &b| {
+            let (x, y) = (&v[a], &v[b]);
+            let o = match col {
+                1 => x.modified.cmp(&y.modified),
+                2 => x.size.cmp(&y.size),
+                3 => kind_name(x).cmp(kind_name(y)),
+                _ => x.path.file_name().map(|n| n.to_string_lossy().to_lowercase()).cmp(&y.path.file_name().map(|n| n.to_string_lossy().to_lowercase())),
+            };
+            if asc { o } else { o.reverse() }
+        });
+        let rows: Vec<TableRow> = order
+            .iter()
+            .map(|&i| {
+                let h = &v[i];
+                TableRow {
+                    cells: vec![
+                        h.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                        human_date(h.modified),
+                        if h.dir { "--".into() } else { human_size(h.size) },
+                        kind_name(h).to_string(),
+                    ],
+                    icon: Some(icon_for(&h.path)),
+                    ..TableRow::default()
+                }
+            })
+            .collect();
+        let sel_row = self.selected.and_then(|s| order.iter().position(|&i| i == s));
+        let has_sel = self.selected.is_some();
+        let path_h = if has_sel { PATH_H } else { 0.0 };
+        let area = Rect::new(0.0, bar, w, h - bar - 22.0 - path_h);
+        // Setas mudam a seleção.
+        for k in ui.keys() {
+            let n = order.len();
+            if n == 0 {
+                break;
+            }
+            let next = match (k.key, sel_row) {
+                (Key::Down, Some(r)) => Some((r + 1).min(n - 1)),
+                (Key::Up, Some(r)) => Some(r.saturating_sub(1)),
+                (Key::Down | Key::Up, None) => Some(0),
+                _ => None,
+            };
+            if let Some(r) = next {
+                self.selected = Some(order[r]);
+                self.table.reveal(r);
+            }
+        }
+        let resp = ui.table(area, &cols, &rows, sel_row, &mut self.table, &TableStyle::default());
+        if let Some(r) = resp.pressed {
+            self.selected = Some(order[r]);
+        }
+        if let Some(r) = resp.double {
+            self.selected = Some(order[r]);
+            acts.push("open".into());
+        }
+        if self.view.is_empty() {
+            let msg = if self.searching { "Buscando…" } else { "Digite parte do nome e pressione Enter." };
+            let tw = ui.text_width(msg, 13.0, false);
+            ui.fonts.draw(ui.c, msg, (w - tw) / 2.0, area.y + area.h / 2.0, 13.0, false, rgba(140, 140, 140, 255));
+        }
+
+        // Painel de caminho: da raiz até o item escolhido, cada pasta clicável (como no 10.4).
+        if let Some(h) = self.selected.and_then(|i| self.view.get(i)).cloned() {
+            let py = area.y + area.h;
+            ui.c.fill_rect(0.0, py, w, PATH_H, &solid(rgba(244, 244, 246, 255)));
+            ui.c.hline(0.0, py, w, rgba(150, 150, 156, 255));
+            let comps: Vec<PathBuf> = h.path.ancestors().map(Path::to_path_buf).collect::<Vec<_>>().into_iter().rev().collect();
+            // Só as últimas que cabem (a raiz sobe primeiro).
+            let fit = ((PATH_H - 8.0) / 15.0) as usize;
+            let skip = comps.len().saturating_sub(fit);
+            for (k, c) in comps.iter().skip(skip).enumerate() {
+                let y = py + 6.0 + k as f32 * 15.0;
+                let x = 10.0 + k as f32 * 14.0;
+                let is_item = *c == h.path;
+                let name = if c.as_os_str() == "/" { "Computador".to_string() } else { c.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() };
+                let icon = if is_item { icon_for(&h.path) } else if c.as_os_str() == "/" { Icon::Disk } else { Icon::Folder };
+                icons::draw(ui.c, ui.fonts, icon, x, y, 13.0, None);
+                ui.fonts.draw(ui.c, &name, x + 17.0, y + 11.0, 11.0, is_item, rgba(30, 30, 34, 255));
+                let tw = ui.text_width(&name, 11.0, is_item);
+                if ui.hit(Rect::new(x, y, tw + 20.0, 15.0)).double {
+                    if c.is_dir() {
+                        let _ = std::process::Command::new(sibling("glove-files")).arg(c).spawn();
+                    } else {
+                        open(c);
                     }
                 }
             }
         }
-        let (view, sel, off, accent) = (&self.view, self.selected, self.scroll, ui.theme.accent);
-        let home_s = home().to_string_lossy().into_owned();
-        ui.clipped(9, area, |c, fonts| {
-            c.clear(Color::WHITE);
-            for i in first..(first + count).min(view.len()) {
-                let p = &view[i];
-                let y = i as f32 * ROW_H - off;
-                let on = sel == Some(i);
-                if on {
-                    c.fill_rect(0.0, y, area.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(accent, 0.15)), (1.0, accent)]));
-                } else if i % 2 == 1 {
-                    c.fill_rect(0.0, y, area.w, ROW_H, &solid(rgba(237, 243, 254, 255)));
-                }
-                let ink = if on { Color::WHITE } else { rgba(20, 20, 20, 255) };
-                let dim = if on { rgba(230, 236, 255, 255) } else { rgba(110, 110, 110, 255) };
-                icons::draw(c, fonts, icon_for(p), 8.0, y + 2.0, 16.0, None);
-                let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                let name = fonts.ellipsize(&name, 12.0, false, area.w * 0.4 - 30.0);
-                fonts.draw(c, &name, 30.0, y + 14.0, 12.0, false, ink);
-                let parent = p.parent().map(|d| d.to_string_lossy().replacen(&home_s, "~", 1)).unwrap_or_default();
-                let parent = fonts.ellipsize(&parent, 11.0, false, area.w * 0.6 - 16.0);
-                fonts.draw(c, &parent, area.w * 0.4 + 8.0, y + 14.0, 11.0, false, dim);
-            }
-            if view.is_empty() {
-                let msg = "Digite parte do nome e pressione Enter.";
-                let tw = fonts.measure(msg, 13.0, false);
-                fonts.draw(c, msg, (area.w - tw) / 2.0, area.h / 2.0, 13.0, false, rgba(140, 140, 140, 255));
-            }
-        });
 
         // Status
         let sy = h - 22.0;
@@ -311,12 +414,12 @@ impl App for Find {
             match a.as_str() {
                 "search" => self.start(),
                 "open" => {
-                    if let Some(p) = self.selected.and_then(|i| self.view.get(i)) {
-                        open(p);
+                    if let Some(h) = self.selected.and_then(|i| self.view.get(i)) {
+                        open(&h.path);
                     }
                 }
                 "reveal" => {
-                    if let Some(p) = self.selected.and_then(|i| self.view.get(i)).and_then(|p| p.parent()) {
+                    if let Some(p) = self.selected.and_then(|i| self.view.get(i)).and_then(|h| h.path.parent()) {
                         let _ = std::process::Command::new(sibling("glove-files")).arg(p).spawn();
                     }
                 }
@@ -342,7 +445,7 @@ impl App for Find {
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Busca".into(), app_id: "glove.Find".into(), size: (620, 420), fixed: false };
+    let opts = WindowOptions { title: "Busca".into(), app_id: "glove.Find".into(), size: (680, 480), fixed: false };
     if let Err(e) = run(opts, Find::from_args()) {
         eprintln!("glove-find: {e}");
     }
