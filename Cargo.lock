@@ -2177,6 +2177,7 @@ dependencies = [
  "drm",
  "drm-ffi",
  "drm-fourcc",
+ "encoding_rs",
  "errno",
  "gbm",
  "gl_generator",
@@ -2189,6 +2190,7 @@ dependencies = [
  "profiling",
  "rand",
  "rustix 1.1.6",
+ "scopeguard",
  "sha2",
  "smallvec",
  "tempfile",
@@ -2203,6 +2205,7 @@ dependencies = [
  "wayland-protocols-wlr",
  "wayland-server",
  "winit",
+ "x11rb",
  "xkbcommon",
 ]
 

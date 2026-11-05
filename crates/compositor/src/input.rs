@@ -167,6 +167,13 @@ impl Glove {
                 let y = it.next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
                 self.on_motion((x, y).into(), t);
             }
+            // "run comando": abre um programa nesta sessão (como o Dock abriria).
+            Some("run") => {
+                let cmd = line.splitn(2, ' ').nth(1).unwrap_or("").trim();
+                if !cmd.is_empty() {
+                    self.spawn(cmd);
+                }
+            }
             Some("down") => self.on_button(BTN_LEFT, ButtonState::Pressed, t),
             Some("up") => self.on_button(BTN_LEFT, ButtonState::Released, t),
             Some("type") => {
@@ -967,6 +974,30 @@ impl Glove {
     }
 }
 
+impl Glove {
+    /// Arrastar a janela a pedido do app (apps X11 que movem a si mesmos).
+    pub fn start_move(&mut self, window: smithay::desktop::Window, serial: smithay::utils::Serial) {
+        let Some(pointer) = self.seat.get_pointer() else { return };
+        let Some(loc) = self.space.element_location(&window) else { return };
+        let pos = pointer.current_location();
+        let min_y = glove_paint::theme::MENUBAR_H + deco_top(&window);
+        let start_data = GrabStartData { focus: None, button: 0x110, location: pos };
+        let grab = MoveSurfaceGrab { start_data, window, initial_window_location: loc, min_y };
+        pointer.set_grab(self, grab, serial, Focus::Clear);
+    }
+
+    /// Redimensionar a pedido do app (apps X11 com bordas próprias).
+    pub fn start_resize(&mut self, window: smithay::desktop::Window, edges: crate::grabs::ResizeEdge, serial: smithay::utils::Serial) {
+        let Some(pointer) = self.seat.get_pointer() else { return };
+        let Some(loc) = self.space.element_location(&window) else { return };
+        let size = window.geometry().size;
+        let pos = pointer.current_location();
+        let start_data = GrabStartData { focus: None, button: 0x110, location: pos };
+        let grab = ResizeSurfaceGrab::start(start_data, window, edges, Rectangle::new(loc, size));
+        pointer.set_grab(self, grab, serial, Focus::Clear);
+    }
+}
+
 /// Código evdev de uma tecla (layout EUA), para o modo de depuração.
 fn debug_keycode(k: &str) -> (u32, bool) {
     const ROW: [(&str, u32); 47] = [
@@ -979,6 +1010,9 @@ fn debug_keycode(k: &str) -> (u32, bool) {
     ];
     if k == "end" {
         return (107, false);
+    }
+    if k == "delete" {
+        return (111, false);
     }
     if k == "." {
         return (52, false);

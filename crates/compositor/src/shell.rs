@@ -62,6 +62,9 @@ impl Tex {
 
 /// Janela de tamanho fixo (mínimo = máximo): sem zoom.
 pub fn fixed_size(w: &Window) -> bool {
+    if let Some(x) = w.x11_surface() {
+        return x.min_size().is_some_and(|m| m.w > 0 && Some(m) == x.max_size());
+    }
     let Some(t) = w.toplevel() else { return false };
     let (min, max) = with_states(t.wl_surface(), |st| {
         let mut c = st.cached_state.get::<SurfaceCachedState>();
@@ -86,6 +89,12 @@ pub fn window_surface(w: &Window) -> Option<&WlSurface> {
 }
 
 pub fn window_info(w: &Window) -> (String, String) {
+    // App X11: o título e a "classe" (que faz as vezes do app_id).
+    if let Some(x) = w.x11_surface() {
+        let class = x.class();
+        let id = if class.is_empty() { x.instance() } else { class };
+        return (x.title(), canonical_app_id(id));
+    }
     let Some(s) = window_surface(w) else { return Default::default() };
     let (title, id) = with_states(s, |st| {
         st.data_map
@@ -106,6 +115,10 @@ pub fn canonical_app_id(id: String) -> String {
 
 /// A janela pediu (e recebeu) bordas desenhadas pelo Glove?
 pub fn is_ssd(w: &Window) -> bool {
+    // App X11: moldura do Glove, menos quando o app desenha a dele.
+    if let Some(x) = w.x11_surface() {
+        return !x.is_override_redirect() && !x.is_decorated();
+    }
     w.toplevel().map(|t| t.current_state().decoration_mode == Some(DecoMode::ServerSide)).unwrap_or(false)
 }
 
@@ -497,6 +510,13 @@ impl Glove {
         if let Some(h) = self.force_quit_hit(pos) {
             return Hit::ForceQuit(h);
         }
+        for w in self.x11_overlays.iter().rev() {
+            if let Some(x) = w.x11_surface() {
+                if x.geometry().to_f64().contains(pos) {
+                    return Hit::Client(w.clone());
+                }
+            }
+        }
         if py < MENUBAR_H as f64 {
             let (a, b) = self.chrome.logo_range;
             if px >= a as f64 && px < b as f64 {
@@ -616,24 +636,42 @@ impl Glove {
     // -----------------------------------------------------------------------
 
     pub fn focused_window(&self) -> Option<Window> {
+        use crate::handlers::focus::KbFocus;
         let focus = self.seat.get_keyboard()?.current_focus()?;
-        self.space.elements().find(|w| window_surface(w) == Some(&focus)).cloned()
+        self.space
+            .elements()
+            .find(|w| match &focus {
+                KbFocus::Wl(s) => window_surface(w) == Some(s),
+                KbFocus::X11(x) => w.x11_surface() == Some(x),
+            })
+            .cloned()
     }
 
     pub fn focus_window(&mut self, window: Option<Window>) {
         let serial = SERIAL_COUNTER.next_serial();
         let keyboard = self.seat.get_keyboard().unwrap();
         match window {
+            // Menus e dicas X11 nunca levam o foco.
+            Some(w) if self.x11_overlays.contains(&w) => return,
             Some(w) => {
                 self.space.raise_element(&w, true);
                 self.note_app_used(&w);
-                keyboard.set_focus(self, window_surface(&w).cloned(), serial);
+                let target = match w.x11_surface() {
+                    Some(x) => {
+                        if let Some(wm) = self.xwm.as_mut() {
+                            let _ = wm.raise_window(x);
+                        }
+                        Some(crate::handlers::focus::KbFocus::X11(x.clone()))
+                    }
+                    None => window_surface(&w).cloned().map(Into::into),
+                };
+                keyboard.set_focus(self, target, serial);
             }
             None => {
                 for w in self.space.elements() {
                     w.set_activated(false);
                 }
-                keyboard.set_focus(self, Option::<WlSurface>::None, serial);
+                keyboard.set_focus(self, None, serial);
             }
         }
         for w in self.space.elements() {
@@ -646,13 +684,15 @@ impl Glove {
 
     /// Dá foco à janela mais alta que sobrou (depois de fechar/minimizar).
     pub fn focus_topmost(&mut self, except: Option<&WlSurface>) {
-        let next = self.space.elements().rev().find(|w| window_surface(w) != except).cloned();
+        let next = self.space.elements().rev().find(|w| except.is_none() || window_surface(w) != except).cloned();
         self.focus_window(next);
     }
 
     pub fn close_window(&mut self, w: &Window) {
         if let Some(t) = w.toplevel() {
             t.send_close();
+        } else if let Some(x) = w.x11_surface() {
+            let _ = x.close();
         }
     }
 
@@ -692,6 +732,10 @@ impl Glove {
     }
 
     pub fn toggle_zoom(&mut self, w: &Window) {
+        if w.x11_surface().is_some() {
+            self.toggle_zoom_x11(w);
+            return;
+        }
         let Some(t) = w.toplevel().cloned() else { return };
         // Janelas de tamanho fixo não têm zoom.
         if fixed_size(w) {
@@ -721,6 +765,34 @@ impl Glove {
             }
         }
         t.send_pending_configure();
+        self.dirty = true;
+    }
+
+    /// Zoom de um app X11: ocupa a área útil (abaixo da barra de título) ou volta.
+    fn toggle_zoom_x11(&mut self, w: &Window) {
+        let Some(x) = w.x11_surface().cloned() else { return };
+        if fixed_size(w) {
+            return;
+        }
+        let Some(geo) = self.space.element_geometry(w) else { return };
+        w.user_data().insert_if_missing(|| RefCell::new(Restore::default()));
+        let restore = w.user_data().get::<RefCell<Restore>>().unwrap();
+        let prev = restore.borrow_mut().0.take();
+        let rect = match prev {
+            Some(r) => {
+                let _ = x.set_maximized(false);
+                Rectangle::new(r.loc, r.size)
+            }
+            None => {
+                restore.borrow_mut().0 = Some(geo);
+                let top = deco_top(w);
+                let area = self.work_area();
+                let _ = x.set_maximized(true);
+                Rectangle::new((area.loc.x, area.loc.y + top).into(), (area.size.w, area.size.h - top).into())
+            }
+        };
+        let _ = x.configure(rect);
+        self.space.map_element(w.clone(), rect.loc, true);
         self.dirty = true;
     }
 
@@ -766,6 +838,10 @@ impl Glove {
     /// Processo dono da janela em foco (para achar os menus dele).
     pub fn focused_pid(&self) -> Option<u32> {
         let w = self.focused_window()?;
+        // Apps X11: o processo do próprio app (o cliente Wayland é o Xwayland).
+        if let Some(x) = w.x11_surface() {
+            return x.pid();
+        }
         let surface = window_surface(&w)?;
         use smithay::reexports::wayland_server::Resource;
         let client = self.display_handle.get_client(surface.id()).ok()?;

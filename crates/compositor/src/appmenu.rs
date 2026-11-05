@@ -23,6 +23,10 @@ pub enum BarMenu {
 
 impl Glove {
     pub fn window_pid(&self, w: &Window) -> Option<u32> {
+        // App X11: o pid que ele anuncia (nunca o do Xwayland, que é de todos).
+        if let Some(x) = w.x11_surface() {
+            return x.pid();
+        }
         let s = window_surface(w)?;
         let client = self.display_handle.get_client(s.id()).ok()?;
         client.get_credentials(&self.display_handle).ok().map(|c| c.pid as u32)

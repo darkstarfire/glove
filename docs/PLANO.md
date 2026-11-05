@@ -163,7 +163,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 ## Fase 9 — Sessão avançada
 
 - [ ] 9.1 Vários monitores ao mesmo tempo (estender/espelhar) (G)
-- [ ] 9.2 Apps X11 (XWayland) (M)
+- [x] 9.2 Apps X11 (XWayland) (M)
 - [ ] 9.3 Troca rápida de usuário (Baixa)
 
 ## Fase 10 — O Glove "como deveria ter sido" (depois de cumprir toda a era)

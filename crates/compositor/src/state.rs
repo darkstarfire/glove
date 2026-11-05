@@ -146,6 +146,12 @@ pub struct Glove {
     pub greeter: bool,
     /// Processo do app de login: quando ele termina, o Glove termina.
     pub greeter_child: Option<u32>,
+    /// Apps X11: o gerenciador de janelas do Xwayland e o número do display (:N).
+    pub xwm: Option<smithay::xwayland::X11Wm>,
+    pub xdisplay: Option<u32>,
+    pub xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState,
+    /// Janelas X11 que se posicionam sozinhas (menus, dicas): fora do espaço das janelas.
+    pub x11_overlays: Vec<Window>,
 }
 
 impl Glove {
@@ -161,6 +167,7 @@ impl Glove {
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
         let mut seat_state = SeatState::new();
         let data_device_state = DataDeviceState::new::<Self>(&dh);
+        let xwayland_shell_state = smithay::wayland::xwayland_shell::XWaylandShellState::new::<Self>(&dh);
 
         let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, "seat0");
         seat.add_keyboard(Default::default(), 300, 30).expect("teclado");
@@ -244,6 +251,10 @@ impl Glove {
             menu_seq: 0,
             menu_socket: None,
             recent: crate::recent::Recent::load(),
+            xwm: None,
+            xdisplay: None,
+            xwayland_shell_state,
+            x11_overlays: Vec::new(),
         }
     }
 
@@ -277,7 +288,11 @@ impl Glove {
     pub fn surface_under(&self, pos: Point<f64, Logical>) -> Option<(WlSurface, Point<f64, Logical>)> {
         match self.hit_test(pos) {
             crate::shell::Hit::Client(window) => {
-                let loc = self.space.element_location(&window)? - window.geometry().loc;
+                // Menus X11 ficam fora do espaço das janelas: a posição é a deles.
+                let loc = match self.space.element_location(&window) {
+                    Some(l) => l,
+                    None => window.x11_surface()?.geometry().loc,
+                } - window.geometry().loc;
                 window
                     .surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
                     .map(|(s, p)| (s, (p + loc).to_f64()))
@@ -435,8 +450,12 @@ impl Glove {
             .env("GDK_BACKEND", "wayland")
             .env("QT_QPA_PLATFORM", "wayland")
             .env("MOZ_ENABLE_WAYLAND", "1")
-            .env("GLOVE_MENU_SOCKET", self.menu_socket.clone().unwrap_or_default())
-            .env_remove("DISPLAY");
+            .env("GLOVE_MENU_SOCKET", self.menu_socket.clone().unwrap_or_default());
+        // Apps X11 vão para o Xwayland do Glove (nunca para o X de fora, na janela aninhada).
+        match self.xdisplay {
+            Some(n) => cmd.env("DISPLAY", format!(":{n}")),
+            None => cmd.env_remove("DISPLAY"),
+        };
         match cmd.spawn() {
             Ok(c) => Some(c.id()),
             Err(e) => {

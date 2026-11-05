@@ -528,6 +528,9 @@ pub struct Config {
     /// Painéis na barra das Preferências (ao lado de "Mostrar Todos").
     #[serde(default = "default_prefs_favorites")]
     pub prefs_favorites: Vec<String>,
+    /// Abrir apps X11 (liga o Xwayland, uns 20 MB a mais).
+    #[serde(default = "yes")]
+    pub x11_apps: bool,
 }
 
 pub fn default_prefs_favorites() -> Vec<String> {
@@ -660,6 +663,7 @@ impl Default for Config {
             navegador: String::new(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
+            x11_apps: true,
         }
     }
 }

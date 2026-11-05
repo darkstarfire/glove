@@ -1,4 +1,6 @@
 mod compositor;
+pub mod focus;
+mod x11;
 mod xdg_shell;
 
 use smithay::{
@@ -24,7 +26,7 @@ use smithay::{
 use crate::state::Glove;
 
 impl SeatHandler for Glove {
-    type KeyboardFocus = WlSurface;
+    type KeyboardFocus = focus::KbFocus;
     type PointerFocus = WlSurface;
     type TouchFocus = WlSurface;
 
@@ -39,9 +41,10 @@ impl SeatHandler for Glove {
         }
     }
 
-    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
+    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&focus::KbFocus>) {
+        use smithay::wayland::seat::WaylandFocus;
         let dh = &self.display_handle;
-        let client = focused.and_then(|s| dh.get_client(s.id()).ok());
+        let client = focused.and_then(|f| f.wl_surface()).and_then(|s| dh.get_client(s.id()).ok());
         set_data_device_focus(dh, seat, client);
         self.dirty = true;
     }

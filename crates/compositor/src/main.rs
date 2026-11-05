@@ -125,6 +125,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     tracing::info!("Glove rodando em WAYLAND_DISPLAY={}", state.socket_name.to_string_lossy());
+    // Apps X11 (Xwayland), se instalado e ligado na configuração.
+    state.start_xwayland();
 
     state.refresh_extras();
     state.start_idle_timer();

@@ -278,6 +278,12 @@ impl Glove {
         if let Some(b) = &c.menubar {
             out.extend(mem(renderer, (0, 0).into(), b, sc));
         }
+        // Menus e dicas de apps X11: por cima das janelas, na posição que o app escolheu.
+        for w in self.x11_overlays.iter().rev() {
+            let Some(x) = w.x11_surface() else { continue };
+            let loc = x.geometry().loc;
+            out.extend(w.render_elements::<GloveElement>(renderer, loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+        }
         // Janelas indo para o Dock ou voltando: por cima de tudo isso.
         for a in &self.min_anims {
             if let Some(r) = self.min_anim_rect(&a.window) {

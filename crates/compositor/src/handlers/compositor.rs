@@ -23,7 +23,11 @@ impl CompositorHandler for Glove {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        &client.get_data::<ClientState>().unwrap().compositor_state
+        // O Xwayland é um cliente com os dados do próprio Smithay.
+        if let Some(x) = client.get_data::<smithay::xwayland::XWaylandClientData>() {
+            return &x.compositor_state;
+        }
+        &client.get_data::<ClientState>().expect("cliente sem dados").compositor_state
     }
 
     fn commit(&mut self, surface: &WlSurface) {
@@ -33,15 +37,12 @@ impl CompositorHandler for Glove {
             while let Some(parent) = get_parent(&root) {
                 root = parent;
             }
-            let window = self
-                .space
-                .elements()
-                .find(|w| w.toplevel().unwrap().wl_surface() == &root)
-                .cloned();
+            use smithay::wayland::seat::WaylandFocus;
+            let window = self.space.elements().find(|w| w.wl_surface().is_some_and(|s| *s == root)).cloned();
             if let Some(window) = window {
                 window.on_commit();
                 self.place_new_window(&window);
-            } else if let Some(window) = self.minimized.iter().chain(&self.hidden).map(|(w, _)| w).find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == &root)).cloned() {
+            } else if let Some(window) = self.minimized.iter().chain(&self.hidden).map(|(w, _)| w).find(|w| w.wl_surface().is_some_and(|s| *s == root)).cloned() {
                 // Minimizada (miniatura viva no Dock) ou oculta: o conteúdo mudou.
                 window.on_commit();
                 if self.minimized.iter().any(|(w, _)| *w == window) {

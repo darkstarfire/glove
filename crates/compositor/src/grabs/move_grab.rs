@@ -34,6 +34,7 @@ impl PointerGrab<Glove> for MoveSurfaceGrab {
         let mut new_location = (self.initial_window_location.to_f64() + delta).to_i32_round::<i32>();
         new_location.y = new_location.y.max(self.min_y);
         data.space.map_element(self.window.clone(), new_location, true);
+        data.sync_x11(&self.window);
         data.dirty = true;
     }
 

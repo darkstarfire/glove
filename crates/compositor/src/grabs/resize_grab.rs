@@ -57,9 +57,11 @@ impl ResizeSurfaceGrab {
     ) -> Self {
         let initial_rect = initial_window_rect;
 
-        ResizeSurfaceState::with(window.toplevel().unwrap().wl_surface(), |state| {
-            *state = ResizeSurfaceState::Resizing { edges, initial_rect };
-        });
+        if let Some(t) = window.toplevel() {
+            ResizeSurfaceState::with(t.wl_surface(), |state| {
+                *state = ResizeSurfaceState::Resizing { edges, initial_rect };
+            });
+        }
 
         Self {
             start_data,
@@ -103,12 +105,15 @@ impl PointerGrab<Glove> for ResizeSurfaceGrab {
             new_window_height = (self.initial_rect.size.h as f64 + delta.y) as i32;
         }
 
-        let (min_size, max_size) =
-            compositor::with_states(self.window.toplevel().unwrap().wl_surface(), |states| {
+        let (min_size, max_size) = match (self.window.toplevel(), self.window.x11_surface()) {
+            (Some(t), _) => compositor::with_states(t.wl_surface(), |states| {
                 let mut guard = states.cached_state.get::<SurfaceCachedState>();
                 let data = guard.current();
                 (data.min_size, data.max_size)
-            });
+            }),
+            (None, Some(x)) => (x.min_size().unwrap_or_default(), x.max_size().unwrap_or_default()),
+            _ => (Size::default(), Size::default()),
+        };
 
         let min_width = min_size.w.max(1);
         let min_height = min_size.h.max(1);
@@ -121,7 +126,21 @@ impl PointerGrab<Glove> for ResizeSurfaceGrab {
             new_window_height.max(min_height).min(max_height),
         ));
 
-        let xdg = self.window.toplevel().unwrap();
+        // App X11: o Glove decide posição e tamanho na hora.
+        if let Some(x) = self.window.x11_surface() {
+            let mut loc = self.initial_rect.loc;
+            if self.edges.intersects(ResizeEdge::LEFT) {
+                loc.x = self.initial_rect.loc.x + self.initial_rect.size.w - self.last_window_size.w;
+            }
+            if self.edges.intersects(ResizeEdge::TOP) {
+                loc.y = self.initial_rect.loc.y + self.initial_rect.size.h - self.last_window_size.h;
+            }
+            let _ = x.configure(Rectangle::new(loc, self.last_window_size));
+            data.space.map_element(self.window.clone(), loc, true);
+            data.dirty = true;
+            return;
+        }
+        let Some(xdg) = self.window.toplevel() else { return };
         xdg.with_pending_state(|state| {
             state.states.set(xdg_toplevel::State::Resizing);
             state.size = Some(self.last_window_size);
@@ -156,7 +175,7 @@ impl PointerGrab<Glove> for ResizeSurfaceGrab {
             // No more buttons are pressed, release the grab.
             handle.unset_grab(self, data, event.serial, event.time, true);
 
-            let xdg = self.window.toplevel().unwrap();
+            let Some(xdg) = self.window.toplevel() else { return };
             xdg.with_pending_state(|state| {
                 state.states.unset(xdg_toplevel::State::Resizing);
                 state.size = Some(self.last_window_size);
@@ -317,7 +336,7 @@ impl ResizeSurfaceState {
 pub fn handle_commit(space: &mut Space<Window>, surface: &WlSurface) -> Option<()> {
     let window = space
         .elements()
-        .find(|w| w.toplevel().unwrap().wl_surface() == surface)
+        .find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface))
         .cloned()?;
 
     let mut window_loc = space.element_location(&window)?;
