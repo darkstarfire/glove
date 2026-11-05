@@ -191,11 +191,30 @@ fn human_size(n: u64) -> String {
 fn human_date(t: Option<SystemTime>) -> String {
     let Some(t) = t else { return "—".into() };
     let secs = t.duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_secs() as libc::time_t).unwrap_or(0);
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_secs() as libc::time_t).unwrap_or(0);
     unsafe {
         let mut tm: libc::tm = std::mem::zeroed();
         libc::localtime_r(&secs, &mut tm);
-        format!("{:02}/{:02}/{} {:02}:{:02}", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min)
+        let mut today: libc::tm = std::mem::zeroed();
+        libc::localtime_r(&now, &mut today);
+        let mut yest: libc::tm = std::mem::zeroed();
+        libc::localtime_r(&(now - 86_400), &mut yest);
+        let same = |a: &libc::tm| a.tm_year == tm.tm_year && a.tm_yday == tm.tm_yday;
+        let hm = format!("{:02}:{:02}", tm.tm_hour, tm.tm_min);
+        if same(&today) {
+            format!("Hoje, {hm}")
+        } else if same(&yest) {
+            format!("Ontem, {hm}")
+        } else {
+            format!("{:02}/{:02}/{}, {hm}", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900)
+        }
     }
+}
+
+/// Dá para criar e apagar itens nesta pasta?
+fn writable(p: &Path) -> bool {
+    let Ok(c) = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()) else { return false };
+    unsafe { libc::access(c.as_ptr(), libc::W_OK) == 0 }
 }
 
 fn free_space(p: &Path) -> Option<u64> {
@@ -460,6 +479,10 @@ struct Files {
     recent: Vec<PathBuf>,
     /// "Ir para a pasta…": o texto e se a folha acabou de abrir.
     goto: Option<(String, bool)>,
+    /// Lista: coluna e direção da ordenação (Nome crescente no começo).
+    list_sort: (usize, bool),
+    /// Lista: pastas abertas no lugar (triângulo).
+    expanded: std::collections::HashSet<PathBuf>,
 }
 
 impl Files {
@@ -491,6 +514,8 @@ impl Files {
             rename_pristine: false,
             recent: Vec::new(),
             goto: None,
+            list_sort: (0, true),
+            expanded: std::collections::HashSet::new(),
         }
     }
 
@@ -1043,7 +1068,15 @@ impl Files {
         ui.c.hline(0.0, y, w, rgba(110, 110, 116, 255));
         let cur = self.current();
         let n = self.list(&cur).map(|v| v.len()).unwrap_or(0);
-        let mut text = format!("{n} {}", if n == 1 { "item" } else { "itens" });
+        let mut text = if self.selected.as_ref().is_some_and(|s| s.parent() == Some(cur.as_path())) {
+            format!("1 de {n} selecionado")
+        } else {
+            format!("{n} {}", if n == 1 { "item" } else { "itens" })
+        };
+        // Pasta em que não se pode escrever (como o cadeado do Mac).
+        if !apps::is_virtual(&cur) && !writable(&cur) {
+            text.push_str(" · somente leitura");
+        }
         if let Some(free) = free_space(&cur) {
             text.push_str(&format!(", {} disponíveis", human_size(free)));
         }
@@ -1183,32 +1216,55 @@ impl Files {
     // Lista
     // -----------------------------------------------------------------------
 
+    /// Itens da lista com as pastas abertas no lugar: (item, nível), na ordem escolhida.
+    fn list_rows(&mut self, dir: &Path, depth: u16, out: &mut Vec<(Entry, u16)>) {
+        let Ok(mut entries) = self.list(dir) else { return };
+        let (col, asc) = self.list_sort;
+        entries.sort_by(|a, b| {
+            let o = match col {
+                1 => a.modified.cmp(&b.modified),
+                2 => a.size.cmp(&b.size),
+                3 => a.type_name().cmp(b.type_name()).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+            };
+            if asc { o } else { o.reverse() }
+        });
+        for e in entries {
+            let open = e.kind == Kind::Folder && self.expanded.contains(&e.path);
+            let path = e.path.clone();
+            out.push((e, depth));
+            if open && depth < 12 {
+                self.list_rows(&path, depth + 1, out);
+            }
+        }
+    }
+
     fn list_view(&mut self, ui: &mut Ui, area: Rect) {
         let dir = self.current();
-        let entries = match self.list(&dir) {
-            Ok(v) => v,
-            Err(e) => {
-                ui.fonts.draw(ui.c, &e, area.x + 10.0, area.y + 24.0, 12.0, false, rgba(150, 40, 40, 255));
-                return;
-            }
-        };
-        // Ordenar e abrir pastas no lugar vêm na etapa 6.8: por ora o cabeçalho é fixo.
+        if let Err(e) = self.list(&dir) {
+            ui.fonts.draw(ui.c, &e, area.x + 10.0, area.y + 24.0, 12.0, false, rgba(150, 40, 40, 255));
+            return;
+        }
+        let mut flat = Vec::new();
+        self.list_rows(&dir, 0, &mut flat);
+        let entries: Vec<Entry> = flat.iter().map(|(e, _)| e.clone()).collect();
         let cols = [
-            Column::new("Nome", 0.45).fixed(),
-            Column::new("Data de modificação", 0.25).fixed(),
-            Column::new("Tamanho", 0.12).right().fixed(),
-            Column::new("Tipo", 0.18).fixed(),
+            Column::new("Nome", 0.45),
+            Column::new("Data de modificação", 0.25),
+            Column::new("Tamanho", 0.12).right(),
+            Column::new("Tipo", 0.18),
         ];
-        let rows: Vec<TableRow> = entries
+        let rows: Vec<TableRow> = flat
             .iter()
-            .map(|e| TableRow {
+            .map(|(e, depth)| TableRow {
                 cells: vec![e.name.clone(), human_date(e.modified), if e.kind == Kind::Folder { "--".into() } else { human_size(e.size) }, e.type_name().to_string()],
                 icon: Some(e.icon()),
-                ..TableRow::default()
+                depth: *depth,
+                children: (e.kind == Kind::Folder && !apps::is_virtual(&e.path)).then(|| self.expanded.contains(&e.path)),
             })
             .collect();
         let sel = self.selected.as_ref().and_then(|s| entries.iter().position(|e| &e.path == s));
-        let mut state = TableState::default();
+        let mut state = TableState::sorted_by(self.list_sort.0, self.list_sort.1);
         state.scroll = *self.scroll.get(&dir).unwrap_or(&0.0);
         // O Arquivos não usa linhas alternadas (como o Finder).
         let r = ui.table(area, &cols, &rows, sel, &mut state, &TableStyle { row_h: ROW_H, px: 12.0, zebra: false });
@@ -1237,6 +1293,21 @@ impl Files {
                 // Fora da vista: desiste (as teclas voltam para a janela).
                 self.rename = None;
             }
+        }
+        // Cabeçalho clicado: guarda a nova ordenação (vale no próximo quadro).
+        if r.sorted {
+            if let Some(sort) = state.sort {
+                self.list_sort = sort;
+                ui.redraw = true;
+            }
+        }
+        // Triângulo: abre ou fecha a pasta no lugar.
+        if let Some(i) = r.toggled {
+            let p = entries[i].path.clone();
+            if !self.expanded.remove(&p) {
+                self.expanded.insert(p);
+            }
+            ui.redraw = true;
         }
         let action = r.pressed.map(|i| (entries[i].clone(), r.double == Some(i)));
         if let Some((e, double)) = action {
