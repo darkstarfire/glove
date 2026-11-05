@@ -93,6 +93,8 @@ pub struct Glove {
     /// Painel Forçar Encerrar aberto.
     pub force_quit: Option<crate::forcequit::ForceQuit>,
     pub wait_cursor: crate::forcequit::WaitCursor,
+    /// Volume, bateria, controle de volume e aviso na tela.
+    pub extras: crate::extras::Extras,
 }
 
 impl Glove {
@@ -158,6 +160,7 @@ impl Glove {
             pinger: Default::default(),
             force_quit: None,
             wait_cursor: Default::default(),
+            extras: Default::default(),
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

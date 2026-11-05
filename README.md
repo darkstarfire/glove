@@ -131,6 +131,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Ctrl+Alt+Esc | Forçar Encerrar (lista os apps; marca os que não respondem) |
 | Ctrl+Alt+Backspace | Sair do Glove (encerra a sessão) |
 | Ctrl+Alt+F1…F12 | Trocar de console (só na sessão própria) |
+| Teclas de volume e brilho | Mudam o volume (PipeWire) e o brilho (pelo logind, sem root), com aviso na tela |
 | Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
 
 ## Configuração

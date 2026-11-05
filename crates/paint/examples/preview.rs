@@ -31,7 +31,7 @@ fn main() {
     }
 
     let titles = vec!["Terminal".to_string(), "Shell".into(), "Editar".into()];
-    let (mb, _) = menubar(&fonts, &theme, w, &titles, "Ter 19:47", Some(0), scale).unwrap();
+    let (mb, _) = menubar(&fonts, &theme, w, &titles, &[Extra::Volume { level: 0.6, muted: false }, Extra::Battery { percent: 72, charging: true, show_percent: true }, Extra::Display], "Ter 19:47", Some(0), None, scale).unwrap();
     screen.draw_canvas(&mb, 0.0, 0.0);
     let items = vec![
         MenuItem::item("Sobre o Glove"),
@@ -66,6 +66,16 @@ fn main() {
     }
     if let Some(c) = cursor_wait(3, scale) {
         screen.draw_canvas(&c, w - 80.0, 80.0);
+    }
+    // Controle de volume e aviso de brilho.
+    if let Some(v) = volume_slider(&theme, 0.6, false, scale) {
+        screen.draw_canvas(&v, w - 400.0, MENUBAR_H as f32);
+    }
+    if let Some(o) = osd(OsdKind::Volume, 0.6, false, 1.0, scale) {
+        screen.draw_canvas(&o, w / 2.0 - 200.0, h / 2.0);
+    }
+    if let Some(o) = osd(OsdKind::Brightness, 0.35, false, 1.0, scale) {
+        screen.draw_canvas(&o, w / 2.0, h / 2.0);
     }
     screen.pm.save_png(&out).unwrap();
     println!("salvo em {out}");

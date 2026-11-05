@@ -70,6 +70,15 @@ impl Glove {
             return out;
         }
 
+        // Aviso de volume/brilho por cima de tudo (menos o cursor).
+        if let Some(t) = self.extras.osd.as_ref().and_then(|o| o.tex.as_ref()) {
+            out.extend(mem(renderer, self.osd_pos(), t, sc));
+        }
+        if let Some(s) = &self.extras.slider {
+            if let Some(t) = &s.tex {
+                out.extend(mem(renderer, (s.origin.x - glove_paint::chrome::MENU_SHADOW, s.origin.y).into(), t, sc));
+            }
+        }
         if let Some(m) = &c.menu {
             // Submenus por cima do menu que os abriu.
             for lv in m.levels.iter().rev() {

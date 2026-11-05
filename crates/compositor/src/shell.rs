@@ -187,6 +187,11 @@ pub enum MenuAction {
     BringAllToFront(u32),
     /// Janela escolhida na lista do menu Janela.
     FocusWindow(Window),
+    /// Menu do monitor: (saída, "LxA@Hz").
+    SetMode(String, String),
+    ToggleBatteryPercent,
+    /// Abre as Preferências num painel.
+    OpenPrefs(String),
     /// Fecha todas as janelas do app em foco.
     QuitApp(u32),
     /// Item de um menu do próprio app.
@@ -199,6 +204,8 @@ pub enum BarTarget {
     Logo,
     /// 0 = menu com o nome do app; 1.. = menus do app.
     Title(usize),
+    /// Extra da barra (volume, bateria, monitor), pela posição.
+    Extra(usize),
 }
 
 /// Item de menu com o que ele faz e, se for submenu, os filhos.
@@ -282,11 +289,13 @@ pub struct Chrome {
     pub out_size: (i32, i32),
     wallpaper_key: Option<(i32, i32, u64)>,
     pub wallpaper: Option<Tex>,
-    menubar_key: Option<(i32, Vec<String>, String, Option<BarTarget>, u64)>,
+    menubar_key: Option<(i32, Vec<String>, Vec<chrome::Extra>, String, Option<BarTarget>, Option<usize>, u64)>,
     pub menubar: Option<Tex>,
     pub logo_range: (f32, f32),
     /// Faixas dos títulos de menu (o primeiro é o nome do app).
     pub title_ranges: Vec<(f32, f32)>,
+    /// Faixas dos extras da barra (volume, bateria, monitor).
+    pub extra_ranges: Vec<(f32, f32)>,
 
     pub dock_items: Vec<DockItem>,
     pub dock_actions: Vec<DockAction>,
@@ -347,6 +356,8 @@ pub enum Hit {
     Menu(usize, Option<usize>),
     /// Painel Forçar Encerrar.
     ForceQuit(chrome::FqHit),
+    /// Controle de volume (y relativo ao conteúdo).
+    VolumeSlider(f32),
     MenuBar { target: Option<BarTarget> },
     Dock(Option<usize>),
     Title { window: Window, button: Option<TitleButton>, group: bool },
@@ -378,6 +389,9 @@ impl Glove {
                 }
             }
         }
+        if let Some(y) = self.volume_slider_y(pos) {
+            return Hit::VolumeSlider(y);
+        }
         if let Some(h) = self.force_quit_hit(pos) {
             return Hit::ForceQuit(h);
         }
@@ -385,6 +399,9 @@ impl Glove {
             let (a, b) = self.chrome.logo_range;
             if px >= a as f64 && px < b as f64 {
                 return Hit::MenuBar { target: Some(BarTarget::Logo) };
+            }
+            if let Some(k) = self.chrome.extra_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64) {
+                return Hit::MenuBar { target: Some(BarTarget::Extra(k)) };
             }
             let t = self.chrome.title_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64);
             return Hit::MenuBar { target: t.map(BarTarget::Title) };
@@ -639,7 +656,9 @@ impl Glove {
     }
 
     pub fn open_bar_menu(&mut self, target: BarTarget) {
+        self.close_volume_slider();
         match target {
+            BarTarget::Extra(k) => self.open_extra(k),
             BarTarget::Logo => self.open_main_menu(),
             BarTarget::Title(0) => self.open_app_menu(),
             BarTarget::Title(i) => {
@@ -658,8 +677,12 @@ impl Glove {
         let x = match target {
             BarTarget::Logo => self.chrome.logo_range.0,
             BarTarget::Title(i) => self.chrome.title_ranges.get(i).map(|r| r.0).unwrap_or(0.0),
+            BarTarget::Extra(k) => self.chrome.extra_ranges.get(k).map(|r| r.0).unwrap_or(0.0),
         };
-        let level = self.menu_level(nodes, (x as i32, MENUBAR_H).into());
+        let mut level = self.menu_level(nodes, (x as i32, MENUBAR_H).into());
+        // Menus dos extras ficam encostados à direita se não couberem.
+        let (sw, _) = self.output_size();
+        level.origin.x = level.origin.x.min(sw - level.size.w).max(0);
         self.chrome.menu = Some(OpenMenu { target, levels: vec![level] });
         self.dirty = true;
     }
@@ -863,7 +886,7 @@ impl Glove {
     fn menu_neighbor(&mut self, target: BarTarget, dir: i32) {
         let n = self.bar_titles().len() as i32 + 1; // logotipo + títulos
         let idx = match target {
-            BarTarget::Logo => 0,
+            BarTarget::Logo | BarTarget::Extra(_) => 0,
             BarTarget::Title(i) => i as i32 + 1,
         };
         let next = (idx + dir).rem_euclid(n);
@@ -917,6 +940,18 @@ impl Glove {
             MenuAction::ZoomWindow(w) => self.toggle_zoom(&w),
             MenuAction::BringAllToFront(pid) => self.bring_all_to_front(pid),
             MenuAction::FocusWindow(w) => self.bring_window(w),
+            MenuAction::SetMode(output, mode) => {
+                self.config.monitor.output = output;
+                self.config.monitor.mode = mode;
+                // Salvar faz o Glove recarregar a configuração e trocar a resolução.
+                let _ = self.config.save();
+            }
+            MenuAction::ToggleBatteryPercent => {
+                self.config.battery_percent = !self.config.battery_percent;
+                let _ = self.config.save();
+                self.dirty = true;
+            }
+            MenuAction::OpenPrefs(pane) => self.spawn(&format!("glove-prefs {pane}")),
             MenuAction::QuitApp(pid) => {
                 for w in self.windows_of_pid(pid) {
                     self.close_window(&w);
@@ -1022,17 +1057,24 @@ impl Glove {
         // Barra de menu (nome do app + menus dele)
         let titles = self.bar_titles();
         let clock = clock_text();
-        let open = self.chrome.menu.as_ref().map(|m| match m.target {
-            BarTarget::Logo => 0,
-            BarTarget::Title(i) => i + 1,
+        let open = self.chrome.menu.as_ref().and_then(|m| match m.target {
+            BarTarget::Logo => Some(0),
+            BarTarget::Title(i) => Some(i + 1),
+            BarTarget::Extra(_) => None,
         });
+        let open_extra = match self.chrome.menu.as_ref().map(|m| m.target) {
+            Some(BarTarget::Extra(k)) => Some(k),
+            _ => self.extras.slider.as_ref().and(self.volume_extra_index()),
+        };
+        let extras = self.extras_for_bar();
         let open_t = self.chrome.menu.as_ref().map(|m| m.target);
-        let key = (w, titles.clone(), clock.clone(), open_t, tgen);
+        let key = (w, titles.clone(), extras.clone(), clock.clone(), open_t, open_extra, tgen);
         if self.chrome.menubar_key.as_ref() != Some(&key) {
-            if let Some((pm, layout)) = chrome::menubar(&self.fonts, &self.theme, w as f32, &titles, &clock, open, sc) {
+            if let Some((pm, layout)) = chrome::menubar(&self.fonts, &self.theme, w as f32, &titles, &extras, &clock, open, open_extra, sc) {
                 self.chrome.menubar = Some(to_tex(pm));
                 self.chrome.logo_range = layout.logo;
                 self.chrome.title_ranges = layout.titles;
+                self.chrome.extra_ranges = layout.extras;
             }
             self.chrome.menubar_key = Some(key);
         }
@@ -1073,6 +1115,7 @@ impl Glove {
         }
 
         self.prepare_force_quit();
+        self.prepare_extras();
         self.prepare_wait_cursor();
         self.prepare_dock();
         self.prepare_decorations();

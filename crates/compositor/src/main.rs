@@ -5,6 +5,7 @@ mod handlers;
 mod input;
 mod appmenu;
 mod ending;
+mod extras;
 mod forcequit;
 mod menus;
 mod recent;
@@ -88,10 +89,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return udev::probe(&glove_config::Config::load());
     }
 
-    // Processos filhos (apps abertos) são recolhidos automaticamente.
-    unsafe {
-        libc::signal(libc::SIGCHLD, libc::SIG_IGN);
-    }
 
     let mut event_loop: EventLoop<CalloopData> = EventLoop::try_new()?;
     let display: Display<Glove> = Display::new()?;
@@ -113,11 +110,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Glove rodando em WAYLAND_DISPLAY={}", state.socket_name.to_string_lossy());
 
+    state.refresh_extras();
+
     // Relógio: acorda só uma vez por minuto.
     event_loop
         .handle()
         .insert_source(Timer::from_duration(Duration::from_secs(secs_to_next_minute())), |_, _, data| {
             data.state.dirty = true;
+            // Bateria e volume mudam devagar (ou por fora): relidos junto com o relógio.
+            data.state.refresh_extras();
             TimeoutAction::ToDuration(Duration::from_secs(secs_to_next_minute()))
         })?;
 
@@ -177,6 +178,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     event_loop.run(None, &mut data, |data| {
+        // Recolhe apps que terminaram (sem zumbis). Não usamos SIGCHLD = SIG_IGN:
+        // ele impede esperar por comandos (wpctl, systemctl) e passaria para os apps.
+        unsafe { while libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) > 0 {} }
         data.state.space.refresh();
         data.state.popups.cleanup();
         data.state.minimized.retain(|(w, _)| w.alive());

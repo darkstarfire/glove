@@ -194,12 +194,16 @@ pub struct MenuBarLayout {
     pub logo: (f32, f32),
     /// Faixa de cada título de menu (o primeiro é o nome do app).
     pub titles: Vec<(f32, f32)>,
+    /// Faixa de cada extra (volume, bateria, monitor), à esquerda do relógio.
+    pub extras: Vec<(f32, f32)>,
 }
 
 pub const MENUBAR_PX: f32 = 14.0;
 
-/// `titles[0]` é o nome do app (em negrito). `open`: título aberto (0 = logo, 1.. = títulos).
-pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], clock: &str, open: Option<usize>, scale: f32) -> Option<(Canvas, MenuBarLayout)> {
+/// `titles[0]` é o nome do app (em negrito). `open`: título aberto (0 = logo, 1.. = títulos);
+/// `open_extra`: extra aberto.
+#[allow(clippy::too_many_arguments)]
+pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], extras: &[Extra], clock: &str, open: Option<usize>, open_extra: Option<usize>, scale: f32) -> Option<(Canvas, MenuBarLayout)> {
     let h = MENUBAR_H as f32;
     let mut c = Canvas::new(w, h, scale)?;
     let claro = theme.variant == Variant::Claro;
@@ -241,7 +245,8 @@ pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], clock: &
     }
     let cw = fonts.measure(clock, MENUBAR_PX, false);
     fonts.draw(&mut c, clock, w - cw - 14.0, 16.0, MENUBAR_PX, false, theme.menu_text);
-    Some((c, MenuBarLayout { logo, titles: ranges }))
+    let extra_ranges = draw_extras(&mut c, fonts, theme, extras, w - cw - 22.0, open_extra, &hot);
+    Some((c, MenuBarLayout { logo, titles: ranges, extras: extra_ranges }))
 }
 
 // ---------------------------------------------------------------------------
@@ -909,5 +914,211 @@ pub fn cursor_wait(step: i32, scale: f32) -> Option<Canvas> {
     c.fill(circle(s / 2.0, s / 2.0, r), &solid(rgba(250, 250, 250, 240)));
     c.stroke(circle(s / 2.0, s / 2.0, r), &solid(rgba(0, 0, 0, 150)), 1.0);
     spinner(&mut c, s / 2.0, s / 2.0, r - 2.0, step as f32 / 12.0, rgba(30, 60, 140, 255));
+    Some(c)
+}
+
+// ---------------------------------------------------------------------------
+// Extras da barra de menu (volume, bateria, monitor), controle de volume e
+// aviso na tela (OSD) das teclas de volume e brilho
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Extra {
+    /// Volume de 0 a 1.
+    Volume { level: f32, muted: bool },
+    Battery { percent: u8, charging: bool, show_percent: bool },
+    Display,
+}
+
+/// Largura do extra na barra.
+fn extra_width(fonts: &Fonts, e: &Extra) -> f32 {
+    match e {
+        Extra::Volume { .. } => 30.0,
+        Extra::Battery { percent, show_percent: true, .. } => 36.0 + fonts.measure(&format!("{percent}%"), MENUBAR_PX - 1.0, false),
+        Extra::Battery { .. } => 36.0,
+        Extra::Display => 30.0,
+    }
+}
+
+/// Alto-falante com 0 a 3 ondas (sem som = sem ondas, como na era).
+pub fn speaker_glyph(c: &mut Canvas, x: f32, y: f32, s: f32, waves: u8, color: Color) {
+    // Desenhado numa caixa de s × s.
+    let k = s / 16.0;
+    let mut pb = tiny_skia::PathBuilder::new();
+    pb.move_to(x + 1.0 * k, y + 5.5 * k);
+    pb.line_to(x + 4.0 * k, y + 5.5 * k);
+    pb.line_to(x + 8.0 * k, y + 2.0 * k);
+    pb.line_to(x + 8.0 * k, y + 14.0 * k);
+    pb.line_to(x + 4.0 * k, y + 10.5 * k);
+    pb.line_to(x + 1.0 * k, y + 10.5 * k);
+    pb.close();
+    c.fill(pb.finish(), &solid(color));
+    for i in 0..waves.min(3) {
+        let r = (3.0 + 2.6 * i as f32) * k;
+        let (cx, cy) = (x + 8.5 * k, y + 8.0 * k);
+        let mut pb = tiny_skia::PathBuilder::new();
+        let a = 0.85f32;
+        pb.move_to(cx + r * a.cos(), cy - r * a.sin());
+        pb.quad_to(cx + r * 1.25, cy, cx + r * a.cos(), cy + r * a.sin());
+        c.stroke_round(pb.finish(), &solid(color), 1.3 * k);
+    }
+}
+
+/// Sol (brilho): disco com raios.
+pub fn sun_glyph(c: &mut Canvas, cx: f32, cy: f32, r: f32, color: Color) {
+    c.fill(circle(cx, cy, r * 0.45), &solid(color));
+    for i in 0..8 {
+        let a = i as f32 / 8.0 * std::f32::consts::TAU;
+        let (s, co) = a.sin_cos();
+        let mut pb = tiny_skia::PathBuilder::new();
+        pb.move_to(cx + co * r * 0.65, cy + s * r * 0.65);
+        pb.line_to(cx + co * r, cy + s * r);
+        c.stroke_round(pb.finish(), &solid(color), r * 0.14);
+    }
+}
+
+fn battery_glyph(c: &mut Canvas, x: f32, y: f32, percent: u8, charging: bool, color: Color) {
+    let (w, h) = (22.0, 10.0);
+    c.stroke(rrect(x + 0.5, y + 0.5, w, h, 2.0), &solid(color), 1.0);
+    c.fill_rect(x + w + 0.5, y + 3.0, 2.0, 5.0, &solid(color));
+    let fill = (w - 3.0) * (percent.min(100) as f32 / 100.0);
+    let fc = if percent <= 10 && !charging { rgba(210, 40, 30, 255) } else { color };
+    if fill > 0.0 {
+        c.fill_rect(x + 2.0, y + 2.0, fill, h - 3.0, &solid(fc));
+    }
+    if charging {
+        // Raio por cima, branco com contorno escuro.
+        let (bx, by) = (x + w / 2.0, y + h / 2.0 + 0.5);
+        let mut pb = tiny_skia::PathBuilder::new();
+        pb.move_to(bx + 1.5, by - 6.5);
+        pb.line_to(bx - 3.5, by + 0.8);
+        pb.line_to(bx - 0.2, by + 0.8);
+        pb.line_to(bx - 1.5, by + 6.5);
+        pb.line_to(bx + 3.5, by - 0.8);
+        pb.line_to(bx + 0.2, by - 0.8);
+        pb.close();
+        let p = pb.finish();
+        c.stroke(p.clone(), &solid(rgba(40, 40, 40, 255)), 1.2);
+        c.fill(p, &solid(Color::WHITE));
+    }
+}
+
+fn display_glyph(c: &mut Canvas, x: f32, y: f32, color: Color) {
+    c.stroke(rrect(x + 0.5, y + 0.5, 16.0, 11.0, 1.5), &solid(color), 1.2);
+    c.fill_rect(x + 2.5, y + 2.5, 12.0, 7.0, &solid(with_alpha(color, color.alpha() * 0.35)));
+    c.fill_rect(x + 7.0, y + 12.0, 3.0, 2.0, &solid(color));
+    c.fill_rect(x + 4.5, y + 14.0, 8.0, 1.3, &solid(color));
+}
+
+/// Desenha os extras da direita para a esquerda, terminando em `right`. Devolve as faixas.
+fn draw_extras(c: &mut Canvas, fonts: &Fonts, theme: &Theme, extras: &[Extra], right: f32, open: Option<usize>, hot: &dyn Fn(&mut Canvas, f32, f32)) -> Vec<(f32, f32)> {
+    let mut ranges = vec![(0.0, 0.0); extras.len()];
+    let mut x = right;
+    for (i, e) in extras.iter().enumerate().rev() {
+        let w = extra_width(fonts, e);
+        let (a, b) = (x - w, x);
+        let is_open = open == Some(i);
+        if is_open {
+            hot(c, a, b);
+        }
+        let col = if is_open { Color::WHITE } else { theme.menu_text };
+        match e {
+            Extra::Volume { level, muted } => {
+                let waves = if *muted || *level <= 0.0 { 0 } else { (1.0 + level * 2.99) as u8 };
+                speaker_glyph(c, a + 7.0, 3.0, 16.0, waves, col);
+            }
+            Extra::Battery { percent, charging, show_percent } => {
+                let mut bx = a + 6.0;
+                if *show_percent {
+                    let t = format!("{percent}%");
+                    fonts.draw(c, &t, bx, 16.0, MENUBAR_PX - 1.0, false, col);
+                    bx += fonts.measure(&t, MENUBAR_PX - 1.0, false) + 5.0;
+                }
+                battery_glyph(c, bx, 6.0, *percent, *charging, col);
+            }
+            Extra::Display => display_glyph(c, a + 7.0, 3.0, col),
+        }
+        ranges[i] = (a, b);
+        x = a;
+    }
+    ranges
+}
+
+/// Controle de volume que desce do ícone: trilho vertical em gel.
+pub const VOLUME_SLIDER_W: f32 = 30.0;
+pub const VOLUME_SLIDER_H: f32 = 132.0;
+const VS_TOP: f32 = 14.0;
+const VS_BOTTOM: f32 = 118.0;
+
+/// Nível (0 a 1) no ponto `y` do conteúdo do controle.
+pub fn volume_slider_level(y: f32) -> f32 {
+    ((VS_BOTTOM - y) / (VS_BOTTOM - VS_TOP)).clamp(0.0, 1.0)
+}
+
+/// Controle completo, com margem de sombra igual à dos menus (conteúdo em MENU_SHADOW, 0).
+pub fn volume_slider(theme: &Theme, level: f32, muted: bool, scale: f32) -> Option<Canvas> {
+    let (w, h) = (VOLUME_SLIDER_W, VOLUME_SLIDER_H);
+    let m = MENU_SHADOW as f32;
+    let mut c = Canvas::new(w + 2.0 * m, h + m, scale)?;
+    let s = ShadowSpec { blur: 8.0, offset_y: 4.0, radius: 0.0, alpha: 0.45 };
+    if let Some(sh) = Canvas::shadow(-m, 0.0, w + 2.0 * m, h + m, w, h, &s, scale) {
+        c.draw_canvas(&sh, 0.0, 0.0);
+    }
+    let x0 = m;
+    c.fill_rect(x0, 0.0, w, h, &solid(rgba(246, 247, 249, 248)));
+    c.pinstripes(x0, 0.0, w, h, rgba(246, 247, 249, 0), rgba(232, 234, 236, 235));
+    c.stroke(rrect(x0, 0.0, w, h, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
+    let cx = x0 + w / 2.0;
+    // Trilho: cinza em cima, cor de destaque embaixo (até o polegar).
+    let tw = 7.0;
+    let ky = VS_BOTTOM - level.clamp(0.0, 1.0) * (VS_BOTTOM - VS_TOP);
+    gel_rect(&mut c, cx - tw / 2.0, VS_TOP, tw, VS_BOTTOM - VS_TOP, tw / 2.0, rgba(200, 202, 206, 255));
+    if !muted {
+        gel_rect(&mut c, cx - tw / 2.0, ky, tw, VS_BOTTOM - ky, tw / 2.0, theme.accent);
+    }
+    gel_circle(&mut c, cx, ky, 7.5, if muted { rgba(225, 225, 228, 255) } else { lighten(theme.accent, 0.1) });
+    Some(c)
+}
+
+/// Aviso na tela das teclas de volume e brilho: quadrado translúcido com o
+/// símbolo e 16 quadradinhos de nível.
+pub const OSD_SIZE: f32 = 170.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum OsdKind {
+    Volume,
+    Brightness,
+}
+
+pub fn osd(kind: OsdKind, level: f32, muted: bool, alpha: f32, scale: f32) -> Option<Canvas> {
+    let s = OSD_SIZE;
+    let mut c = Canvas::new(s, s, scale)?;
+    let a = |v: u8| ((v as f32) * alpha.clamp(0.0, 1.0)) as u8;
+    c.fill(rrect(0.0, 0.0, s, s, 22.0), &solid(rgba(30, 32, 36, a(120))));
+    let white = rgba(255, 255, 255, a(235));
+    match kind {
+        OsdKind::Volume => {
+            let waves = if muted || level <= 0.0 { 0 } else { 3 };
+            speaker_glyph(&mut c, s / 2.0 - 46.0, 26.0, 88.0, waves, white);
+            if muted {
+                // Traço de "sem som" sobre as ondas ausentes.
+                let mut pb = tiny_skia::PathBuilder::new();
+                pb.move_to(s / 2.0 + 8.0, 52.0);
+                pb.line_to(s / 2.0 + 38.0, 88.0);
+                pb.move_to(s / 2.0 + 38.0, 52.0);
+                pb.line_to(s / 2.0 + 8.0, 88.0);
+                c.stroke_round(pb.finish(), &solid(white), 6.0);
+            }
+        }
+        OsdKind::Brightness => sun_glyph(&mut c, s / 2.0, 70.0, 42.0, white),
+    }
+    let n = 16;
+    let (bx, by, bw, bh, gap) = (20.0, s - 34.0, (s - 40.0 - 15.0 * 2.0) / 16.0, 9.0, 2.0);
+    let lit = if muted { 0 } else { (level.clamp(0.0, 1.0) * n as f32).round() as i32 };
+    for i in 0..n {
+        let x = bx + i as f32 * (bw + gap);
+        let col = if i < lit { white } else { rgba(255, 255, 255, a(55)) };
+        c.fill_rect(x, by, bw, bh, &solid(col));
+    }
     Some(c)
 }

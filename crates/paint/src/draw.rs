@@ -523,6 +523,10 @@ pub fn gel_rect(c: &mut Canvas, x: f32, y: f32, w: f32, h: f32, r: f32, base: Co
     );
     let hh = ih * 0.5;
     let rr = (r - 2.0).max(0.0);
+    // Muito estreito ou baixo para o brilho de cima.
+    if iw <= 4.0 || hh <= 0.0 {
+        return;
+    }
     c.fill(
         rrect4(ix + 2.0, iy + 1.0, iw - 4.0, hh, [rr, rr, 2.0, 2.0]),
         &vgrad(iy, iy + hh, &[(0.0, rgba(255, 255, 255, 230)), (1.0, rgba(255, 255, 255, 40))]),

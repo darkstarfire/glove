@@ -44,6 +44,11 @@ enum KeyAction {
     Menu(MenuKey),
     /// Tecla com o painel Forçar Encerrar aberto (nome xkb).
     ForceQuitKey(&'static str),
+    VolumeUp,
+    VolumeDown,
+    Mute,
+    BrightnessUp,
+    BrightnessDown,
 }
 
 impl KeyAction {
@@ -249,6 +254,19 @@ impl Glove {
             // Nome da tecla sem modificadores (independe do layout para letras).
             let raw = handle.raw_latin_sym_or_raw_current_sym().unwrap_or_else(|| handle.modified_sym());
             let name = smithay::input::keyboard::xkb::keysym_get_name(raw).to_lowercase();
+            // Teclas de volume e brilho (valem sempre).
+            let media = match name.as_str() {
+                "xf86audioraisevolume" => Some(KeyAction::VolumeUp),
+                "xf86audiolowervolume" => Some(KeyAction::VolumeDown),
+                "xf86audiomute" => Some(KeyAction::Mute),
+                "xf86monbrightnessup" => Some(KeyAction::BrightnessUp),
+                "xf86monbrightnessdown" => Some(KeyAction::BrightnessDown),
+                _ => None,
+            };
+            if media.is_some() {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(media);
+            }
             // Menu aberto: as teclas são dele (setas, Enter, Esc).
             if st.chrome.menu.is_some() {
                 let k = match name.as_str() {
@@ -348,6 +366,11 @@ impl Glove {
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
             Some(KeyAction::Menu(k)) => self.menu_key(k),
+            Some(KeyAction::VolumeUp) => self.step_volume(1.0),
+            Some(KeyAction::VolumeDown) => self.step_volume(-1.0),
+            Some(KeyAction::Mute) => self.toggle_mute(),
+            Some(KeyAction::BrightnessUp) => self.step_brightness(1.0),
+            Some(KeyAction::BrightnessDown) => self.step_brightness(-1.0),
             Some(KeyAction::ForceQuitKey(k)) => {
                 self.force_quit_key(k);
             }
@@ -356,6 +379,12 @@ impl Glove {
     }
 
     fn update_hover(&mut self, pos: Point<f64, Logical>) {
+        // Arrastando o controle de volume: segue o mouse mesmo fora dele.
+        if self.extras.slider.as_ref().is_some_and(|s| s.dragging) {
+            let y = (pos.y - self.extras.slider.as_ref().unwrap().origin.y as f64) as f32;
+            self.volume_slider_drag(y, false);
+            return;
+        }
         let hit = self.hit_test(pos);
 
         // Menu aberto
@@ -466,13 +495,38 @@ impl Glove {
         }
         let mut then = Then::Nothing;
 
+        if state == ButtonState::Pressed && !pointer.is_grabbed() && self.extras.slider.is_some() {
+            // Controle de volume aberto: clicar nele ajusta; fora, fecha.
+            match self.hit_test(pos) {
+                Hit::VolumeSlider(y) => {
+                    if let Some(s) = &mut self.extras.slider {
+                        s.dragging = true;
+                    }
+                    self.volume_slider_drag(y, false);
+                }
+                Hit::MenuBar { target: Some(t) } if Some(t) != self.volume_extra_index().map(crate::shell::BarTarget::Extra) => {
+                    self.open_bar_menu(t);
+                }
+                _ => self.close_volume_slider(),
+            }
+            self.chrome.swallow_release = true;
+            return;
+        }
+        if state == ButtonState::Released && self.extras.slider.as_ref().is_some_and(|s| s.dragging) {
+            let y = (pos.y - self.extras.slider.as_ref().unwrap().origin.y as f64) as f32;
+            self.volume_slider_drag(y, true);
+            if let Some(s) = &mut self.extras.slider {
+                s.dragging = false;
+            }
+            return;
+        }
         if state == ButtonState::Pressed && !pointer.is_grabbed() {
             let hit = self.hit_test(pos);
             if let Some(cur) = self.chrome.menu.as_ref().map(|m| m.target) {
                 // Com o menu aberto: clicar no mesmo título fecha, em outro troca;
                 // fora dos menus, só fecha.
                 match hit {
-                    Hit::Menu(..) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(_) => {}
                     Hit::MenuBar { target: Some(t) } if t != cur => self.open_bar_menu(t),
                     _ => self.close_menu(),
                 }
@@ -528,7 +582,7 @@ impl Glove {
                             self.dirty = true;
                         }
                     }
-                    Hit::Menu(..) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(_) => {}
                 }
             }
             self.chrome.swallow_release = swallow;
@@ -622,6 +676,11 @@ fn debug_keycode(k: &str) -> (u32, bool) {
         "/" => return (53, false),
         "|" => return (43, true),
         "f2" => return (60, false),
+        "mute" => return (113, false),
+        "voldown" => return (114, false),
+        "volup" => return (115, false),
+        "brightdown" => return (224, false),
+        "brightup" => return (225, false),
         _ => {}
     }
     let lower = k.to_lowercase();

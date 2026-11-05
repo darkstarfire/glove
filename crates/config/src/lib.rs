@@ -206,6 +206,9 @@ pub struct Config {
     pub dock_apps: Vec<DockApp>,
     /// Comando para abrir a lixeira.
     pub trash_command: String,
+    /// Porcentagem ao lado do ícone da bateria na barra de menu.
+    #[serde(default)]
+    pub battery_percent: bool,
     /// Versão da lista padrão do Dock já aplicada (para acrescentar apps novos).
     #[serde(default)]
     pub dock_rev: u32,
@@ -277,6 +280,7 @@ impl Default for Config {
             shortcuts: default_shortcuts(),
             dock_apps: default_dock_apps(),
             trash_command: "glove-files ~/.local/share/Trash/files".into(),
+            battery_percent: false,
             dock_rev: DOCK_REV,
         }
     }
