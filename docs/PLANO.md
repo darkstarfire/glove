@@ -156,7 +156,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 8.9 Painel de Fontes e Painel de Cores no kit (M)
 - [x] 8.10 Calculadora científica, Caracteres em modo Teclado, Captura de seleção (M)
 - [x] 8.11 Vídeo (mpv com controles próprios), Registros, Informações do Sistema, Ajuda (M cada)
-- [ ] 8.12 Correio (por último) (G)
+- [x] 8.12 Correio (por último) (G)
 - [x] 8.13 Dicionário (10.4) com dicionários livres (formato DICT/StarDict) (M)
 - [x] 8.14 Livro de Fontes (10.3): ver, instalar e desativar fontes (M)
 

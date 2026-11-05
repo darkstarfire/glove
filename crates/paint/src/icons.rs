@@ -50,6 +50,10 @@ pub enum Icon {
     Dictionary,
     /// Livro claro com um "F" grande e uma fita (Livro de Fontes).
     FontBook,
+    /// Clipe de papel (anexo).
+    Clip,
+    /// Envelope com selo e carimbo (Correio).
+    Mail,
     /// Tela plana (preferência de Monitor).
     Display,
     Mouse,
@@ -165,6 +169,7 @@ impl Icon {
             "help" => Icon::Help,
             "dictionary" => Icon::Dictionary,
             "fontbook" => Icon::FontBook,
+            "mail" => Icon::Mail,
             _ => Icon::Generic,
         }
     }
@@ -212,6 +217,8 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Help => help(pm, fonts, x, y, s),
         Icon::Dictionary => dictionary(pm, fonts, x, y, s),
         Icon::FontBook => font_book(pm, fonts, x, y, s),
+        Icon::Clip => clip(pm, x, y, s),
+        Icon::Mail => mail(pm, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
@@ -1834,4 +1841,57 @@ fn font_book(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
     let px = s * 0.5;
     let tw = fonts.measure("F", px, true);
     fonts.draw(pm, "F", bx + s * 0.04 + (bw - s * 0.1 - tw) / 2.0, by + bh * 0.7, px, true, rgba(40, 36, 32, 255));
+}
+
+/// Clipe de papel inclinado, em metal cinza.
+fn clip(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let (cx, cy) = (x + s * 0.5, y + s * 0.5);
+    let k = s / 24.0;
+    let mut pb = PathBuilder::new();
+    // Coordenadas num quadrado de 24, giradas ~30 graus.
+    let pts = [(-2.0, 9.0), (-2.0, -6.0), (2.0, -10.0), (6.0, -6.0), (6.0, 7.0), (2.0, 11.0), (-1.5, 7.0), (-1.5, -4.0), (2.0, -6.5), (2.5, -4.0), (2.5, 6.0)];
+    let (sa, ca) = (0.5f32, 0.866f32);
+    for (i, (px, py)) in pts.iter().enumerate() {
+        let (rx, ry) = (px * ca - py * sa, px * sa + py * ca);
+        let (qx, qy) = (cx + rx * k, cy + ry * k);
+        if i == 0 { pb.move_to(qx, qy) } else { pb.line_to(qx, qy) }
+    }
+    if let Some(p) = pb.finish() {
+        pm.stroke(Some(p.clone()), &solid(rgba(70, 72, 80, 255)), (s / 9.0).max(1.4));
+        pm.stroke(Some(p), &solid(rgba(200, 204, 212, 255)), (s / 22.0).max(0.6));
+    }
+}
+
+/// Envelope claro levemente inclinado, com um selo azul e o carimbo ondulado.
+fn mail(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.2, s * 0.88, s * 0.6);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.04), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(224, 226, 232, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(120, 124, 134, 255)), lw);
+    // Aba do envelope.
+    let mut pb = PathBuilder::new();
+    pb.move_to(bx + s * 0.02, by + s * 0.02);
+    pb.line_to(bx + bw / 2.0, by + bh * 0.58);
+    pb.line_to(bx + bw - s * 0.02, by + s * 0.02);
+    pm.stroke(pb.finish(), &solid(rgba(150, 154, 164, 255)), lw * 1.4);
+    // Selo com picote.
+    let (sx, sy, sw, sh) = (bx + bw - s * 0.26, by + s * 0.06, s * 0.18, s * 0.22);
+    pm.fill_rect(sx - s * 0.01, sy - s * 0.01, sw + s * 0.02, sh + s * 0.02, &solid(rgba(255, 255, 255, 255)));
+    pm.fill_rect(sx, sy, sw, sh, &vgrad(sy, sy + sh, &[(0.0, rgba(110, 170, 240, 255)), (1.0, rgba(30, 80, 180, 255))]));
+    pm.fill(circle(sx + sw * 0.5, sy + sh * 0.45, sw * 0.24), &solid(rgba(250, 230, 120, 255)));
+    for k in 0..4 {
+        let t = k as f32 / 3.0;
+        pm.fill(circle(sx + sw * t, sy - s * 0.01, s * 0.012), &solid(rgba(224, 226, 232, 255)));
+        pm.fill(circle(sx + sw * t, sy + sh + s * 0.01, s * 0.012), &solid(rgba(224, 226, 232, 255)));
+    }
+    // Carimbo: linhas onduladas sobre o selo.
+    for k in 0..3 {
+        let yy = sy + sh * 0.25 + k as f32 * s * 0.05;
+        let mut w = PathBuilder::new();
+        w.move_to(sx - s * 0.16, yy);
+        w.quad_to(sx - s * 0.11, yy - s * 0.03, sx - s * 0.06, yy);
+        w.quad_to(sx - s * 0.01, yy + s * 0.03, sx + s * 0.04, yy);
+        pm.stroke(w.finish(), &solid(rgba(60, 60, 70, 170)), lw);
+    }
 }

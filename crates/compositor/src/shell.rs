@@ -159,6 +159,7 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
         "glove.Ajuda" => return "Ajuda".into(),
         "glove.Dicionario" => return "Dicionário".into(),
         "glove.Fontes" => return "Livro de Fontes".into(),
+        "glove.Correio" => return "Correio".into(),
         id if id.starts_with("glove.") => return "Glove".into(),
         _ => {}
     }

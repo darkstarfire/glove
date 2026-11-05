@@ -535,7 +535,7 @@ pub fn default_prefs_favorites() -> Vec<String> {
 }
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
-pub const DOCK_REV: u32 = 5;
+pub const DOCK_REV: u32 = 6;
 
 fn default_removable() -> String {
     "abrir".into()
@@ -588,6 +588,7 @@ pub fn default_dock_apps() -> Vec<DockApp> {
         app("Arquivos", "folder", "glove-files", "glove.Files"),
         app("Terminal", "terminal", "glove-term", "glove.Terminal"),
         app("Navegador", "globe", "glove-navegador", "glove.Navegador"),
+        app("Correio", "mail", "glove-correio", "glove.Correio"),
         app("Editor de Texto", "editor", "glove-edit", "glove.TextEditor"),
         app("Lembretes", "notes", "glove-notes", "glove.Notes"),
         app("Contatos", "contacts", "glove-contatos", "glove.Contatos"),
