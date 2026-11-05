@@ -42,6 +42,7 @@ pub enum ExtraKind {
     Volume,
     Battery,
     Clock,
+    User,
 }
 
 pub struct VolumeSlider {
@@ -224,6 +225,9 @@ impl Glove {
         if self.config.clock.show {
             v.push(ExtraKind::Clock);
         }
+        if self.config.user_menu && !self.greeter {
+            v.push(ExtraKind::User);
+        }
         v
     }
 
@@ -250,6 +254,7 @@ impl Glove {
                     let b = self.extras.battery.clone().unwrap();
                     Extra::Battery { percent: b.percent, charging: b.charging, show_percent: self.config.battery_percent }
                 }
+                ExtraKind::User => Extra::User { name: crate::shell::user_full_name() },
             })
             .collect()
     }
@@ -288,6 +293,61 @@ impl Glove {
                 let nodes = self.wifi_menu();
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
+            ExtraKind::User => {
+                let nodes = self.user_menu();
+                self.show_menu(BarTarget::Extra(k), nodes);
+            }
+        }
+    }
+
+    /// Troca rápida de usuário: as contas (quem já tem sessão aberta vai direto
+    /// para ela) e a janela de login. Dentro de outro desktop, só a lista.
+    fn user_menu(&self) -> Vec<MenuNode> {
+        let me = unsafe { libc::getuid() };
+        let sessions = list_sessions();
+        let my_vt = std::env::var("XDG_VTNR").ok().and_then(|v| v.parse::<u32>().ok());
+        let mut v = Vec::new();
+        for u in human_users() {
+            let vt = sessions.iter().find(|s| s.0 == u.0 && Some(s.1) != my_vt).map(|s| s.1);
+            let item = MenuItem::check(u.2.clone(), u.0 == me);
+            let action = if u.0 == me || self.nested {
+                None
+            } else {
+                Some(match vt {
+                    Some(n) => MenuAction::SwitchToVt(n),
+                    None => MenuAction::LoginWindow,
+                })
+            };
+            let item = if action.is_none() && u.0 != me { item.disabled() } else { item };
+            v.push(MenuNode::new(item, action));
+        }
+        v.push(MenuNode::sep());
+        let login = MenuItem::item("Janela de Login…");
+        v.push(MenuNode::new(if self.nested { login.disabled() } else { login }, (!self.nested).then_some(MenuAction::LoginWindow)));
+        v.push(MenuNode::sep());
+        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Contas…"), Some(MenuAction::OpenPrefs("contas".into()))));
+        v
+    }
+
+    /// Bloqueia esta sessão e mostra a tela de entrar de outro usuário: a do
+    /// gerenciador de login (se ele souber), senão um console de texto livre.
+    pub fn login_window(&mut self) {
+        self.lock_screen();
+        let has = |cmd: &str| std::process::Command::new("sh").arg("-c").arg(format!("command -v {cmd}")).output().is_ok_and(|o| o.status.success());
+        if has("dm-tool") {
+            let _ = std::process::Command::new("dm-tool").arg("switch-to-greeter").spawn();
+            return;
+        }
+        if has("gdmflexiserver") {
+            let _ = std::process::Command::new("gdmflexiserver").spawn();
+            return;
+        }
+        // Um console livre (o systemd abre a tela de "login:" nele).
+        let used: Vec<u32> = list_sessions().iter().map(|s| s.1).collect();
+        let mine = std::env::var("XDG_VTNR").ok().and_then(|v| v.parse::<u32>().ok());
+        if let Some(vt) = (2..=6).find(|n| !used.contains(n) && Some(*n) != mine) {
+            tracing::info!("troca de usuário: console {vt}");
+            self.vt_request = Some(vt as i32);
         }
     }
 
@@ -633,5 +693,59 @@ mod tests {
         let m: Vec<String> = ["1920x1080@60", "1920x1080@144", "1280x720@60", "2560x1440@60"].iter().map(|s| s.to_string()).collect();
         let d = distinct_modes(&m);
         assert_eq!(d.iter().map(|x| x.3.as_str()).collect::<Vec<_>>(), ["2560x1440@60", "1920x1080@144", "1280x720@60"]);
+    }
+}
+
+/// Contas de pessoas (uid de 1000 a 59999, com shell): (uid, login, nome).
+pub fn human_users() -> Vec<(u32, String, String)> {
+    let text = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
+    parse_passwd(&text)
+}
+
+pub fn parse_passwd(text: &str) -> Vec<(u32, String, String)> {
+    let mut v: Vec<(u32, String, String)> = text
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split(':').collect();
+            let uid: u32 = f.get(2)?.parse().ok()?;
+            let shell = f.get(6).copied().unwrap_or("");
+            if !(1000..60000).contains(&uid) || shell.ends_with("nologin") || shell.ends_with("false") {
+                return None;
+            }
+            let login = f[0].to_string();
+            let real = f.get(4).and_then(|g| g.split(',').next()).filter(|n| !n.trim().is_empty()).map(|n| n.trim().to_string()).unwrap_or_else(|| login.clone());
+            Some((uid, login, real))
+        })
+        .collect();
+    v.sort_by_key(|u| u.2.to_lowercase());
+    v
+}
+
+/// Sessões abertas em consoles: (uid, número do console).
+fn list_sessions() -> Vec<(u32, u32)> {
+    let out = std::process::Command::new("loginctl").args(["list-sessions", "--no-legend"]).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+    parse_sessions(&out)
+}
+
+pub fn parse_sessions(text: &str) -> Vec<(u32, u32)> {
+    text.lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            let uid: u32 = f.get(1)?.parse().ok()?;
+            let vt: u32 = f.iter().find_map(|w| w.strip_prefix("tty").and_then(|n| n.parse().ok()))?;
+            Some((uid, vt))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod usuarios_tests {
+    #[test]
+    fn contas_e_sessoes() {
+        let p = "root:x:0:0:root:/root:/bin/bash\nana:x:1000:1000:Ana Souza,,,:/home/ana:/bin/bash\nsrv:x:1001:1001::/srv:/usr/sbin/nologin\nbia:x:1002:1002::/home/bia:/bin/zsh\n";
+        let u = super::parse_passwd(p);
+        assert_eq!(u, vec![(1000, "ana".into(), "Ana Souza".into()), (1002, "bia".into(), "bia".into())]);
+        let s = "      2 1000 ana  seat0 tty2 active no -\n      5 1002 bia  seat0 tty3 online yes 5min\n     c1  120 gdm  seat0 tty1 active no -\n";
+        assert_eq!(super::parse_sessions(s), vec![(1000, 2), (1002, 3), (120, 1)]);
     }
 }

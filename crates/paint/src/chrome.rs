@@ -1081,8 +1081,10 @@ pub enum Extra {
     Wifi { on: bool, bars: u8 },
     /// Menu de Entrada: a sigla do layout ("BR").
     Input { badge: String },
-    /// Relógio (o último à direita): o texto, ou (hora, minuto) no mostrador de ponteiros.
+    /// Relógio: o texto, ou (hora, minuto) no mostrador de ponteiros.
     Clock { text: String, analog: Option<(u8, u8)> },
+    /// Troca rápida de usuário (o último à direita): o nome de quem está usando.
+    User { name: String },
 }
 
 /// Largura do extra na barra.
@@ -1096,6 +1098,7 @@ fn extra_width(fonts: &Fonts, e: &Extra) -> f32 {
         Extra::Input { badge } => fonts.measure(badge, 10.0, true) + 22.0,
         Extra::Clock { analog: Some(_), .. } => 28.0,
         Extra::Clock { text, .. } => fonts.measure(text, MENUBAR_PX, false) + 16.0,
+        Extra::User { name } => fonts.measure(name, MENUBAR_PX, true) + 16.0,
     }
 }
 
@@ -1247,6 +1250,7 @@ fn draw_extras(c: &mut Canvas, fonts: &Fonts, theme: &Theme, extras: &[Extra], r
             }
             Extra::Clock { analog: Some((h, m)), .. } => clock_glyph(c, a + 14.0, 11.0, *h, *m, col),
             Extra::Clock { text, .. } => fonts.draw(c, text, a + 8.0, 16.0, MENUBAR_PX, false, col),
+            Extra::User { name } => fonts.draw(c, name, a + 8.0, 16.0, MENUBAR_PX, true, col),
         }
         ranges[i] = (a, b);
         x = a;

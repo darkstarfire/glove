@@ -1699,7 +1699,15 @@ impl App for Prefs {
                 }
             }
             Pane::Inicio => self.inicio.ui(ui),
-            Pane::Contas => self.contas.ui(ui, &mut self.inicio),
+            Pane::Contas => {
+                self.contas.ui(ui, &mut self.inicio);
+                ui.space(8.0);
+                let mut on = self.config.user_menu;
+                if ui.checkbox(&mut on, "Ativar a troca rápida de usuário (nome na barra de menu)") {
+                    self.config.user_menu = on;
+                    self.save();
+                }
+            }
             Pane::Compart => self.compart.ui(ui),
             Pane::Padrao => self.padrao.ui(ui),
             Pane::Bluetooth => self.bluetooth.ui(ui),

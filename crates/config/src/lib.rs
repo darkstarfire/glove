@@ -550,6 +550,9 @@ pub struct Config {
     /// Abrir apps X11 (liga o Xwayland, uns 20 MB a mais).
     #[serde(default = "yes")]
     pub x11_apps: bool,
+    /// Troca rápida de usuário: o nome na ponta da barra de menu, com a lista de contas.
+    #[serde(default)]
+    pub user_menu: bool,
 }
 
 pub fn default_prefs_favorites() -> Vec<String> {
@@ -683,6 +686,7 @@ impl Default for Config {
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
             x11_apps: true,
+            user_menu: false,
         }
     }
 }

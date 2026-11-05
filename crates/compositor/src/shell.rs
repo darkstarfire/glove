@@ -250,6 +250,10 @@ pub enum MenuAction {
     ToggleBatteryPercent,
     /// Abre as Preferências num painel.
     OpenPrefs(String),
+    /// Troca rápida de usuário: bloqueia e vai para o console da sessão dele.
+    SwitchToVt(u32),
+    /// Troca rápida de usuário: bloqueia e mostra a tela de entrar.
+    LoginWindow,
     /// Liga (true) ou desliga o Wi-Fi.
     SetWifi(bool),
     /// Relógio da barra com ponteiros (true) ou números.
@@ -1252,6 +1256,11 @@ impl Glove {
                 let (l, v) = (l.to_string(), v.to_string());
                 self.set_layout(&l, &v);
             }
+            MenuAction::SwitchToVt(vt) => {
+                self.lock_screen();
+                self.vt_request = Some(vt as i32);
+            }
+            MenuAction::LoginWindow => self.login_window(),
             MenuAction::ClockAnalog(on) => {
                 let mut c = self.config.clone();
                 c.clock.analog = on;
