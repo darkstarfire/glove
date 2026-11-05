@@ -219,7 +219,8 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
 }
 
 /// Painéis das Preferências: (nome, argumento do glove-prefs).
-const PREFS: [(&str, &str); 10] = [
+const PREFS: [(&str, &str); 11] = [
+    ("Economizador de Energia", "energia"),
     ("Som (volume)", "som"),
     ("Aparência", "aparencia"),
     ("Mesa (papel de parede)", "mesa"),

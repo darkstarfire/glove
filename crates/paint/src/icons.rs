@@ -63,6 +63,8 @@ pub enum PrefKind {
     Desktop,
     /// Alto-falante com ondas.
     Sound,
+    /// Lâmpada acesa.
+    Energy,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -999,6 +1001,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Shortcuts => pref_keyboard(pm, x, y, s, true),
         PrefKind::Desktop => pref_desktop(pm, x, y, s),
         PrefKind::Sound => pref_sound(pm, x, y, s),
+        PrefKind::Energy => pref_energy(pm, x, y, s),
     }
 }
 
@@ -1157,4 +1160,38 @@ fn pref_sound(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pb.quad_to(ox + r * 1.15, oy, ox + r * 0.35, oy + r);
         pm.stroke(pb.finish(), &solid(rgba(60, 120, 220, a)), (s * 0.045).max(1.0));
     }
+}
+
+/// Lâmpada de vidro acesa, com a rosca prateada.
+fn pref_energy(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (cx, cy, r) = (x + s * 0.5, y + s * 0.38, s * 0.3);
+    // Brilho em volta
+    pm.fill(circle(cx, cy, r * 1.5), &radial(cx, cy, r * 1.5, &[(0.0, rgba(255, 240, 160, 150)), (1.0, rgba(255, 240, 160, 0))]));
+    // Bulbo (círculo que afina até a rosca)
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r * 0.45, cy + r * 1.05);
+    pb.cubic_to(cx - r * 0.5, cy + r * 0.7, cx - r, cy + r * 0.5, cx - r, cy);
+    pb.cubic_to(cx - r, cy - r * 0.6, cx - r * 0.55, cy - r, cx, cy - r);
+    pb.cubic_to(cx + r * 0.55, cy - r, cx + r, cy - r * 0.6, cx + r, cy);
+    pb.cubic_to(cx + r, cy + r * 0.5, cx + r * 0.5, cy + r * 0.7, cx + r * 0.45, cy + r * 1.05);
+    pb.close();
+    let bulb = pb.finish();
+    pm.fill(bulb.clone(), &radial(cx - r * 0.3, cy - r * 0.4, r * 1.6, &[(0.0, rgba(255, 255, 235, 255)), (0.6, rgba(255, 236, 140, 255)), (1.0, rgba(240, 190, 60, 255))]));
+    pm.stroke(bulb, &solid(rgba(190, 140, 40, 255)), lw);
+    // Filamento
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r * 0.3, cy + r * 0.2);
+    pb.line_to(cx - r * 0.15, cy - r * 0.15);
+    pb.line_to(cx, cy + r * 0.15);
+    pb.line_to(cx + r * 0.15, cy - r * 0.15);
+    pb.line_to(cx + r * 0.3, cy + r * 0.2);
+    pm.stroke(pb.finish(), &solid(rgba(200, 110, 20, 255)), (s * 0.025).max(1.0));
+    // Rosca
+    let (bx, by, bw) = (cx - r * 0.45, cy + r * 1.05, r * 0.9);
+    for k in 0..3 {
+        let yy = by + k as f32 * s * 0.055;
+        pm.fill(rrect(bx, yy, bw, s * 0.05, s * 0.02), &vgrad(yy, yy + s * 0.05, &[(0.0, rgba(235, 236, 240, 255)), (1.0, rgba(140, 144, 152, 255))]));
+    }
+    pm.fill(oval(cx - r * 0.2, by + s * 0.16, r * 0.4, s * 0.06), &solid(rgba(70, 72, 80, 255)));
 }

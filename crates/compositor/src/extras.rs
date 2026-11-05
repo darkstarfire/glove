@@ -67,6 +67,8 @@ pub struct Extras {
     pub slider: Option<VolumeSlider>,
     pub osd: Option<Osd>,
     osd_timer: bool,
+    /// Brilho de antes de baixar por causa da bateria.
+    undimmed: Option<u32>,
 }
 
 /// O aviso fica 1,2 s e some em 0,3 s.
@@ -119,6 +121,13 @@ pub fn read_battery(root: &Path) -> Option<BatteryInfo> {
     Some(BatteryInfo { percent, charging, full, on_ac: on_ac || charging, minutes_left })
 }
 
+/// Muda o brilho pelo logind (sem root).
+fn set_backlight(name: &str, raw: u32) {
+    let _ = Command::new("busctl")
+        .args(["call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto", "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight", name, &raw.to_string()])
+        .spawn();
+}
+
 fn power_supply_root() -> PathBuf {
     std::env::var_os("GLOVE_POWER_SUPPLY").map(PathBuf::from).unwrap_or_else(|| "/sys/class/power_supply".into())
 }
@@ -159,6 +168,13 @@ impl Glove {
     pub fn refresh_extras(&mut self) {
         let vol = read_volume();
         let bat = read_battery(&power_supply_root());
+        // Saiu da tomada: o brilho baixa um pouco; voltou: volta ao de antes.
+        let was_ac = self.extras.battery.as_ref().map(|b| b.on_ac);
+        if let (Some(was), Some(now)) = (was_ac, bat.as_ref().map(|b| b.on_ac)) {
+            if was != now && self.config.energy.dim_on_battery && !self.nested {
+                self.dim_for_battery(!now);
+            }
+        }
         if vol != self.extras.volume || bat != self.extras.battery {
             self.extras.volume = vol;
             self.extras.battery = bat;
@@ -175,7 +191,7 @@ impl Glove {
         if self.extras.volume.is_some() && self.config.sound.menu_extra {
             v.push(ExtraKind::Volume);
         }
-        if self.extras.battery.is_some() {
+        if self.extras.battery.is_some() && self.config.energy.battery_menu {
             v.push(ExtraKind::Battery);
         }
         v
@@ -324,6 +340,21 @@ impl Glove {
         self.set_volume(next, true);
     }
 
+    /// Na bateria, brilho a 75% do atual (e guarda o de antes para a volta).
+    fn dim_for_battery(&mut self, on_battery: bool) {
+        let Some((name, cur, max)) = backlight() else { return };
+        let raw = if on_battery {
+            self.extras.undimmed = Some(cur);
+            ((cur as f32 * 0.75).round() as u32).clamp(1, max)
+        } else {
+            match self.extras.undimmed.take() {
+                Some(v) => v.clamp(1, max),
+                None => return,
+            }
+        };
+        set_backlight(&name, raw);
+    }
+
     /// Brilho pelo logind (a sessão ativa pode mudar sem root).
     pub fn step_brightness(&mut self, dir: f32) {
         let Some((name, cur, max)) = backlight() else { return };
@@ -333,9 +364,7 @@ impl Glove {
         let level = cur as f32 / max as f32;
         let next = (((level / STEP).round() + dir) * STEP).clamp(STEP / 2.0, 1.0);
         let raw = ((next * max as f32).round() as u32).clamp(1, max);
-        let _ = Command::new("busctl")
-            .args(["call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto", "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight", &name, &raw.to_string()])
-            .spawn();
+        set_backlight(&name, raw);
         self.show_osd(OsdKind::Brightness, raw as f32 / max as f32, false);
     }
 

@@ -27,6 +27,7 @@ enum Pane {
     Mesa,
     Monitor,
     Som,
+    Energia,
     Dock,
     Teclado,
     Mouse,
@@ -48,12 +49,13 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 9] = [
+const PANES: [PaneInfo; 10] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
     PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
     PaneInfo { pane: Pane::Som, id: "som", icon: Icon::Pref(PrefKind::Sound), name: "Som", category: 1, keywords: "volume mudo alto-falante fone saída entrada microfone alerta efeitos sonoros" },
+    PaneInfo { pane: Pane::Energia, id: "energia", icon: Icon::Pref(PrefKind::Energy), name: "Economizador de Energia", category: 1, keywords: "repouso dormir suspender tela apagar bateria tomada adaptador brilho senha energia" },
     PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear" },
     PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto" },
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
@@ -173,6 +175,9 @@ struct Prefs {
     open_groups: [bool; 3],
     /// Aba do painel Som e os dispositivos (None = sem PipeWire).
     sound_tab: usize,
+    /// Painel de energia: aba e "configurações para" (0 tomada, 1 bateria).
+    energy_tab: usize,
+    energy_source: usize,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
@@ -225,6 +230,8 @@ impl Prefs {
             open_groups: [true, false, false],
             desk_source: 0,
             sound_tab: 0,
+            energy_tab: 0,
+            energy_source: usize::from(on_battery()),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -1026,7 +1033,132 @@ impl Prefs {
     }
 }
 
+/// Passos dos sliders de energia, em minutos (0 = nunca, no fim).
+const ENERGY_STEPS: [u32; 14] = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 0];
+
+fn minutes_label(m: u32) -> String {
+    match m {
+        0 => "Nunca".into(),
+        m if m < 60 => format!("{m} min"),
+        60 => "1 hora".into(),
+        m if m % 60 == 0 => format!("{} horas", m / 60),
+        m => format!("{} h {} min", m / 60, m % 60),
+    }
+}
+
+/// Tem bateria? (como o compositor: a primeira presente em /sys/class/power_supply).
+fn has_battery() -> bool {
+    let root = std::env::var_os("GLOVE_POWER_SUPPLY").map(std::path::PathBuf::from).unwrap_or_else(|| "/sys/class/power_supply".into());
+    std::fs::read_dir(root).into_iter().flatten().flatten().any(|e| std::fs::read_to_string(e.path().join("type")).is_ok_and(|t| t.trim() == "Battery"))
+}
+
+/// Está na bateria agora (há bateria e nenhum adaptador ligado)?
+fn on_battery() -> bool {
+    let root = std::env::var_os("GLOVE_POWER_SUPPLY").map(std::path::PathBuf::from).unwrap_or_else(|| "/sys/class/power_supply".into());
+    let read = |p: std::path::PathBuf| std::fs::read_to_string(p).map(|s| s.trim().to_string()).unwrap_or_default();
+    let entries: Vec<std::path::PathBuf> = std::fs::read_dir(root).into_iter().flatten().flatten().map(|e| e.path()).collect();
+    has_battery() && !entries.iter().any(|d| read(d.join("type")) == "Mains" && read(d.join("online")) == "1")
+}
+
 impl Prefs {
+    /// Slider de minutos (com "Nunca" no fim); devolve o novo valor se mudou.
+    fn minutes_slider(ui: &mut Ui, label: &str, minutes: u32) -> Option<u32> {
+        let mut idx = ENERGY_STEPS.iter().position(|m| *m == minutes).unwrap_or_else(|| ENERGY_STEPS.iter().position(|m| *m >= minutes).unwrap_or(ENERGY_STEPS.len() - 1)) as f32;
+        let mut out = None;
+        ui.label(label);
+        ui.indent(16.0, |ui| {
+            ui.horizontal(|ui| {
+                let t = Ticks { count: ENERGY_STEPS.len(), labels: &[(0.0, "1 min"), (5.0 / 13.0, "15 min"), (9.0 / 13.0, "1 h"), (1.0, "Nunca")], snap: true };
+                if ui.slider_ticks(&mut idx, 0.0, (ENERGY_STEPS.len() - 1) as f32, 380.0, &t, true) {
+                    out = Some(ENERGY_STEPS[idx.round() as usize]);
+                }
+                let v = minutes_label(ENERGY_STEPS[idx.round() as usize]);
+                ui.label(&v);
+            });
+        });
+        out
+    }
+
+    fn energia(&mut self, ui: &mut Ui) {
+        let battery = has_battery();
+        if battery {
+            ui.horizontal(|ui| {
+                ui.label_right("Configurações para:", 200.0);
+                let names = vec!["Adaptador de energia".to_string(), "Bateria".to_string()];
+                ui.popup(&mut self.energy_source, &names, 200.0);
+            });
+            ui.space(8.0);
+        }
+        let on_bat = battery && self.energy_source == 1;
+        let mut tab = self.energy_tab;
+        let shown = tab;
+        ui.tab_box(&mut tab, &["Repouso", "Opções"], 200.0, |ui| match shown {
+            0 => {
+                let (screen, sleep) = self.config.energy.timeouts(on_bat);
+                if let Some(m) = Self::minutes_slider(ui, "Colocar o computador em repouso quando inativo por:", sleep) {
+                    if on_bat { self.config.energy.battery_sleep_minutes = m } else { self.config.energy.sleep_minutes = m }
+                    self.save();
+                }
+                ui.space(10.0);
+                if let Some(m) = Self::minutes_slider(ui, "Apagar a tela quando inativo por:", screen) {
+                    if on_bat { self.config.energy.battery_screen_off_minutes = m } else { self.config.energy.screen_off_minutes = m }
+                    self.save();
+                }
+                // Aviso da era: a tela não apaga depois do repouso.
+                let (screen, sleep) = self.config.energy.timeouts(on_bat);
+                if sleep > 0 && (screen == 0 || screen >= sleep) {
+                    ui.space(6.0);
+                    ui.small("A tela não vai apagar antes: o computador entra em repouso primeiro.");
+                }
+            }
+            _ => {
+                let e = self.config.energy.clone();
+                let mut pw = e.require_password;
+                if ui.checkbox(&mut pw, "Pedir senha ao sair do repouso ou da tela apagada") {
+                    self.config.energy.require_password = pw;
+                    self.save();
+                }
+                if battery {
+                    let mut dim = e.dim_on_battery;
+                    if ui.checkbox(&mut dim, "Diminuir um pouco o brilho da tela ao usar a bateria") {
+                        self.config.energy.dim_on_battery = dim;
+                        self.save();
+                    }
+                    let mut menu = e.battery_menu;
+                    if ui.checkbox(&mut menu, "Mostrar o estado da bateria na barra de menu") {
+                        self.config.energy.battery_menu = menu;
+                        self.save();
+                    }
+                    let mut pct = self.config.battery_percent;
+                    ui.indent(22.0, |ui| {
+                        if ui.checkbox(&mut pct, "Mostrar a porcentagem") {
+                            self.config.battery_percent = pct;
+                            self.save();
+                        }
+                    });
+                }
+                ui.space(8.0);
+                ui.small("O botão de ligar e a tampa seguem o sistema (logind); fechar a tampa apaga a tela.");
+            }
+        });
+        self.energy_tab = tab;
+        ui.space(8.0);
+        ui.horizontal(|ui| {
+            ui.space(ui.available_width() - 160.0);
+            if ui.button("Restaurar Padrões") {
+                let d = glove_config::Energy::default();
+                if on_bat {
+                    self.config.energy.battery_screen_off_minutes = d.battery_screen_off_minutes;
+                    self.config.energy.battery_sleep_minutes = d.battery_sleep_minutes;
+                } else {
+                    self.config.energy.screen_off_minutes = d.screen_off_minutes;
+                    self.config.energy.sleep_minutes = d.sleep_minutes;
+                }
+                self.save();
+            }
+        });
+    }
+
     fn som(&mut self, ui: &mut Ui) {
         const SINK: &str = "@DEFAULT_AUDIO_SINK@";
         const SOURCE: &str = "@DEFAULT_AUDIO_SOURCE@";
@@ -1184,6 +1316,7 @@ impl App for Prefs {
             Pane::Aparencia => self.aparencia(ui),
             Pane::Mesa => self.mesa(ui),
             Pane::Som => self.som(ui),
+            Pane::Energia => self.energia(ui),
             Pane::Monitor => self.monitor(ui),
             Pane::Trackpad => self.trackpad(ui),
             Pane::Dock => self.dock(ui),
@@ -1284,6 +1417,14 @@ fn main() {
 #[cfg(test)]
 mod tests {
     /// Todo atalho do Glove aparece em algum grupo do painel Atalhos.
+    #[test]
+    fn minutos() {
+        assert_eq!(super::minutes_label(0), "Nunca");
+        assert_eq!(super::minutes_label(45), "45 min");
+        assert_eq!(super::minutes_label(120), "2 horas");
+        assert_eq!(super::minutes_label(90), "1 h 30 min");
+    }
+
     #[test]
     fn busca_de_paineis() {
         use super::{matches, Pane};

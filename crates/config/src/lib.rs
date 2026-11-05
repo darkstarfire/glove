@@ -111,15 +111,43 @@ pub struct HotCorners {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Energy {
-    /// Minutos parado até apagar a tela; 0 = nunca.
+    /// Na tomada (ou sem bateria): minutos parado até apagar a tela; 0 = nunca.
     pub screen_off_minutes: u32,
+    /// Na tomada: minutos parado até o computador entrar em repouso; 0 = nunca.
+    pub sleep_minutes: u32,
+    /// Na bateria: o mesmo, valores próprios.
+    pub battery_screen_off_minutes: u32,
+    pub battery_sleep_minutes: u32,
     /// Pedir a senha ao voltar (tela apagada, repouso ou tampa fechada).
     pub require_password: bool,
+    /// Diminuir um pouco o brilho ao passar para a bateria.
+    pub dim_on_battery: bool,
+    /// Bateria na barra de menu.
+    pub battery_menu: bool,
 }
 
 impl Default for Energy {
     fn default() -> Self {
-        Self { screen_off_minutes: 10, require_password: true }
+        Self {
+            screen_off_minutes: 10,
+            sleep_minutes: 0,
+            battery_screen_off_minutes: 5,
+            battery_sleep_minutes: 15,
+            require_password: true,
+            dim_on_battery: true,
+            battery_menu: true,
+        }
+    }
+}
+
+impl Energy {
+    /// (minutos até apagar a tela, minutos até o repouso) para a fonte de energia.
+    pub fn timeouts(&self, on_battery: bool) -> (u32, u32) {
+        if on_battery {
+            (self.battery_screen_off_minutes, self.battery_sleep_minutes)
+        } else {
+            (self.screen_off_minutes, self.sleep_minutes)
+        }
     }
 }
 

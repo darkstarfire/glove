@@ -57,6 +57,8 @@ pub struct Idle {
     timer: bool,
     /// A tela está apagada.
     pub screen_off: bool,
+    /// Já pediu o repouso nesta parada (só pede de novo depois de uma entrada).
+    slept: bool,
 }
 
 /// Teclas que o painel de desbloqueio entende.
@@ -80,30 +82,49 @@ impl Glove {
             return;
         }
         self.idle.timer = true;
-        let first = self.idle_timeout().unwrap_or(Duration::from_secs(600));
+        let first = self.idle_timeouts().0.unwrap_or(Duration::from_secs(600));
         self.loop_handle
             .insert_source(Timer::from_duration(first), |_, _, data| TimeoutAction::ToDuration(data.state.idle_check()))
             .ok();
     }
 
-    fn idle_timeout(&self) -> Option<Duration> {
-        let m = self.config.energy.screen_off_minutes;
-        (m > 0).then(|| Duration::from_secs(m as u64 * 60))
+    /// (apagar a tela, repouso) para a fonte de energia atual; None = nunca.
+    fn idle_timeouts(&self) -> (Option<Duration>, Option<Duration>) {
+        let on_battery = self.extras.battery.as_ref().is_some_and(|b| !b.on_ac);
+        let (screen, sleep) = self.config.energy.timeouts(on_battery);
+        let d = |m: u32| (m > 0).then(|| Duration::from_secs(m as u64 * 60));
+        (d(screen), d(sleep))
     }
 
     /// Confere o tempo parado e devolve quando conferir de novo (um acordar por
     /// período, não a cada segundo).
     fn idle_check(&mut self) -> Duration {
-        let Some(timeout) = self.idle_timeout() else { return Duration::from_secs(60) };
+        let (screen, sleep) = self.idle_timeouts();
         let idle = self.idle.last_input.map(|t| t.elapsed()).unwrap_or_default();
-        if idle >= timeout {
-            if !self.idle.screen_off {
-                tracing::info!("parado há {} min: apagando a tela", timeout.as_secs() / 60);
-                self.screen_off();
+        let mut next = Duration::from_secs(60);
+        if let Some(timeout) = screen {
+            if idle >= timeout {
+                if !self.idle.screen_off {
+                    tracing::info!("parado há {} min: apagando a tela", timeout.as_secs() / 60);
+                    self.screen_off();
+                }
+            } else {
+                next = next.min(timeout - idle);
             }
-            return timeout;
         }
-        timeout - idle
+        if let Some(timeout) = sleep {
+            if idle >= timeout {
+                // A tela de login e as sessões aninhadas não põem o computador para dormir.
+                if !self.idle.slept && !self.greeter && !self.nested {
+                    tracing::info!("parado há {} min: repouso", timeout.as_secs() / 60);
+                    self.idle.slept = true;
+                    self.sleep();
+                }
+            } else {
+                next = next.min(timeout - idle);
+            }
+        }
+        next.max(Duration::from_secs(1))
     }
 
     pub fn screen_off(&mut self) {
@@ -119,6 +140,7 @@ impl Glove {
     /// tela estava apagada (o evento só acorda, não vai adiante).
     pub fn note_input(&mut self) -> bool {
         self.idle.last_input = Some(Instant::now());
+        self.idle.slept = false;
         if self.idle.screen_off {
             self.idle.screen_off = false;
             self.dirty = true;
