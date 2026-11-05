@@ -5,6 +5,7 @@ mod info;
 mod mesa;
 mod ops;
 mod preferencias;
+mod rede;
 mod smart;
 mod thumb;
 
@@ -56,6 +57,8 @@ enum Kind {
     Pdf,
     /// App da pasta Aplicativos.
     App,
+    /// Computador ou compartilhamento da pasta Rede.
+    Server,
     Other,
 }
 
@@ -86,6 +89,7 @@ impl Entry {
             Kind::Archive => Icon::ArchiveFile,
             Kind::Pdf => Icon::PdfFile,
             Kind::App => self.app_icon.unwrap_or(Icon::Window),
+            Kind::Server => Icon::Globe,
             Kind::Other => Icon::File,
         }
     }
@@ -100,6 +104,7 @@ impl Entry {
             Kind::Archive => "Arquivo compactado",
             Kind::Pdf => "Documento PDF",
             Kind::App => "Aplicativo",
+            Kind::Server => "Servidor",
             Kind::Other => "Documento",
         }
     }
@@ -186,6 +191,15 @@ fn display_name(p: &Path) -> String {
     }
     if p == trash_dir().join("files") {
         return "Lixeira".into();
+    }
+    if p == Path::new(rede::ROOT) {
+        return "Rede".into();
+    }
+    // Servidor conectado (pasta do gvfs): "fotos em casa.local".
+    if p.parent() == Some(glove_config::discos::gvfs_dir().as_path()) {
+        if let Some(n) = p.file_name() {
+            return glove_config::discos::server_name(&n.to_string_lossy());
+        }
     }
     p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string())
 }
@@ -594,6 +608,8 @@ struct Files {
     cfg: glove_config::arquivos::Files,
     /// Submenu aberto no menu de contexto: (qual, topo da linha que o abriu).
     ctx_sub: Option<(String, f32)>,
+    /// Pasta Rede: quando foi lida e o que achou (nome, endereço); a busca roda numa thread.
+    network: Arc<std::sync::Mutex<(Option<std::time::Instant>, bool, Vec<(String, String)>)>>,
     /// Pendrives montados (relidos a cada 2 s para a barra lateral).
     mounts: (Option<std::time::Instant>, Vec<glove_config::discos::Mount>),
 }
@@ -642,13 +658,16 @@ impl Files {
             cfg: glove_config::Config::load().files,
             ctx_sub: None,
             mounts: (None, Vec::new()),
+            network: Arc::new(std::sync::Mutex::new((None, false, Vec::new()))),
         }
     }
 
     /// Pendrives montados (lista guardada por 2 s).
     fn removable(&mut self) -> Vec<glove_config::discos::Mount> {
         if self.mounts.0.is_none_or(|t| t.elapsed().as_secs() >= 2) {
-            self.mounts = (Some(std::time::Instant::now()), glove_config::discos::removable_mounts());
+            let mut v = glove_config::discos::removable_mounts();
+            v.extend(glove_config::discos::server_mounts());
+            self.mounts = (Some(std::time::Instant::now()), v);
         }
         self.mounts.1.clone()
     }
@@ -982,6 +1001,20 @@ impl Files {
             self.cache.insert(dir.to_path_buf(), (None, self.hidden, Ok(v.clone())));
             return Ok(v);
         }
+        // Pasta Rede: o que o gvfs vê na rede (buscado numa thread, relido a cada 10 s).
+        if rede::is_rede(dir) {
+            let mut n = self.network.lock().unwrap();
+            if !n.1 && n.0.is_none_or(|t| t.elapsed().as_secs() >= 10) {
+                n.1 = true;
+                let slot = self.network.clone();
+                std::thread::spawn(move || {
+                    let v = rede::scan();
+                    *slot.lock().unwrap() = (Some(std::time::Instant::now()), false, v);
+                });
+            }
+            let v = n.2.iter().map(|(name, uri)| Entry { name: name.clone(), path: PathBuf::from(format!("{}/{uri}", rede::ROOT)), kind: Kind::Server, size: 0, modified: None, link: false, app_icon: None, label: 0 }).collect();
+            return Ok(v);
+        }
         // Pasta Aplicativos: montada com os apps instalados. Ler todos os .desktop
         // a cada consulta (várias por quadro) deixava a janela lenta: guarda por 5 s.
         if apps::is_virtual(dir) {
@@ -1067,6 +1100,11 @@ impl Files {
         } else if e.kind == Kind::App {
             if let Err(m) = apps::open(&e.path) {
                 self.message = Some(m);
+            }
+        } else if e.kind == Kind::Server {
+            // Conectar (pede a senha, se o servidor quiser) e abrir numa janela.
+            if let Some(uri) = rede::uri_of(&e.path) {
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).args(["--conectar", &uri, "--ja"]));
             }
         } else {
             // Achar o app padrão chama o xdg-mime (lento): fora da janela.
@@ -1479,9 +1517,13 @@ impl Files {
         if shown("disco") {
             v.push(Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))));
         }
-        // Pendrives e discos externos (com o ⏏), como no Tiger.
+        // Pendrives, discos externos e servidores conectados (com o ⏏), como no Tiger.
         for m in mounts {
-            v.push(Some((m.name.clone(), Icon::Disk, m.path.clone())));
+            let icon = if m.dev.starts_with("gvfs:") { Icon::Globe } else { Icon::Disk };
+            v.push(Some((m.name.clone(), icon, m.path.clone())));
+        }
+        if shown("rede") {
+            v.push(Some(("Rede".to_string(), Icon::Globe, PathBuf::from(rede::ROOT))));
         }
         if !v.is_empty() {
             v.push(None);
@@ -1506,7 +1548,7 @@ impl Files {
                 "Vídeos" => "videos",
                 _ => "inicio",
             };
-            if shown(id) && (p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p)) {
+            if shown(id) && (p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p) || rede::is_rede(&p)) {
                 v.push(Some((name.to_string(), icon, p)));
             }
         };
@@ -1539,6 +1581,10 @@ impl Files {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         let mut y = r.y + 4.0;
         let mounts = self.removable();
+        // Pendrive ou servidor à vista: confere de novo daqui a pouco (pode ter sido ejetado).
+        if !mounts.is_empty() {
+            ui.wake_after(std::time::Duration::from_secs(2));
+        }
         let mut eject: Option<PathBuf> = None;
         for place in Self::places(&self.cfg.sidebar_hidden, &mounts) {
             if y + SIDE_ROW > r.y + r.h {
@@ -1608,7 +1654,8 @@ impl Files {
         if !apps::is_virtual(&cur) && !smart::is_smart(&cur) && !writable(&cur) {
             text.push_str(" · somente leitura");
         }
-        if let Some(free) = free_space(&cur) {
+        // Servidores (gvfs) não dizem o espaço livre de verdade (mostrariam "0 bytes").
+        if let Some(free) = free_space(&cur).filter(|_| !cur.starts_with(glove_config::discos::gvfs_dir())) {
             text.push_str(&format!(", {} disponíveis", human_size(free)));
         }
         if let Some(m) = &self.message {
@@ -2171,6 +2218,8 @@ impl Files {
                 "Ctrl+H" => act.push("hidden"),
                 "Ctrl+J" => act.push("view-options"),
                 "Ctrl+E" => act.push("eject"),
+                "Ctrl+K" => act.push("connect"),
+                "Ctrl+Shift+K" => act.push("go-network"),
                 "Ctrl+comma" => act.push("prefs"),
                 "Ctrl+bracketleft" => act.push("back"),
                 "Ctrl+bracketright" => act.push("forward"),
@@ -2315,6 +2364,10 @@ impl Files {
                 }
             }
             "close" => ui.close = true,
+            "connect" => {
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--conectar"));
+            }
+            "go-network" => self.go(PathBuf::from(rede::ROOT)),
             "eject" => {
                 if let Some(m) = self.ejectable() {
                     self.eject(m);
@@ -2435,6 +2488,10 @@ impl App for Files {
         }
         let (w, h) = (ui.c.w, ui.c.h);
         self.drop_target = None;
+        // Pasta Rede: a busca roda numa thread; confere de novo daqui a pouco.
+        if rede::is_rede(&self.current()) {
+            ui.wake_after(std::time::Duration::from_millis(700));
+        }
         // Item escolhido que saiu da pasta (movido por outro app ou pela mesa): some da escolha.
         if self.selected.as_ref().is_some_and(|p| !apps::is_virtual(p) && !smart::is_smart(p) && p.symlink_metadata().is_err()) {
             self.selected = None;
@@ -2583,6 +2640,9 @@ impl App for Files {
                     MenuItem::new("go-downloads", "Downloads", "Ctrl+Shift+L"),
                     MenuItem::new("go-pictures", "Imagens", ""),
                     MenuItem::new("go-trash", "Lixeira", ""),
+                    MenuItem::new("go-network", "Rede", "Ctrl+Shift+K"),
+                    MenuItem::Separator,
+                    MenuItem::new("connect", "Conectar ao Servidor…", "Ctrl+K"),
                     MenuItem::Separator,
                     if self.recent.len() > 1 {
                         MenuItem::submenu("Pastas Recentes", self.recent.iter().enumerate().skip(1).map(|(i, p)| MenuItem::new(&format!("recent:{i}"), &display_name(p), "")).collect())
@@ -2616,6 +2676,7 @@ fn main() {
         Some("--opcoes-mesa") => return mesa::view_options(),
         Some("--opcoes") => return preferencias::view_options(),
         Some("--preferencias") => return preferencias::preferences(),
+        Some("--conectar") => return rede::connect_window(args.get(2).filter(|a| !a.starts_with("--")).cloned(), args.iter().any(|a| a == "--ja")),
         Some("--ejetar") if args.len() > 2 => return mesa::eject(PathBuf::from(&args[2])),
         Some("--aviso-ejetar") if args.len() > 2 => return mesa::eject_warning(args[2].clone()),
         Some("--duplicar") => return mesa::duplicate(args[2..].iter().map(PathBuf::from).collect()),
@@ -2647,7 +2708,7 @@ fn main() {
         }
         return;
     }
-    let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(|| glove_config::Config::load().files.new_window_dir());
+    let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir() || rede::is_rede(p)).unwrap_or_else(|| glove_config::Config::load().files.new_window_dir());
     let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Files::new(start)) {
         eprintln!("glove-files: {e}");

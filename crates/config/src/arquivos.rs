@@ -32,6 +32,11 @@ pub struct Files {
     pub arrange: String,
     /// Fundo da vista de ícones: "" (branco) ou "#rrggbb".
     pub background: String,
+    /// Conectar ao Servidor: os favoritos e os últimos usados.
+    pub servers: Vec<String>,
+    pub recent_servers: Vec<String>,
+    /// Servidores conectados aparecem na mesa.
+    pub servers_on_desk: bool,
 }
 
 impl Default for Files {
@@ -47,6 +52,9 @@ impl Default for Files {
             label_right: false,
             arrange: "nome".into(),
             background: String::new(),
+            servers: Vec::new(),
+            recent_servers: Vec::new(),
+            servers_on_desk: true,
         }
     }
 }

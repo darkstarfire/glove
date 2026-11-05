@@ -6,7 +6,7 @@
 use glove_kit::{paint::draw::*, run, ui::Ticks, App, Rect, Ui, WindowOptions};
 
 /// Lugares da barra lateral: (id, nome).
-const PLACES: [(&str, &str); 10] = [
+const PLACES: [(&str, &str); 11] = [
     ("disco", "Disco"),
     ("mesa", "Mesa"),
     ("inicio", "Início"),
@@ -17,6 +17,7 @@ const PLACES: [(&str, &str); 10] = [
     ("musica", "Música"),
     ("videos", "Vídeos"),
     ("buscas", "Pastas inteligentes"),
+    ("rede", "Rede"),
 ];
 const NEW_WINDOW: [(&str, &str); 4] = [("inicio", "Início"), ("mesa", "Mesa"), ("documentos", "Documentos"), ("computador", "Computador")];
 const ARRANGE: [(&str, &str); 4] = [("nome", "Nome"), ("data", "Data de Modificação"), ("tamanho", "Tamanho"), ("tipo", "Tipo")];
@@ -54,6 +55,7 @@ impl App for Prefs {
                             let d = &mut self.config.desk;
                             save |= ui.checkbox(&mut d.show_disks, "Disco do sistema");
                             save |= ui.checkbox(&mut d.show_removable, "Pendrives e discos externos");
+                            save |= ui.checkbox(&mut self.config.files.servers_on_desk, "Servidores conectados");
                             ui.space(14.0);
                             ui.label("Novas janelas do Arquivos abrem em:");
                             ui.space(4.0);

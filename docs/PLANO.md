@@ -323,9 +323,14 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   do ícone; arrastar o pendrive para o Lixo ejeta, e durante o arraste o Lixo do Dock vira o ⏏. Aviso
   "disco não foi ejetado corretamente" (`Finder-Eject-Warning`) só quando o aparelho some sem ter sido
   ejetado pelo Glove ou pelo Discos. `GLOVE_MOUNTS_FILE` simula montagens nos testes (M)
-- [ ] 9.10.5 Arquivos: **Conectar ao Servidor** (Ctrl+K: smb, sftp, ftp, webdav, com favoritos;
-  `Finder-Connect-to-Server`) e item **Rede** na barra lateral com as máquinas vistas pelo Avahi
-  (`Finder-Network`) (M)
+- [x] 9.10.5 Arquivos: **Conectar ao Servidor** (Ir ▸ Conectar ao Servidor…, Ctrl+K; `Finder-Connect-to-Server`):
+  endereço (sem esquema vale smb://), "+" para os favoritos, os últimos usados, Remover, Navegar e
+  Conectar; monta pelo gvfs (`gio mount`, sem root) para smb, sftp, ftp, webdav…, com a folha de login
+  do Glove (usuário registrado ou convidado, senha, domínio no smb; senha recusada avisa e pede de
+  novo). O servidor conectado abre numa janela e aparece na barra lateral e na mesa com o ⏏ para
+  desconectar (opção "Servidores conectados" nas Preferências do Arquivos). Item **Rede** na barra
+  lateral (Ctrl+Shift+K) com as máquinas que o gvfs vê na rede (`network:///`, pelo Avahi/Samba);
+  clicar numa conecta. Testado com um servidor FTP local que pede senha (M)
 - [ ] 9.10.6 Arquivos: **pastas com mola** (segurar um arquivo arrastado sobre uma pasta a abre) (P)
 - [ ] 9.10.7 Janelas: **botão-pílula** no canto do título que oculta a barra de ferramentas; **ponto no
   botão fechar** quando o documento tem alterações não salvas; **ícone do documento** no título

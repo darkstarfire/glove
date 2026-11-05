@@ -253,7 +253,7 @@ fn read_items(dir: &Path, mounts: &[(String, PathBuf)], show_ext: bool) -> Vec<D
             name: name.clone(),
             path: path.clone(),
             kind: if path == Path::new("/") { DeskKind::Disk } else { DeskKind::Removable },
-            icon: Icon::Disk,
+            icon: if path.starts_with(glove_config::discos::gvfs_dir()) { Icon::Globe } else { Icon::Disk },
             link: false,
             modified: None,
             size: 0,
@@ -391,10 +391,13 @@ impl Glove {
         }
         self.desk.removable_prev = removable_now.clone();
         let removable: Vec<(String, PathBuf)> = removable_now.into_iter().map(|m| (m.name, m.path)).collect();
+        // Servidores conectados (gvfs) também vão para a mesa, como no Tiger.
+        let servers: Vec<(String, PathBuf)> = if self.config.files.servers_on_desk { glove_config::discos::server_mounts().into_iter().map(|m| (m.name, m.path)).collect() } else { Vec::new() };
         // Mídia Removível: um disco novo (não os que já estavam na partida) abre no Arquivos.
         if !self.desk.mounts.is_empty() || self.desk.dir_stamp.is_some() {
             let known: Vec<&PathBuf> = self.desk.mounts.iter().map(|m| &m.1).collect();
             if self.config.removable_action == "abrir" {
+                // Só pendrives (o Conectar ao Servidor já abre a janela do servidor).
                 for (_, path) in removable.iter().filter(|m| !known.contains(&&m.1)) {
                     self.spawn(&format!("glove-files {}", quote(path)));
                 }
@@ -402,10 +405,11 @@ impl Glove {
         }
         let shown_removable = if d.show_removable { removable.clone() } else { Vec::new() };
         mounts.extend(shown_removable);
+        mounts.extend(servers.iter().cloned());
         let stamp = std::fs::metadata(&self.desk.dir).and_then(|m| m.modified()).ok();
         // `mounts` do Desk guarda todos os removíveis (para saber quando chega um novo).
         let mut all_mounts = mounts.clone();
-        for m in &removable {
+        for m in removable.iter().chain(&servers) {
             if !all_mounts.contains(m) {
                 all_mounts.push(m.clone());
             }
