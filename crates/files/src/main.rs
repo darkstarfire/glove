@@ -3,6 +3,7 @@
 mod apps;
 mod info;
 mod ops;
+mod smart;
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -161,6 +162,10 @@ fn trash_dir() -> PathBuf {
 fn display_name(p: &Path) -> String {
     if let Some(n) = apps::display_name(p) {
         return n.into();
+    }
+    if smart::is_smart(p) {
+        let n = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        return if p.starts_with("/:Busca/") { format!("Busca: {n}") } else { n };
     }
     if p == Path::new("/") {
         return "Computador".into();
@@ -490,6 +495,8 @@ struct Files {
     /// inotify: atualiza sozinho quando as pastas à vista mudam.
     notify_fd: i32,
     watched: HashMap<i32, PathBuf>,
+    /// Onde a busca da barra procura (a pasta em que se estava).
+    search_scope: PathBuf,
 }
 
 impl Files {
@@ -527,6 +534,7 @@ impl Files {
             band: None,
             notify_fd: unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) },
             watched: HashMap::new(),
+            search_scope: home(),
         }
     }
 
@@ -573,6 +581,37 @@ impl Files {
             }
             None => {}
         }
+    }
+
+    /// Faixa das pastas de busca. Devolve a área que sobra para os itens.
+    fn search_bar(&mut self, ui: &mut Ui, area: Rect) -> Rect {
+        let bh = 30.0;
+        ui.c.fill_rect(area.x, area.y, area.w, bh, &vgrad(area.y, area.y + bh, &[(0.0, rgba(236, 238, 242, 255)), (1.0, rgba(222, 225, 230, 255))]));
+        ui.c.hline(area.x, area.y + bh - 1.0, area.w, rgba(170, 172, 178, 255));
+        let base = self.base.clone();
+        let Some((q, scope)) = smart::query_of(&base, &self.search_scope) else { return area };
+        let temp = base.starts_with("/:Busca/");
+        let text = format!("Buscando “{q}” em {}", display_name(&scope));
+        let t = ui.fonts.ellipsize(&text, 12.0, false, area.w - 150.0);
+        ui.fonts.draw(ui.c, &t, area.x + 12.0, area.y + 19.5, 12.0, false, rgba(40, 40, 40, 255));
+        let mut clicked = false;
+        let label = if temp { "Salvar" } else { "Apagar Busca" };
+        ui.area(Rect::new(area.x + area.w - 126.0, area.y + 4.0, 116.0, 22.0), |ui| clicked = ui.small_button(label));
+        if clicked {
+            if temp {
+                match smart::save(&q, &q, &scope) {
+                    Ok(p) => {
+                        self.set_base(p);
+                        self.message = Some("Busca salva: ela aparece na barra lateral.".into());
+                    }
+                    Err(e) => self.message = Some(format!("Não foi possível salvar: {e}")),
+                }
+            } else {
+                smart::delete(&base);
+                self.go(home());
+            }
+        }
+        Rect::new(area.x, area.y + bh, area.w, area.h - bh)
     }
 
     /// Folha "Ir para a pasta": campo com o caminho (Tab completa), Ir e Cancelar.
@@ -730,7 +769,7 @@ impl Files {
         }
         let mut want: Vec<PathBuf> = self.columns.clone();
         want.extend(self.expanded.iter().cloned());
-        want.retain(|p| !apps::is_virtual(p));
+        want.retain(|p| !apps::is_virtual(p) && !smart::is_smart(p));
         let stale: Vec<i32> = self.watched.iter().filter(|(_, p)| !want.contains(p)).map(|(wd, _)| *wd).collect();
         for wd in stale {
             unsafe { libc::inotify_rm_watch(self.notify_fd, wd) };
@@ -762,6 +801,32 @@ impl Files {
 
     /// Conteúdo de uma pasta, relido só se ela mudou (data de modificação).
     fn list(&mut self, dir: &Path) -> Result<Vec<Entry>, String> {
+        // Pasta inteligente: a busca roda uma vez e fica guardada até algo mudar.
+        if smart::is_smart(dir) {
+            if let Some((_, _, v)) = self.cache.get(dir) {
+                return v.clone();
+            }
+            let Some((q, scope)) = smart::query_of(dir, &self.search_scope) else { return Err("Busca não encontrada.".into()) };
+            let mut v: Vec<Entry> = smart::search(&q, &scope)
+                .into_iter()
+                .map(|path| {
+                    let meta = std::fs::metadata(&path).ok();
+                    let is_dir = meta.as_ref().is_some_and(|m| m.is_dir());
+                    Entry {
+                        name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                        kind: kind_of(&path, is_dir),
+                        size: meta.as_ref().map(|m| m.len()).unwrap_or(0),
+                        modified: meta.as_ref().and_then(|m| m.modified().ok()),
+                        link: std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()),
+                        app_icon: None,
+                        path,
+                    }
+                })
+                .collect();
+            v.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            self.cache.insert(dir.to_path_buf(), (None, self.hidden, Ok(v.clone())));
+            return Ok(v);
+        }
         // Pasta Aplicativos: montada com os apps instalados (sem cache: é rápida).
         if apps::is_virtual(dir) {
             let utils = *dir == apps::utils_dir();
@@ -922,9 +987,15 @@ impl Files {
         // Busca em cápsula, à direita: abre a Busca já procurando nesta pasta.
         let sw = (w - gx - SEGMENT_W - 40.0).min(190.0);
         if sw >= 90.0 && ui.search_field_in(Rect::new(w - 12.0 - sw, (TOOLBAR_H - SEARCH_H) / 2.0, sw, SEARCH_H), &mut self.search, "Buscar") {
+            // Busca: os resultados aparecem como uma pasta (que pode ser salva).
             let q = self.search.trim().to_string();
             if !q.is_empty() {
-                let _ = std::process::Command::new(sibling("glove-find")).arg(&q).arg(self.current()).spawn();
+                let cur = self.current();
+                if !apps::is_virtual(&cur) && !smart::is_smart(&cur) {
+                    self.search_scope = cur;
+                }
+                self.cache.remove(&smart::temp_path(&q));
+                self.go(smart::temp_path(&q));
             }
         }
     }
@@ -1096,7 +1167,7 @@ impl Files {
         let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
         let mut v = vec![Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))), None];
         let mut add = |name: &str, icon: Icon, p: PathBuf| {
-            if p.is_dir() || apps::is_virtual(&p) {
+            if p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p) {
                 v.push(Some((name.to_string(), icon, p)));
             }
         };
@@ -1114,6 +1185,14 @@ impl Files {
         add_user("Imagens", "PICTURES", &mut add);
         add_user("Música", "MUSIC", &mut add);
         add_user("Vídeos", "VIDEOS", &mut add);
+        // Pastas inteligentes salvas.
+        let saved = smart::saved();
+        if !saved.is_empty() {
+            v.push(None);
+            for n in saved {
+                v.push(Some((n.clone(), Icon::SpecialFolder(icons::FolderKind::Smart), smart::saved_path(&n))));
+            }
+        }
         v
     }
 
@@ -1161,7 +1240,7 @@ impl Files {
             format!("{n} {}", if n == 1 { "item" } else { "itens" })
         };
         // Pasta em que não se pode escrever (como o cadeado do Mac).
-        if !apps::is_virtual(&cur) && !writable(&cur) {
+        if !apps::is_virtual(&cur) && !smart::is_smart(&cur) && !writable(&cur) {
             text.push_str(" · somente leitura");
         }
         if let Some(free) = free_space(&cur) {
@@ -1340,16 +1419,23 @@ impl Files {
         let mut flat = Vec::new();
         self.list_rows(&dir, 0, &mut flat);
         let entries: Vec<Entry> = flat.iter().map(|(e, _)| e.clone()).collect();
+        // Nas buscas, a última coluna diz onde cada item está (como no Tiger).
+        let searching = smart::is_smart(&dir);
         let cols = [
             Column::new("Nome", 0.45),
             Column::new("Data de modificação", 0.25),
             Column::new("Tamanho", 0.12).right(),
-            Column::new("Tipo", 0.18),
+            Column::new(if searching { "Onde" } else { "Tipo" }, 0.18),
         ];
         let rows: Vec<TableRow> = flat
             .iter()
             .map(|(e, depth)| TableRow {
-                cells: vec![e.name.clone(), human_date(e.modified), if e.kind == Kind::Folder { "--".into() } else { human_size(e.size) }, e.type_name().to_string()],
+                cells: vec![
+                    e.name.clone(),
+                    human_date(e.modified),
+                    if e.kind == Kind::Folder { "--".into() } else { human_size(e.size) },
+                    if searching { e.path.parent().map(display_name).unwrap_or_default() } else { e.type_name().to_string() },
+                ],
                 icon: Some(e.icon()),
                 depth: *depth,
                 children: (e.kind == Kind::Folder && !apps::is_virtual(&e.path)).then(|| self.expanded.contains(&e.path)),
@@ -1790,7 +1876,11 @@ impl App for Files {
         self.toolbar(ui);
         let body_h = h - TOOLBAR_H - BOTTOM_H;
         self.sidebar(ui, Rect::new(0.0, TOOLBAR_H, SIDEBAR_W, body_h));
-        let area = Rect::new(SIDEBAR_W, TOOLBAR_H, w - SIDEBAR_W, body_h);
+        let mut area = Rect::new(SIDEBAR_W, TOOLBAR_H, w - SIDEBAR_W, body_h);
+        // Pasta de busca: faixa com o que se procura e Salvar (ou Apagar a busca salva).
+        if smart::is_smart(&self.base) {
+            area = self.search_bar(ui, area);
+        }
         match self.view {
             View::Columns => self.columns_view(ui, area),
             View::List => self.list_view(ui, area),

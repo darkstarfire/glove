@@ -58,6 +58,8 @@ pub enum FolderKind {
     Home,
     Public,
     Templates,
+    /// Pasta inteligente (busca salva): pasta roxa com engrenagem.
+    Smart,
 }
 
 impl Icon {
@@ -127,6 +129,10 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
+        Icon::SpecialFolder(FolderKind::Smart) => {
+            folder_colored(pm, x, y, s, rgba(150, 100, 210, 255));
+            folder_emblem(pm, FolderKind::Smart, x + s * 0.5, y + s * 0.6, s * 0.3);
+        }
         Icon::SpecialFolder(k) => {
             folder(pm, x, y, s);
             folder_emblem(pm, k, x + s * 0.5, y + s * 0.6, s * 0.3);
@@ -223,6 +229,16 @@ fn emblem(pm: &mut Canvas, k: FolderKind, cx: f32, cy: f32, s: f32, col: Color) 
             pb.line_to(cx + h * 0.7, cy - h * 0.2);
             pm.stroke_round(pb.finish(), &ink, w);
             pm.fill_rect(cx - s * 0.08, cy + h * 0.3, s * 0.16, h * 0.7, &ink);
+        }
+        FolderKind::Smart => {
+            // Engrenagem: dentes em volta de um aro.
+            for i in 0..8 {
+                let a = i as f32 / 8.0 * std::f32::consts::TAU;
+                let (c, sn) = (a.cos(), a.sin());
+                pm.fill(circle(cx + c * h * 0.78, cy + sn * h * 0.78, s * 0.11), &ink);
+            }
+            pm.fill(circle(cx, cy, h * 0.72), &ink);
+            pm.fill(circle(cx, cy, h * 0.3), &solid(rgba(150, 100, 210, 255)));
         }
         FolderKind::Public => {
             pm.fill(circle(cx, cy - h * 0.45, s * 0.17), &ink);
@@ -337,7 +353,10 @@ fn terminal(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 }
 
 fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let base = rgba(70, 150, 240, 255);
+    folder_colored(pm, x, y, s, rgba(70, 150, 240, 255));
+}
+
+fn folder_colored(pm: &mut Canvas, x: f32, y: f32, s: f32, base: Color) {
     let (fx, fy, fw, fh) = (x + s * 0.08, y + s * 0.2, s * 0.84, s * 0.64);
     // Aba
     pm.fill(rrect4(fx, fy - s * 0.07, fw * 0.42, s * 0.16, [s * 0.05, s * 0.05, 0.0, 0.0]), &solid(darken(base, 0.2)));
