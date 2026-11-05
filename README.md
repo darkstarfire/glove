@@ -137,6 +137,21 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+L | Bloquear a tela (também no menu principal; desbloqueia com a senha do usuário) |
 | Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
 
+## Tela de login (opcional, greetd)
+
+O Glove tem tela de login própria (`glove --greeter` + `glove-login`), feita para o
+[greetd](https://sr.ht/~kennylevinsen/greetd/):
+
+```sh
+cargo build --release
+sudo ./data/instalar-login.sh            # guarda a configuração atual do greetd e instala
+sudo ./data/instalar-login.sh --remover  # devolve a configuração anterior
+```
+
+O instalador nunca troca o gerenciador de login sozinho; se o greetd não estiver ativo, ele
+mostra os comandos para trocar e para voltar. Para ver a tela numa janela, sem instalar:
+`glove --greeter -c "glove-login --fake"` (senha de teste: `glove`).
+
 ## Configuração
 
 `~/.config/glove/config.toml` (criado na primeira execução). As Preferências editam esse arquivo e o

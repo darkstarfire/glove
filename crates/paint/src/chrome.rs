@@ -1582,3 +1582,97 @@ pub fn menu_with_pointer(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover
     c.stroke(edge.finish(), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
     Some(c)
 }
+
+// ---------------------------------------------------------------------------
+// Avatares originais (usuários sem foto)
+// ---------------------------------------------------------------------------
+
+/// Número estável a partir de um texto (FNV-1a), para escolher o avatar.
+pub fn avatar_seed(name: &str) -> u64 {
+    name.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3))
+}
+
+/// Avatar desenhado: azulejo colorido com um desenho (gota, folha, bola,
+/// estrela, flor ou nuvem), escolhido por `seed`.
+pub fn avatar(c: &mut Canvas, x: f32, y: f32, s: f32, seed: u64) {
+    const TILES: [(u8, u8, u8); 6] = [(86, 150, 222), (98, 178, 112), (232, 150, 64), (164, 110, 196), (226, 96, 110), (70, 172, 176)];
+    let (r, g, b) = TILES[(seed % 6) as usize];
+    let base = rgba(r, g, b, 255);
+    let tile = || rrect(x, y, s, s, s * 0.14);
+    c.fill(tile(), &vgrad(y, y + s, &[(0.0, lighten(base, 0.35)), (1.0, darken(base, 0.1))]));
+    c.stroke(rrect(x + 0.5, y + 0.5, s - 1.0, s - 1.0, s * 0.14), &solid(rgba(0, 0, 0, 80)), 1.0);
+    let (cx, cy) = (x + s / 2.0, y + s / 2.0);
+    let white = rgba(255, 255, 255, 235);
+    let k = s / 100.0;
+    let mut pb = tiny_skia::PathBuilder::new();
+    match (seed / 6) % 6 {
+        0 => {
+            // Gota em gel.
+            pb.move_to(cx, cy - 34.0 * k);
+            pb.cubic_to(cx + 8.0 * k, cy - 18.0 * k, cx + 26.0 * k, cy + 2.0 * k, cx + 24.0 * k, cy + 16.0 * k);
+            pb.cubic_to(cx + 22.0 * k, cy + 34.0 * k, cx - 22.0 * k, cy + 34.0 * k, cx - 24.0 * k, cy + 16.0 * k);
+            pb.cubic_to(cx - 26.0 * k, cy + 2.0 * k, cx - 8.0 * k, cy - 18.0 * k, cx, cy - 34.0 * k);
+            pb.close();
+            let p = pb.finish();
+            c.fill(p.clone(), &vgrad(cy - 34.0 * k, cy + 30.0 * k, &[(0.0, rgba(190, 225, 255, 255)), (1.0, rgba(40, 110, 210, 255))]));
+            c.stroke(p, &solid(rgba(20, 60, 140, 200)), 1.2 * k);
+            c.fill(circle(cx - 9.0 * k, cy + 8.0 * k, 5.0 * k), &solid(rgba(255, 255, 255, 170)));
+        }
+        1 => {
+            // Folha com nervura.
+            pb.move_to(cx - 26.0 * k, cy + 26.0 * k);
+            pb.cubic_to(cx - 30.0 * k, cy - 18.0 * k, cx + 6.0 * k, cy - 34.0 * k, cx + 30.0 * k, cy - 30.0 * k);
+            pb.cubic_to(cx + 32.0 * k, cy - 2.0 * k, cx + 14.0 * k, cy + 30.0 * k, cx - 26.0 * k, cy + 26.0 * k);
+            pb.close();
+            c.fill(pb.finish(), &vgrad(cy - 30.0 * k, cy + 28.0 * k, &[(0.0, rgba(170, 230, 120, 255)), (1.0, rgba(50, 140, 60, 255))]));
+            let mut v = tiny_skia::PathBuilder::new();
+            v.move_to(cx - 26.0 * k, cy + 26.0 * k);
+            v.quad_to(cx + 2.0 * k, cy - 2.0 * k, cx + 26.0 * k, cy - 26.0 * k);
+            c.stroke_round(v.finish(), &solid(rgba(30, 90, 40, 220)), 2.2 * k);
+        }
+        2 => {
+            // Bola de praia em gel.
+            gel_circle(c, cx, cy, 28.0 * k, rgba(240, 240, 240, 255));
+            for (i, col) in [(0, rgba(230, 60, 60, 230)), (2, rgba(50, 120, 220, 230)), (4, rgba(250, 200, 40, 230))] {
+                let a0 = i as f32 * std::f32::consts::TAU / 6.0;
+                let mut w = tiny_skia::PathBuilder::new();
+                w.move_to(cx, cy);
+                for j in 0..=8 {
+                    let a = a0 + j as f32 / 8.0 * std::f32::consts::TAU / 6.0;
+                    w.line_to(cx + a.cos() * 26.5 * k, cy + a.sin() * 26.5 * k);
+                }
+                w.close();
+                c.fill(w.finish(), &solid(col));
+            }
+            c.fill(circle(cx - 9.0 * k, cy - 11.0 * k, 7.0 * k), &solid(rgba(255, 255, 255, 120)));
+        }
+        3 => {
+            // Estrela de cinco pontas.
+            for i in 0..10 {
+                let a = -std::f32::consts::FRAC_PI_2 + i as f32 * std::f32::consts::PI / 5.0;
+                let rr = if i % 2 == 0 { 32.0 } else { 13.0 } * k;
+                let (px, py) = (cx + a.cos() * rr, cy + 2.0 * k + a.sin() * rr);
+                if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+            }
+            pb.close();
+            let p = pb.finish();
+            c.fill(p.clone(), &vgrad(cy - 30.0 * k, cy + 30.0 * k, &[(0.0, rgba(255, 240, 150, 255)), (1.0, rgba(240, 170, 30, 255))]));
+            c.stroke(p, &solid(rgba(150, 90, 10, 200)), 1.2 * k);
+        }
+        4 => {
+            // Flor: cinco pétalas e o miolo.
+            for i in 0..5 {
+                let a = -std::f32::consts::FRAC_PI_2 + i as f32 * std::f32::consts::TAU / 5.0;
+                c.fill(circle(cx + a.cos() * 15.0 * k, cy + a.sin() * 15.0 * k, 12.0 * k), &solid(white));
+            }
+            gel_circle(c, cx, cy, 9.0 * k, rgba(250, 190, 40, 255));
+        }
+        _ => {
+            // Nuvem.
+            for (dx, dy, r) in [(-14.0, 6.0, 13.0), (0.0, -4.0, 17.0), (15.0, 5.0, 12.0)] {
+                c.fill(circle(cx + dx * k, cy + dy * k, r * k), &solid(white));
+            }
+            c.fill(rrect(cx - 27.0 * k, cy + 4.0 * k, 54.0 * k, 15.0 * k, 7.5 * k), &solid(white));
+        }
+    }
+}

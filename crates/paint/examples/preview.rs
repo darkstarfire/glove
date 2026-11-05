@@ -77,6 +77,10 @@ fn main() {
     if let Some(o) = osd(OsdKind::Brightness, 0.35, false, 1.0, scale) {
         screen.draw_canvas(&o, w / 2.0, h / 2.0);
     }
+    // Os 36 avatares (6 desenhos × 6 cores).
+    for i in 0..36u64 {
+        avatar(&mut screen, 20.0 + (i % 12) as f32 * 70.0, h - 360.0 + (i / 12) as f32 * 70.0, 60.0, i * 7 % 6 + (i / 6) * 6);
+    }
     screen.pm.save_png(&out).unwrap();
     println!("salvo em {out}");
 }

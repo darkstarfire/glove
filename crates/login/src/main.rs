@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use glove_kit::{
     paint::{
-        chrome::user_picture,
+        chrome::{avatar, avatar_seed, user_picture},
         draw::*,
         tiny_skia::{Pixmap, PixmapPaint, Transform},
     },
@@ -90,7 +90,15 @@ impl Login {
     }
 }
 
-/// Foto (ou retrato desenhado) num quadrado de `s` pontos.
+/// Foto do usuário, ou o avatar desenhado dele (escolhido pelo login).
+fn user_image(ui: &mut Ui, photo: Option<&Pixmap>, login: &str, x: f32, y: f32, s: f32) {
+    match photo {
+        Some(_) => picture(ui, photo, x, y, s),
+        None => avatar(ui.c, x, y, s, avatar_seed(login)),
+    }
+}
+
+/// Foto (ou retrato genérico) num quadrado de `s` pontos.
 fn picture(ui: &mut Ui, photo: Option<&Pixmap>, x: f32, y: f32, s: f32) {
     match photo {
         Some(p) => {
@@ -164,11 +172,17 @@ impl App for Login {
                         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(ui.theme.menu_hot));
                     }
                     let text_c = if resp.hover { glove_kit::paint::Color::WHITE } else { ink };
-                    let (photo, name) = match self.users.get(i) {
-                        Some(u) => (self.photos[i].as_ref(), u.name.clone()),
-                        None => (None, "Outro…".to_string()),
+                    let name = match self.users.get(i) {
+                        Some(u) => {
+                            let (photo, login) = (self.photos[i].as_ref(), u.login.clone());
+                            user_image(ui, photo, &login, r.x + 8.0, r.y + 6.0, 32.0);
+                            u.name.clone()
+                        }
+                        None => {
+                            picture(ui, None, r.x + 8.0, r.y + 6.0, 32.0);
+                            "Outro…".to_string()
+                        }
                     };
-                    picture(ui, photo, r.x + 8.0, r.y + 6.0, 32.0);
                     ui.fonts.draw(ui.c, &name, r.x + 52.0, r.y + 27.0, 14.0, true, text_c);
                     if resp.clicked {
                         self.screen = Screen::Password((i < self.users.len()).then_some(i));
@@ -187,8 +201,8 @@ impl App for Login {
                 let mut y = 136.0;
                 match sel {
                     Some(i) => {
-                        let photo = self.photos[i].as_ref();
-                        picture(ui, photo, cx - 36.0, y, 72.0);
+                        let (photo, login) = (self.photos[i].as_ref(), self.users[i].login.clone());
+                        user_image(ui, photo, &login, cx - 36.0, y, 72.0);
                         let name = self.users[i].name.clone();
                         center_text(ui, &name, cx, y + 92.0, 15.0, true, ink);
                         y += 106.0;
