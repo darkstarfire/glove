@@ -104,6 +104,9 @@ pub fn deco_top(w: &Window) -> i32 {
     if is_ssd(w) { TITLE_H } else { 0 }
 }
 
+/// Apps com janela "unificada" (título em metal emendado na barra de ferramentas).
+pub const UNIFIED_APPS: [&str; 1] = ["glove.Files"];
+
 /// Nome do app de uma janela, para mostrar ao usuário.
 pub fn app_display_name(w: &Window) -> String {
     let (title, id) = window_info(w);
@@ -1403,10 +1406,19 @@ impl Glove {
                 pressed: self.chrome.pressed_button.as_ref().filter(|(pw, _)| pw == w).map(|(_, b)| *b),
                 zoom_enabled: !fixed_size(w),
             };
-            let (title, _) = window_info(w);
+            let (title, app_id) = window_info(w);
             let tkey = (size.w, st.clone(), title.clone(), tgen);
             if deco.title_key.as_ref() != Some(&tkey) {
-                deco.title = chrome::titlebar(&self.fonts, &self.theme, size.w as f32, &title, &st, sc).map(to_tex);
+                // Janelas "unificadas" do Tiger (o Arquivos): título em metal escovado,
+                // emendado na barra de ferramentas do app, em qualquer tema.
+                let metal;
+                let theme = if UNIFIED_APPS.contains(&app_id.as_str()) {
+                    metal = Theme::new(Variant::Metal);
+                    &metal
+                } else {
+                    &self.theme
+                };
+                deco.title = chrome::titlebar(&self.fonts, theme, size.w as f32, &title, &st, sc).map(to_tex);
                 deco.title_key = Some(tkey);
             }
             let skey = (size.w, size.h, active, tgen);

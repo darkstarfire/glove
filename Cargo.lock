@@ -689,6 +689,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-boasvindas"
+version = "0.1.0"
+dependencies = [
+ "glove-config",
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-calc"
 version = "0.1.0"
 dependencies = [

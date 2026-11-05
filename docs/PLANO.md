@@ -104,7 +104,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 5.2 Cliente do protocolo do greetd e `glove-login`: lista de usuários com fotos, senha, painel que balança no erro, Reiniciar/Desligar (G)
 - [x] 5.3 Avatares originais desenhados por código; `data/greetd/` + `instalar-login.sh` (com volta ao gerenciador anterior) (M)
 - [x] 5.4 Splash de boot e desligamento: tema Plymouth com arte gerada por código (`glove-arte`) (M)
-- [ ] 5.5 Assistente de primeiro uso (teclado, data e hora, tema, foto) (M)
+- [x] 5.5 Assistente de primeiro uso (teclado, data e hora, tema, foto) (M)
 
 ## Fase 6 — Arquivos
 

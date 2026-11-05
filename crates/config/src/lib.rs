@@ -245,6 +245,10 @@ pub struct Config {
     pub energy: Energy,
     #[serde(default)]
     pub hot_corners: HotCorners,
+    /// O assistente de primeiro uso já foi visto. Configurações antigas (sem o
+    /// campo) contam como vistas; só instalações novas abrem o assistente.
+    #[serde(default = "yes")]
+    pub welcome_done: bool,
     /// Porcentagem ao lado do ícone da bateria na barra de menu.
     #[serde(default)]
     pub battery_percent: bool,
@@ -255,6 +259,10 @@ pub struct Config {
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
 pub const DOCK_REV: u32 = 2;
+
+fn yes() -> bool {
+    true
+}
 
 fn default_terminal() -> String {
     "glove-term".into()
@@ -327,6 +335,7 @@ impl Default for Config {
             battery_percent: false,
             energy: Energy::default(),
             hot_corners: HotCorners::default(),
+            welcome_done: false,
             dock_rev: DOCK_REV,
         }
     }

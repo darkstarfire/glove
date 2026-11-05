@@ -1,0 +1,9 @@
+[package]
+name = "glove-boasvindas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-kit = { path = "../kit" }
+glove-config = { path = "../config" }

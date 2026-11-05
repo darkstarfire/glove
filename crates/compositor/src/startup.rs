@@ -67,6 +67,10 @@ impl Glove {
             for c in std::mem::take(&mut s.commands) {
                 self.spawn(&c);
             }
+            // Primeira vez: o assistente de boas-vindas.
+            if !self.config.welcome_done {
+                self.spawn("glove-boasvindas");
+            }
         }
         if t >= DONE + FADE {
             self.startup = None;

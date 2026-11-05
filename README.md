@@ -211,6 +211,7 @@ crates/find        Busca (`glove-find`)
 crates/disks       Discos (`glove-disks`)
 crates/chess       Xadrez (`glove-chess`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
+crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`: teclado, fuso, aparência, foto)
 crates/arte        `glove-arte`: gera a arte usada fora do Glove (tema do Plymouth)
 crates/login       tela de login (`glove-login`, roda em `glove --greeter` pelo greetd; `--fake` para testar)
 data/              sessão: glove-session, glove.desktop, instalar-sessao.sh
