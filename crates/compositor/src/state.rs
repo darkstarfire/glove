@@ -304,8 +304,27 @@ impl Glove {
         }
         self.bindings = crate::input::parse_bindings(&self.config);
         self.dirty = true;
+        // Segundos ou dois-pontos piscando: um relógio de segundo em segundo já agora
+        // (o de minuto só passaria a cada segundo na virada do próximo minuto).
+        if Self::clock_every_second(&self.config) && !Self::clock_every_second(&old) {
+            self.loop_handle
+                .insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_secs(1)), |_, _, data| {
+                    data.state.dirty = true;
+                    if Self::clock_every_second(&data.state.config) {
+                        smithay::reexports::calloop::timer::TimeoutAction::ToDuration(std::time::Duration::from_secs(1))
+                    } else {
+                        smithay::reexports::calloop::timer::TimeoutAction::Drop
+                    }
+                })
+                .ok();
+        }
         tracing::info!("configuração recarregada");
         true
+    }
+
+    /// O relógio da barra precisa mudar a cada segundo?
+    pub fn clock_every_second(c: &Config) -> bool {
+        c.clock.show && !c.clock.analog && (c.clock.seconds || c.clock.blink)
     }
 
     /// Seta do cursor na escala da tela (refeita só quando a escala muda).

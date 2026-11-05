@@ -138,9 +138,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .handle()
         .insert_source(Timer::from_duration(Duration::from_secs(secs_to_next_minute())), |_, _, data| {
             data.state.dirty = true;
-            // Bateria e volume mudam devagar (ou por fora): relidos junto com o relógio.
-            data.state.refresh_extras();
-            TimeoutAction::ToDuration(Duration::from_secs(secs_to_next_minute()))
+            // Bateria, volume e Wi-Fi mudam devagar (ou por fora): relidos uma vez por minuto.
+            let left = secs_to_next_minute();
+            if left >= 59 || data.state.config.clock.analog || !(data.state.config.clock.seconds || data.state.config.clock.blink) {
+                data.state.refresh_extras();
+            }
+            // Com segundos ou dois-pontos piscando, o relógio acorda a cada segundo.
+            let c = &data.state.config.clock;
+            let every_second = c.show && !c.analog && (c.seconds || c.blink);
+            TimeoutAction::ToDuration(Duration::from_secs(if every_second { 1 } else { left }))
         })?;
 
     // Modo de depuração (GLOVE_DEBUG_CTL=1): lê comandos de $XDG_RUNTIME_DIR/glove-ctl.

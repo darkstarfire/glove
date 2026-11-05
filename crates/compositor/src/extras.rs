@@ -40,6 +40,7 @@ pub enum ExtraKind {
     Wifi,
     Volume,
     Battery,
+    Clock,
 }
 
 pub struct VolumeSlider {
@@ -216,6 +217,9 @@ impl Glove {
         if self.extras.battery.is_some() && self.config.energy.battery_menu {
             v.push(ExtraKind::Battery);
         }
+        if self.config.clock.show {
+            v.push(ExtraKind::Clock);
+        }
         v
     }
 
@@ -224,6 +228,11 @@ impl Glove {
             .into_iter()
             .map(|k| match k {
                 ExtraKind::Display => Extra::Display,
+                ExtraKind::Clock => {
+                    let c = &self.config.clock;
+                    let (.., h, m, _) = crate::shell::local_now();
+                    Extra::Clock { text: crate::shell::clock_text(c), analog: c.analog.then_some((h as u8, m as u8)) }
+                }
                 ExtraKind::Wifi => {
                     let (on, signal) = self.extras.wifi.unwrap_or((false, None));
                     Extra::Wifi { on, bars: signal.map_or(0, |s| 1 + (s.min(99) / 34)) }
@@ -259,6 +268,10 @@ impl Glove {
             }
             ExtraKind::Display => {
                 let nodes = self.display_menu();
+                self.show_menu(BarTarget::Extra(k), nodes);
+            }
+            ExtraKind::Clock => {
+                let nodes = self.clock_menu();
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
             ExtraKind::Wifi => {
@@ -299,6 +312,23 @@ impl Glove {
         v.push(MenuNode::sep());
         v.push(MenuNode::new(MenuItem::item("Abrir Economizador de Energia…"), Some(MenuAction::OpenPrefs("energia".into()))));
         v
+    }
+
+    /// Menu do relógio: a data por extenso, digital/analógico e o painel.
+    fn clock_menu(&self) -> Vec<MenuNode> {
+        const DIAS: [&str; 7] = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+        const MESES: [&str; 12] = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+        let (wd, d, mo, y, ..) = crate::shell::local_now();
+        let date = format!("{}, {d} de {} de {y}", DIAS[(wd % 7) as usize], MESES[((mo + 11) % 12) as usize]);
+        let analog = self.config.clock.analog;
+        vec![
+            MenuNode::new(MenuItem::item(date).disabled(), None),
+            MenuNode::sep(),
+            MenuNode::new(MenuItem::check("Ver como Digital", !analog), Some(MenuAction::ClockAnalog(false))),
+            MenuNode::new(MenuItem::check("Ver como Analógico", analog), Some(MenuAction::ClockAnalog(true))),
+            MenuNode::sep(),
+            MenuNode::new(MenuItem::item("Abrir Data e Hora…"), Some(MenuAction::OpenPrefs("datahora".into()))),
+        ]
     }
 
     /// Menu do Wi-Fi (como o do AirPort): ligar/desligar e as redes visíveis.

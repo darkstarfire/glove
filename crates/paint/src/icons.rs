@@ -67,6 +67,8 @@ pub enum PrefKind {
     Energy,
     /// Esfera azul com as ondas do Wi-Fi.
     Network,
+    /// Folha de calendário com um relógio na frente.
+    DateTime,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1005,6 +1007,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Sound => pref_sound(pm, x, y, s),
         PrefKind::Energy => pref_energy(pm, x, y, s),
         PrefKind::Network => pref_network(pm, x, y, s),
+        PrefKind::DateTime => pref_datetime(pm, x, y, s),
     }
 }
 
@@ -1219,4 +1222,33 @@ fn pref_network(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pb.quad_to(ox, oy - rr * 1.25, ox + rr * 0.8, oy - rr * 0.35);
         pm.stroke(pb.finish(), &solid(rgba(255, 150, 30, a)), (s * 0.045).max(1.2));
     }
+}
+
+/// Folha de calendário (faixa vermelha no alto) com um relógio redondo na frente.
+fn pref_datetime(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.08, s * 0.62, s * 0.66);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 45)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(228, 228, 232, 255))]));
+    pm.fill(rrect4(bx, by, bw, bh * 0.24, [s * 0.05, s * 0.05, 0.0, 0.0]), &vgrad(by, by + bh * 0.24, &[(0.0, rgba(240, 90, 80, 255)), (1.0, rgba(190, 40, 35, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(110, 110, 118, 255)), lw);
+    for r in 0..3 {
+        for c in 0..4 {
+            pm.fill_rect(bx + bw * (0.1 + c as f32 * 0.21), by + bh * (0.36 + r as f32 * 0.18), bw * 0.13, bh * 0.1, &solid(rgba(150, 150, 158, 255)));
+        }
+    }
+    // Relógio
+    let (cx, cy, r) = (x + s * 0.66, y + s * 0.66, s * 0.27);
+    pm.fill(circle(cx + s * 0.01, cy + s * 0.025, r), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(235, 237, 242, 255)), (1.0, rgba(140, 144, 154, 255))]));
+    pm.fill(circle(cx, cy, r * 0.82), &radial(cx - r * 0.2, cy - r * 0.3, r * 1.2, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(225, 228, 235, 255))]));
+    let hand = |pm: &mut Canvas, a: f32, len: f32, w: f32| {
+        let mut pb = PathBuilder::new();
+        pb.move_to(cx, cy);
+        pb.line_to(cx + len * a.sin(), cy - len * a.cos());
+        pm.stroke_round(pb.finish(), &solid(rgba(40, 40, 46, 255)), w);
+    };
+    hand(pm, std::f32::consts::TAU * 10.0 / 12.0, r * 0.45, (s * 0.04).max(1.2));
+    hand(pm, std::f32::consts::TAU * 2.0 / 12.0, r * 0.68, (s * 0.03).max(1.0));
+    pm.fill(circle(cx, cy, s * 0.025), &solid(rgba(200, 50, 40, 255)));
 }

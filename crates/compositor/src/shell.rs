@@ -217,6 +217,8 @@ pub enum MenuAction {
     OpenPrefs(String),
     /// Liga (true) ou desliga o Wi-Fi.
     SetWifi(bool),
+    /// Relógio da barra com ponteiros (true) ou números.
+    ClockAnalog(bool),
     /// Entrar numa rede: (nome, pede senha).
     JoinWifi(String, bool),
     /// Fecha todas as janelas do app em foco.
@@ -1125,6 +1127,15 @@ impl Glove {
             }
             MenuAction::OpenPrefs(pane) => self.spawn(&format!("glove-prefs {pane}")),
             MenuAction::SetWifi(on) => self.set_wifi(on),
+            MenuAction::ClockAnalog(on) => {
+                let mut c = self.config.clone();
+                c.clock.analog = on;
+                if let Err(e) = c.save() {
+                    tracing::warn!("não salvou o relógio: {e}");
+                }
+                self.config.clock.analog = on;
+                self.dirty = true;
+            }
             MenuAction::JoinWifi(ssid, secure) => self.join_wifi(&ssid, secure),
             MenuAction::QuitApp(pid) => {
                 for w in self.windows_of_pid(pid) {
@@ -1237,7 +1248,8 @@ impl Glove {
 
         // Barra de menu (nome do app + menus dele)
         let titles = self.bar_titles();
-        let clock = clock_text();
+        // O relógio vai como o último extra (clicável); aqui fica vazio.
+        let clock = String::new();
         let open = self.chrome.menu.as_ref().and_then(|m| match m.target {
             BarTarget::Logo => Some(0),
             BarTarget::Title(i) => Some(i + 1),
@@ -1505,15 +1517,20 @@ fn local_hm() -> (u8, u8) {
     }
 }
 
-/// "Ter 19:47" no horário local.
-pub fn clock_text() -> String {
-    const DIAS: [&str; 7] = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+/// Hora local: (dia da semana, dia, mês 1-12, ano, hora, minuto, segundo).
+pub fn local_now() -> (u32, u32, u32, i32, u32, u32, u32) {
     unsafe {
         let t = libc::time(std::ptr::null_mut());
         let mut tm: libc::tm = std::mem::zeroed();
         libc::localtime_r(&t, &mut tm);
-        format!("{} {:02}:{:02}", DIAS[(tm.tm_wday as usize) % 7], tm.tm_hour, tm.tm_min)
+        (tm.tm_wday as u32, tm.tm_mday as u32, tm.tm_mon as u32 + 1, tm.tm_year + 1900, tm.tm_hour as u32, tm.tm_min as u32, tm.tm_sec as u32)
     }
+}
+
+/// "Ter 19:47" no horário local, como a aba Relógio pede.
+pub fn clock_text(c: &glove_config::Clock) -> String {
+    let (wd, d, mo, _, h, m, s) = local_now();
+    c.text(wd, d, mo, h, m, s)
 }
 
 /// Itens do menu de um app (com submenus) já ligados às ações.

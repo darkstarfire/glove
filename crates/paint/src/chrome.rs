@@ -253,9 +253,15 @@ pub fn menubar(fonts: &Fonts, theme: &Theme, w: f32, titles: &[String], extras: 
     }
     magnifier_glyph(&mut c, search.0 + 9.0, 4.0, 14.0, if search_open { Color::WHITE } else { theme.menu_text });
     let right = search.0 - 4.0;
-    let cw = fonts.measure(clock, MENUBAR_PX, false);
-    fonts.draw(&mut c, clock, right - cw - 8.0, 16.0, MENUBAR_PX, false, theme.menu_text);
-    let extra_ranges = draw_extras(&mut c, fonts, theme, extras, right - cw - 16.0, open_extra, &hot);
+    // O relógio pode vir à parte (texto fixo) ou como o último extra (clicável).
+    let extras_right = if clock.is_empty() {
+        right
+    } else {
+        let cw = fonts.measure(clock, MENUBAR_PX, false);
+        fonts.draw(&mut c, clock, right - cw - 8.0, 16.0, MENUBAR_PX, false, theme.menu_text);
+        right - cw - 16.0
+    };
+    let extra_ranges = draw_extras(&mut c, fonts, theme, extras, extras_right, open_extra, &hot);
     Some((c, MenuBarLayout { logo, titles: ranges, extras: extra_ranges, search }))
 }
 
@@ -1073,6 +1079,8 @@ pub enum Extra {
     Display,
     /// Wi-Fi: ligado e quantas ondas acesas (0 = sem rede).
     Wifi { on: bool, bars: u8 },
+    /// Relógio (o último à direita): o texto, ou (hora, minuto) no mostrador de ponteiros.
+    Clock { text: String, analog: Option<(u8, u8)> },
 }
 
 /// Largura do extra na barra.
@@ -1083,6 +1091,8 @@ fn extra_width(fonts: &Fonts, e: &Extra) -> f32 {
         Extra::Battery { .. } => 36.0,
         Extra::Display => 30.0,
         Extra::Wifi { .. } => 30.0,
+        Extra::Clock { analog: Some(_), .. } => 28.0,
+        Extra::Clock { text, .. } => fonts.measure(text, MENUBAR_PX, false) + 16.0,
     }
 }
 
@@ -1149,6 +1159,27 @@ fn battery_glyph(c: &mut Canvas, x: f32, y: f32, percent: u8, charging: bool, co
     }
 }
 
+/// Mostradorzinho de ponteiros (relógio analógico da barra).
+fn clock_glyph(c: &mut Canvas, cx: f32, cy: f32, h: u8, m: u8, color: Color) {
+    c.stroke(circle(cx, cy, 7.5), &solid(color), 1.2);
+    for k in 0..12 {
+        let a = k as f32 * std::f32::consts::TAU / 12.0;
+        if k % 3 == 0 {
+            c.fill(circle(cx + 5.8 * a.sin(), cy - 5.8 * a.cos(), 0.7), &solid(color));
+        }
+    }
+    let hand = |c: &mut Canvas, a: f32, len: f32, w: f32| {
+        let mut pb = tiny_skia::PathBuilder::new();
+        pb.move_to(cx, cy);
+        pb.line_to(cx + len * a.sin(), cy - len * a.cos());
+        c.stroke_round(pb.finish(), &solid(color), w);
+    };
+    let ma = m as f32 / 60.0 * std::f32::consts::TAU;
+    let ha = ((h % 12) as f32 + m as f32 / 60.0) / 12.0 * std::f32::consts::TAU;
+    hand(c, ha, 3.8, 1.6);
+    hand(c, ma, 5.6, 1.1);
+}
+
 /// Leque do Wi-Fi: três arcos sobre um ponto; os apagados ficam claros.
 /// Desligado: só o contorno.
 fn wifi_glyph(c: &mut Canvas, cx: f32, base: f32, on: bool, bars: u8, color: Color) {
@@ -1204,6 +1235,8 @@ fn draw_extras(c: &mut Canvas, fonts: &Fonts, theme: &Theme, extras: &[Extra], r
             }
             Extra::Display => display_glyph(c, a + 7.0, 3.0, col),
             Extra::Wifi { on, bars } => wifi_glyph(c, a + 15.0, 16.0, *on, *bars, col),
+            Extra::Clock { analog: Some((h, m)), .. } => clock_glyph(c, a + 14.0, 11.0, *h, *m, col),
+            Extra::Clock { text, .. } => fonts.draw(c, text, a + 8.0, 16.0, MENUBAR_PX, false, col),
         }
         ranges[i] = (a, b);
         x = a;

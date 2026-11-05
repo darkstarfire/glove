@@ -3,6 +3,7 @@
 
 use std::time::{Duration, Instant};
 
+mod datahora;
 mod rede;
 mod som;
 
@@ -30,6 +31,7 @@ enum Pane {
     Som,
     Energia,
     Rede,
+    DataHora,
     Dock,
     Teclado,
     Mouse,
@@ -51,7 +53,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 11] = [
+const PANES: [PaneInfo; 12] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -62,6 +64,7 @@ const PANES: [PaneInfo; 11] = [
     PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto" },
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
     PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
+    PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
 
@@ -182,6 +185,7 @@ struct Prefs {
     energy_tab: usize,
     energy_source: usize,
     rede: rede::Rede,
+    datahora: datahora::DataHora,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
@@ -208,6 +212,9 @@ impl Prefs {
         let mut p = Self::build();
         if p.pane == Pane::Rede {
             p.rede.refresh();
+        }
+        if p.pane == Pane::DataHora {
+            p.datahora.refresh();
         }
         // "glove-prefs rede --entrar REDE" (do menu Wi-Fi): já pede a senha dela.
         let args: Vec<String> = std::env::args().collect();
@@ -252,6 +259,7 @@ impl Prefs {
             energy_tab: 0,
             energy_source: usize::from(on_battery()),
             rede: rede::Rede::default(),
+            datahora: datahora::DataHora::default(),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -273,6 +281,9 @@ impl Prefs {
             }
             if p == Pane::Rede {
                 self.rede.refresh();
+            }
+            if p == Pane::DataHora {
+                self.datahora.refresh();
             }
         }
     }
@@ -1350,6 +1361,13 @@ impl App for Prefs {
                 let mut menu = self.config.wifi_menu;
                 if self.rede.ui(ui, &mut menu) {
                     self.config.wifi_menu = menu;
+                    self.save();
+                }
+            }
+            Pane::DataHora => {
+                let mut c = self.config.clock.clone();
+                if self.datahora.ui(ui, &mut c) {
+                    self.config.clock = c;
                     self.save();
                 }
             }

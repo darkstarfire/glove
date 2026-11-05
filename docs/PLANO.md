@@ -134,7 +134,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 7.3 Som: volume, mudo, entrada/saída (PipeWire/PulseAudio) (M)
 - [x] 7.4 Economizador de Energia: repouso, tela, ações (logind, UPower) (M)
 - [x] 7.5 Rede e Wi-Fi (NetworkManager) (G)
-- [ ] 7.6 Data e Hora: fuso, NTP (timedated), aba Relógio da barra (M)
+- [x] 7.6 Data e Hora: fuso, NTP (timedated), aba Relógio da barra (M)
 - [ ] 7.7 Itens de Início (autostart XDG) e Menu de Entrada (vários layouts) (M)
 - [ ] 7.8 Acesso Universal: cursor grande, zoom, cores invertidas (no compositor) (M)
 - [ ] 7.9 Protetor de Tela com protetores originais (G)

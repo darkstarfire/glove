@@ -219,7 +219,8 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
 }
 
 /// Painéis das Preferências: (nome, argumento do glove-prefs).
-const PREFS: [(&str, &str); 12] = [
+const PREFS: [(&str, &str); 13] = [
+    ("Data e Hora (relógio, fuso)", "datahora"),
     ("Rede (Wi-Fi)", "rede"),
     ("Economizador de Energia", "energia"),
     ("Som (volume)", "som"),

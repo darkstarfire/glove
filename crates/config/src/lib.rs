@@ -7,6 +7,57 @@ use std::path::PathBuf;
 pub mod rede;
 pub mod sons;
 
+/// Relógio da barra de menu (painel Data e Hora, aba Relógio).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Clock {
+    pub show: bool,
+    /// Mostrador de ponteiros em vez dos números.
+    pub analog: bool,
+    pub seconds: bool,
+    pub weekday: bool,
+    /// Data curta ("5 nov") antes da hora.
+    pub date: bool,
+    pub h24: bool,
+    /// Os dois-pontos piscam a cada segundo.
+    pub blink: bool,
+}
+
+impl Default for Clock {
+    fn default() -> Self {
+        Self { show: true, analog: false, seconds: false, weekday: true, date: false, h24: true, blink: false }
+    }
+}
+
+impl Clock {
+    /// Texto do relógio para (dia da semana 0=domingo, dia, mês 1-12, hora, minuto, segundo).
+    pub fn text(&self, wday: u32, day: u32, month: u32, h: u32, m: u32, s: u32) -> String {
+        const DIAS: [&str; 7] = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+        const MESES: [&str; 12] = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+        let colon = if self.blink && s % 2 == 1 { " " } else { ":" };
+        let (hh, suffix) = if self.h24 {
+            (format!("{h:02}"), "")
+        } else {
+            let h12 = if h % 12 == 0 { 12 } else { h % 12 };
+            (h12.to_string(), if h < 12 { " AM" } else { " PM" })
+        };
+        let mut t = String::new();
+        if self.weekday {
+            t.push_str(DIAS[(wday % 7) as usize]);
+            t.push(' ');
+        }
+        if self.date {
+            t.push_str(&format!("{day} {} ", MESES[((month + 11) % 12) as usize]));
+        }
+        t.push_str(&format!("{hh}{colon}{m:02}"));
+        if self.seconds {
+            t.push_str(&format!("{colon}{s:02}"));
+        }
+        t.push_str(suffix);
+        t
+    }
+}
+
 /// Painel Som.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -339,6 +390,8 @@ pub struct Config {
     pub appearance: Appearance,
     #[serde(default)]
     pub sound: Sound,
+    #[serde(default)]
+    pub clock: Clock,
     /// Menu Wi-Fi na barra de menu.
     #[serde(default = "yes")]
     pub wifi_menu: bool,
@@ -455,6 +508,7 @@ impl Default for Config {
             appearance: Appearance::default(),
             sound: Sound::default(),
             wifi_menu: true,
+            clock: Clock::default(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }

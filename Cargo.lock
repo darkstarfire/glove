@@ -824,6 +824,7 @@ dependencies = [
  "glove-config",
  "glove-kit",
  "glove-paint",
+ "libc",
 ]
 
 [[package]]

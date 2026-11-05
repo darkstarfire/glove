@@ -8,3 +8,4 @@ license.workspace = true
 glove-kit = { path = "../kit" }
 glove-paint = { path = "../paint" }
 glove-config = { path = "../config" }
+libc = "0.2"
