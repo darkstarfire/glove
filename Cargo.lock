@@ -708,6 +708,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-agenda"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
+ "libc",
+]
+
+[[package]]
 name = "glove-arquivo"
 version = "0.1.0"
 dependencies = [
@@ -766,6 +774,13 @@ dependencies = [
  "libc",
  "serde",
  "toml",
+]
+
+[[package]]
+name = "glove-contatos"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
 ]
 
 [[package]]
@@ -857,6 +872,7 @@ name = "glove-paint"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "libc",
  "tiny-skia",
 ]
 

@@ -6,3 +6,4 @@ edition.workspace = true
 [dependencies]
 ab_glyph = "0.2.32"
 tiny-skia = "0.12"
+libc = "0.2"

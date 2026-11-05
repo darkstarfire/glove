@@ -34,6 +34,10 @@ pub enum Icon {
     Chess,
     /// Disco brilhante com uma nota musical (Música).
     Music,
+    /// Livro de capa marrom com abas e um @ (Contatos).
+    Contacts,
+    /// Folha de calendário com o dia de hoje (Agenda).
+    Calendar,
     /// Tela plana (preferência de Monitor).
     Display,
     Mouse,
@@ -141,6 +145,8 @@ impl Icon {
             "trackpad" => Icon::Trackpad,
             "chess" => Icon::Chess,
             "music" => Icon::Music,
+            "contacts" => Icon::Contacts,
+            "calendar" => Icon::Calendar,
             _ => Icon::Generic,
         }
     }
@@ -180,6 +186,8 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Monitor => monitor(pm, x, y, s),
         Icon::Chess => chess(pm, fonts, x, y, s),
         Icon::Music => music(pm, x, y, s),
+        Icon::Contacts => contacts(pm, fonts, x, y, s),
+        Icon::Calendar => calendar(pm, fonts, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
@@ -1631,4 +1639,48 @@ fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pb.line_to(nx + s * 0.12, ny - s * 0.02);
     pb.close();
     pm.fill(pb.finish(), &ink);
+}
+
+/// Livro de couro com páginas claras, abas coloridas e um "@" gravado.
+fn contacts(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.14, y + s * 0.08, s * 0.66, s * 0.84);
+    pm.fill(rrect(bx + s * 0.02, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 55)));
+    // Páginas aparecendo do lado.
+    pm.fill(rrect(bx + bw - s * 0.06, by + s * 0.03, s * 0.1, bh - s * 0.06, s * 0.02), &vgrad(by, by + bh, &[(0.0, rgba(250, 248, 240, 255)), (1.0, rgba(220, 216, 204, 255))]));
+    // Abas.
+    for (k, c) in [rgba(220, 70, 60, 255), rgba(240, 180, 40, 255), rgba(70, 160, 80, 255), rgba(60, 120, 220, 255)].iter().enumerate() {
+        pm.fill(rrect(bx + bw + s * 0.02, by + s * (0.12 + k as f32 * 0.17), s * 0.08, s * 0.12, s * 0.02), &solid(*c));
+    }
+    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(170, 110, 60, 255)), (1.0, rgba(110, 66, 30, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(80, 46, 20, 255)), lw);
+    pm.fill_rect(bx + s * 0.06, by, s * 0.03, bh, &solid(rgba(90, 54, 24, 255)));
+    let px = s * 0.36;
+    let tw = fonts.measure("@", px, true);
+    fonts.draw(pm, "@", bx + (bw - tw) / 2.0 + s * 0.03, by + bh * 0.62, px, true, rgba(240, 214, 160, 230));
+}
+
+/// Folha de calendário com a faixa vermelha e o dia de hoje em número grande.
+fn calendar(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.1, y + s * 0.08, s * 0.8, s * 0.84);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(226, 226, 230, 255))]));
+    pm.fill(rrect4(bx, by, bw, bh * 0.26, [s * 0.06, s * 0.06, 0.0, 0.0]), &vgrad(by, by + bh * 0.26, &[(0.0, rgba(236, 84, 70, 255)), (1.0, rgba(188, 38, 30, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(120, 120, 128, 255)), lw);
+    // Argolas.
+    for k in [0.3, 0.7] {
+        pm.fill(rrect(bx + bw * k - s * 0.02, by - s * 0.04, s * 0.04, s * 0.1, s * 0.02), &solid(rgba(150, 150, 158, 255)));
+    }
+    // Dia de hoje no horário local.
+    let day = unsafe {
+        let t = libc::time(std::ptr::null_mut());
+        let mut tm: libc::tm = std::mem::zeroed();
+        libc::localtime_r(&t, &mut tm);
+        tm.tm_mday as u32
+    };
+    let t = day.to_string();
+    let px = s * 0.46;
+    let tw = fonts.measure(&t, px, true);
+    fonts.draw(pm, &t, bx + (bw - tw) / 2.0, by + bh * 0.86, px, true, rgba(40, 40, 46, 255));
 }

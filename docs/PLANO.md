@@ -152,7 +152,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 8.5 Monitor: ordenar, filtrar, abas CPU/Memória/Disco/Rede (M)
 - [x] 8.6 Busca: colunas Data/Tamanho/Tipo, painel de caminho; Discos em dois painéis (M)
 - [x] 8.7 Música (Rust puro, meta ~10 MB) (G)
-- [ ] 8.8 Contatos (vCard) e Agenda (.ics) (G)
+- [x] 8.8 Contatos (vCard) e Agenda (.ics) (G)
 - [ ] 8.9 Painel de Fontes e Painel de Cores no kit (M)
 - [ ] 8.10 Calculadora científica, Caracteres em modo Teclado, Captura de seleção (M)
 - [ ] 8.11 Vídeo (mpv com controles próprios), Registros, Informações do Sistema, Ajuda (M cada)
