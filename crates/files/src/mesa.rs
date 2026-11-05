@@ -35,6 +35,7 @@ pub fn open_paths(paths: &[PathBuf]) {
             modified: meta.modified().ok(),
             link: false,
             app_icon: None,
+            label: glove_config::arquivos::label_of(p),
         };
         open_file(&e);
     }

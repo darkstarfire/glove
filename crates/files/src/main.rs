@@ -4,6 +4,7 @@ mod apps;
 mod info;
 mod mesa;
 mod ops;
+mod preferencias;
 mod smart;
 mod thumb;
 
@@ -69,6 +70,8 @@ struct Entry {
     link: bool,
     /// Ícone próprio (apps da pasta Aplicativos).
     app_icon: Option<Icon>,
+    /// Rótulo de cor (0 = nenhum, 1 a 7).
+    label: u8,
 }
 
 impl Entry {
@@ -187,6 +190,26 @@ fn display_name(p: &Path) -> String {
     p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string())
 }
 
+/// Ordem da vista de ícones: "nome" (pastas primeiro, como a lista), "data" e
+/// "tamanho" (maiores e mais novos primeiro) ou "tipo" (pela extensão).
+fn sort_entries(v: &mut [Entry], by: &str) {
+    match by {
+        "data" => v.sort_by(|a, b| b.modified.cmp(&a.modified)),
+        "tamanho" => v.sort_by(|a, b| (b.kind == Kind::Folder).cmp(&(a.kind == Kind::Folder)).then(b.size.cmp(&a.size))),
+        "tipo" => v.sort_by(|a, b| {
+            let ext = |e: &Entry| if e.kind == Kind::Folder { String::new() } else { e.path.extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_else(|| "~".into()) };
+            ext(a).cmp(&ext(b)).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        }),
+        _ => {}
+    }
+}
+
+/// Cor do rótulo `n` (1 a 7); 0 = sem rótulo.
+fn label_color(n: u8) -> Option<Color> {
+    let (r, g, b) = *glove_config::arquivos::LABEL_COLORS.get((n as usize).checked_sub(1)?)?;
+    Some(rgba(r, g, b, 255))
+}
+
 fn human_size(n: u64) -> String {
     let f = n as f64;
     let s = if n < 1024 {
@@ -256,6 +279,7 @@ fn read_dir(dir: &Path, hidden: bool) -> Result<Vec<Entry>, String> {
                 size: meta.as_ref().map(|m| m.len()).unwrap_or(0),
                 modified: meta.as_ref().and_then(|m| m.modified().ok()),
                 name,
+                label: glove_config::arquivos::label_of(&path),
                 path,
                 link,
                 app_icon: None,
@@ -555,6 +579,10 @@ struct Files {
     watched: HashMap<i32, PathBuf>,
     /// Onde a busca da barra procura (a pasta em que se estava).
     search_scope: PathBuf,
+    /// Preferências do Arquivos e Opções de Visualização (config.toml, [files]).
+    cfg: glove_config::arquivos::Files,
+    /// Submenu aberto no menu de contexto: (qual, topo da linha que o abriu).
+    ctx_sub: Option<(String, f32)>,
 }
 
 impl Files {
@@ -598,6 +626,8 @@ impl Files {
             notify_fd: unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) },
             watched: HashMap::new(),
             search_scope: home(),
+            cfg: glove_config::Config::load().files,
+            ctx_sub: None,
         }
     }
 
@@ -906,6 +936,7 @@ impl Files {
                         modified: meta.as_ref().and_then(|m| m.modified().ok()),
                         link: std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()),
                         app_icon: None,
+                        label: glove_config::arquivos::label_of(&path),
                         path,
                     }
                 })
@@ -925,9 +956,9 @@ impl Files {
             let utils = *dir == apps::utils_dir();
             let mut v: Vec<Entry> = Vec::new();
             if !utils {
-                v.push(Entry { name: "Utilitários".into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None });
+                v.push(Entry { name: "Utilitários".into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None, label: 0 });
             }
-            v.extend(apps::all().into_iter().filter(|a| a.utility == utils).map(|a| Entry { name: a.name, path: a.path, kind: Kind::App, size: 0, modified: None, link: false, app_icon: Some(a.icon) }));
+            v.extend(apps::all().into_iter().filter(|a| a.utility == utils).map(|a| Entry { name: a.name, path: a.path, kind: Kind::App, size: 0, modified: None, link: false, app_icon: Some(a.icon), label: 0 }));
             self.apps_cache.insert(dir.to_path_buf(), (std::time::Instant::now(), v.clone()));
             return Ok(v);
         }
@@ -1128,15 +1159,29 @@ impl Files {
     /// Menu suspenso desenhado no app (engrenagem e menu de contexto). Itens:
     /// (ação, rótulo, ativo); ação vazia = divisória. Devolve a ação escolhida.
     /// Onde o menu suspenso fica (cabe na janela).
-    fn menu_rect(ui: &Ui, x: f32, y0: f32, items: &[(&str, String, bool)]) -> Rect {
+    fn menu_rect<S: AsRef<str>>(ui: &Ui, x: f32, y0: f32, items: &[(S, String, bool)]) -> Rect {
         let mw = 220.0;
-        let mh = items.iter().map(|i| if i.0.is_empty() { 9.0 } else { 20.0 }).sum::<f32>() + 8.0;
+        let mh = items.iter().map(|i| if i.0.as_ref().is_empty() { 9.0 } else { 20.0 }).sum::<f32>() + 8.0;
         let x = x.min(ui.c.w - mw - 4.0).max(0.0);
         let y0 = if y0 + mh > ui.c.h - 4.0 { (y0 - mh).max(0.0) } else { y0 };
         Rect::new(x, y0, mw, mh)
     }
 
-    fn popup_menu(ui: &mut Ui, x: f32, y0: f32, items: &[(&str, String, bool)]) -> Option<String> {
+    /// Linha do menu sob `py`: (id, topo da linha).
+    fn menu_row_at<S: AsRef<str>>(mr: Rect, items: &[(S, String, bool)], py: f32) -> Option<(String, f32)> {
+        let mut y = mr.y + 4.0;
+        for (id, _, on) in items {
+            let id = id.as_ref();
+            let h = if id.is_empty() { 9.0 } else { 20.0 };
+            if py >= y && py < y + h {
+                return (!id.is_empty() && *on).then(|| (id.to_string(), y));
+            }
+            y += h;
+        }
+        None
+    }
+
+    fn popup_menu<S: AsRef<str>>(ui: &mut Ui, x: f32, y0: f32, items: &[(S, String, bool)]) -> Option<String> {
         let row = 20.0;
         let mr = Self::menu_rect(ui, x, y0, items);
         let (x, y0, mw, mh) = (mr.x, mr.y, mr.w, mr.h);
@@ -1146,6 +1191,7 @@ impl Files {
         let mut y = y0 + 4.0;
         let mut chosen = None;
         for (id, label, on) in items {
+            let id = id.as_ref();
             if id.is_empty() {
                 ui.c.hline(x + 1.0, y + 4.0, mw - 2.0, rgba(214, 214, 218, 255));
                 y += 9.0;
@@ -1157,10 +1203,32 @@ impl Files {
                 ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(ui.theme.menu_hot));
             }
             let col = if !on { rgba(160, 160, 160, 255) } else if h.hover { Color::WHITE } else { rgba(20, 20, 20, 255) };
+            // Rótulos: ✓ no atual e a bolinha da cor antes do nome.
+            let mut tx = x + 16.0;
+            let mut label = label.as_str();
+            if let Some(rest) = label.strip_prefix("✓ ") {
+                ui.fonts.draw(ui.c, "✓", x + 4.0, y + 14.5, 12.0, false, col);
+                label = rest;
+            }
+            if let Some(lc) = id.strip_prefix("label:").and_then(|n| n.parse::<u8>().ok()).and_then(label_color) {
+                ui.c.fill(circle(tx + 5.0, y + 10.0, 5.5), &solid(lc));
+                ui.c.stroke(circle(tx + 5.0, y + 10.0, 5.5), &solid(rgba(0, 0, 0, 70)), 1.0);
+                tx += 16.0;
+            }
             // Nomes compridos não passam da borda do menu.
             let label = ui.fonts.ellipsize(label, 13.0, false, mw - 28.0);
-            ui.fonts.draw(ui.c, &label, x + 16.0, y + 14.5, 13.0, false, col);
-            if h.clicked && *on {
+            ui.fonts.draw(ui.c, &label, tx, y + 14.5, 13.0, false, col);
+            // Submenu: o triângulo à direita (abre ao passar o mouse).
+            if id.starts_with("sub:") {
+                let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+                let (tx, ty) = (x + mw - 14.0, y + 10.0);
+                pb.move_to(tx - 3.0, ty - 4.5);
+                pb.line_to(tx + 3.0, ty);
+                pb.line_to(tx - 3.0, ty + 4.5);
+                pb.close();
+                ui.c.fill(pb.finish(), &solid(col));
+            }
+            if h.clicked && *on && !id.starts_with("sub:") {
                 chosen = Some(id.to_string());
             }
             y += row;
@@ -1176,8 +1244,10 @@ impl Files {
                 let n = self.all_selected().len();
                 let one = n <= 1;
                 let many = |t: &str| if one { t.to_string() } else { format!("{t} {n} itens") };
+                let file = one && self.selected.as_ref().is_some_and(|p| !apps::is_virtual(p) && p.is_file());
                 vec![
                     ("open", many("Abrir"), true),
+                    ("sub:abrircom", "Abrir com".into(), file && !self.in_trash()),
                     ("", String::new(), false),
                     ("info", "Obter Informações".into(), one),
                     ("rename", "Renomear".into(), one),
@@ -1189,6 +1259,8 @@ impl Files {
                     ("cut", many("Recortar"), true),
                     ("", String::new(), false),
                     if self.in_trash() { ("put-back", many("Devolver"), true) } else { ("trash", if one { "Mover para a Lixeira".into() } else { format!("Mover {n} itens para a Lixeira") }, true) },
+                    ("", String::new(), false),
+                    ("sub:rotulo", "Rótulo".into(), !self.in_trash()),
                 ]
             }
             None => vec![
@@ -1196,18 +1268,68 @@ impl Files {
                 ("paste", "Colar".into(), self.clip.is_some()),
                 ("", String::new(), false),
                 ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
+                ("view-options", "Mostrar Opções de Visualização".into(), true),
             ],
+        }
+    }
+
+    /// Itens dos submenus do menu de contexto ("Abrir com" e "Rótulo").
+    fn sub_items(&mut self, key: &str) -> Vec<(String, String, bool)> {
+        match key {
+            "sub:abrircom" => {
+                let Some(p) = self.selected.clone() else { return Vec::new() };
+                let mime = glove_config::arquivos::mime_of(&p);
+                let apps = glove_config::arquivos::apps_for_mime(&mime);
+                let def = glove_config::arquivos::default_app(&mime);
+                let mut v: Vec<(String, String, bool)> = Vec::new();
+                if let Some((id, name)) = def.as_ref().and_then(|d| apps.iter().find(|a| &a.0 == d)) {
+                    v.push((format!("openwith:{id}"), format!("{name} (padrão)"), true));
+                    v.push((String::new(), String::new(), false));
+                }
+                v.extend(apps.iter().filter(|a| Some(&a.0) != def.as_ref()).map(|(id, name)| (format!("openwith:{id}"), name.clone(), true)));
+                if v.is_empty() {
+                    v.push(("nada".into(), "Nenhum app encontrado".into(), false));
+                }
+                v
+            }
+            "sub:rotulo" => {
+                let all = self.all_selected();
+                let labels: Vec<u8> = all.iter().map(|p| glove_config::arquivos::label_of(p)).collect();
+                let cur = labels.first().copied().filter(|l| labels.iter().all(|x| x == l));
+                let mark = |n: u8, t: String| if cur == Some(n) { format!("✓ {t}") } else { t };
+                let mut v = vec![(String::from("label:0"), mark(0, "Nenhum".into()), true), (String::new(), String::new(), false)];
+                for n in 1..=7u8 {
+                    v.push((format!("label:{n}"), mark(n, self.cfg.label_name(n)), true));
+                }
+                v
+            }
+            _ => Vec::new(),
         }
     }
 
     fn context_menu(&mut self, ui: &mut Ui) {
         let Some(((x, y), item)) = self.ctx.clone() else { return };
         let items = self.ctx_items(&item);
-        if let Some(a) = ui.unreserved(|ui| Self::popup_menu(ui, x, y, &items)) {
+        let mr = Self::menu_rect(ui, x, y, &items);
+        // Passar o mouse num item com submenu abre o submenu; noutro item, fecha.
+        let p = ui.pointer();
+        if mr.contains(p) {
+            self.ctx_sub = Self::menu_row_at(mr, &items, p.1).filter(|(id, _)| id.starts_with("sub:"));
+        }
+        let mut chosen = ui.unreserved(|ui| Self::popup_menu(ui, x, y, &items));
+        if let Some((key, top)) = self.ctx_sub.clone() {
+            let sub = self.sub_items(&key);
+            if let Some(a) = ui.unreserved(|ui| Self::popup_menu(ui, mr.x + mr.w - 4.0, top - 4.0, &sub)) {
+                chosen = Some(a);
+            }
+        }
+        if let Some(a) = chosen {
             self.ctx = None;
+            self.ctx_sub = None;
             self.action(&a, ui);
         } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
             self.ctx = None;
+            self.ctx_sub = None;
         }
     }
 
@@ -1226,10 +1348,19 @@ impl Files {
             }
         }
         if let Some(((x, y), item)) = self.ctx.clone() {
-            let r = Self::menu_rect(ui, x, y, &self.ctx_items(&item));
+            let items = self.ctx_items(&item);
+            let r = Self::menu_rect(ui, x, y, &items);
             ui.reserve(r);
-            if ui.mouse_pressed() && !r.contains(p) {
+            let sub = self.ctx_sub.clone().map(|(k, top)| {
+                let sub = self.sub_items(&k);
+                Self::menu_rect(ui, r.x + r.w - 4.0, top - 4.0, &sub)
+            });
+            if let Some(sr) = sub {
+                ui.reserve(sr);
+            }
+            if ui.mouse_pressed() && !r.contains(p) && !sub.is_some_and(|sr| sr.contains(p)) {
                 self.ctx = None;
+                self.ctx_sub = None;
                 ui.reserve(full);
             }
         }
@@ -1303,9 +1434,15 @@ impl Files {
     }
 
     /// Lugares da barra lateral: (nome, ícone, pasta); None = divisória.
-    fn places() -> Vec<Option<(String, Icon, PathBuf)>> {
+    /// Lugares da barra lateral, sem os que as Preferências do Arquivos escondem.
+    fn places(hidden: &[String]) -> Vec<Option<(String, Icon, PathBuf)>> {
         let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
-        let mut v = vec![Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))), None];
+        let shown = |id: &str| !hidden.iter().any(|h| h == id);
+        let mut v = vec![];
+        if shown("disco") {
+            v.push(Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))));
+            v.push(None);
+        }
         // Cada lugar com um desenho próprio (como na lateral do Tiger), não a pasta.
         let icon_of = |key: &str| match key {
             "DESKTOP" => Icon::Display,
@@ -1316,7 +1453,17 @@ impl Files {
             _ => Icon::Folder,
         };
         let mut add = |name: &str, icon: Icon, p: PathBuf| {
-            if p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p) {
+            let id = match name {
+                "Mesa" => "mesa",
+                "Aplicativos" => "aplicativos",
+                "Documentos" => "documentos",
+                "Downloads" => "downloads",
+                "Imagens" => "imagens",
+                "Música" => "musica",
+                "Vídeos" => "videos",
+                _ => "inicio",
+            };
+            if shown(id) && (p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p)) {
                 v.push(Some((name.to_string(), icon, p)));
             }
         };
@@ -1335,7 +1482,7 @@ impl Files {
         add_user("Música", "MUSIC", &mut add);
         add_user("Vídeos", "VIDEOS", &mut add);
         // Pastas inteligentes salvas.
-        let saved = smart::saved();
+        let saved = if shown("buscas") { smart::saved() } else { Vec::new() };
         if !saved.is_empty() {
             v.push(None);
             for n in saved {
@@ -1348,7 +1495,7 @@ impl Files {
     fn sidebar(&mut self, ui: &mut Ui, r: Rect) {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         let mut y = r.y + 4.0;
-        for place in Self::places() {
+        for place in Self::places(&self.cfg.sidebar_hidden) {
             if y + SIDE_ROW > r.y + r.h {
                 break;
             }
@@ -1489,11 +1636,16 @@ impl Files {
         let accent = ui.theme.accent;
         let extra = self.extra.clone();
         let target = self.drop_target.clone();
+        let show_ext = self.cfg.show_extensions;
         ui.clipped(ci as u64 * 7919 + 1, Rect::new(r.x, r.y, r.w - 1.0, r.h), |c, fonts| {
             c.clear(Color::WHITE);
             for (i, e) in entries.iter().enumerate().skip(first).take(count) {
                 let y = i as f32 * ROW_H - off;
                 let on = chosen.as_ref() == Some(&e.path) || extra.contains(&e.path);
+                // Rótulo: a linha na cor dele (por baixo da seleção).
+                if let (Some(lc), false) = (label_color(e.label), on) {
+                    c.fill_rect(0.0, y, r.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(lc, 0.45)), (1.0, lighten(lc, 0.2))]));
+                }
                 if on {
                     let col = if last { accent } else { rgba(200, 204, 212, 255) };
                     c.fill_rect(0.0, y, r.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(col, 0.15)), (1.0, col)]));
@@ -1504,7 +1656,7 @@ impl Files {
                 }
                 e.draw_icon(c, fonts, 6.0, y + 1.5, 16.0);
                 let ink = if on && last { Color::WHITE } else { rgba(20, 20, 20, 255) };
-                let name = fonts.ellipsize(&e.name, 12.0, false, r.w - 44.0);
+                let name = fonts.ellipsize(&glove_config::arquivos::shown_name(&e.name, e.kind == Kind::Folder, show_ext), 12.0, false, r.w - 44.0);
                 fonts.draw(c, &name, 26.0, y + 14.0, 12.0, false, ink);
                 if e.kind == Kind::Folder {
                     let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
@@ -1701,7 +1853,7 @@ impl Files {
             .iter()
             .map(|(e, depth)| TableRow {
                 cells: vec![
-                    e.name.clone(),
+                    glove_config::arquivos::shown_name(&e.name, e.kind == Kind::Folder, self.cfg.show_extensions),
                     human_date(e.modified),
                     if e.kind == Kind::Folder { "--".into() } else { human_size(e.size) },
                     if searching { e.path.parent().map(display_name).unwrap_or_default() } else { e.type_name().to_string() },
@@ -1709,6 +1861,7 @@ impl Files {
                 icon: Some(e.icon()),
                 depth: *depth,
                 children: (e.kind == Kind::Folder && !apps::is_virtual(&e.path)).then(|| self.expanded.contains(&e.path)),
+                tint: label_color(e.label),
             })
             .collect();
         let sel = self.selected.as_ref().and_then(|s| entries.iter().position(|e| &e.path == s));
@@ -1783,8 +1936,15 @@ impl Files {
                 return;
             }
         };
-        // Ícones de 64 em células largas, como a visão de ícones do Tiger.
-        let (cw, ch) = (118.0, 104.0);
+        // Opções de Visualização (Ctrl+J): tamanho, nome embaixo ou ao lado, ordem e fundo.
+        let cfg = self.cfg.clone();
+        let mut entries = entries;
+        sort_entries(&mut entries, &cfg.arrange);
+        let s = cfg.icon_size.clamp(32, 128) as f32;
+        let px = cfg.text_size.clamp(10, 16) as f32;
+        let right = cfg.label_right;
+        let (cw, ch) = if right { (s + 170.0, s.max(2.0 * px + 8.0) + 10.0) } else { ((s + 54.0).max(96.0), s + px + 28.0) };
+        let icon_at = |x: f32, y: f32| if right { (x + 4.0, y + (ch - s) / 2.0) } else { (x + cw / 2.0 - s / 2.0, y + 3.0) };
         let per_row = ((area.w - SCROLLBAR_W - 16.0) / cw).floor().max(1.0) as usize;
         let rows = entries.len().div_ceil(per_row);
         let content = rows as f32 * ch + 16.0;
@@ -1824,23 +1984,24 @@ impl Files {
         // Retângulo elástico: arrastar no vazio escolhe os ícones que ele toca.
         let any_item = action.is_some() || self.defer_select.is_some();
         if ui.mouse_pressed() && !any_item {
-            let (px, py) = ui.pointer();
-            if px >= area.x && px < area.x + area.w && py >= area.y && py < area.y + area.h && self.ctx.is_none() {
-                self.band = Some((px, py));
+            let (px0, py0) = ui.pointer();
+            if px0 >= area.x && px0 < area.x + area.w && py0 >= area.y && py0 < area.y + area.h && self.ctx.is_none() {
+                self.band = Some((px0, py0));
                 self.selected = None;
                 self.extra.clear();
             }
         }
         let mut band_rect = None;
         if let Some((bx, by)) = self.band {
-            let (px, py) = ui.pointer();
-            let r = Rect::new(bx.min(px), by.min(py), (px - bx).abs(), (py - by).abs());
+            let (pxx, pyy) = ui.pointer();
+            let r = Rect::new(bx.min(pxx), by.min(pyy), (pxx - bx).abs(), (pyy - by).abs());
             let hits: Vec<PathBuf> = entries
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| {
                     let (x, y) = cell(*i);
-                    let c = Rect::new(area.x + x + cw / 2.0 - 36.0, area.y + y, 72.0, 92.0);
+                    let (ix, iy) = icon_at(x, y);
+                    let c = Rect::new(area.x + ix, area.y + iy, s, s);
                     c.x < r.x + r.w && c.x + c.w > r.x && c.y < r.y + r.h && c.y + c.h > r.y
                 })
                 .map(|(_, e)| e.path.clone())
@@ -1857,34 +2018,51 @@ impl Files {
         let extra = self.extra.clone();
         let accent = ui.theme.accent;
         let target = self.drop_target.clone();
+        let bg = cfg.background_rgb().map(|(r, g, b)| rgba(r, g, b, 255)).unwrap_or(Color::WHITE);
+        // Nome claro sobre fundo escuro.
+        let dark_bg = cfg.background_rgb().is_some_and(|(r, g, b)| (r as u32 * 3 + g as u32 * 6 + b as u32) / 10 < 110);
         ui.clipped(92, area, |c, fonts| {
-            c.clear(Color::WHITE);
+            c.clear(bg);
             for (i, e) in entries.iter().enumerate() {
                 let (x, y) = cell(i);
                 if y + ch < 0.0 || y > area.h {
                     continue;
                 }
+                let (ix, iy) = icon_at(x, y);
                 if target.as_ref() == Some(&e.path) {
-                    c.stroke(rrect(x + cw / 2.0 - 37.0, y - 1.0, 74.0, 72.0, 7.0), &solid(accent), 2.0);
+                    c.stroke(rrect(ix - 5.0, iy - 4.0, s + 10.0, s + 8.0, 7.0), &solid(accent), 2.0);
                 }
                 let on = sel.as_ref() == Some(&e.path) || extra.contains(&e.path);
                 if on {
-                    c.fill(rrect(x + cw / 2.0 - 36.0, y, 72.0, 70.0, 6.0), &solid(rgba(0, 0, 0, 40)));
+                    c.fill(rrect(ix - 4.0, iy - 3.0, s + 8.0, s + 6.0, 6.0), &solid(rgba(0, 0, 0, 40)));
                 }
-                e.draw_icon(c, fonts, x + cw / 2.0 - 32.0, y + 3.0, 64.0);
-                let name = fonts.ellipsize(&e.name, 12.0, false, cw - 8.0);
-                let tw = fonts.measure(&name, 12.0, false);
-                let (lx, ly) = (x + (cw - tw) / 2.0, y + 86.0);
-                if on {
-                    c.fill(rrect(lx - 5.0, ly - 12.0, tw + 10.0, 16.0, 8.0), &solid(accent));
-                }
-                fonts.draw(c, &name, lx, ly, 12.0, false, if on { Color::WHITE } else { rgba(20, 20, 20, 255) });
+                e.draw_icon(c, fonts, ix, iy, s);
+                let shown = glove_config::arquivos::shown_name(&e.name, e.kind == Kind::Folder, cfg.show_extensions);
+                let maxw = if right { cw - s - 18.0 } else { cw - 8.0 };
+                let name = fonts.ellipsize(&shown, px, false, maxw);
+                let tw = fonts.measure(&name, px, false);
+                let (lx, ly) = if right { (ix + s + 8.0, y + ch / 2.0 + px / 2.0 - 1.0) } else { (x + (cw - tw) / 2.0, iy + s + 9.0 + px) };
+                let pill = rrect(lx - 5.0, ly - px, tw + 10.0, px + 4.0, (px + 4.0) / 2.0);
+                let ink = if on {
+                    c.fill(pill, &solid(accent));
+                    Color::WHITE
+                } else if let Some(lc) = label_color(e.label) {
+                    c.fill(pill, &solid(lighten(lc, 0.25)));
+                    rgba(20, 20, 20, 255)
+                } else if dark_bg {
+                    Color::WHITE
+                } else {
+                    rgba(20, 20, 20, 255)
+                };
+                fonts.draw(c, &name, lx, ly, px, false, ink);
             }
         });
         if let Some(i) = self.rename.as_ref().and_then(|(p, _, _)| entries.iter().position(|e| &e.path == p)) {
             let (x, y) = cell(i);
+            let (ix, iy) = icon_at(x, y);
             let path = entries[i].path.clone();
-            self.rename_field(ui, &path, Rect::new(area.x + x + 2.0, area.y + y + 74.0, cw - 4.0, 18.0));
+            let r = if right { Rect::new(area.x + ix + s + 4.0, area.y + y + ch / 2.0 - 9.0, cw - s - 12.0, 18.0) } else { Rect::new(area.x + x + 2.0, area.y + iy + s + 7.0, cw - 4.0, 18.0) };
+            self.rename_field(ui, &path, r);
         }
         if let Some(r) = band_rect {
             ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(with_alpha(ui.theme.accent, 0.18)));
@@ -1930,6 +2108,8 @@ impl Files {
                 "Ctrl+2" => act.push("view-list"),
                 "Ctrl+3" => act.push("view-columns"),
                 "Ctrl+H" => act.push("hidden"),
+                "Ctrl+J" => act.push("view-options"),
+                "Ctrl+comma" => act.push("prefs"),
                 "Ctrl+bracketleft" => act.push("back"),
                 "Ctrl+bracketright" => act.push("forward"),
                 "Ctrl+Up" => act.push("up"),
@@ -1959,8 +2139,9 @@ impl Files {
 
     fn action(&mut self, a: &str, ui: &mut Ui) {
         match a {
+            // Janela nova: a pasta das Preferências do Arquivos (Geral).
             "new-window" => {
-                let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(self.current()));
+                let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(self.cfg.new_window_dir()));
             }
             "new-folder" => self.new_folder(),
             "open" => {
@@ -2064,9 +2245,38 @@ impl Files {
                 }
             }
             "empty-trash" => {
-                let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--esvaziar-lixeira"));
+                // Sem o aviso (Preferências ▸ Avançado): esvazia direto.
+                if self.cfg.warn_empty_trash {
+                    let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--esvaziar-lixeira"));
+                } else if let Err(e) = empty_trash() {
+                    self.message = Some(e);
+                }
             }
             "close" => ui.close = true,
+            "view-options" => {
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--opcoes"));
+            }
+            "prefs" => {
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--preferencias"));
+            }
+            a if a.starts_with("openwith:") => {
+                let all = self.all_selected();
+                let cmd = glove_config::arquivos::open_with_command(&a[9..], &all);
+                // Apps do Glove: o binário ao lado deste.
+                let first = cmd.split_whitespace().next().unwrap_or("").to_string();
+                let cmd = if first.starts_with("glove-") { cmd.replacen(&first, &sibling(&first).to_string_lossy(), 1) } else { cmd };
+                let _ = launch(std::process::Command::new("sh").arg("-c").arg(cmd));
+            }
+            a if a.starts_with("label:") => {
+                let n: u8 = a[6..].parse().unwrap_or(0);
+                for p in self.all_selected() {
+                    if let Err(e) = glove_config::arquivos::set_label(&p, n) {
+                        self.message = Some(e);
+                        break;
+                    }
+                }
+                self.cache.clear();
+            }
             "view-icons" => self.view = View::Icons,
             "view-list" => self.view = View::List,
             "view-columns" => self.view = View::Columns,
@@ -2143,6 +2353,12 @@ impl Files {
 }
 
 impl App for Files {
+    /// Preferências do Arquivos ou Opções de Visualização mudaram: vale na hora.
+    fn config_changed(&mut self) {
+        self.cfg = glove_config::Config::load().files;
+        self.cache.clear();
+    }
+
     fn ui(&mut self, ui: &mut Ui) {
         self.keyboard(ui);
         let title = display_name(&self.current());
@@ -2238,7 +2454,11 @@ impl App for Files {
 
     fn menus(&self) -> Vec<Menu> {
         let sel = self.selected.is_some();
+        let labels: Vec<MenuItem> = std::iter::once(MenuItem::new("label:0", "Nenhum", "").enabled(sel))
+            .chain((1..=7u8).map(|n| MenuItem::new(&format!("label:{n}"), &self.cfg.label_name(n), "").enabled(sel)))
+            .collect();
         vec![
+            Menu::app(vec![MenuItem::new("prefs", "Preferências…", "Ctrl+comma")]),
             Menu::new(
                 "Arquivo",
                 vec![
@@ -2254,6 +2474,7 @@ impl App for Files {
                     MenuItem::new("duplicate", "Duplicar", "Ctrl+D").enabled(sel && !self.in_trash()),
                     MenuItem::new("alias", "Criar Atalho", "Ctrl+L").enabled(sel && !self.in_trash()),
                     MenuItem::new("compress", &self.compress_label(), "").enabled(sel && !self.in_trash()),
+                    MenuItem::submenu("Rótulo", labels),
                     MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar janela", "Ctrl+W"),
@@ -2275,6 +2496,7 @@ impl App for Files {
                     MenuItem::new("view-columns", "como Colunas", "Ctrl+3").checked(self.view == View::Columns),
                     MenuItem::Separator,
                     MenuItem::new("hidden", "Mostrar arquivos ocultos", "Ctrl+H").checked(self.hidden),
+                    MenuItem::new("view-options", "Mostrar Opções de Visualização", "Ctrl+J"),
                 ],
             ),
             Menu::new(
@@ -2324,6 +2546,8 @@ fn main() {
             return mesa::transfer(args[2] == "mover", PathBuf::from(&args[3]), args[4..].iter().map(PathBuf::from).collect());
         }
         Some("--opcoes-mesa") => return mesa::view_options(),
+        Some("--opcoes") => return preferencias::view_options(),
+        Some("--preferencias") => return preferencias::preferences(),
         Some("--duplicar") => return mesa::duplicate(args[2..].iter().map(PathBuf::from).collect()),
         Some("--lixo") => {
             for p in &args[2..] {
@@ -2340,13 +2564,20 @@ fn main() {
         if count == 0 {
             return;
         }
+        // Preferências ▸ Avançado sem o aviso: esvazia direto.
+        if !glove_config::Config::load().files.warn_empty_trash {
+            if let Err(e) = empty_trash() {
+                eprintln!("glove-files: {e}");
+            }
+            return;
+        }
         let opts = WindowOptions { title: "Esvaziar Lixeira".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
         if let Err(e) = run(opts, EmptyTrash { count, error: None }) {
             eprintln!("glove-files: {e}");
         }
         return;
     }
-    let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(home);
+    let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(|| glove_config::Config::load().files.new_window_dir());
     let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Files::new(start)) {
         eprintln!("glove-files: {e}");

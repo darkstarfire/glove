@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod arquivos;
 pub mod inicio;
 pub mod rede;
 pub mod sons;
@@ -660,6 +661,9 @@ pub struct Config {
     pub user_menu: bool,
     #[serde(default)]
     pub desk: Desk,
+    /// Preferências do Arquivos e Opções de Visualização das janelas.
+    #[serde(default)]
+    pub files: arquivos::Files,
 }
 
 pub fn default_prefs_favorites() -> Vec<String> {
@@ -797,6 +801,7 @@ impl Default for Config {
             x11_apps: true,
             user_menu: false,
             desk: Desk::default(),
+            files: arquivos::Files::default(),
         }
     }
 }

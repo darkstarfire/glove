@@ -54,6 +54,8 @@ pub struct DeskItem {
     pub link: bool,
     pub modified: Option<SystemTime>,
     pub size: u64,
+    /// Rótulo de cor (0 a 7).
+    pub label: u8,
 }
 
 impl DeskItem {
@@ -94,6 +96,10 @@ pub enum DeskCmd {
     NewWindow,
     Go(PathBuf),
     Background,
+    /// Rótulo de cor (0 tira).
+    Label(u8),
+    /// Abrir com o app (id do .desktop).
+    OpenWith(String),
 }
 
 struct Press {
@@ -144,6 +150,8 @@ pub struct Desk {
     /// Onde o menu de contexto do fundo foi aberto (a pasta nova nasce ali).
     menu_at: Option<Point<f64, Logical>>,
     typed: (String, Option<Instant>),
+    /// Extensões à mostra na última leitura (mudou nas Preferências: relê os nomes).
+    show_ext: Option<bool>,
     layout_key: Option<(Vec<String>, (i32, i32, i32, i32), (u32, u32, bool), String)>,
 }
 
@@ -234,7 +242,7 @@ fn desktop_entry(p: &Path) -> Option<(String, Icon)> {
     Some((name, icon.map(|i| Icon::from_name(&i)).unwrap_or(Icon::Window)))
 }
 
-fn read_items(dir: &Path, mounts: &[(String, PathBuf)]) -> Vec<DeskItem> {
+fn read_items(dir: &Path, mounts: &[(String, PathBuf)], show_ext: bool) -> Vec<DeskItem> {
     let mut v: Vec<DeskItem> = mounts
         .iter()
         .map(|(name, path)| DeskItem {
@@ -245,6 +253,7 @@ fn read_items(dir: &Path, mounts: &[(String, PathBuf)]) -> Vec<DeskItem> {
             link: false,
             modified: None,
             size: 0,
+            label: 0,
         })
         .collect();
     let mut files: Vec<DeskItem> = std::fs::read_dir(dir)
@@ -266,9 +275,10 @@ fn read_items(dir: &Path, mounts: &[(String, PathBuf)]) -> Vec<DeskItem> {
                     None => (fname.clone(), DeskKind::File, Icon::File),
                 }
             } else {
-                (fname.clone(), if is_dir { DeskKind::Folder } else { DeskKind::File }, icons::file_icon(&path, is_dir))
+                (glove_config::arquivos::shown_name(&fname, is_dir, show_ext), if is_dir { DeskKind::Folder } else { DeskKind::File }, icons::file_icon(&path, is_dir))
             };
-            Some(DeskItem { name, path, kind, icon, link, modified: meta.as_ref().and_then(|m| m.modified().ok()), size: meta.map(|m| m.len()).unwrap_or(0) })
+            let label = glove_config::arquivos::label_of(&path);
+            Some(DeskItem { name, path, kind, icon, link, modified: meta.as_ref().and_then(|m| m.modified().ok()), size: meta.map(|m| m.len()).unwrap_or(0), label })
         })
         .collect();
     files.sort_by_key(|a| a.name.to_lowercase());
@@ -388,11 +398,13 @@ impl Glove {
                 all_mounts.push(m.clone());
             }
         }
-        let changed = force || stamp != self.desk.dir_stamp || all_mounts != self.desk.mounts || self.desk.items.is_empty();
+        let show_ext = Some(self.config.files.show_extensions);
+        let changed = force || stamp != self.desk.dir_stamp || all_mounts != self.desk.mounts || self.desk.items.is_empty() || show_ext != self.desk.show_ext;
+        self.desk.show_ext = show_ext;
         self.desk.mounts = all_mounts;
         self.desk.dir_stamp = stamp;
         if changed {
-            let items = read_items(&self.desk.dir, &mounts);
+            let items = read_items(&self.desk.dir, &mounts, self.config.files.show_extensions);
             if items != self.desk.items {
                 self.desk.items = items;
                 let alive: HashSet<PathBuf> = self.desk.items.iter().map(|i| i.path.clone()).collect();
@@ -402,6 +414,15 @@ impl Glove {
                     self.desk.rename = None;
                 }
                 self.desk.layout_key = None;
+            }
+        } else {
+            // Rótulo mudado por outro app (não muda a data da pasta): confere os rótulos.
+            for it in self.desk.items.iter_mut().filter(|i| i.is_file()) {
+                let l = glove_config::arquivos::label_of(&it.path);
+                if l != it.label {
+                    it.label = l;
+                    self.dirty = true;
+                }
             }
         }
         self.layout_desk();
@@ -561,7 +582,7 @@ impl Glove {
             let key = {
                 use std::hash::{Hash, Hasher};
                 let mut h = std::collections::hash_map::DefaultHasher::new();
-                (&it.name, format!("{:?}", it.icon), it.link, selected, hot, &rename, tgen, sc.to_bits()).hash(&mut h);
+                (&it.name, format!("{:?}", it.icon), it.link, it.label, selected, hot, &rename, tgen, sc.to_bits()).hash(&mut h);
                 (style.icon.to_bits(), style.text.to_bits(), style.right).hash(&mut h);
                 h.finish()
             };
@@ -569,7 +590,8 @@ impl Glove {
                 continue;
             }
             let r = rename.as_ref().map(|(t, all)| (t.as_str(), *all));
-            if let Some(c) = chrome::desk_icon(&self.fonts, &self.theme, &style, it.icon, it.link, &it.name, selected, hot, r, sc) {
+            let tag = glove_config::arquivos::LABEL_COLORS.get((it.label as usize).wrapping_sub(1)).map(|&(r, g, b)| glove_paint::draw::rgba(r, g, b, 255));
+            if let Some(c) = chrome::desk_icon(&self.fonts, &self.theme, &style, it.icon, it.link, &it.name, tag, selected, hot, r, sc) {
                 self.desk.texs.insert(it.path.clone(), (key, to_tex(c)));
             }
         }
@@ -931,8 +953,14 @@ impl Glove {
             [one] => format!("Compactar “{}”", one.name),
             _ => format!("Compactar {n} itens"),
         };
-        vec![
-            MenuNode::new(MenuItem::item(many("Abrir")), act(DeskCmd::Open)),
+        let mut v = vec![MenuNode::new(MenuItem::item(many("Abrir")), act(DeskCmd::Open))];
+        // Abrir com: só para um arquivo (não pastas nem discos).
+        if let [it] = chosen.as_slice() {
+            if matches!(it.kind, DeskKind::File) {
+                v.push(MenuNode::submenu("Abrir com", self.open_with_nodes(&it.path)));
+            }
+        }
+        v.extend([
             MenuNode::new(on(MenuItem::item("Mover para a Lixeira"), files), act(DeskCmd::Trash)),
             MenuNode::sep(),
             MenuNode::new(on(MenuItem::item("Obter Informações"), one), act(DeskCmd::Info)),
@@ -942,7 +970,44 @@ impl Glove {
             MenuNode::new(on(MenuItem::item("Criar Atalho"), one), act(DeskCmd::Alias)),
             MenuNode::sep(),
             MenuNode::new(MenuItem::item(many("Copiar")), act(DeskCmd::Copy)),
-        ]
+            MenuNode::sep(),
+            MenuNode::submenu("Rótulo", self.label_nodes()),
+        ]);
+        v
+    }
+
+    /// "Abrir com ▸": os apps que abrem o tipo do item (o padrão primeiro).
+    fn open_with_nodes(&self, p: &Path) -> Vec<MenuNode> {
+        use glove_config::arquivos as a;
+        let mime = a::mime_of(p);
+        let apps = a::apps_for_mime(&mime);
+        let def = a::default_app(&mime);
+        let mut v = Vec::new();
+        if let Some((id, name)) = def.as_ref().and_then(|d| apps.iter().find(|x| &x.0 == d)) {
+            v.push(MenuNode::new(MenuItem::item(format!("{name} (padrão)")), Some(MenuAction::Desk(DeskCmd::OpenWith(id.clone())))));
+            v.push(MenuNode::sep());
+        }
+        for (id, name) in apps.iter().filter(|x| Some(&x.0) != def.as_ref()) {
+            v.push(MenuNode::new(MenuItem::item(name.clone()), Some(MenuAction::Desk(DeskCmd::OpenWith(id.clone())))));
+        }
+        if v.is_empty() {
+            v.push(MenuNode::new(MenuItem::item("Nenhum app encontrado").disabled(), None));
+        }
+        v
+    }
+
+    /// "Rótulo ▸": nenhum e as sete cores (com o nome das Preferências do Arquivos).
+    fn label_nodes(&self) -> Vec<MenuNode> {
+        let chosen = self.desk.chosen();
+        let cur = chosen.first().map(|i| i.label).filter(|l| chosen.iter().all(|i| i.label == *l));
+        let item = |n: u8, t: String| MenuNode::new(MenuItem::check(t, cur == Some(n)), Some(MenuAction::Desk(DeskCmd::Label(n))));
+        let mut v = vec![item(0, "Nenhum".into()), MenuNode::sep()];
+        for (n, &(r, g, b)) in (1..=7u8).zip(glove_config::arquivos::LABEL_COLORS.iter()) {
+            let mut node = item(n, self.config.files.label_name(n));
+            node.item = node.item.with_swatch(glove_paint::draw::rgba(r, g, b, 255));
+            v.push(node);
+        }
+        v
     }
 
     fn arrange_nodes(&self) -> Vec<MenuNode> {
@@ -1133,6 +1198,17 @@ impl Glove {
             DeskCmd::NewWindow => self.spawn("glove-files"),
             DeskCmd::Go(p) => self.spawn(&format!("glove-files {}", quote(&p))),
             DeskCmd::Background => self.run_menu_action(MenuAction::OpenPrefs("mesa".into())),
+            DeskCmd::Label(n) => {
+                for it in &chosen {
+                    let _ = glove_config::arquivos::set_label(&it.path, n);
+                }
+                self.refresh_desk(true);
+            }
+            DeskCmd::OpenWith(id) => {
+                let all: Vec<PathBuf> = chosen.iter().map(|i| i.path.clone()).collect();
+                let cmd = glove_config::arquivos::open_with_command(&id, &all);
+                self.spawn(&cmd);
+            }
             _ => {}
         }
     }

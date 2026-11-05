@@ -119,6 +119,8 @@ pub struct TableRow {
     pub icon: Option<Icon>,
     pub depth: u16,
     pub children: Option<bool>,
+    /// Cor da linha (rótulo do Arquivos), por baixo da seleção.
+    pub tint: Option<Color>,
 }
 
 /// Estado da tabela guardado pelo app: rolagem e ordenação (coluna, crescente).
@@ -2116,6 +2118,9 @@ impl<'a> Ui<'a> {
             for (i, row) in rows.iter().enumerate().skip(first).take(count) {
                 let y = i as f32 * rh - off;
                 let sel = selected == Some(i);
+                if let (Some(t), false) = (row.tint, sel) {
+                    c.fill_rect(0.0, y, body.w, rh, &vgrad(y, y + rh, &[(0.0, lighten(t, 0.45)), (1.0, lighten(t, 0.2))]));
+                }
                 if sel {
                     c.fill_rect(0.0, y, body.w, rh, &solid(if active { a } else { rgba(212, 212, 216, 255) }));
                 }

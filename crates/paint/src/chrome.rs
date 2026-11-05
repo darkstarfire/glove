@@ -290,11 +290,13 @@ pub struct MenuItem {
     pub submenu: bool,
     /// ◆ na coluna da marca (janela minimizada no menu Janela).
     pub diamond: bool,
+    /// Bolinha de cor antes do nome (rótulos do Arquivos).
+    pub swatch: Option<Color>,
 }
 
 impl MenuItem {
     pub fn item(label: impl Into<String>) -> Self {
-        Self { label: label.into(), checked: false, separator: false, shortcut: String::new(), enabled: true, submenu: false, diamond: false }
+        Self { label: label.into(), checked: false, separator: false, shortcut: String::new(), enabled: true, submenu: false, diamond: false, swatch: None }
     }
     /// Item que abre um submenu.
     pub fn sub(label: impl Into<String>) -> Self {
@@ -302,6 +304,10 @@ impl MenuItem {
     }
     pub fn check(label: impl Into<String>, checked: bool) -> Self {
         Self { checked, ..Self::item(label) }
+    }
+    pub fn with_swatch(mut self, c: Color) -> Self {
+        self.swatch = Some(c);
+        self
     }
     pub fn sep() -> Self {
         Self { separator: true, ..Self::item("") }
@@ -372,7 +378,7 @@ pub fn menu_content_size(fonts: &Fonts, items: &[MenuItem]) -> (f32, f32) {
     if items.iter().any(|i| i.submenu) {
         shortcuts = shortcuts.max(SUB_ARROW_W);
     }
-    let w = items.iter().map(|i| fonts.measure(&i.label, MENU_PX, false)).fold(0.0, f32::max) + shortcuts + 44.0;
+    let w = items.iter().map(|i| fonts.measure(&i.label, MENU_PX, false) + if i.swatch.is_some() { 16.0 } else { 0.0 }).fold(0.0, f32::max) + shortcuts + 44.0;
     let h = items.iter().map(|i| if i.separator { SEP_H } else { MENU_ITEM_H }).sum::<f32>() + MENU_PAD * 2.0;
     (w.max(180.0).ceil(), h.ceil())
 }
@@ -454,7 +460,13 @@ pub fn menu(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usiz
         } else if it.diamond {
             fonts.draw(&mut c, "◆", x0 + 6.0, base, MENU_PX - 2.0, false, color);
         }
-        fonts.draw(&mut c, &it.label, x0 + 22.0, base, MENU_PX, false, color);
+        let mut lx = x0 + 22.0;
+        if let Some(sw) = it.swatch {
+            c.fill(circle(lx + 5.0, cy + MENU_ITEM_H / 2.0, 5.5), &solid(sw));
+            c.stroke(circle(lx + 5.0, cy + MENU_ITEM_H / 2.0, 5.5), &solid(rgba(0, 0, 0, 70)), 1.0);
+            lx += 16.0;
+        }
+        fonts.draw(&mut c, &it.label, lx, base, MENU_PX, false, color);
         if !it.shortcut.is_empty() {
             let (m, k) = shortcut_parts(&it.shortcut);
             let msw = fonts.measure(&m, MENU_PX, false);
@@ -943,7 +955,7 @@ pub fn wrap_two_lines(fonts: &Fonts, text: &str, px: f32, bold: bool, max: f32) 
 /// branco com sombra; escolhido = fundo escuro no ícone e nome em pílula de
 /// destaque; `hot` = destino de um arrastar; `rename` = (texto, tudo escolhido).
 #[allow(clippy::too_many_arguments)]
-pub fn desk_icon(fonts: &Fonts, theme: &Theme, style: &DeskStyle, icon: Icon, link: bool, label: &str, selected: bool, hot: bool, rename: Option<(&str, bool)>, scale: f32) -> Option<Canvas> {
+pub fn desk_icon(fonts: &Fonts, theme: &Theme, style: &DeskStyle, icon: Icon, link: bool, label: &str, tag: Option<Color>, selected: bool, hot: bool, rename: Option<(&str, bool)>, scale: f32) -> Option<Canvas> {
     let (w, h) = style.cell();
     let mut c = Canvas::new(w, h, scale)?;
     let s = style.icon;
@@ -991,8 +1003,14 @@ pub fn desk_icon(fonts: &Fonts, theme: &Theme, style: &DeskStyle, icon: Icon, li
         let tw = fonts.measure(t, px, true);
         let x = if style.right { tx0 } else { ((w - tw) / 2.0).floor() };
         let y = ty0 + k as f32 * line;
+        let pill = rrect(x - 5.0, y - px, tw + 10.0, px + 4.0, (px + 4.0) / 2.0);
         if selected {
-            c.fill(rrect(x - 5.0, y - px, tw + 10.0, px + 4.0, (px + 4.0) / 2.0), &solid(theme.accent));
+            c.fill(pill, &solid(theme.accent));
+        } else if let Some(tc) = tag {
+            // Rótulo de cor: o nome numa pílula da cor dele, em preto (como no Tiger).
+            c.fill(pill, &solid(tc));
+            fonts.draw(&mut c, t, x, y, px, true, rgba(20, 20, 20, 255));
+            continue;
         } else {
             fonts.draw(&mut c, t, x + 1.0, y + 1.0, px, true, rgba(0, 0, 0, 190));
         }

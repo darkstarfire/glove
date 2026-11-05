@@ -482,7 +482,7 @@ impl Monitor {
             while let Some((p, depth)) = stack.pop() {
                 let children = kids.get(&p.pid);
                 let open = !self.collapsed.contains(&p.pid);
-                out.push((p.pid, TableRow { cells: cells(p), icon: None, depth, children: children.map(|_| open) }));
+                out.push((p.pid, TableRow { cells: cells(p), icon: None, depth, children: children.map(|_| open), tint: None }));
                 if let (Some(ch), true) = (children, open) {
                     stack.extend(ch.iter().rev().map(|c| (*c, depth + 1)));
                 }

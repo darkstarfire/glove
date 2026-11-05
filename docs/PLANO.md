@@ -307,10 +307,16 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   perto do meio) e mostra o × de fechar em cada um; arrastar move; clique fora, Esc ou F12 fecham.
   Widgets e posições em `~/.config/glove/painel.toml`; atalho editável em Preferências ▸ Teclado e
   opção nos cantos ativos. Conversor de unidades fica para depois (G)
-- [ ] 9.10.3 Arquivos: **Preferências do Arquivos** (Geral: itens na mesa, pasta das novas janelas;
-  Rótulos; Barra Lateral; Avançado: extensões, aviso ao esvaziar o Lixo), **rótulos de cor** (também no
-  menu dos ícones da mesa), **Abrir com ▸** nos menus de contexto do Arquivos e da mesa,
-  **Opções de Visualização** (Ctrl+J: tamanho dos ícones, posição do nome, organizar por, fundo) (M)
+- [x] 9.10.3 Arquivos: **Preferências do Arquivos** (Arquivos ▸ Preferências…, Ctrl+,): Geral (discos e
+  pendrives na mesa, pasta das janelas novas), Rótulos (os sete nomes), Barra Lateral (o que aparece)
+  e Avançado (extensões, aviso ao esvaziar o Lixo, que vale também para o Dock). **Rótulos de cor**
+  gravados no próprio arquivo (atributo `user.glove.rotulo`): pílula do nome na vista de ícones e na
+  mesa, linha colorida na lista e nas colunas, submenu "Rótulo ▸" com as bolinhas das cores no menu de
+  contexto do Arquivos, no da mesa e em Arquivo ▸ Rótulo. **Abrir com ▸** (o padrão primeiro) nos menus
+  de contexto do Arquivos e da mesa, pelos `.desktop` do sistema (`glove_config::arquivos`, que também
+  acha o tipo pela extensão sem abrir o arquivo). **Opções de Visualização** (Ctrl+J): tamanho dos
+  ícones e do texto, nome embaixo ou à direita, organizar por e fundo da vista de ícones. Tudo em
+  `[files]` no config.toml, valendo na hora nas janelas abertas e na mesa (M)
 - [ ] 9.10.4 Arquivos: **Ejetar** na barra lateral e na mesa (botão ⏏, arrastar o disco para o Lixo vira
   Ejetar) e o aviso "disco não foi ejetado corretamente" (`Finder-Eject-Warning`) (M)
 - [ ] 9.10.5 Arquivos: **Conectar ao Servidor** (Ctrl+K: smb, sftp, ftp, webdav, com favoritos;
