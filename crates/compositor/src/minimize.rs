@@ -66,7 +66,7 @@ impl Glove {
     /// Quadrado do ícone da janela minimizada no Dock (coordenadas da tela).
     pub fn dock_slot(&self, w: &Window) -> Option<Rectangle<f64, Logical>> {
         let i = self.minimized.iter().position(|(m, _)| m == w)?;
-        let idx = self.config.dock_apps.len() + i;
+        let idx = self.config.dock_apps.len() + self.running_unpinned().len() + i;
         let l = self.chrome.dock_layout.as_ref()?;
         let (x, y, s) = *l.items.get(idx)?;
         let d = self.chrome.dock_pos();

@@ -188,6 +188,11 @@ pub enum MenuAction {
     BringAllToFront(u32),
     /// Janela escolhida na lista do menu Janela.
     FocusWindow(Window),
+    /// Menu do Dock: fixar/tirar o app (app_id, pid de uma janela dele).
+    ToggleKeepInDock(String, u32),
+    /// Abre no Arquivos a pasta do programa (comando do app).
+    ShowInFiles(String),
+    DockRun(DockAction),
     /// Menu do monitor: (saída, "LxA@Hz").
     SetMode(String, String),
     ToggleBatteryPercent,
@@ -207,6 +212,8 @@ pub enum BarTarget {
     Title(usize),
     /// Extra da barra (volume, bateria, monitor), pela posição.
     Extra(usize),
+    /// Menu de um ícone do Dock (pela posição no Dock).
+    Dock(usize),
 }
 
 /// Item de menu com o que ele faz e, se for submenu, os filhos.
@@ -263,6 +270,8 @@ impl MenuLevel {
 pub struct OpenMenu {
     pub target: BarTarget,
     pub levels: Vec<MenuLevel>,
+    /// Menus do Dock: posição do bico (relativa ao conteúdo).
+    pub pointer_x: Option<f32>,
 }
 
 /// Teclas que os menus abertos tratam.
@@ -281,6 +290,8 @@ pub enum MenuKey {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DockAction {
     App(usize),
+    /// App aberto que não está fixo no Dock (pelo app_id).
+    Running(String),
     Restore(usize),
     Trash,
 }
@@ -680,6 +691,7 @@ impl Glove {
         self.close_search();
         match target {
             BarTarget::Extra(k) => self.open_extra(k),
+            BarTarget::Dock(i) => self.open_dock_menu(i),
             BarTarget::Logo => self.open_main_menu(),
             BarTarget::Title(0) => self.open_app_menu(),
             BarTarget::Title(i) => {
@@ -694,17 +706,30 @@ impl Glove {
         }
     }
 
+    /// Menu de ícone do Dock: logo acima do ícone, com o bico em `center`.
+    pub(crate) fn show_dock_menu(&mut self, i: usize, nodes: Vec<MenuNode>, center: f32, top: f32) {
+        self.close_menu();
+        let mut level = self.menu_level(nodes, (0, 0).into());
+        let (sw, _) = self.output_size();
+        let x = ((center - level.size.w as f32 / 2.0) as i32).clamp(4, (sw - level.size.w - 4).max(4));
+        let y = (top as i32 - level.size.h - 12).max(MENUBAR_H + 4);
+        level.origin = (x, y).into();
+        self.chrome.menu = Some(OpenMenu { target: BarTarget::Dock(i), levels: vec![level], pointer_x: Some(center - x as f32) });
+        self.dirty = true;
+    }
+
     pub(crate) fn show_menu(&mut self, target: BarTarget, nodes: Vec<MenuNode>) {
         let x = match target {
             BarTarget::Logo => self.chrome.logo_range.0,
             BarTarget::Title(i) => self.chrome.title_ranges.get(i).map(|r| r.0).unwrap_or(0.0),
             BarTarget::Extra(k) => self.chrome.extra_ranges.get(k).map(|r| r.0).unwrap_or(0.0),
+            BarTarget::Dock(_) => 0.0,
         };
         let mut level = self.menu_level(nodes, (x as i32, MENUBAR_H).into());
         // Menus dos extras ficam encostados à direita se não couberem.
         let (sw, _) = self.output_size();
         level.origin.x = level.origin.x.min(sw - level.size.w).max(0);
-        self.chrome.menu = Some(OpenMenu { target, levels: vec![level] });
+        self.chrome.menu = Some(OpenMenu { target, levels: vec![level], pointer_x: None });
         self.dirty = true;
     }
 
@@ -908,7 +933,7 @@ impl Glove {
     fn menu_neighbor(&mut self, target: BarTarget, dir: i32) {
         let n = self.bar_titles().len() as i32 + 1; // logotipo + títulos
         let idx = match target {
-            BarTarget::Logo | BarTarget::Extra(_) => 0,
+            BarTarget::Logo | BarTarget::Extra(_) | BarTarget::Dock(_) => 0,
             BarTarget::Title(i) => i as i32 + 1,
         };
         let next = (idx + dir).rem_euclid(n);
@@ -961,6 +986,9 @@ impl Glove {
             MenuAction::ZoomWindow(w) => self.toggle_zoom(&w),
             MenuAction::BringAllToFront(pid) => self.bring_all_to_front(pid),
             MenuAction::FocusWindow(w) => self.bring_window(w),
+            MenuAction::ToggleKeepInDock(id, pid) => self.toggle_keep_in_dock(&id, pid),
+            MenuAction::ShowInFiles(cmd) => self.show_in_files(&cmd),
+            MenuAction::DockRun(a) => self.run_dock_action(a),
             MenuAction::SetMode(output, mode) => {
                 self.config.monitor.output = output;
                 self.config.monitor.mode = mode;
@@ -1042,6 +1070,12 @@ impl Glove {
                 }
             }
             DockAction::Restore(i) => self.restore_minimized(i),
+            DockAction::Running(id) => {
+                let pid = self.every_window_pid(&id);
+                if let Some(pid) = pid {
+                    self.activate_app(pid);
+                }
+            }
             DockAction::Trash => {
                 let c = self.config.trash_command.clone();
                 self.spawn(&c);
@@ -1082,7 +1116,7 @@ impl Glove {
         let open = self.chrome.menu.as_ref().and_then(|m| match m.target {
             BarTarget::Logo => Some(0),
             BarTarget::Title(i) => Some(i + 1),
-            BarTarget::Extra(_) => None,
+            BarTarget::Extra(_) | BarTarget::Dock(_) => None,
         });
         let open_extra = match self.chrome.menu.as_ref().map(|m| m.target) {
             Some(BarTarget::Extra(k)) => Some(k),
@@ -1105,10 +1139,15 @@ impl Glove {
 
         // Menu aberto
         if let Some(m) = &mut self.chrome.menu {
-            for lv in &mut m.levels {
+            let pointer = m.pointer_x;
+            for (l, lv) in m.levels.iter_mut().enumerate() {
                 let key = (lv.hover, tgen);
                 if lv.key != Some(key) {
-                    lv.buffer = chrome::menu(&self.fonts, &self.theme, &lv.items, lv.hover, sc).map(to_tex);
+                    lv.buffer = match pointer.filter(|_| l == 0) {
+                        Some(px) => chrome::menu_with_pointer(&self.fonts, &self.theme, &lv.items, lv.hover, px, sc),
+                        None => chrome::menu(&self.fonts, &self.theme, &lv.items, lv.hover, sc),
+                    }
+                    .map(to_tex);
                     lv.key = Some(key);
                 }
             }
@@ -1177,6 +1216,12 @@ impl Glove {
             });
             actions.push(DockAction::App(i));
         }
+        // Apps abertos que não estão fixos: depois dos fixos.
+        for (id, w) in self.running_unpinned() {
+            let name = app_display_name(&w);
+            items.push(DockItem { icon: Icon::Window, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
+            actions.push(DockAction::Running(id));
+        }
         for (i, (w, _)) in self.minimized.iter().enumerate() {
             let (title, app_id) = window_info(w);
             let label = if title.is_empty() { pretty_app_name(&app_id) } else { title };
@@ -1217,9 +1262,11 @@ impl Glove {
         let zoom = self.chrome.dock_zoom;
         let hover_x = self.chrome.dock_hover_x.or((zoom > 0.0).then_some(self.chrome.dock_last_x));
         let layout = chrome::dock_layout(&items, hover_x, zoom, base, max);
-        let key = (items.clone(), hover_x.map(|x| x.round() as i32), (zoom * 1000.0) as i32, self.chrome.dock_hover, self.theme_gen ^ ((base as u64) << 32) ^ ((max as u64) << 44));
+        // Com o menu de um ícone aberto, o nome sob o mouse some (o menu já diz qual é).
+        let hover = if self.dock_menu_open() { None } else { self.chrome.dock_hover };
+        let key = (items.clone(), hover_x.map(|x| x.round() as i32), (zoom * 1000.0) as i32, hover, self.theme_gen ^ ((base as u64) << 32) ^ ((max as u64) << 44));
         if self.chrome.dock_key.as_ref() != Some(&key) {
-            self.chrome.dock = chrome::dock(&self.fonts, &self.theme, &items, &layout, self.chrome.dock_hover, self.scale() as f32).map(to_tex);
+            self.chrome.dock = chrome::dock(&self.fonts, &self.theme, &items, &layout, hover, self.scale() as f32).map(to_tex);
             self.chrome.dock_key = Some(key);
         }
         self.chrome.dock_items = items;

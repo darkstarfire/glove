@@ -4,6 +4,7 @@ mod grabs;
 mod handlers;
 mod input;
 mod appmenu;
+mod dockmenu;
 mod ending;
 mod expose;
 mod lock;

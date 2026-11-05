@@ -130,6 +130,8 @@ pub struct Glove {
     pub min_frame_timer: bool,
     /// Uma minimizada mudou desde o último quadro entregue a elas.
     pub min_commit_pending: bool,
+    /// Quando o clique no Dock começou (para o clique segurado abrir o menu).
+    pub dock_press_at: Option<std::time::Instant>,
 }
 
 impl Glove {
@@ -215,6 +217,7 @@ impl Glove {
             min_frame_last: std::time::Instant::now(),
             min_frame_timer: false,
             min_commit_pending: false,
+            dock_press_at: None,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

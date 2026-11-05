@@ -1434,3 +1434,26 @@ pub fn app_switcher(fonts: &Fonts, apps: &[(Icon, String)], selected: usize, max
     }
     Some(c)
 }
+
+/// Menu com bico embaixo apontando para `pointer_x` (relativo ao conteúdo), para
+/// os menus do Dock. O bico ocupa a margem de sombra de baixo.
+pub fn menu_with_pointer(fonts: &Fonts, theme: &Theme, items: &[MenuItem], hover: Option<usize>, pointer_x: f32, scale: f32) -> Option<Canvas> {
+    let mut c = menu(fonts, theme, items, hover, scale)?;
+    let (w, h) = menu_content_size(fonts, items);
+    let m = MENU_SHADOW as f32;
+    let px = m + pointer_x.clamp(14.0, w - 14.0);
+    let mut pb = tiny_skia::PathBuilder::new();
+    pb.move_to(px - 9.0, h - 0.5);
+    pb.line_to(px, h + 9.0);
+    pb.line_to(px + 9.0, h - 0.5);
+    pb.close();
+    let bg = if theme.variant == Variant::Claro { rgba(237, 240, 241, 255) } else { rgba(244, 245, 247, 255) };
+    c.fill(pb.finish(), &solid(bg));
+    // Só as duas bordas do bico (a de cima se funde com o menu).
+    let mut edge = tiny_skia::PathBuilder::new();
+    edge.move_to(px - 9.0, h - 0.5);
+    edge.line_to(px, h + 9.0);
+    edge.line_to(px + 9.0, h - 0.5);
+    c.stroke(edge.finish(), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);
+    Some(c)
+}

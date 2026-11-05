@@ -22,6 +22,7 @@ use crate::{
 };
 
 const BTN_LEFT: u32 = 0x110;
+const BTN_RIGHT: u32 = 0x111;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum KeyAction {
@@ -210,6 +211,10 @@ impl Glove {
                     let st = if cmd == "press" { KeyState::Pressed } else { KeyState::Released };
                     self.on_key(code + 8, st, t);
                 }
+            }
+            Some("rclick") => {
+                self.on_button(BTN_RIGHT, ButtonState::Pressed, t);
+                self.on_button(BTN_RIGHT, ButtonState::Released, t + 1);
             }
             Some("click") => {
                 self.on_button(BTN_LEFT, ButtonState::Pressed, t);
@@ -722,6 +727,7 @@ impl Glove {
                 // fora dos menus, só fecha.
                 match hit {
                     Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Search(_) => {}
+                    Hit::Dock(Some(i)) if button == BTN_RIGHT => self.open_dock_menu(i),
                     Hit::MenuBar { target: Some(t) } if t != cur => self.open_bar_menu(t),
                     _ => self.close_menu(),
                 }
@@ -738,8 +744,25 @@ impl Glove {
                         }
                         swallow = true;
                     }
+                    Hit::Dock(Some(i)) if button == BTN_RIGHT => {
+                        self.open_dock_menu(i);
+                        swallow = true;
+                    }
                     Hit::Dock(i) => {
                         self.chrome.dock_pressed = i;
+                        // Clique segurado: abre o menu do ícone (e soltar não abre o app).
+                        if let Some(i) = i {
+                            let at = std::time::Instant::now();
+                            self.dock_press_at = Some(at);
+                            let _ = self.loop_handle.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_millis(600)), move |_, _, data| {
+                                let st = &mut data.state;
+                                if st.dock_press_at == Some(at) && st.chrome.dock_pressed == Some(i) {
+                                    st.chrome.dock_pressed = None;
+                                    st.open_dock_menu(i);
+                                }
+                                smithay::reexports::calloop::timer::TimeoutAction::Drop
+                            });
+                        }
                         swallow = true;
                     }
                     Hit::Title { window, button: Some(b), .. } => {
