@@ -1,0 +1,10 @@
+[package]
+name = "glove-musica"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-kit = { path = "../kit" }
+glove-config = { path = "../config" }
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "flac", "ogg", "vorbis", "wav", "pcm", "aac", "isomp4"] }

@@ -32,6 +32,8 @@ pub enum Icon {
     Camera,
     Monitor,
     Chess,
+    /// Disco brilhante com uma nota musical (Música).
+    Music,
     /// Tela plana (preferência de Monitor).
     Display,
     Mouse,
@@ -138,6 +140,7 @@ impl Icon {
             "mouse" => Icon::Mouse,
             "trackpad" => Icon::Trackpad,
             "chess" => Icon::Chess,
+            "music" => Icon::Music,
             _ => Icon::Generic,
         }
     }
@@ -176,6 +179,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Camera => camera(pm, x, y, s),
         Icon::Monitor => monitor(pm, x, y, s),
         Icon::Chess => chess(pm, fonts, x, y, s),
+        Icon::Music => music(pm, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
@@ -1601,4 +1605,30 @@ fn pref_speech(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pb.quad_to(ox + rr * 1.2, oy, ox + rr * 0.3, oy + rr);
         pm.stroke(pb.finish(), &solid(rgba(40, 110, 220, a)), (s * 0.035).max(1.0));
     }
+}
+
+/// Disco prateado com reflexo de arco-íris e uma nota azul na frente.
+fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (cx, cy, r) = (x + s * 0.46, y + s * 0.5, s * 0.4);
+    pm.fill(circle(cx + s * 0.01, cy + s * 0.03, r), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(250, 250, 252, 255)), (0.3, rgba(200, 220, 250, 255)), (0.5, rgba(250, 230, 200, 255)), (0.7, rgba(210, 240, 220, 255)), (1.0, rgba(190, 196, 210, 255))]));
+    pm.stroke(circle(cx, cy, r), &solid(rgba(130, 134, 146, 255)), lw);
+    pm.fill(circle(cx, cy, r * 0.28), &solid(rgba(215, 218, 226, 255)));
+    pm.stroke(circle(cx, cy, r * 0.28), &solid(rgba(150, 154, 164, 255)), lw);
+    pm.fill(circle(cx, cy, r * 0.1), &solid(rgba(255, 255, 255, 255)));
+    // Nota (colcheia dupla) em azul.
+    let ink = solid(rgba(30, 90, 200, 255));
+    let (nx, ny) = (x + s * 0.58, y + s * 0.5);
+    pm.fill(oval(nx - s * 0.02, ny + s * 0.24, s * 0.16, s * 0.12), &ink);
+    pm.fill(oval(nx + s * 0.22, ny + s * 0.18, s * 0.16, s * 0.12), &ink);
+    pm.fill_rect(nx + s * 0.12, ny - s * 0.12, s * 0.04, s * 0.42, &ink);
+    pm.fill_rect(nx + s * 0.36, ny - s * 0.18, s * 0.04, s * 0.42, &ink);
+    let mut pb = PathBuilder::new();
+    pb.move_to(nx + s * 0.12, ny - s * 0.12);
+    pb.line_to(nx + s * 0.4, ny - s * 0.18);
+    pb.line_to(nx + s * 0.4, ny - s * 0.08);
+    pb.line_to(nx + s * 0.12, ny - s * 0.02);
+    pb.close();
+    pm.fill(pb.finish(), &ink);
 }
