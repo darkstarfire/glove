@@ -175,6 +175,8 @@ impl AccountForm {
 }
 
 struct Correio {
+    /// Imprimir (Ctrl+P) a mensagem aberta.
+    print: Option<glove_kit::print::PrintSheet>,
     shared: Arc<Mutex<Shared>>,
     tx: Sender<Cmd>,
     accounts: Vec<Account>,
@@ -433,6 +435,7 @@ impl Correio {
                 "Ctrl+Shift+L" => acts.push("flag".into()),
                 "Ctrl+comma" | "Ctrl+," => acts.push("accounts".into()),
                 "Ctrl+W" => acts.push("close".into()),
+                "Ctrl+P" => acts.push("print".into()),
                 _ if !typing && matches!(k.key, Key::Delete | Key::Backspace) => acts.push("delete".into()),
                 _ if !typing && k.key == Key::Up => acts.push("up".into()),
                 _ if !typing && k.key == Key::Down => acts.push("down".into()),
@@ -563,6 +566,16 @@ impl Correio {
                     }
                 }
                 "accounts" => self.open_accounts(ui),
+                "print" => {
+                    if let Some(row) = self.selected_row() {
+                        let text = {
+                            let s = self.shared.lock().unwrap();
+                            s.open.as_ref().filter(|m| m.uid == row.uid).map(|m| m.parsed.text.clone()).unwrap_or_default()
+                        };
+                        let doc = format!("De: {}\nPara: {}\nData: {}\nAssunto: {}\n\n{text}", row.from, row.to, store::long_date(row.date), row.subject);
+                        self.print = Some(glove_kit::print::PrintSheet::new(&row.subject, glove_kit::print::PrintContent::Text(doc)));
+                    }
+                }
                 "close" => ui.close = true,
                 _ => {}
             }
@@ -998,7 +1011,16 @@ impl App for Correio {
             ui.wake_after(Duration::from_millis(250));
         }
         match id {
-            0 => self.main_window(ui),
+            0 => {
+                self.main_window(ui);
+                // Imprimir a mensagem aberta (folha por cima da janela).
+                if let Some(p) = &mut self.print {
+                    if ui.print_sheet(p) {
+                        self.print = None;
+                        ui.redraw = true;
+                    }
+                }
+            }
             ACCOUNTS_WIN => self.accounts_window(ui),
             _ => self.compose_window(ui, id),
         }
@@ -1046,6 +1068,8 @@ impl App for Correio {
                     MenuItem::Separator,
                     MenuItem::new("accounts", "Contas…", "Ctrl+comma"),
                     MenuItem::Separator,
+                    MenuItem::new("print", "Imprimir…", "Ctrl+P"),
+                    MenuItem::Separator,
                     MenuItem::new("close", "Fechar Janela", "Ctrl+W"),
                 ],
             ),
@@ -1076,6 +1100,7 @@ fn main() {
         let _ = tx.send(Cmd::Open(0, "INBOX".into()));
     }
     let app = Correio {
+        print: None,
         shared,
         tx,
         accounts,

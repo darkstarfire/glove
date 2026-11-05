@@ -165,6 +165,8 @@ struct Jobs {
 }
 
 struct Viewer {
+    /// Imprimir (Ctrl+P): a folha do kit.
+    print: Option<glove_kit::print::PrintSheet>,
     path: Option<PathBuf>,
     doc: Option<Doc>,
     index: usize,
@@ -213,6 +215,7 @@ fn ctx_rect(w: f32, h: f32, (x, y): (f32, f32)) -> Rect {
 impl Viewer {
     fn new(path: Option<PathBuf>) -> Self {
         let mut v = Self {
+            print: None,
             path: None,
             doc: None,
             index: 0,
@@ -463,6 +466,13 @@ impl Viewer {
             None => self.scale(area),
         };
         match a {
+            "print" => {
+                if let Some(p) = self.path.clone() {
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let content = if matches!(self.doc, Some(Doc::Pdf { .. })) { glove_kit::print::PrintContent::Pdf(p) } else { glove_kit::print::PrintContent::Image(p) };
+                    self.print = Some(glove_kit::print::PrintSheet::new(&name, content));
+                }
+            }
             "open" => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(|d| d.to_path_buf()));
                 self.open_fb = Some(FileBrowser::open(dir, &["png", "jpg", "jpeg", "webp", "pdf"]));
@@ -675,6 +685,7 @@ impl App for Viewer {
                 "Ctrl+R" => "rot-right",
                 "Ctrl+W" => "close",
                 "Ctrl+O" => "open",
+                "Ctrl+P" => "print",
                 "Ctrl+Shift+R" => "reveal",
                 "Ctrl+Shift+M" => "sidebar",
                 "Ctrl+C" => "copy",
@@ -693,7 +704,7 @@ impl App for Viewer {
         }
         acts.extend(ui.menu_actions().iter().cloned());
         // Com o diálogo Abrir na frente, as teclas são dele.
-        if self.open_fb.is_some() {
+        if self.open_fb.is_some() || self.print.is_some() {
             acts.clear();
         }
         if let Some(a) = self.toolbar(ui) {
@@ -844,6 +855,13 @@ impl App for Viewer {
                 self.ctx = None;
             }
         }
+        // Imprimir.
+        if let Some(p) = &mut self.print {
+            if ui.print_sheet(p) {
+                self.print = None;
+                ui.redraw = true;
+            }
+        }
         // Diálogo Abrir.
         if let Some(fb) = &mut self.open_fb {
             if let Some(c) = ui.file_sheet(fb) {
@@ -866,6 +884,8 @@ impl App for Viewer {
                     MenuItem::new("open", "Abrir…", "Ctrl+O"),
                     MenuItem::new("reveal", "Mostrar no Arquivos", "Ctrl+Shift+R"),
                     MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(self.doc.is_some()),
+                    MenuItem::Separator,
+                    MenuItem::new("print", "Imprimir…", "Ctrl+P").enabled(self.path.is_some()),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar", "Ctrl+W"),
                 ],

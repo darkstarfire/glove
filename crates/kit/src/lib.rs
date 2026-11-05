@@ -7,6 +7,7 @@ pub mod clipfiles;
 pub mod filebrowser;
 pub mod image;
 pub mod menu;
+pub mod print;
 mod panels;
 mod platform;
 mod text;

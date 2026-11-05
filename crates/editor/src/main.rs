@@ -58,6 +58,8 @@ enum Sheet {
     SaveAs { fb: FileBrowser, then_close: bool },
     /// Erro ao abrir ou salvar (alerta com OK).
     Error(String),
+    /// Imprimir (Ctrl+P).
+    Print(glove_kit::print::PrintSheet),
     AskSave,
 }
 
@@ -381,6 +383,14 @@ impl Editor {
             }
             return;
         }
+        // Imprimir: a folha do kit (impressora, cópias, PDF).
+        if let Sheet::Print(p) = &mut self.sheet {
+            if ui.print_sheet(p) {
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
+        }
         // Abrir e Salvar como: o diálogo em colunas do kit.
         let choice = match &mut self.sheet {
             Sheet::Open(fb) | Sheet::SaveAs { fb, .. } => ui.file_sheet(fb),
@@ -427,6 +437,10 @@ impl App for Editor {
                     "Ctrl+O" => action = Some("open"),
                     "Ctrl+S" => action = Some("save"),
                     "Ctrl+W" => action = Some("close"),
+                    "Ctrl+P" => {
+                        let content = glove_kit::print::PrintContent::Text(self.buf.text().to_string());
+                        self.sheet = Sheet::Print(glove_kit::print::PrintSheet::new(&self.name(), content));
+                    }
                     "Ctrl+M" => action = Some("minimize"),
                     "Ctrl+equal" | "Ctrl+plus" => action = Some("bigger"),
                     "Ctrl+minus" => action = Some("smaller"),
@@ -510,6 +524,8 @@ impl App for Editor {
                     MenuItem::new("close", "Fechar", "Ctrl+W"),
                     MenuItem::new("save", "Salvar", "Ctrl+S"),
                     MenuItem::new("save-as", "Salvar como…", "Ctrl+Shift+S"),
+                    MenuItem::Separator,
+                    MenuItem::new("print", "Imprimir…", "Ctrl+P"),
                 ],
             ),
             Menu::new(

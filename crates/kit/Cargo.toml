@@ -12,3 +12,4 @@ wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 libc = "0.2.191"
 zune-jpeg = "0.5.15"
 image-webp = "0.2.4"
+miniz_oxide = "0.8"

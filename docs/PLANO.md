@@ -341,8 +341,13 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   Visualizador e na pasta do Arquivos): arrastar leva o arquivo, Ctrl+clique (ou botão direito) mostra
   as pastas do caminho e abre a escolhida; **Ctrl+`** alterna as janelas do mesmo app (atalho editável
   nas Preferências) (M)
-- [ ] 9.10.8 **Imprimir** (Ctrl+P) como folha do kit, por CUPS, com Pré-visualizar e Salvar como PDF
-  (`Print`), no Editor, Visualizador, Navegador e Correio (M)
+- [x] 9.10.8 **Imprimir** (Arquivo ▸ Imprimir…, Ctrl+P) como folha do kit (`kit::print`, `Print`): impressora
+  (as do CUPS, a padrão primeiro; sem nenhuma, "Adicionar…" abre Preferências ▸ Impressão), cópias,
+  páginas (todas ou de/até), Salvar PDF… (folha de salvar do kit) e Pré-visualizar (abre o PDF no
+  Visualizador); imprime pelo `lp`. Texto vira PDF A4 no próprio kit (Helvetica com acentos, quebra nas
+  palavras, rodapé com nome e página); imagens vão direto ao CUPS e viram PDF para salvar. No Editor,
+  no Visualizador (imagem ou PDF) e no Correio (a mensagem aberta, com De/Para/Data/Assunto). O
+  Navegador (Firefox/NetSurf) já tem o imprimir dele (M)
 - [ ] 9.10.9 **Acesso às Chaves** (`Keychain-Access`): ver, copiar e apagar senhas guardadas (Secret
   Service), trocar a senha do chaveiro (M)
 - [ ] 9.10.10 **Utilitário de Rede** (`Network-Utility`): Informações, Ping, Lookup, Traceroute, Whois,

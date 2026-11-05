@@ -121,7 +121,7 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 - Log da sessão: `~/.local/state/glove/sessao.log`
 - Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
 
-Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): Imprimir.
+Imprimir (Ctrl+P) no Editor, no Visualizador e no Correio: impressoras do CUPS, Salvar PDF e Pré-visualizar.
 
 ## Atalhos (padrão, editáveis nas Preferências)
 
