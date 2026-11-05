@@ -606,6 +606,27 @@ pub fn default_dock_apps() -> Vec<DockApp> {
     ]
 }
 
+/// Apps do Glove que não ficam no Dock de saída (acham-se na Busca e na pasta Aplicativos).
+pub fn extra_apps() -> Vec<DockApp> {
+    vec![
+        app("Vídeo", "video", "glove-video", "glove.Video"),
+        app("Registros", "logs", "glove-registros", "glove.Registros"),
+        app("Informações do Sistema", "info", "glove-info", "glove.Info"),
+        app("Ajuda", "help", "glove-ajuda", "glove.Ajuda"),
+    ]
+}
+
+/// O app com esse app_id: o do Dock do usuário, senão um dos apps do Glove.
+pub fn known_app(dock: &[DockApp], app_id: &str) -> Option<DockApp> {
+    if app_id.is_empty() {
+        return None;
+    }
+    dock.iter()
+        .find(|a| a.app_id.eq_ignore_ascii_case(app_id))
+        .cloned()
+        .or_else(|| default_dock_apps().into_iter().chain(extra_apps()).find(|a| a.app_id.eq_ignore_ascii_case(app_id)))
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {

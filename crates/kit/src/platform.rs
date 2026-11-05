@@ -119,9 +119,7 @@ pub struct WindowOptions {
 
 /// Ícone do app pelo app_id (a mesma lista do Dock).
 pub fn app_icon(app_id: &str) -> glove_paint::icons::Icon {
-    glove_config::default_dock_apps()
-        .into_iter()
-        .find(|a| a.app_id == app_id)
+    glove_config::known_app(&[], app_id)
         .map(|a| glove_paint::icons::Icon::from_name(&a.icon))
         .unwrap_or(glove_paint::icons::Icon::Window)
 }

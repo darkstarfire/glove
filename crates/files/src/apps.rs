@@ -78,9 +78,10 @@ fn parse(text: &str) -> Option<(String, bool)> {
 pub fn all() -> Vec<App> {
     let mut out: Vec<App> = glove_config::default_dock_apps()
         .into_iter()
+        .chain(glove_config::extra_apps())
         .filter(|a| a.app_id.starts_with("glove."))
         .map(|a| App {
-            utility: matches!(a.app_id.as_str(), "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find"),
+            utility: matches!(a.app_id.as_str(), "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Registros" | "glove.Info"),
             name: a.name,
             path: PathBuf::from(GLOVE).join(&a.app_id),
             icon: Icon::from_name(&a.icon),
@@ -112,7 +113,7 @@ pub fn all() -> Vec<App> {
 pub fn open(path: &Path) -> Result<(), String> {
     if let Ok(id) = path.strip_prefix(GLOVE) {
         let id = id.to_string_lossy();
-        let app = glove_config::default_dock_apps().into_iter().find(|a| a.app_id == id).ok_or("app não encontrado")?;
+        let app = glove_config::known_app(&[], &id).ok_or("app não encontrado")?;
         let first = app.command.split_whitespace().next().unwrap_or("");
         let cmd = app.command.replacen(first, &super::sibling(first).to_string_lossy(), 1);
         return super::launch(std::process::Command::new("sh").arg("-c").arg(cmd)).map_err(|e| e.to_string());

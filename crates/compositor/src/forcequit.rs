@@ -208,7 +208,7 @@ impl Glove {
                 continue;
             }
             let app_id = window_info(&w).1;
-            let icon = self.config.dock_apps.iter().find(|a| !a.app_id.is_empty() && a.app_id.eq_ignore_ascii_case(&app_id)).map(|a| Icon::from_name(&a.icon)).unwrap_or(Icon::Window);
+            let icon = glove_config::known_app(&self.config.dock_apps, &app_id).map(|a| Icon::from_name(&a.icon)).unwrap_or(Icon::Window);
             rows.push((pid, ForceQuitRow { icon, name: app_display_name(&w), hung }));
         }
         rows.sort_by(|a, b| a.1.name.to_lowercase().cmp(&b.1.name.to_lowercase()));

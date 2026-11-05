@@ -38,6 +38,14 @@ pub enum Icon {
     Contacts,
     /// Folha de calendário com o dia de hoje (Agenda).
     Calendar,
+    /// Tela escura com o triângulo de tocar e furos de filme (Vídeo).
+    Video,
+    /// Folha de registro com linhas coloridas (Registros).
+    Logs,
+    /// Chip prateado com um "i" (Informações do Sistema).
+    Info,
+    /// Bola azul brilhante com um "?" (Ajuda).
+    Help,
     /// Tela plana (preferência de Monitor).
     Display,
     Mouse,
@@ -147,6 +155,10 @@ impl Icon {
             "music" => Icon::Music,
             "contacts" => Icon::Contacts,
             "calendar" => Icon::Calendar,
+            "video" => Icon::Video,
+            "logs" => Icon::Logs,
+            "info" => Icon::Info,
+            "help" => Icon::Help,
             _ => Icon::Generic,
         }
     }
@@ -188,6 +200,10 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Music => music(pm, x, y, s),
         Icon::Contacts => contacts(pm, fonts, x, y, s),
         Icon::Calendar => calendar(pm, fonts, x, y, s),
+        Icon::Video => video(pm, x, y, s),
+        Icon::Logs => logs(pm, x, y, s),
+        Icon::Info => info(pm, fonts, x, y, s),
+        Icon::Help => help(pm, fonts, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
@@ -1683,4 +1699,85 @@ fn calendar(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
     let px = s * 0.46;
     let tw = fonts.measure(&t, px, true);
     fonts.draw(pm, &t, bx + (bw - tw) / 2.0, by + bh * 0.86, px, true, rgba(40, 40, 46, 255));
+}
+
+/// Tela escura com o triângulo de tocar, entre duas faixas de filme.
+fn video(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.16, s * 0.84, s * 0.66);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(70, 72, 80, 255)), (1.0, rgba(20, 20, 24, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(10, 10, 12, 255)), lw);
+    // Furos do filme nas duas bordas.
+    for row in [by + s * 0.04, by + bh - s * 0.1] {
+        for i in 0..7 {
+            let hx = bx + s * 0.05 + i as f32 * (bw - s * 0.1) / 6.5;
+            pm.fill(rrect(hx, row, s * 0.06, s * 0.06, s * 0.012), &solid(rgba(220, 220, 226, 255)));
+        }
+    }
+    // Quadro com um céu e o triângulo de tocar.
+    let (fx, fy, fw, fh) = (bx + s * 0.06, by + s * 0.14, bw - s * 0.12, bh - s * 0.28);
+    pm.fill(rrect(fx, fy, fw, fh, s * 0.02), &vgrad(fy, fy + fh, &[(0.0, rgba(110, 170, 240, 255)), (1.0, rgba(40, 90, 180, 255))]));
+    let (cx, cy, r) = (fx + fw / 2.0, fy + fh / 2.0, fh * 0.32);
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r * 0.7, cy - r);
+    pb.line_to(cx + r, cy);
+    pb.line_to(cx - r * 0.7, cy + r);
+    pb.close();
+    pm.fill(pb.finish(), &solid(rgba(255, 255, 255, 235)));
+}
+
+/// Folha de registro: papel com linhas de texto, algumas em vermelho e amarelo.
+fn logs(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.16, y + s * 0.06, s * 0.68, s * 0.86);
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.03), &solid(rgba(0, 0, 0, 55)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(228, 228, 232, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.03), &solid(rgba(120, 120, 128, 255)), lw);
+    // Faixa do título.
+    pm.fill(rrect4(bx, by, bw, s * 0.12, [s * 0.03, s * 0.03, 0.0, 0.0]), &vgrad(by, by + s * 0.12, &[(0.0, rgba(214, 214, 220, 255)), (1.0, rgba(170, 170, 178, 255))]));
+    let widths = [0.8, 0.6, 0.72, 0.5, 0.78, 0.66, 0.4, 0.7, 0.56];
+    for (i, k) in widths.iter().enumerate() {
+        let ly = by + s * 0.2 + i as f32 * s * 0.073;
+        let col = match i {
+            3 => rgba(200, 50, 40, 255),
+            6 => rgba(200, 150, 20, 255),
+            _ => rgba(110, 110, 120, 255),
+        };
+        pm.fill_rect(bx + s * 0.06, ly, (bw - s * 0.12) * k, (s * 0.03).max(1.0), &solid(col));
+    }
+}
+
+/// Chip prateado com perninhas e um "i" azul no meio.
+fn info(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw) = (x + s * 0.2, y + s * 0.18, s * 0.6);
+    for i in 0..5 {
+        let k = s * 0.26 + i as f32 * s * 0.11;
+        let pin = &solid(rgba(170, 150, 90, 255));
+        pm.fill_rect(x + k, y + s * 0.08, s * 0.05, s * 0.12, pin);
+        pm.fill_rect(x + k, y + s * 0.76, s * 0.05, s * 0.12, pin);
+        pm.fill_rect(x + s * 0.08, y + k, s * 0.12, s * 0.05, pin);
+        pm.fill_rect(x + s * 0.8, y + k, s * 0.12, s * 0.05, pin);
+    }
+    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bw, s * 0.06), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(rrect(bx, by, bw, bw, s * 0.06), &vgrad(by, by + bw, &[(0.0, rgba(236, 238, 242, 255)), (1.0, rgba(150, 154, 164, 255))]));
+    pm.stroke(rrect(bx, by, bw, bw, s * 0.06), &solid(rgba(80, 84, 94, 255)), lw);
+    let (cx, cy, r) = (bx + bw / 2.0, by + bw / 2.0, bw * 0.3);
+    pm.fill(circle(cx, cy, r), &vgrad(cy - r, cy + r, &[(0.0, rgba(110, 170, 245, 255)), (1.0, rgba(25, 80, 190, 255))]));
+    let px = r * 1.5;
+    let tw = fonts.measure("i", px, true);
+    fonts.draw(pm, "i", cx - tw / 2.0, cy + px * 0.36, px, true, rgba(255, 255, 255, 255));
+}
+
+/// Bola azul de gel com um ponto de interrogação branco.
+fn help(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let (cx, cy, r) = (x + s * 0.5, y + s * 0.48, s * 0.38);
+    pm.fill(circle(cx + s * 0.01, cy + s * 0.03, r), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(circle(cx, cy, r), &vgrad(cy - r, cy + r, &[(0.0, rgba(120, 180, 250, 255)), (1.0, rgba(20, 70, 180, 255))]));
+    pm.stroke(circle(cx, cy, r), &solid(rgba(15, 50, 130, 255)), (s / 64.0).max(1.0));
+    pm.fill(oval(cx - r * 0.62, cy - r * 0.92, r * 1.24, r * 0.7), &vgrad(cy - r * 0.92, cy - r * 0.22, &[(0.0, rgba(255, 255, 255, 190)), (1.0, rgba(255, 255, 255, 20))]));
+    let px = r * 1.3;
+    let tw = fonts.measure("?", px, true);
+    fonts.draw(pm, "?", cx - tw / 2.0, cy + px * 0.36, px, true, rgba(255, 255, 255, 255));
 }

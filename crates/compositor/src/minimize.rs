@@ -144,7 +144,7 @@ impl Glove {
     /// Ícone do app no canto da miniatura.
     pub fn badge_tex(&mut self, w: &Window, size: f32) -> Option<Rc<Tex>> {
         let app_id = window_info(w).1;
-        let icon = self.config.dock_apps.iter().find(|a| !a.app_id.is_empty() && a.app_id.eq_ignore_ascii_case(&app_id)).map(|a| glove_paint::icons::Icon::from_name(&a.icon))?;
+        let icon = glove_config::known_app(&self.config.dock_apps, &app_id).map(|a| glove_paint::icons::Icon::from_name(&a.icon))?;
         let sc = self.scale() as f32;
         let key = (format!("{icon:?}"), size.round() as i32, sc.to_bits());
         if let Some((_, t)) = self.badges.iter().find(|(k, _)| *k == key) {

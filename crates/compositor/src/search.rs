@@ -180,8 +180,10 @@ fn app_dirs() -> Vec<PathBuf> {
 
 fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
     let mut seen = std::collections::HashSet::new();
+    let extras: Vec<glove_config::DockApp> = glove_config::extra_apps().into_iter().filter(|e| !glove_apps.iter().any(|a| a.app_id == e.app_id)).collect();
     let mut out: Vec<App> = glove_apps
         .iter()
+        .chain(extras.iter())
         .map(|a| App { name: a.name.clone(), keywords: normalize(&a.app_id), exec: a.command.clone(), icon: Icon::from_name(&a.icon), glove_id: Some(a.app_id.clone()) })
         .collect();
     for dir in app_dirs() {

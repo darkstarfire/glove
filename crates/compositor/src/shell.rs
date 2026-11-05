@@ -153,6 +153,10 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
         "glove.Musica" => return "Música".into(),
         "glove.Contatos" => return "Contatos".into(),
         "glove.Agenda" => return "Agenda".into(),
+        "glove.Video" => return "Vídeo".into(),
+        "glove.Registros" => return "Registros".into(),
+        "glove.Info" => return "Informações do Sistema".into(),
+        "glove.Ajuda" => return "Ajuda".into(),
         id if id.starts_with("glove.") => return "Glove".into(),
         _ => {}
     }
@@ -187,6 +191,8 @@ pub struct Placed;
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuAction {
     About,
+    /// Abre a Ajuda do Glove.
+    Help,
     Preferences,
     /// Liga/desliga a ampliação do Dock.
     DockMagnification,
@@ -767,11 +773,8 @@ impl Glove {
         match self.focused_window() {
             Some(win) => {
                 let (title, app_id) = window_info(&win);
-                self.config
-                    .dock_apps
-                    .iter()
-                    .find(|a| !a.app_id.is_empty() && a.app_id.eq_ignore_ascii_case(&app_id))
-                    .map(|a| a.name.clone())
+                glove_config::known_app(&self.config.dock_apps, &app_id)
+                    .map(|a| a.name)
                     .unwrap_or_else(|| if app_id.is_empty() { title } else { pretty_app_name(&app_id) })
             }
             None => "Glove".to_string(),
@@ -880,6 +883,7 @@ impl Glove {
         let logout = if self.nested { "Sair do Glove…".to_string() } else { format!("Encerrar Sessão de {}…", user_full_name()) };
         let nodes = vec![
             item("Sobre o Glove", MenuAction::About),
+            item("Ajuda do Glove", MenuAction::Help),
             MenuNode::sep(),
             MenuNode::new(MenuItem::item("Preferências…").with_shortcut(self.binding("preferences")), Some(MenuAction::Preferences)),
             MenuNode::submenu("Dock", dock),
@@ -1082,6 +1086,7 @@ impl Glove {
         match a {
             MenuAction::About => self.spawn("glove-about"),
             MenuAction::Preferences => self.open_preferences(),
+            MenuAction::Help => self.spawn("glove-ajuda"),
             MenuAction::DockMagnification => {
                 self.config.dock.magnification = !self.config.dock.magnification;
                 let _ = self.config.save();
@@ -1389,7 +1394,8 @@ impl Glove {
         // Apps abertos que não estão fixos: depois dos fixos.
         for (id, w) in self.running_unpinned() {
             let name = app_display_name(&w);
-            items.push(DockItem { icon: Icon::Window, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
+            let icon = glove_config::known_app(&[], &window_info(&w).1).map(|a| Icon::from_name(&a.icon)).unwrap_or(Icon::Window);
+            items.push(DockItem { icon, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
             actions.push(DockAction::Running(id));
         }
         for (i, (w, _)) in self.minimized.iter().enumerate() {

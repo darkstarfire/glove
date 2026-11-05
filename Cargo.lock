@@ -716,6 +716,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-ajuda"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-arquivo"
 version = "0.1.0"
 dependencies = [
@@ -817,6 +824,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-info"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-kit"
 version = "0.1.0"
 dependencies = [
@@ -888,6 +902,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-registros"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-sair"
 version = "0.1.0"
 dependencies = [
@@ -910,6 +931,13 @@ dependencies = [
  "glove-config",
  "glove-kit",
  "libc",
+]
+
+[[package]]
+name = "glove-video"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
 ]
 
 [[package]]
