@@ -146,7 +146,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 ## Fase 8 — Apps
 
 - [x] 8.1 Navegador que caiba em 500 MB (NetSurf abaixo de 1 GB de RAM, Firefox acima) (P)
-- [ ] 8.2 Lembretes com moldura própria (faixa colorida) e um processo só para todas as notas (M)
+- [x] 8.2 Lembretes com moldura própria (faixa colorida) e um processo só para todas as notas (M)
 - [ ] 8.3 Editor: régua, alinhamento, Localizar/Substituir (M)
 - [ ] 8.4 Visualizador: barra de ferramentas, miniaturas, PDF (M)
 - [ ] 8.5 Monitor: ordenar, filtrar, abas CPU/Memória/Disco/Rede (M)

@@ -368,6 +368,12 @@ pub struct Memory {
     alert_shadow: Option<((u32, u32, u32), Canvas)>,
     /// Título do último alerta que já tocou o som (toca uma vez só).
     alert_sounded: Option<String>,
+    /// Pedido de arrastar a janela (moldura própria).
+    pub(crate) move_req: bool,
+    /// Número da janela desta memória (apps com várias janelas).
+    pub(crate) window_id: u32,
+    /// Janelas novas pedidas pelo app: (número, opções).
+    pub(crate) open_windows: Vec<(u32, crate::platform::WindowOptions)>,
     /// Seta de rolagem apertada: (id, próxima repetição).
     scroll_repeat: Option<(Id, std::time::Instant)>,
     /// Superfícies de rascunho reaproveitadas (recorte de áreas roláveis).
@@ -585,6 +591,27 @@ impl<'a> Ui<'a> {
     /// Pede ao Glove o fim da sessão: "encerrar", "reiniciar" ou "desligar".
     pub fn request_end_session(&mut self, kind: &str) {
         self.mem.glove_cmds.push(format!("SAIR\t{kind}"));
+    }
+
+    /// Começa a arrastar a janela (chame num clique da moldura própria).
+    pub fn start_move(&mut self) {
+        self.mem.move_req = true;
+    }
+
+    /// A janela tem o foco do teclado?
+    pub fn window_active(&self) -> bool {
+        self.input.active
+    }
+
+    /// Número da janela que está sendo desenhada (0 = a primeira).
+    pub fn window_id(&self) -> u32 {
+        self.mem.window_id
+    }
+
+    /// Abre outra janela do mesmo app, com o número `id` (escolhido pelo app;
+    /// se já existir, nada acontece). O `App::ui` desenha cada uma pelo `window_id`.
+    pub fn open_window(&mut self, id: u32, opts: crate::platform::WindowOptions) {
+        self.mem.open_windows.push((id, opts));
     }
 
     /// Pede ao Glove para mostrar um protetor de tela agora (botão Testar).
