@@ -398,6 +398,14 @@ struct Files {
     drag: Option<(PathBuf, (f32, f32), bool)>,
     /// Pasta sob o mouse durante o arraste (neste quadro).
     drop_target: Option<PathBuf>,
+    /// Menu de contexto: posição e o item (None = clique no vazio).
+    ctx: Option<((f32, f32), Option<PathBuf>)>,
+    /// Renomeando no lugar: item, texto e se o campo acabou de abrir.
+    rename: Option<(PathBuf, String, bool)>,
+    /// O campo de renomear apareceu neste quadro.
+    rename_shown: bool,
+    /// O nome está todo selecionado: a primeira tecla substitui (como no Mac).
+    rename_pristine: bool,
 }
 
 impl Files {
@@ -423,6 +431,10 @@ impl Files {
             job: None,
             drag: None,
             drop_target: None,
+            ctx: None,
+            rename: None,
+            rename_shown: false,
+            rename_pristine: false,
         }
     }
 
@@ -700,17 +712,33 @@ impl Files {
             return;
         }
         let sel = self.selected.is_some();
-        let items: [(&str, &str, bool); 5] = [
-            ("new-folder", "Nova pasta", true),
-            ("open", "Abrir", sel),
-            if self.in_trash() { ("put-back", "Devolver", sel) } else { ("trash", "Mover para a Lixeira", sel) },
-            ("", "", false),
-            ("hidden", if self.hidden { "Esconder arquivos ocultos" } else { "Mostrar arquivos ocultos" }, true),
+        let items: Vec<(&str, String, bool)> = vec![
+            ("new-folder", "Nova pasta".into(), true),
+            ("open", "Abrir".into(), sel),
+            ("rename", "Renomear".into(), sel),
+            ("duplicate", "Duplicar".into(), sel && !self.in_trash()),
+            ("alias", "Criar Atalho".into(), sel && !self.in_trash()),
+            if self.in_trash() { ("put-back", "Devolver".into(), sel) } else { ("trash", "Mover para a Lixeira".into(), sel) },
+            ("", String::new(), false),
+            ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
         ];
         let x = 12.0 + 5.0 * SEGMENT_W + 24.0;
-        let (mw, row) = (210.0, 20.0);
+        if let Some(id) = Self::popup_menu(ui, x, TOOLBAR_H - 4.0, &items) {
+            self.gear_open = false;
+            self.action(&id, ui);
+        } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
+            self.gear_open = false;
+        }
+    }
+
+    /// Menu suspenso desenhado no app (engrenagem e menu de contexto). Itens:
+    /// (ação, rótulo, ativo); ação vazia = divisória. Devolve a ação escolhida.
+    fn popup_menu(ui: &mut Ui, x: f32, y0: f32, items: &[(&str, String, bool)]) -> Option<String> {
+        let (mw, row) = (220.0, 20.0);
         let mh = items.iter().map(|i| if i.0.is_empty() { 9.0 } else { row }).sum::<f32>() + 8.0;
-        let y0 = TOOLBAR_H - 4.0;
+        // Cabe na janela.
+        let x = x.min(ui.c.w - mw - 4.0).max(0.0);
+        let y0 = if y0 + mh > ui.c.h - 4.0 { (y0 - mh).max(0.0) } else { y0 };
         ui.c.fill_rect(x + 3.0, y0 + 4.0, mw, mh, &solid(rgba(0, 0, 0, 50)));
         ui.c.fill_rect(x, y0, mw, mh, &solid(rgba(246, 247, 249, 252)));
         ui.c.stroke(rrect(x + 0.5, y0 + 0.5, mw - 1.0, mh - 1.0, 0.0), &solid(rgba(0, 0, 0, 80)), 1.0);
@@ -724,21 +752,119 @@ impl Files {
             }
             let r = Rect::new(x, y, mw, row);
             let h = ui.hit(r);
-            if h.hover && on {
+            if h.hover && *on {
                 ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(ui.theme.menu_hot));
             }
             let col = if !on { rgba(160, 160, 160, 255) } else if h.hover { Color::WHITE } else { rgba(20, 20, 20, 255) };
             ui.fonts.draw(ui.c, label, x + 16.0, y + 14.5, 13.0, false, col);
-            if h.clicked && on {
-                chosen = Some(id);
+            if h.clicked && *on {
+                chosen = Some(id.to_string());
             }
             y += row;
         }
-        if let Some(id) = chosen {
-            self.gear_open = false;
-            self.action(id, ui);
-        } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
-            self.gear_open = false;
+        chosen
+    }
+
+    fn context_menu(&mut self, ui: &mut Ui) {
+        let Some(((x, y), item)) = self.ctx.clone() else { return };
+        let items: Vec<(&str, String, bool)> = match &item {
+            Some(_) => vec![
+                ("open", "Abrir".into(), true),
+                ("", String::new(), false),
+                ("info", "Obter Informações".into(), true),
+                ("rename", "Renomear".into(), true),
+                ("duplicate", "Duplicar".into(), !self.in_trash()),
+                ("alias", "Criar Atalho".into(), !self.in_trash()),
+                ("", String::new(), false),
+                ("copy", "Copiar".into(), true),
+                ("cut", "Recortar".into(), true),
+                ("", String::new(), false),
+                if self.in_trash() { ("put-back", "Devolver".into(), true) } else { ("trash", "Mover para a Lixeira".into(), true) },
+            ],
+            None => vec![
+                ("new-folder", "Nova pasta".into(), true),
+                ("paste", "Colar".into(), self.clip.is_some()),
+                ("", String::new(), false),
+                ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
+            ],
+        };
+        if let Some(a) = Self::popup_menu(ui, x, y, &items) {
+            self.ctx = None;
+            self.action(&a, ui);
+        } else if ui.keys().iter().any(|k| k.key == Key::Escape) || (ui.mouse_pressed() && !ui.right_clicked(Rect::new(0.0, 0.0, ui.c.w, ui.c.h))) {
+            // Clique fora fecha (o clique dentro escolhe no quadro em que solta).
+            let (px, py) = ui.pointer();
+            let inside = px >= x.min(ui.c.w - 224.0) && px < x.min(ui.c.w - 224.0) + 220.0 && (py - y).abs() < 260.0;
+            if !inside || ui.keys().iter().any(|k| k.key == Key::Escape) {
+                self.ctx = None;
+            }
+        }
+    }
+
+    /// Campo de renomear sobre o nome do item, se ele estiver nesta área.
+    fn rename_field(&mut self, ui: &mut Ui, path: &Path, r: Rect) {
+        let Some((target, mut text, first)) = self.rename.clone() else { return };
+        if target != path {
+            return;
+        }
+        self.rename_shown = true;
+        // Nome todo selecionado: digitar substitui, Backspace apaga, setas tiram a seleção.
+        let mut focus_now = first;
+        if self.rename_pristine {
+            let typed = !ui.typed().is_empty();
+            let back = ui.keys().iter().any(|k| matches!(k.key, Key::Backspace | Key::Delete));
+            let moved = ui.keys().iter().any(|k| matches!(k.key, Key::Left | Key::Right | Key::Home | Key::End));
+            if typed || back {
+                text.clear();
+                focus_now = true;
+                self.rename_pristine = false;
+            } else if moved {
+                self.rename_pristine = false;
+            }
+        }
+        let (_, enter) = ui.text_field_in(r, &mut text, focus_now);
+        if self.rename_pristine {
+            let tw = ui.text_width(&text, (r.h * 0.62).min(13.0), false);
+            ui.c.fill_rect(r.x + 3.0, r.y + 1.0, tw + 2.0, r.h - 2.0, &solid(with_alpha(ui.theme.accent, 0.35)));
+        }
+        let esc = ui.keys().iter().any(|k| k.key == Key::Escape);
+        if esc {
+            self.rename = None;
+        } else if enter || (!first && !ui.has_focus()) {
+            self.rename = None;
+            self.finish_rename(&target, text.trim());
+        } else {
+            self.rename = Some((target, text, false));
+        }
+    }
+
+    fn finish_rename(&mut self, path: &Path, name: &str) {
+        let old = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if name.is_empty() || name == old {
+            return;
+        }
+        if name.contains('/') || name == "." || name == ".." {
+            self.message = Some("O nome não pode ter “/”.".into());
+            return;
+        }
+        let dest = path.with_file_name(name);
+        if dest.exists() {
+            self.message = Some(format!("Já existe um item chamado “{name}” nesta pasta."));
+            return;
+        }
+        match std::fs::rename(path, &dest) {
+            Ok(()) => {
+                if self.selected.as_deref() == Some(path) {
+                    self.selected = Some(dest.clone());
+                }
+                for c in &mut self.columns {
+                    if c.starts_with(path) {
+                        *c = dest.join(c.strip_prefix(path).unwrap());
+                    }
+                }
+                self.cache.clear();
+            }
+            Err(e) => self.message = Some(format!("Não foi possível renomear: {e}")),
         }
     }
 
@@ -878,6 +1004,10 @@ impl Files {
             if resp.hover && e.kind == Kind::Folder && self.drag.as_ref().is_some_and(|d| d.2) {
                 self.drop_target = Some(e.path.clone());
             }
+            if ui.right_clicked(Rect::new(r.x, top, r.w - 1.0, bot - top)) {
+                action = Some((e.clone(), false));
+                self.ctx = Some((ui.pointer(), Some(e.path.clone())));
+            }
         }
         let accent = ui.theme.accent;
         ui.clipped(ci as u64 * 7919 + 1, Rect::new(r.x, r.y, r.w - 1.0, r.h), |c, fonts| {
@@ -904,6 +1034,14 @@ impl Files {
                 }
             }
         });
+        // Renomeando um item desta coluna: o campo fica por cima do nome.
+        if let Some(i) = self.rename.as_ref().and_then(|(p, _, _)| entries.iter().position(|e| &e.path == p)) {
+            let y = r.y + i as f32 * ROW_H - off;
+            if y >= r.y && y + ROW_H <= r.y + r.h {
+                let path = entries[i].path.clone();
+                self.rename_field(ui, &path, Rect::new(r.x + 24.0, y + 1.0, r.w - 44.0, ROW_H - 2.0));
+            }
+        }
         if let Some((e, double)) = action {
             self.select_in_column(ci, &e);
             if double {
@@ -968,6 +1106,27 @@ impl Files {
             ui.redraw = true;
         }
         self.scroll.insert(dir.clone(), state.scroll);
+        // Linha sob o ponto (botão direito e campo de renomear).
+        let row_top = |i: usize| area.y + glove_kit::TABLE_HEADER_H + i as f32 * ROW_H - state.scroll;
+        if ui.right_clicked(area) {
+            let py = ui.pointer().1;
+            let i = ((py - area.y - glove_kit::TABLE_HEADER_H + state.scroll) / ROW_H).floor();
+            if i >= 0.0 && (i as usize) < entries.len() && py > area.y + glove_kit::TABLE_HEADER_H {
+                let e = &entries[i as usize];
+                self.selected = Some(e.path.clone());
+                self.ctx = Some((ui.pointer(), Some(e.path.clone())));
+            }
+        }
+        if let Some(i) = self.rename.as_ref().and_then(|(p, _, _)| entries.iter().position(|e| &e.path == p)) {
+            let y = row_top(i);
+            let path = entries[i].path.clone();
+            if y >= area.y + glove_kit::TABLE_HEADER_H && y + ROW_H <= area.y + area.h {
+                self.rename_field(ui, &path, Rect::new(area.x + 26.0, y + 1.0, area.w * 0.4, ROW_H - 2.0));
+            } else {
+                // Fora da vista: desiste (as teclas voltam para a janela).
+                self.rename = None;
+            }
+        }
         let action = r.pressed.map(|i| (entries[i].clone(), r.double == Some(i)));
         if let Some((e, double)) = action {
             self.selected = Some(e.path.clone());
@@ -1015,6 +1174,10 @@ impl Files {
                 if resp.hover && e.kind == Kind::Folder && self.drag.as_ref().is_some_and(|d| d.2) {
                     self.drop_target = Some(e.path.clone());
                 }
+                if ui.right_clicked(r) {
+                    action = Some((e.clone(), false));
+                    self.ctx = Some((ui.pointer(), Some(e.path.clone())));
+                }
             }
         }
         let sel = self.selected.clone();
@@ -1040,6 +1203,11 @@ impl Files {
                 fonts.draw(c, &name, lx, ly, 12.0, false, if on { Color::WHITE } else { rgba(20, 20, 20, 255) });
             }
         });
+        if let Some(i) = self.rename.as_ref().and_then(|(p, _, _)| entries.iter().position(|e| &e.path == p)) {
+            let (x, y) = cell(i);
+            let path = entries[i].path.clone();
+            self.rename_field(ui, &path, Rect::new(area.x + x + 2.0, area.y + y + 60.0, cw - 4.0, 18.0));
+        }
         if let Some((e, double)) = action {
             self.selected = Some(e.path.clone());
             if double {
@@ -1054,6 +1222,10 @@ impl Files {
     // -----------------------------------------------------------------------
 
     fn keyboard(&mut self, ui: &mut Ui) {
+        // Renomeando: as teclas são do campo.
+        if self.rename.is_some() {
+            return;
+        }
         let mut act: Vec<&str> = Vec::new();
         for k in ui.keys() {
             match k.combo.as_str() {
@@ -1062,6 +1234,9 @@ impl Files {
                 "Ctrl+O" => act.push("open"),
                 "Ctrl+BackSpace" => act.push("trash"),
                 "Ctrl+Shift+BackSpace" => act.push("empty-trash"),
+                "F2" => act.push("rename"),
+                "Ctrl+D" => act.push("duplicate"),
+                "Ctrl+L" => act.push("alias"),
                 "Ctrl+C" => act.push("copy"),
                 "Ctrl+X" => act.push("cut"),
                 "Ctrl+V" => act.push("paste"),
@@ -1115,6 +1290,42 @@ impl Files {
                     self.message = Some(if a == "cut" { "Recortado: cole (Ctrl+V) na pasta de destino.".into() } else { "Copiado.".into() });
                 }
             }
+            "rename" => {
+                if let Some(p) = self.selected.clone() {
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    self.rename = Some((p, name, true));
+                    self.rename_pristine = true;
+                }
+            }
+            "duplicate" => {
+                if let Some(p) = self.selected.clone() {
+                    let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                    let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+                    let mut dest = p.with_file_name(format!("{stem} cópia{ext}"));
+                    if dest.exists() {
+                        dest = ops::free_name(&dest);
+                    }
+                    self.start_job(vec![ops::Item { src: p, dest, replace: false }], false);
+                }
+            }
+            "alias" => {
+                if let Some(p) = self.selected.clone() {
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let mut link = p.with_file_name(format!("{name} atalho"));
+                    if link.exists() {
+                        link = ops::free_name(&link);
+                    }
+                    match std::os::unix::fs::symlink(&p, &link) {
+                        Ok(()) => {
+                            self.cache.clear();
+                            self.selected = Some(link);
+                        }
+                        Err(e) => self.message = Some(format!("Não foi possível criar o atalho: {e}")),
+                    }
+                }
+            }
+            // Obter Informações chega na etapa 6.6.
+            "info" => {}
             "paste" => match self.clip.clone() {
                 Some((srcs, mv)) => {
                     let dir = self.current();
@@ -1251,7 +1462,16 @@ impl App for Files {
         }
         // Faixa de baixo em metal com o status (e o puxador de redimensionar).
         self.status(ui, h - BOTTOM_H);
+        // O item sendo renomeado saiu da vista: desiste (as teclas voltam para a janela).
+        if self.rename.is_some() && !std::mem::take(&mut self.rename_shown) {
+            self.rename = None;
+        }
+        // Botão direito no vazio da área de itens: menu da pasta.
+        if self.ctx.is_none() && ui.right_clicked(area) {
+            self.ctx = Some((ui.pointer(), None));
+        }
         self.gear_menu(ui);
+        self.context_menu(ui);
         self.job_panel(ui);
         self.drag_frame(ui);
         ui.set_enabled(self.ask.is_none());
@@ -1270,6 +1490,10 @@ impl App for Files {
                     MenuItem::Separator,
                     MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(sel && !self.in_trash()),
                     MenuItem::new("put-back", "Devolver", "").enabled(sel && self.in_trash()),
+                    MenuItem::Separator,
+                    MenuItem::new("rename", "Renomear", "F2").enabled(sel),
+                    MenuItem::new("duplicate", "Duplicar", "Ctrl+D").enabled(sel && !self.in_trash()),
+                    MenuItem::new("alias", "Criar Atalho", "Ctrl+L").enabled(sel && !self.in_trash()),
                     MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar janela", "Ctrl+W"),

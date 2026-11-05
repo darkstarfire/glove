@@ -959,6 +959,12 @@ impl<A: App> PointerHandler for Runner<A> {
                 PointerEventKind::Enter { .. } => self.input.inside = true,
                 PointerEventKind::Leave { .. } => self.input.inside = false,
                 PointerEventKind::Motion { .. } => self.input.moved = true,
+                // Botão direito: só para menus de contexto (não é um clique comum).
+                PointerEventKind::Press { button: 0x111, serial, .. } => {
+                    self.last_serial = serial;
+                    self.input.right_pressed = true;
+                }
+                PointerEventKind::Release { button: 0x111, .. } => {}
                 PointerEventKind::Press { serial, time, .. } => {
                     self.last_serial = serial;
                     self.input.down = true;

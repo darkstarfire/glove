@@ -296,16 +296,19 @@ pub struct Input {
     pub menu_actions: Vec<String>,
     pub text: String,
     pub mods: Mods,
+    /// Botão direito pressionado neste quadro (não conta como clique comum).
+    pub right_pressed: bool,
 }
 
 impl Input {
     /// Houve clique ou tecla neste quadro?
     pub fn has_events(&self) -> bool {
-        self.pressed || self.released || self.scroll != 0.0 || !self.keys.is_empty() || !self.text.is_empty() || !self.menu_actions.is_empty()
+        self.pressed || self.released || self.right_pressed || self.scroll != 0.0 || !self.keys.is_empty() || !self.text.is_empty() || !self.menu_actions.is_empty()
     }
 
     pub fn end_frame(&mut self) {
         self.pressed = false;
+        self.right_pressed = false;
         self.released = false;
         self.scroll = 0.0;
         self.moved = false;
@@ -645,6 +648,11 @@ impl<'a> Ui<'a> {
     /// O botão do mouse foi pressionado neste quadro (em qualquer lugar da janela).
     pub fn mouse_pressed(&self) -> bool {
         self.input.pressed
+    }
+
+    /// Botão direito pressionado dentro de `r` neste quadro (menus de contexto).
+    pub fn right_clicked(&self, r: Rect) -> bool {
+        self.input.right_pressed && !self.captured && r.contains(self.input.pos)
     }
 
     /// O botão do mouse foi solto neste quadro.
@@ -1064,6 +1072,36 @@ impl<'a> Ui<'a> {
             self.mem.cursor.insert(id, cur);
         }
         (changed, enter)
+    }
+
+    /// Campo de texto num retângulo livre (ex.: renomear no lugar). `autofocus` põe
+    /// o cursor nele (no fim). Devolve (mudou, Enter).
+    pub fn text_field_in(&mut self, r: Rect, value: &mut String, autofocus: bool) -> (bool, bool) {
+        let id = self.next_id();
+        if autofocus {
+            self.mem.focus = Some(id);
+            self.mem.cursor.insert(id, value.chars().count());
+        }
+        let (changed, enter) = self.edit_line(id, r, value);
+        let focused = self.mem.focus == Some(id);
+        self.c.fill(rrect(r.x - 2.0, r.y - 2.0, r.w + 4.0, r.h + 4.0, 3.0), &solid(with_alpha(self.theme.accent, if focused { 0.5 } else { 0.25 })));
+        self.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
+        let px = (r.h * 0.62).min(TEXT);
+        let base = r.y + r.h / 2.0 + px * 0.36;
+        let t = value.clone();
+        self.fonts.draw(self.c, &t, r.x + 4.0, base, px, false, ink());
+        if focused {
+            let cur = (*self.mem.cursor.get(&id).unwrap_or(&0)).min(t.chars().count());
+            let before: String = t.chars().take(cur).collect();
+            let cx = r.x + 4.0 + self.fonts.measure(&before, px, false);
+            self.c.fill_rect(cx, r.y + 2.0, 1.0, r.h - 4.0, &solid(ink()));
+        }
+        (changed, enter)
+    }
+
+    /// Algum campo de texto está com o cursor?
+    pub fn has_focus(&self) -> bool {
+        self.mem.focus.is_some()
     }
 
     pub fn text_field(&mut self, value: &mut String, width: f32) -> bool {
