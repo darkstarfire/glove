@@ -25,7 +25,7 @@ impl App for About {
             ui.fonts.draw(ui.c, t, (w - tw) / 2.0, y, px, bold, c);
         };
         center(ui, "Glove", 150.0, 30.0, true, rgba(20, 20, 20, 255));
-        center(ui, "Versão 0.2 — prévia", 170.0, 11.0, false, rgba(60, 60, 60, 255));
+        center(ui, concat!("Versão ", env!("CARGO_PKG_VERSION")), 170.0, 11.0, false, rgba(60, 60, 60, 255));
         center(ui, &format!("Memória: {}", self.memory), 202.0, 13.0, false, rgba(20, 20, 20, 255));
         center(ui, &format!("Processador: {}", self.processor), 221.0, 13.0, false, rgba(20, 20, 20, 255));
 

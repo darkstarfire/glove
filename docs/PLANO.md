@@ -36,6 +36,10 @@ use as páginas da [512pixels](https://512pixels.net/projects/aqua-screenshot-li
 3. Testar: `cargo test --release` e capturas de tela comparadas com as referências.
 4. Medir a memória quando a etapa mexer em processo residente (meta: máquina de 500 MB).
 5. Marcar `[x]` aqui e fazer **um commit por etapa**, enviado ao GitHub.
+6. Subir a versão (`version` em `[workspace.package]` do `Cargo.toml`) e criar a tag `vX.Y.Z`, também
+   enviada ao GitHub. Esquema: **0.(fase).(etapa)**: `v0.9.0` = fases 1 a 9.9 completas; cada etapa da
+   9.10 sobe o último número (9.10.1 → `v0.9.1`, …, 9.10.11 → `v0.9.11`); a Fase 10 começa em
+   `v0.10.0` (10.1 → `v0.10.1`…). Correções soltas entre etapas não mudam a versão.
 
 Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** grande (vários dias).
 
@@ -271,6 +275,8 @@ Defeitos vistos usando a sessão no dia a dia (17 capturas de tela), todos corri
   zoom se reajustam quando o Dock muda
 - [x] 9.9.42 Arrastar arquivos ou pastas para o Terminal escreve o caminho completo (entre aspas quando
   tem espaço), como no Terminal do Mac; o arrastar vira "copiar", nunca "mover"
+- [x] 9.9.43 Ctrl+clique (ou Super+clique) num app do Dock abre mais uma instância dele, mesmo já aberto
+  (o clique simples continua trazendo o app para a frente)
 
 ## Fase 9.10 — O que faltou do Tiger (levantamento de 05/11/2026)
 

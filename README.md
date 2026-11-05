@@ -134,6 +134,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+H | Ocultar o app (some sem ir para o Dock; volta pelo Dock ou por Mostrar Todos) |
 | Super+Alt+H | Ocultar os outros apps |
 | Super+↑ | Zoom |
+| Ctrl+clique no Dock | Abre mais uma instância do app (o clique simples traz o que já está aberto) |
 | Super+Tab | Trocar de app: faixa de ícones no meio da tela (Tab/← → andam, Q encerra, H oculta, Esc cancela; soltar o Super troca) |
 | F9 / F10 / F11 | Exposé: todas as janelas / só as do app / mostrar a mesa (de novo, ou Esc, volta) |
 | Super+, | Preferências |

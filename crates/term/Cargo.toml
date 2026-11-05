@@ -6,6 +6,6 @@ license.workspace = true
 
 [dependencies]
 alacritty_terminal = "0.26.0"
-glove-config = { version = "0.1.0", path = "../config" }
+glove-config = { path = "../config" }
 glove-kit = { path = "../kit" }
 libc = "0.2"

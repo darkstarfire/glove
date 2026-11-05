@@ -1,12 +1,12 @@
 [package]
 name = "glove"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
 bitflags = "2"
-glove-config = { version = "0.1.0", path = "../config" }
-glove-paint = { version = "0.1.0", path = "../paint" }
+glove-config = { path = "../config" }
+glove-paint = { path = "../paint" }
 libc = "0.2.191"
 serde = { version = "1.0.229", features = ["derive"] }
 smithay = { version = "0.7", default-features = false, features = ["backend_winit", "wayland_frontend", "desktop", "renderer_gl", "backend_egl", "backend_drm", "backend_gbm", "backend_libinput", "backend_session_libseat", "backend_udev", "xwayland"] }

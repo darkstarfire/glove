@@ -149,7 +149,7 @@ impl Glove {
 }
 
 /// Linha de comando de um processo (para abrir de novo o app fixado).
-fn command_of_pid(pid: u32) -> Option<String> {
+pub(crate) fn command_of_pid(pid: u32) -> Option<String> {
     let raw = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
     let parts: Vec<String> = raw
         .split(|b| *b == 0)

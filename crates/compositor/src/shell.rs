@@ -1365,6 +1365,23 @@ impl Glove {
     }
 
     pub fn run_dock_action(&mut self, a: DockAction) {
+        // Ctrl (ou Super) + clique num app: abre mais uma instância dele, mesmo já aberto.
+        let extra = self.seat.get_keyboard().is_some_and(|k| {
+            let m = k.modifier_state();
+            m.ctrl || m.logo || (self.nested && m.alt)
+        });
+        if extra {
+            let command = match &a {
+                DockAction::App(i) => self.config.dock_apps.get(*i).map(|app| (app.command.clone(), app.app_id.clone())),
+                DockAction::Running(id) => self.every_window_pid(id).and_then(crate::dockmenu::command_of_pid).map(|c| (c, id.clone())),
+                _ => None,
+            };
+            if let Some((cmd, id)) = command.filter(|(c, _)| !c.is_empty()) {
+                self.spawn(&cmd);
+                self.start_bounce(&id);
+                return;
+            }
+        }
         match a {
             DockAction::App(i) => {
                 let Some(app) = self.config.dock_apps.get(i).cloned() else { return };
