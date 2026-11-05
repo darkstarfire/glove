@@ -124,6 +124,11 @@ fn spawn_shell(cols: u16, rows: u16) -> std::io::Result<(OwnedFd, std::process::
     }
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into());
     let mut cmd = std::process::Command::new(&shell);
+    // "glove-term -e COMANDO": roda o comando e depois fica no shell (para ver o resultado).
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(c) = args.iter().position(|a| a == "-e").and_then(|i| args.get(i + 1)) {
+        cmd.arg("-c").arg(format!("{c}; printf '\\n[Terminou. Pode fechar esta janela.]\\n'; exec \"{shell}\""));
+    }
     cmd.env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
         .env_remove("GLOVE_MENU_SOCKET")

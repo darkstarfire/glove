@@ -140,7 +140,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 7.9 Protetor de Tela com protetores originais (G)
 - [x] 7.10 Contas/Minha Conta (AccountsService), Internacional (idioma e formatos) (G)
 - [x] 7.11 Compartilhamento, Mídia Removível, Aplicativos Padrão, Bluetooth (M cada)
-- [ ] 7.12 Baixa: Atualização de Software, Disco de Inicialização, Fala, Impressão
+- [x] 7.12 Baixa: Atualização de Software, Disco de Inicialização, Fala, Impressão
 - Pular: ColorSync, QuickTime, Classic, .Mac/iDisk, AppleTalk, reconhecimento de fala
 
 ## Fase 8 — Apps

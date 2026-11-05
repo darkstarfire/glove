@@ -85,6 +85,14 @@ pub enum PrefKind {
     Sharing,
     /// Três ícones de app com um selo de "padrão".
     DefaultApps,
+    /// Impressora com uma folha saindo.
+    Printer,
+    /// Caixa com as setas circulares de atualizar.
+    Update,
+    /// Disco rígido com o símbolo de ligar.
+    StartupDisk,
+    /// Rosto de perfil com ondas de som saindo da boca.
+    Speech,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1032,6 +1040,10 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Wireless => pref_wireless(pm, x, y, s),
         PrefKind::Sharing => pref_sharing(pm, x, y, s),
         PrefKind::DefaultApps => pref_default_apps(pm, x, y, s),
+        PrefKind::Printer => pref_printer(pm, x, y, s),
+        PrefKind::Update => pref_update(pm, x, y, s),
+        PrefKind::StartupDisk => pref_startup_disk(pm, x, y, s),
+        PrefKind::Speech => pref_speech(pm, x, y, s),
     }
 }
 
@@ -1449,4 +1461,94 @@ fn pref_default_apps(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pb.line_to(cx - r * 0.1, cy + r * 0.38);
     pb.line_to(cx + r * 0.5, cy - r * 0.38);
     pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), (s * 0.05).max(1.2));
+}
+
+/// Impressora clara com a folha saindo por cima e a bandeja embaixo.
+fn pref_printer(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    pm.fill_rect(x + s * 0.28, y + s * 0.08, s * 0.44, s * 0.36, &solid(rgba(255, 255, 255, 255)));
+    pm.stroke(rrect(x + s * 0.28, y + s * 0.08, s * 0.44, s * 0.36, 0.0), &solid(rgba(150, 150, 156, 255)), lw);
+    for k in 0..3 {
+        pm.fill_rect(x + s * 0.33, y + s * (0.16 + k as f32 * 0.07), s * 0.34, s * 0.025, &solid(rgba(170, 170, 178, 255)));
+    }
+    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.36, s * 0.84, s * 0.36);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(236, 238, 242, 255)), (1.0, rgba(168, 172, 182, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(100, 104, 114, 255)), lw);
+    pm.fill_rect(bx + bw * 0.15, by + bh * 0.55, bw * 0.7, bh * 0.14, &solid(rgba(60, 62, 70, 255)));
+    pm.fill(circle(bx + bw * 0.88, by + bh * 0.25, s * 0.03), &solid(rgba(80, 200, 80, 255)));
+    pm.fill_rect(x + s * 0.2, y + s * 0.72, s * 0.6, s * 0.12, &vgrad(y + s * 0.72, y + s * 0.84, &[(0.0, rgba(200, 202, 208, 255)), (1.0, rgba(150, 152, 160, 255))]));
+}
+
+/// Caixa (pacote) com duas setas verdes em círculo.
+fn pref_update(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.12, y + s * 0.3, s * 0.76, s * 0.56);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.04), &solid(rgba(0, 0, 0, 50)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(222, 186, 130, 255)), (1.0, rgba(176, 132, 80, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(120, 86, 46, 255)), lw);
+    pm.fill_rect(bx + bw * 0.42, by, bw * 0.16, bh, &solid(rgba(240, 220, 170, 200)));
+    let (cx, cy, r) = (x + s * 0.5, y + s * 0.32, s * 0.2);
+    pm.fill(circle(cx, cy, r + s * 0.04), &solid(rgba(255, 255, 255, 230)));
+    for k in 0..2 {
+        let a0 = k as f32 * std::f32::consts::PI;
+        let mut pb = PathBuilder::new();
+        for i in 0..=10 {
+            let a = a0 + 0.3 + i as f32 * 0.25;
+            let (px, py) = (cx + r * a.cos(), cy + r * a.sin());
+            if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+        }
+        pm.stroke_round(pb.finish(), &solid(rgba(60, 170, 60, 255)), (s * 0.06).max(1.4));
+        let a = a0 + 0.3 + 2.5;
+        let (tx, ty) = (cx + r * a.cos(), cy + r * a.sin());
+        let mut pb = PathBuilder::new();
+        pb.move_to(tx + s * 0.07 * (a + 1.2).cos(), ty + s * 0.07 * (a + 1.2).sin());
+        pb.line_to(tx + s * 0.06 * (a + 2.4).cos(), ty + s * 0.06 * (a + 2.4).sin());
+        pb.line_to(tx - s * 0.05 * (a + 0.6).cos(), ty - s * 0.05 * (a + 0.6).sin());
+        pb.close();
+        pm.fill(pb.finish(), &solid(rgba(60, 170, 60, 255)));
+    }
+}
+
+/// Disco rígido prateado com o símbolo de ligar.
+fn pref_startup_disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    disk(pm, x, y, s);
+    let (cx, cy, r) = (x + s * 0.72, y + s * 0.3, s * 0.17);
+    gel_circle(pm, cx, cy, r, rgba(40, 110, 220, 255));
+    let w = (s * 0.04).max(1.2);
+    let mut pb = PathBuilder::new();
+    for i in 0..=12 {
+        let a = -std::f32::consts::FRAC_PI_2 + 0.6 + i as f32 * (std::f32::consts::TAU - 1.2) / 12.0;
+        let (px, py) = (cx + r * 0.55 * a.cos(), cy + r * 0.55 * a.sin());
+        if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+    }
+    pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), w);
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx, cy - r * 0.7);
+    pb.line_to(cx, cy - r * 0.1);
+    pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), w);
+}
+
+/// Perfil de um rosto com ondas de som saindo da boca.
+fn pref_speech(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let mut pb = PathBuilder::new();
+    pb.move_to(x + s * 0.18, y + s * 0.9);
+    pb.line_to(x + s * 0.18, y + s * 0.62);
+    pb.cubic_to(x + s * 0.06, y + s * 0.5, x + s * 0.08, y + s * 0.12, x + s * 0.38, y + s * 0.1);
+    pb.cubic_to(x + s * 0.58, y + s * 0.1, x + s * 0.62, y + s * 0.3, x + s * 0.6, y + s * 0.38);
+    pb.line_to(x + s * 0.66, y + s * 0.5);
+    pb.line_to(x + s * 0.6, y + s * 0.52);
+    pb.line_to(x + s * 0.6, y + s * 0.62);
+    pb.cubic_to(x + s * 0.6, y + s * 0.7, x + s * 0.5, y + s * 0.7, x + s * 0.44, y + s * 0.7);
+    pb.line_to(x + s * 0.44, y + s * 0.9);
+    pb.close();
+    pm.fill(pb.finish(), &vgrad(y + s * 0.1, y + s * 0.9, &[(0.0, rgba(120, 160, 230, 255)), (1.0, rgba(30, 80, 180, 255))]));
+    for (k, a) in [(1.0, 230u8), (1.7, 180), (2.4, 130)] {
+        let rr = s * 0.07 * k;
+        let (ox, oy) = (x + s * 0.68, y + s * 0.55);
+        let mut pb = PathBuilder::new();
+        pb.move_to(ox + rr * 0.3, oy - rr);
+        pb.quad_to(ox + rr * 1.2, oy, ox + rr * 0.3, oy + rr);
+        pm.stroke(pb.finish(), &solid(rgba(40, 110, 220, a)), (s * 0.035).max(1.0));
+    }
 }

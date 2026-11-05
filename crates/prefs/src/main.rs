@@ -11,6 +11,7 @@ mod contas;
 mod datahora;
 mod inicio;
 mod internacional;
+mod outros;
 mod padrao;
 mod rede;
 mod som;
@@ -48,6 +49,10 @@ enum Pane {
     Midia,
     Padrao,
     Bluetooth,
+    Atualizacao,
+    Inicializacao,
+    Fala,
+    Impressao,
     Dock,
     Teclado,
     Mouse,
@@ -69,7 +74,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 19] = [
+const PANES: [PaneInfo; 23] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -88,6 +93,10 @@ const PANES: [PaneInfo; 19] = [
     PaneInfo { pane: Pane::Bluetooth, id: "bluetooth", icon: Icon::Pref(PrefKind::Wireless), name: "Bluetooth", category: 2, keywords: "fone teclado mouse sem fio parear conectar aparelho" },
     PaneInfo { pane: Pane::Compart, id: "compartilhamento", icon: Icon::Pref(PrefKind::Sharing), name: "Compartilhamento", category: 2, keywords: "nome do computador ssh sessão remota samba arquivos impressoras rede" },
     PaneInfo { pane: Pane::Padrao, id: "padrao", icon: Icon::Pref(PrefKind::DefaultApps), name: "Aplicativos Padrão", category: 3, keywords: "navegador e-mail abrir com texto imagens pdf música vídeo padrão" },
+    PaneInfo { pane: Pane::Impressao, id: "impressao", icon: Icon::Pref(PrefKind::Printer), name: "Impressão", category: 1, keywords: "impressora imprimir cups fila padrão" },
+    PaneInfo { pane: Pane::Atualizacao, id: "atualizacao", icon: Icon::Pref(PrefKind::Update), name: "Atualização de Software", category: 3, keywords: "atualizar pacotes apt sistema versão upgrade" },
+    PaneInfo { pane: Pane::Inicializacao, id: "inicializacao", icon: Icon::Pref(PrefKind::StartupDisk), name: "Disco de Inicialização", category: 3, keywords: "boot iniciar sistema operacional uefi reiniciar disco" },
+    PaneInfo { pane: Pane::Fala, id: "fala", icon: Icon::Pref(PrefKind::Speech), name: "Fala", category: 3, keywords: "voz ler em voz alta falar sintetizador" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
 
@@ -203,6 +212,10 @@ struct Prefs {
     compart: compart::Compart,
     padrao: padrao::Padrao,
     bluetooth: bluetooth::Bluetooth,
+    atualizacao: outros::Atualizacao,
+    inicializacao: outros::Inicializacao,
+    fala: outros::Fala,
+    impressao: outros::Impressao,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Aba do Acesso Universal.
     access_tab: usize,
@@ -308,6 +321,10 @@ impl Prefs {
             compart: compart::Compart::default(),
             padrao: padrao::Padrao::default(),
             bluetooth: bluetooth::Bluetooth::default(),
+            atualizacao: Default::default(),
+            inicializacao: Default::default(),
+            fala: Default::default(),
+            impressao: Default::default(),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -1651,6 +1668,10 @@ impl App for Prefs {
             Pane::Padrao => self.padrao.ui(ui),
             Pane::Bluetooth => self.bluetooth.ui(ui),
             Pane::Midia => self.midia(ui),
+            Pane::Atualizacao => self.atualizacao.ui(ui),
+            Pane::Inicializacao => self.inicializacao.ui(ui),
+            Pane::Fala => self.fala.ui(ui),
+            Pane::Impressao => self.impressao.ui(ui),
             Pane::Internacional => {
                 let mut tab = self.internacional.tab;
                 let shown = tab;
