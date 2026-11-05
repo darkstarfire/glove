@@ -149,6 +149,26 @@ impl Glove {
         if let Some(b) = &c.menubar {
             out.extend(mem(renderer, (0, 0).into(), b, sc));
         }
+        // Janelas indo para o Dock ou voltando: por cima de tudo isso.
+        for a in &self.min_anims {
+            if let Some(r) = self.min_anim_rect(&a.window) {
+                self.push_scaled_window(renderer, &a.window, r, sc, &mut out);
+            }
+        }
+        // Miniaturas vivas das minimizadas, com o ícone do app no canto.
+        for (w, (x, y), t) in &self.badge_places {
+            if !self.min_animating(w) {
+                out.extend(mem(renderer, (*x, *y).into(), t, sc));
+            }
+        }
+        for (w, _) in &self.minimized {
+            if self.min_animating(w) {
+                continue;
+            }
+            if let Some(r) = self.thumbnail_rect(w) {
+                self.push_scaled_window(renderer, w, r, sc, &mut out);
+            }
+        }
         if let Some(b) = &c.dock {
             out.extend(mem(renderer, c.dock_pos(), b, sc));
         }
@@ -157,6 +177,10 @@ impl Glove {
             self.expose_elements(renderer, sc, &mut out);
         } else {
         for w in self.space.elements().rev() {
+            // Voltando do Dock: desenhada pela animação, acima.
+            if self.min_animating(w) {
+                continue;
+            }
             let Some(loc) = self.space.element_location(w) else { continue };
             let render_loc = loc - w.geometry().loc;
             out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
@@ -197,27 +221,7 @@ impl Glove {
         }
         for w in self.space.elements().rev() {
             let Some(i) = e.item_of(w) else { continue };
-            let r = e.current(i);
-            let from = e.items[i].from;
-            let s = (r.size.w / from.size.w).max(0.01);
-            let top = crate::shell::deco_top(w) as f64;
-            // Conteúdo: desenhado num ponto P e encolhido em volta dele.
-            let geo = w.geometry().loc.to_f64();
-            let px = r.loc.x - geo.x * s;
-            let py = r.loc.y + top * s - geo.y * s;
-            let origin = Point::<f64, Logical>::from((px, py)).to_physical(sc).to_i32_round();
-            let surf = w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, origin, Scale::from(sc), 1.0);
-            out.extend(surf.into_iter().map(|el| GloveElement::Scaled(RescaleRenderElement::from_element(el, origin, s))));
-            if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
-                if let Some(t) = &deco.borrow().title {
-                    let o = Point::<f64, Logical>::from((r.loc.x, r.loc.y)).to_physical(sc).to_i32_round();
-                    if let Some(buf) = t.upload(renderer) {
-                        let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
-                        let el = TextureRenderElement::from_texture_buffer(o.to_f64(), &buf, None, Some(src), Some(t.size), Kind::Unspecified);
-                        out.push(GloveElement::ScaledTexture(RescaleRenderElement::from_element(el, o, s)));
-                    }
-                }
-            }
+            self.push_scaled_window(renderer, w, e.current(i), sc, out);
         }
         // Fundo escurecido (menos no modo mesa); no modo app, as outras janelas ficam embaixo dele.
         if e.mode != crate::expose::ExposeMode::Desktop {
@@ -233,6 +237,35 @@ impl Glove {
                     if let Some(t) = &deco.borrow().title {
                         out.extend(mem(renderer, (loc.x, loc.y - TITLE_H).into(), t, sc));
                     }
+                }
+            }
+        }
+    }
+
+    /// Desenha a janela (com a barra de título) encolhida para caber em `r`
+    /// (a moldura inteira, na mesma proporção).
+    fn push_scaled_window(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, r: Rectangle<f64, Logical>, sc: f64, out: &mut Vec<GloveElement>) {
+        use smithay::backend::renderer::element::Kind;
+        let frame_w = w.geometry().size.w as f64;
+        if frame_w <= 0.0 {
+            return;
+        }
+        let s = (r.size.w / frame_w).max(0.01);
+        let top = crate::shell::deco_top(w) as f64;
+        // Conteúdo: desenhado num ponto P e encolhido em volta dele.
+        let geo = w.geometry().loc.to_f64();
+        let px = r.loc.x - geo.x * s;
+        let py = r.loc.y + top * s - geo.y * s;
+        let origin = Point::<f64, Logical>::from((px, py)).to_physical(sc).to_i32_round();
+        let surf = w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, origin, Scale::from(sc), 1.0);
+        out.extend(surf.into_iter().map(|el| GloveElement::Scaled(RescaleRenderElement::from_element(el, origin, s))));
+        if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
+            if let Some(t) = &deco.borrow().title {
+                let o = Point::<f64, Logical>::from((r.loc.x, r.loc.y)).to_physical(sc).to_i32_round();
+                if let Some(buf) = t.upload(renderer) {
+                    let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
+                    let el = TextureRenderElement::from_texture_buffer(o.to_f64(), &buf, None, Some(src), Some(t.size), Kind::Unspecified);
+                    out.push(GloveElement::ScaledTexture(RescaleRenderElement::from_element(el, o, s)));
                 }
             }
         }
@@ -340,6 +373,26 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
     let time = state.start_time.elapsed();
     for w in state.space.elements() {
         w.send_frame(output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+    }
+    // Minimizadas (miniatura viva no Dock): quadros no máximo 2×/s. Se for cedo,
+    // agenda um quadro para quando der (só acontece se algo foi redesenhado).
+    if !state.minimized.is_empty() && state.min_commit_pending {
+        let since = state.min_frame_last.elapsed();
+        if since >= crate::minimize::MINIMIZED_FRAME {
+            state.min_frame_last = std::time::Instant::now();
+            state.min_commit_pending = false;
+            for (w, _) in &state.minimized {
+                w.send_frame(output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+            }
+        } else if !state.min_frame_timer {
+            state.min_frame_timer = true;
+            let left = crate::minimize::MINIMIZED_FRAME - since;
+            let _ = state.loop_handle.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(left), |_, _, data| {
+                data.state.min_frame_timer = false;
+                data.state.dirty = true;
+                smithay::reexports::calloop::timer::TimeoutAction::Drop
+            });
+        }
     }
     if let smithay::input::pointer::CursorImageStatus::Surface(s) = &state.cursor_status {
         smithay::desktop::utils::send_frames_surface_tree(s, output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));

@@ -10,6 +10,7 @@ mod lock;
 mod extras;
 mod forcequit;
 mod menus;
+mod minimize;
 mod recent;
 mod render;
 mod shell;

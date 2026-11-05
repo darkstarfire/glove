@@ -41,6 +41,12 @@ impl CompositorHandler for Glove {
             if let Some(window) = window {
                 window.on_commit();
                 self.place_new_window(&window);
+            } else if let Some(window) = self.minimized.iter().chain(&self.hidden).map(|(w, _)| w).find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == &root)).cloned() {
+                // Minimizada (miniatura viva no Dock) ou oculta: o conteúdo mudou.
+                window.on_commit();
+                if self.minimized.iter().any(|(w, _)| *w == window) {
+                    self.min_commit_pending = true;
+                }
             }
         };
         self.dirty = true;

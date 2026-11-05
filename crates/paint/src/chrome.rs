@@ -475,6 +475,8 @@ pub struct DockItem {
     pub separator_before: bool,
     /// Altura do pulo agora (app abrindo), em pontos.
     pub bounce: f32,
+    /// Janela minimizada: o compositor desenha a miniatura viva no lugar do ícone.
+    pub thumbnail: bool,
 }
 
 pub const DOCK_BASE: f32 = 56.0;
@@ -598,7 +600,9 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
         }
         // App abrindo: o ícone pula (até o topo do Dock, no máximo).
         let y = &(y - it.bounce.clamp(0.0, (y - 2.0).max(0.0)));
-        icons::draw_bare(&mut c, fonts, it.icon, *x, *y, *s, it.letter);
+        if !it.thumbnail {
+            icons::draw_bare(&mut c, fonts, it.icon, *x, *y, *s, it.letter);
+        }
         if it.running {
             // Indicador de app aberto: pequeno triângulo escuro na base.
             let cx = x + s / 2.0;

@@ -117,6 +117,19 @@ pub struct Glove {
     pub switcher_commit: bool,
     /// Apps abrindo pelo Dock: (app_id, início, fim do último pulo).
     pub launching: Vec<(String, std::time::Instant, Option<std::time::Instant>)>,
+    /// Janelas indo para o Dock ou voltando dele.
+    pub min_anims: Vec<crate::minimize::MinAnim>,
+    pub min_anim_timer_on: bool,
+    /// Lugar no Dock de onde cada janela está voltando.
+    pub restore_slots: Vec<(Window, smithay::utils::Rectangle<f64, Logical>)>,
+    /// Ícones de app já desenhados para o canto das miniaturas.
+    pub badges: Vec<((String, i32, u32), std::rc::Rc<crate::shell::Tex>)>,
+    pub badge_places: Vec<(Window, (i32, i32), std::rc::Rc<crate::shell::Tex>)>,
+    /// Último quadro entregue às minimizadas e se há um agendado.
+    pub min_frame_last: std::time::Instant,
+    pub min_frame_timer: bool,
+    /// Uma minimizada mudou desde o último quadro entregue a elas.
+    pub min_commit_pending: bool,
 }
 
 impl Glove {
@@ -194,6 +207,14 @@ impl Glove {
             app_mru: Vec::new(),
             switcher_commit: false,
             launching: Vec::new(),
+            min_anims: Vec::new(),
+            min_anim_timer_on: false,
+            restore_slots: Vec::new(),
+            badges: Vec::new(),
+            badge_places: Vec::new(),
+            min_frame_last: std::time::Instant::now(),
+            min_frame_timer: false,
+            min_commit_pending: false,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

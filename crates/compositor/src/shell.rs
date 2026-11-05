@@ -544,6 +544,7 @@ impl Glove {
         let Some(loc) = self.space.element_location(w) else { return };
         self.space.unmap_elem(w);
         self.minimized.push((w.clone(), loc));
+        self.animate_minimize(w, loc);
         self.focus_topmost(None);
     }
 
@@ -551,8 +552,10 @@ impl Glove {
         if idx >= self.minimized.len() {
             return;
         }
+        let slot = self.dock_slot(&self.minimized[idx].0);
         let (w, loc) = self.minimized.remove(idx);
         self.space.map_element(w.clone(), loc, true);
+        self.animate_restore(&w, loc, slot);
         self.focus_window(Some(w));
     }
 
@@ -1144,6 +1147,7 @@ impl Glove {
         self.prepare_extras();
         self.prepare_wait_cursor();
         self.prepare_dock();
+        self.prepare_minimized();
         self.prepare_decorations();
     }
 
@@ -1169,6 +1173,7 @@ impl Glove {
                 running: !app.app_id.is_empty() && running.contains(&app.app_id.to_lowercase()),
                 separator_before: false,
                 bounce: self.dock_bounce(&app.app_id, self.config.dock.size.clamp(24, 128) as f32),
+                thumbnail: false,
             });
             actions.push(DockAction::App(i));
         }
@@ -1182,11 +1187,12 @@ impl Glove {
                 running: false,
                 separator_before: i == 0,
                 bounce: 0.0,
+                thumbnail: true,
             });
             actions.push(DockAction::Restore(i));
         }
         // Lixeira sempre no fim, do outro lado do separador.
-        items.push(DockItem { icon: Icon::Trash, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0 });
+        items.push(DockItem { icon: Icon::Trash, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
         actions.push(DockAction::Trash);
         (items, actions)
     }
