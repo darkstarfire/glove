@@ -209,6 +209,91 @@ fn move_to_trash(p: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// "%C3%A9" → "é" (o Path do .trashinfo pode vir codificado como URL).
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Some(v) = s.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok()) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Devolver: põe um item da Lixeira de volta onde estava. Devolve o destino.
+fn put_back(item: &Path) -> Result<PathBuf, String> {
+    put_back_in(&trash_dir(), item)
+}
+
+fn put_back_in(t: &Path, item: &Path) -> Result<PathBuf, String> {
+    let name = item.file_name().ok_or("item inválido")?.to_string_lossy().into_owned();
+    let info = t.join("info").join(format!("{name}.trashinfo"));
+    let text = std::fs::read_to_string(&info).map_err(|_| "Não se sabe de onde este item veio.".to_string())?;
+    let orig = text.lines().find_map(|l| l.strip_prefix("Path=")).ok_or("Não se sabe de onde este item veio.")?;
+    let dest = PathBuf::from(percent_decode(orig));
+    if dest.exists() {
+        return Err(format!("Já existe um item chamado “{}” no lugar de origem.", dest.file_name().unwrap_or_default().to_string_lossy()));
+    }
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::rename(item, &dest).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(info);
+    Ok(dest)
+}
+
+/// Esvazia a Lixeira: apaga os itens e os registros de origem.
+fn empty_trash() -> Result<(), String> {
+    empty_trash_in(&trash_dir())
+}
+
+fn empty_trash_in(t: &Path) -> Result<(), String> {
+    for sub in ["files", "info"] {
+        let Ok(rd) = std::fs::read_dir(t.join(sub)) else { continue };
+        for e in rd.flatten() {
+            let p = e.path();
+            let r = if e.file_type().is_ok_and(|ft| ft.is_dir()) { std::fs::remove_dir_all(&p) } else { std::fs::remove_file(&p) };
+            r.map_err(|err| format!("{}: {err}", p.display()))?;
+        }
+    }
+    Ok(())
+}
+
+/// Janela de confirmação de "Esvaziar Lixeira…" (glove-files --esvaziar-lixeira).
+struct EmptyTrash {
+    count: usize,
+    error: Option<String>,
+}
+
+impl App for EmptyTrash {
+    fn ui(&mut self, ui: &mut Ui) {
+        use glove_kit::AlertKind;
+        if let Some(e) = self.error.clone() {
+            if ui.alert_window(AlertKind::Stop, "Não foi possível esvaziar a Lixeira.", &e, &["OK"]).is_some() {
+                ui.close = true;
+            }
+            return;
+        }
+        let text = format!("{} {} na Lixeira. Esta ação não pode ser desfeita.", self.count, if self.count == 1 { "item" } else { "itens" });
+        match ui.alert_window(AlertKind::Caution, "Tem certeza de que deseja apagar para sempre os itens da Lixeira?", &text, &["Cancelar", "Esvaziar Lixeira"]) {
+            Some(1) => match empty_trash() {
+                Ok(()) => ui.close = true,
+                Err(e) => self.error = Some(e),
+            },
+            Some(_) => ui.close = true,
+            None => {}
+        }
+    }
+}
+
 fn sibling(name: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(name))).filter(|p| p.is_file()).unwrap_or_else(|| name.into())
 }
@@ -264,6 +349,12 @@ impl Files {
             reveal: false,
             gear_open: false,
         }
+    }
+
+    /// O item escolhido está dentro da Lixeira?
+    fn in_trash(&self) -> bool {
+        let files = trash_dir().join("files");
+        self.selected.as_ref().is_some_and(|p| p.parent() == Some(files.as_path()))
     }
 
     /// Pasta "atual": a última coluna aberta.
@@ -426,7 +517,7 @@ impl Files {
         let items: [(&str, &str, bool); 5] = [
             ("new-folder", "Nova pasta", true),
             ("open", "Abrir", sel),
-            ("trash", "Mover para a Lixeira", sel),
+            if self.in_trash() { ("put-back", "Devolver", sel) } else { ("trash", "Mover para a Lixeira", sel) },
             ("", "", false),
             ("hidden", if self.hidden { "Esconder arquivos ocultos" } else { "Mostrar arquivos ocultos" }, true),
         ];
@@ -771,6 +862,7 @@ impl Files {
                 "Ctrl+Shift+N" => act.push("new-folder"),
                 "Ctrl+O" => act.push("open"),
                 "Ctrl+BackSpace" => act.push("trash"),
+                "Ctrl+Shift+BackSpace" => act.push("empty-trash"),
                 "Ctrl+W" => act.push("close"),
                 "Ctrl+1" => act.push("view-icons"),
                 "Ctrl+2" => act.push("view-list"),
@@ -813,6 +905,21 @@ impl Files {
                 }
             }
             "trash" => self.trash_selected(),
+            "put-back" => {
+                if let Some(p) = self.selected.clone() {
+                    match put_back(&p) {
+                        Ok(dest) => {
+                            self.message = Some(format!("“{}” voltou para {}", display_name(&dest), dest.parent().map(display_name).unwrap_or_default()));
+                            self.selected = None;
+                            self.cache.clear();
+                        }
+                        Err(e) => self.message = Some(e),
+                    }
+                }
+            }
+            "empty-trash" => {
+                let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--esvaziar-lixeira").spawn();
+            }
             "close" => ui.close = true,
             "view-icons" => self.view = View::Icons,
             "view-list" => self.view = View::List,
@@ -922,7 +1029,9 @@ impl App for Files {
                     MenuItem::new("new-folder", "Nova pasta", "Ctrl+Shift+N"),
                     MenuItem::new("open", "Abrir", "Ctrl+O").enabled(sel),
                     MenuItem::Separator,
-                    MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(sel),
+                    MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(sel && !self.in_trash()),
+                    MenuItem::new("put-back", "Devolver", "").enabled(sel && self.in_trash()),
+                    MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar janela", "Ctrl+W"),
                 ],
@@ -956,9 +1065,52 @@ impl App for Files {
 }
 
 fn main() {
+    if std::env::args().any(|a| a == "--esvaziar-lixeira") {
+        let count = std::fs::read_dir(trash_dir().join("files")).map(|d| d.count()).unwrap_or(0);
+        if count == 0 {
+            return;
+        }
+        let opts = WindowOptions { title: "Esvaziar Lixeira".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true };
+        if let Err(e) = run(opts, EmptyTrash { count, error: None }) {
+            eprintln!("glove-files: {e}");
+        }
+        return;
+    }
     let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(home);
     let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false };
     if let Err(e) = run(opts, Files::new(start)) {
         eprintln!("glove-files: {e}");
+    }
+}
+
+#[cfg(test)]
+mod lixeira_tests {
+    use super::*;
+
+    #[test]
+    fn devolver_e_esvaziar() {
+        let root = std::env::temp_dir().join(format!("glove-lixeira-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let t = root.join("Trash");
+        std::fs::create_dir_all(t.join("files")).unwrap();
+        std::fs::create_dir_all(t.join("info")).unwrap();
+        // Um item que veio de "pasta com espaço/nota.txt" (Path codificado como URL).
+        std::fs::write(t.join("files/nota.txt"), "oi").unwrap();
+        let orig = root.join("pasta com espaço/nota.txt");
+        let encoded = orig.to_string_lossy().replace(' ', "%20").replace('ç', "%C3%A7");
+        std::fs::write(t.join("info/nota.txt.trashinfo"), format!("[Trash Info]\nPath={encoded}\nDeletionDate=2026-01-01T00:00:00\n")).unwrap();
+        let dest = put_back_in(&t, &t.join("files/nota.txt")).unwrap();
+        assert_eq!(dest, orig);
+        assert!(orig.is_file() && !t.join("info/nota.txt.trashinfo").exists());
+        // Destino ocupado: recusa.
+        std::fs::write(t.join("files/nota.txt"), "de novo").unwrap();
+        std::fs::write(t.join("info/nota.txt.trashinfo"), format!("[Trash Info]\nPath={}\n", orig.display())).unwrap();
+        assert!(put_back_in(&t, &t.join("files/nota.txt")).is_err());
+        // Esvaziar apaga itens e registros (pastas também).
+        std::fs::create_dir_all(t.join("files/pasta/sub")).unwrap();
+        empty_trash_in(&t).unwrap();
+        assert_eq!(std::fs::read_dir(t.join("files")).unwrap().count(), 0);
+        assert_eq!(std::fs::read_dir(t.join("info")).unwrap().count(), 0);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

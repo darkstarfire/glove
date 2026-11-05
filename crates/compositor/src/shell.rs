@@ -104,6 +104,14 @@ pub fn deco_top(w: &Window) -> i32 {
     if is_ssd(w) { TITLE_H } else { 0 }
 }
 
+/// A Lixeira ($XDG_DATA_HOME/Trash/files) tem algum item?
+pub fn trash_has_items() -> bool {
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")));
+    base.and_then(|b| std::fs::read_dir(b.join("Trash/files")).ok()).is_some_and(|mut d| d.next().is_some())
+}
+
 /// Apps com janela "unificada" (título em metal emendado na barra de ferramentas).
 pub const UNIFIED_APPS: [&str; 1] = ["glove.Files"];
 
@@ -199,6 +207,8 @@ pub enum MenuAction {
     /// Abre no Arquivos a pasta do programa (comando do app).
     ShowInFiles(String),
     DockRun(DockAction),
+    /// Esvaziar a Lixeira (com confirmação, no Arquivos).
+    EmptyTrash,
     /// Menu do monitor: (saída, "LxA@Hz").
     SetMode(String, String),
     ToggleBatteryPercent,
@@ -331,6 +341,8 @@ pub struct Chrome {
     /// Ocultar automaticamente: 0 = à vista, 1 = escondido; e a animação (de, para, início).
     pub dock_hide: f32,
     pub dock_hide_anim: Option<(f32, f32, std::time::Instant)>,
+    /// A Lixeira tem itens (e quando foi conferido).
+    pub trash_full: (bool, Option<std::time::Instant>),
     pub dock_hover: Option<usize>,
     pub dock_pressed: Option<usize>,
     dock_key: Option<(Vec<DockItem>, Option<i32>, i32, Option<usize>, u64)>,
@@ -1073,6 +1085,10 @@ impl Glove {
             MenuAction::ToggleKeepInDock(id, pid) => self.toggle_keep_in_dock(&id, pid),
             MenuAction::ShowInFiles(cmd) => self.show_in_files(&cmd),
             MenuAction::DockRun(a) => self.run_dock_action(a),
+            MenuAction::EmptyTrash => {
+                self.spawn("glove-files --esvaziar-lixeira");
+                self.chrome.trash_full.1 = None;
+            }
             MenuAction::SetMode(output, mode) => {
                 self.config.monitor.output = output;
                 self.config.monitor.mode = mode;
@@ -1321,12 +1337,17 @@ impl Glove {
             actions.push(DockAction::Restore(i));
         }
         // Lixeira sempre no fim, do outro lado do separador.
-        items.push(DockItem { icon: Icon::Trash, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
+        let trash_icon = if self.chrome.trash_full.0 { Icon::TrashFull } else { Icon::Trash };
+        items.push(DockItem { icon: trash_icon, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
         actions.push(DockAction::Trash);
         (items, actions)
     }
 
     pub fn prepare_dock(&mut self) {
+        // Lixeira cheia ou vazia: confere no máximo uma vez por segundo.
+        if self.chrome.trash_full.1.is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(1)) {
+            self.chrome.trash_full = (trash_has_items(), Some(std::time::Instant::now()));
+        }
         let (items, actions) = self.dock_model();
         let d = &self.config.dock;
         let base = d.size.clamp(24, 128) as f32;

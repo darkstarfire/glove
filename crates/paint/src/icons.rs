@@ -17,6 +17,8 @@ pub enum Icon {
     /// Relógio mostrando (hora, minuto).
     Clock(u8, u8),
     Trash,
+    /// Lixeira com papéis (há itens nela).
+    TrashFull,
     Disk,
     /// Arquivo de texto.
     Document,
@@ -48,6 +50,7 @@ impl Icon {
             "window" => Icon::Window,
             "clock" => Icon::Clock(10, 10),
             "trash" => Icon::Trash,
+            "trash-full" => Icon::TrashFull,
             "disk" => Icon::Disk,
             "document" => Icon::Document,
             "picture" | "image" => Icon::Picture,
@@ -87,7 +90,8 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Window => window(pm, fonts, x, y, s, letter),
         Icon::Generic => generic(pm, fonts, x, y, s, letter),
         Icon::Clock(h, m) => clock(pm, x, y, s, h, m),
-        Icon::Trash => trash(pm, x, y, s),
+        Icon::Trash => trash(pm, x, y, s, false),
+        Icon::TrashFull => trash(pm, x, y, s, true),
         Icon::Disk => disk(pm, x, y, s),
         Icon::Document => page(pm, x, y, s, true),
         Icon::File => page(pm, x, y, s, false),
@@ -290,7 +294,7 @@ fn clock(pm: &mut Canvas, x: f32, y: f32, s: f32, h: u8, m: u8) {
 }
 
 /// Lixeira de metal escovado com nervuras verticais e tampa com alça.
-fn trash(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+fn trash(pm: &mut Canvas, x: f32, y: f32, s: f32, full: bool) {
     let (top, bot) = (y + s * 0.24, y + s * 0.88);
     let (tl, tr) = (x + s * 0.2, x + s * 0.8);
     let (bl, br) = (x + s * 0.27, x + s * 0.73);
@@ -312,6 +316,32 @@ fn trash(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pm.stroke(r.finish(), &solid(rgba(110, 115, 125, 150)), (s / 64.0).max(0.8));
     }
     pm.stroke(body, &solid(rgba(90, 95, 105, 255)), (s / 64.0).max(1.0));
+    if full {
+        // Cheia: sem tampa, com papéis amassados saindo por cima.
+        let w = (s / 64.0).max(0.8);
+        for (dx, dy, r, ang) in [(0.36f32, 0.2f32, 0.13f32, -0.3f32), (0.62, 0.17, 0.14, 0.4), (0.5, 0.12, 0.12, 0.1)] {
+            let (cx, cy) = (x + s * dx, y + s * dy);
+            let mut p = PathBuilder::new();
+            // Bola de papel: polígono irregular.
+            for k in 0..9 {
+                let a = ang + k as f32 / 9.0 * std::f32::consts::TAU;
+                let rr = s * r * if k % 2 == 0 { 1.0 } else { 0.78 };
+                let (px, py) = (cx + a.cos() * rr, cy + a.sin() * rr * 0.85);
+                if k == 0 { p.move_to(px, py) } else { p.line_to(px, py) }
+            }
+            p.close();
+            let paper = p.finish();
+            pm.fill(paper.clone(), &vgrad(cy - s * r, cy + s * r, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(214, 218, 226, 255))]));
+            pm.stroke(paper, &solid(rgba(120, 124, 134, 255)), w);
+            // Dobras
+            let mut f = PathBuilder::new();
+            f.move_to(cx - s * r * 0.5, cy - s * r * 0.1);
+            f.line_to(cx + s * r * 0.1, cy + s * r * 0.25);
+            f.line_to(cx + s * r * 0.45, cy - s * r * 0.2);
+            pm.stroke(f.finish(), &solid(rgba(150, 154, 164, 200)), w);
+        }
+        return;
+    }
     // Tampa + alça
     let lid_y = y + s * 0.16;
     pm.fill(rrect(x + s * 0.15, lid_y, s * 0.7, s * 0.09, s * 0.03), &vgrad(lid_y, lid_y + s * 0.09, &[(0.0, rgba(245, 246, 250, 255)), (1.0, rgba(150, 155, 165, 255))]));

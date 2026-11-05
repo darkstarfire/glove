@@ -62,8 +62,10 @@ impl Glove {
             DockAction::Trash => vec![
                 MenuNode::new(MenuItem::item("Abrir"), Some(MenuAction::DockRun(DockAction::Trash))),
                 MenuNode::sep(),
-                // Esvaziar com alerta chega na etapa 6.2.
-                MenuNode::new(MenuItem::item("Esvaziar Lixeira…").disabled(), None),
+                MenuNode::new(
+                    if crate::shell::trash_has_items() { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
+                    Some(MenuAction::EmptyTrash),
+                ),
             ],
             DockAction::Restore(_) => return,
         };
