@@ -88,6 +88,10 @@ pub struct Glove {
     pub cursor_tex_scale: f64,
     /// Protetor de tela na tela.
     pub saver: Option<crate::saver::ScreenSaver>,
+    /// Escolhendo a área de uma captura.
+    pub region: Option<crate::region::RegionSel>,
+    /// Área (lógica) da próxima captura; None = a tela inteira.
+    pub screenshot_crop: Option<smithay::utils::Rectangle<i32, smithay::utils::Logical>>,
     /// Textura e programa dos efeitos do Acesso Universal.
     pub effects: std::cell::RefCell<crate::render::EffectCache>,
     /// Ctrl+Alt+F1…F12 na sessão própria: trocar para esse console.
@@ -206,6 +210,8 @@ impl Glove {
             cursor_tex_scale: 0.0,
             effects: Default::default(),
             saver: None,
+            region: None,
+            screenshot_crop: None,
             ending: None,
             pinger: Default::default(),
             force_quit: None,

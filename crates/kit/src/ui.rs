@@ -590,6 +590,11 @@ impl<'a> Ui<'a> {
         self.mem.glove_cmds.push(format!("SHOT\t{delay_ms}\t{}", open as u8));
     }
 
+    /// Pede ao Glove para o usuário escolher uma área da tela e capturá-la.
+    pub fn request_screenshot_area(&mut self, open: bool) {
+        self.mem.glove_cmds.push(format!("SHOT\t300\t{}\t1", open as u8));
+    }
+
     /// Pede ao Glove o fim da sessão: "encerrar", "reiniciar" ou "desligar".
     pub fn request_end_session(&mut self, kind: &str) {
         self.mem.glove_cmds.push(format!("SAIR\t{kind}"));

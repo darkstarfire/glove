@@ -33,6 +33,10 @@ enum KeyAction {
     Cycle,
     Preferences,
     Screenshot,
+    /// Captura de uma área (Shift+Print).
+    ScreenshotArea,
+    /// Esc com a área da captura sendo escolhida.
+    RegionEsc,
     ForceQuit,
     Hide,
     HideOthers,
@@ -82,6 +86,7 @@ impl KeyAction {
             "cycle" => Self::Cycle,
             "preferences" => Self::Preferences,
             "screenshot" => Self::Screenshot,
+            "screenshot_area" => Self::ScreenshotArea,
             "force_quit" => Self::ForceQuit,
             "hide" => Self::Hide,
             "lock" => Self::Lock,
@@ -376,6 +381,11 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(Some(KeyAction::SwitcherBack));
             }
+            // Escolhendo a área da captura: Esc cancela.
+            if st.region.is_some() && name == "escape" {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::RegionEsc));
+            }
             // Exposé: Esc volta.
             if st.expose.is_some() && name == "escape" {
                 st.suppressed_keys.push(code);
@@ -481,6 +491,8 @@ impl Glove {
             }
             Some(KeyAction::Preferences) => self.open_preferences(),
             Some(KeyAction::Screenshot) => self.request_screenshot(),
+            Some(KeyAction::ScreenshotArea) => self.start_region_shot(false),
+            Some(KeyAction::RegionEsc) => self.cancel_region(),
             Some(KeyAction::Hide) => {
                 if let Some(pid) = self.focused_pid() {
                     self.hide_pid(pid);
@@ -651,6 +663,11 @@ impl Glove {
     fn on_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
         self.note_input();
         self.pointer_pos = pos;
+        // Escolhendo a área da captura: o mouse só desenha o retângulo.
+        if self.region.is_some() {
+            self.region_motion(pos);
+            return;
+        }
         // Com zoom, a tela acompanha o mouse.
         if self.config.access.zoom {
             self.dirty = true;
@@ -702,6 +719,12 @@ impl Glove {
         // O clique que acende a tela só acende.
         if state == ButtonState::Pressed && self.note_input() {
             self.swallow_wake_release = true;
+            return;
+        }
+        if self.region.is_some() {
+            if button == BTN_LEFT {
+                self.region_button(state == ButtonState::Pressed);
+            }
             return;
         }
         if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {

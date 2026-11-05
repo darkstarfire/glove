@@ -4,7 +4,7 @@ use glove_kit::{
     paint::draw::*,
     run,
     ui::Key,
-    App, Rect, Ui, WindowOptions,
+    App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -13,6 +13,8 @@ enum Op {
     Sub,
     Mul,
     Div,
+    /// xʸ
+    Pow,
 }
 
 struct Calc {
@@ -24,6 +26,9 @@ struct Calc {
     error: bool,
     /// Memória (MC, M+, M−, MR).
     memory: f64,
+    /// Modo científico (teclas de funções à esquerda) e ângulos em graus.
+    scientific: bool,
+    degrees: bool,
 }
 
 /// Número no formato brasileiro, com no máximo 12 dígitos significativos.
@@ -48,7 +53,7 @@ fn fmt(v: f64) -> String {
 
 impl Calc {
     fn new() -> Self {
-        Self { display: "0".into(), acc: None, op: None, fresh: true, error: false, memory: 0.0 }
+        Self { display: "0".into(), acc: None, op: None, fresh: true, error: false, memory: 0.0, scientific: false, degrees: true }
     }
 
     fn value(&self) -> f64 {
@@ -85,6 +90,7 @@ impl Calc {
                 Op::Sub => a - b,
                 Op::Mul => a * b,
                 Op::Div => a / b,
+                Op::Pow => a.powf(b),
             };
             self.error = !r.is_finite();
             self.display = fmt(r);
@@ -114,9 +120,58 @@ impl Calc {
         }
     }
 
-    /// C limpa a conta, mas não a memória (essa só com MC).
+    /// C limpa a conta, mas não a memória (essa só com MC) nem o modo.
     fn clear(&mut self) {
-        *self = Self { memory: self.memory, ..Self::new() };
+        *self = Self { memory: self.memory, scientific: self.scientific, degrees: self.degrees, ..Self::new() };
+    }
+
+    /// Função de uma tecla científica aplicada ao número do visor.
+    fn function(&mut self, f: &str) {
+        if self.error {
+            return;
+        }
+        let v = self.value();
+        let to_rad = |x: f64| if self.degrees { x.to_radians() } else { x };
+        let from_rad = |x: f64| if self.degrees { x.to_degrees() } else { x };
+        let r = match f {
+            "sin" => to_rad(v).sin(),
+            "cos" => to_rad(v).cos(),
+            "tan" => to_rad(v).tan(),
+            "asin" => from_rad(v.asin()),
+            "acos" => from_rad(v.acos()),
+            "atan" => from_rad(v.atan()),
+            "sinh" => v.sinh(),
+            "cosh" => v.cosh(),
+            "tanh" => v.tanh(),
+            "x²" => v * v,
+            "x³" => v * v * v,
+            "√" => v.sqrt(),
+            "∛" => v.cbrt(),
+            "ln" => v.ln(),
+            "log" => v.log10(),
+            "eˣ" => v.exp(),
+            "10ˣ" => 10f64.powf(v),
+            "1/x" => 1.0 / v,
+            "x!" => {
+                if v < 0.0 || v.fract() != 0.0 || v > 170.0 {
+                    f64::NAN
+                } else {
+                    (1..=v as u64).map(|i| i as f64).product()
+                }
+            }
+            "π" => std::f64::consts::PI,
+            "e" => std::f64::consts::E,
+            "Rand" => {
+                let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(1);
+                (t.wrapping_mul(2654435761) % 1_000_000) as f64 / 1_000_000.0
+            }
+            _ => v,
+        };
+        // Resultados quase inteiros (sen 180° etc.) viram o inteiro.
+        let r = if (r - r.round()).abs() < 1e-12 { r.round() } else { r };
+        self.error = !r.is_finite();
+        self.display = fmt(r);
+        self.fresh = true;
     }
 
     fn negate(&mut self) {
@@ -186,6 +241,17 @@ impl Calc {
     }
 }
 
+/// Teclas científicas (4 colunas).
+const SCI: [[&str; 4]; 6] = [
+    ["sin", "cos", "tan", "π"],
+    ["asin", "acos", "atan", "e"],
+    ["sinh", "cosh", "tanh", "Rand"],
+    ["x²", "x³", "xʸ", "√"],
+    ["ln", "log", "eˣ", "10ˣ"],
+    ["1/x", "x!", "∛", "Graus"],
+];
+const SCI_W: f32 = 4.0 * 46.0 + 3.0 * 7.0 + 14.0;
+
 const PAD: f32 = 14.0;
 const BW: f32 = 46.0;
 const BH: f32 = 26.0;
@@ -199,8 +265,40 @@ impl App for Calc {
         true
     }
 
+    fn menus(&self) -> Vec<Menu> {
+        vec![Menu::new(
+            "Visualizar",
+            vec![MenuItem::new("basic", "Básica", "Ctrl+1").checked(!self.scientific), MenuItem::new("sci", "Científica", "Ctrl+2").checked(self.scientific)],
+        )]
+    }
+
     fn ui(&mut self, ui: &mut Ui) {
         self.keyboard(ui);
+        for a in ui.menu_actions().to_vec() {
+            match a.as_str() {
+                "basic" | "sci" => {
+                    self.scientific = a == "sci";
+                    let (w, h) = sizes(self.scientific);
+                    ui.set_window_size(w as f32, h as f32, true);
+                }
+                _ => {}
+            }
+        }
+        for k in ui.keys().to_vec() {
+            match k.combo.as_str() {
+                "Ctrl+1" => {
+                    self.scientific = false;
+                    let (w, h) = sizes(false);
+                    ui.set_window_size(w as f32, h as f32, true);
+                }
+                "Ctrl+2" => {
+                    self.scientific = true;
+                    let (w, h) = sizes(true);
+                    ui.set_window_size(w as f32, h as f32, true);
+                }
+                _ => {}
+            }
+        }
         let (w, h) = (ui.c.w, ui.c.h);
         // Corpo em metal escovado, como a calculadora do 10.3.
         let (top, bot) = (ui.theme.metal_top, ui.theme.metal_bottom);
@@ -229,14 +327,35 @@ impl App for Calc {
                 Op::Sub => "−",
                 Op::Mul => "×",
                 Op::Div => "÷",
+                Op::Pow => "xʸ",
             });
+        }
+        if self.scientific {
+            marks.push(if self.degrees { "Graus" } else { "Rad" });
         }
         ui.fonts.draw(ui.c, &marks.join("  "), dx + 10.0, dy + dh - 9.0, 11.0, false, ink);
 
-        // Teclas
+        // Teclas (no modo científico, as funções ficam à esquerda).
         let y0 = PAD + DISPLAY_H + 12.0;
+        if self.scientific {
+            for (row, keys) in SCI.iter().enumerate() {
+                for (col, k) in keys.iter().enumerate() {
+                    let r = Rect::new(PAD + col as f32 * (BW + GAP), y0 + row as f32 * (BH + GAP), BW, BH);
+                    let label = if *k == "Graus" { if self.degrees { "Rad" } else { "Graus" } } else { k };
+                    let lit = *k == "xʸ" && self.op == Some(Op::Pow) && self.fresh;
+                    if ui.key_button(r, label, 12.0, lit) {
+                        match *k {
+                            "Graus" => self.degrees = !self.degrees,
+                            "xʸ" => self.operator(Op::Pow),
+                            f => self.function(f),
+                        }
+                    }
+                }
+            }
+        }
+        let x_off = if self.scientific { SCI_W } else { 0.0 };
         let cell = |col: f32, row: f32, span: f32, vspan: f32| {
-            Rect::new(PAD + col * (BW + GAP), y0 + row * (BH + GAP), BW * span + GAP * (span - 1.0), BH * vspan + GAP * (vspan - 1.0))
+            Rect::new(x_off + PAD + col * (BW + GAP), y0 + row * (BH + GAP), BW * span + GAP * (span - 1.0), BH * vspan + GAP * (vspan - 1.0))
         };
         let (cur_op, fresh) = (self.op, self.fresh);
         let op_lit = |o: Op| cur_op == Some(o) && fresh;
@@ -282,10 +401,15 @@ impl App for Calc {
     }
 }
 
+/// Tamanho da janela: básica ou científica (mais larga).
+fn sizes(scientific: bool) -> (u32, u32) {
+    let w = PAD * 2.0 + BW * 4.0 + GAP * 3.0 + if scientific { SCI_W } else { 0.0 };
+    let h = PAD + DISPLAY_H + 12.0 + BH * ROWS + GAP * (ROWS - 1.0) + PAD;
+    (w as u32, h as u32)
+}
+
 fn main() {
-    let w = (PAD * 2.0 + BW * 4.0 + GAP * 3.0) as u32;
-    let h = (PAD + DISPLAY_H + 12.0 + BH * ROWS + GAP * (ROWS - 1.0) + PAD) as u32;
-    let opts = WindowOptions { title: "Calculadora".into(), app_id: "glove.Calculator".into(), size: (w, h), fixed: true };
+    let opts = WindowOptions { title: "Calculadora".into(), app_id: "glove.Calculator".into(), size: sizes(false), fixed: true };
     if let Err(e) = run(opts, Calc::new()) {
         eprintln!("glove-calc: {e}");
     }
@@ -320,6 +444,27 @@ mod tests {
         c.clear();
         c.memory_recall();
         assert_eq!(c.display, "7");
+    }
+
+    #[test]
+    fn cientifica() {
+        let mut c = Calc::new();
+        press(&mut c, "90");
+        c.function("sin");
+        assert_eq!(c.display, "1");
+        let mut c = Calc::new();
+        press(&mut c, "5");
+        c.function("x!");
+        assert_eq!(c.display, "120");
+        let mut c = Calc::new();
+        press(&mut c, "2");
+        c.operator(Op::Pow);
+        press(&mut c, "10=");
+        assert_eq!(c.display, "1024");
+        let mut c = Calc::new();
+        press(&mut c, "100");
+        c.function("log");
+        assert_eq!(c.display, "2");
     }
 
     #[test]

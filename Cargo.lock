@@ -748,6 +748,7 @@ dependencies = [
 name = "glove-chars"
 version = "0.1.0"
 dependencies = [
+ "glove-config",
  "glove-kit",
  "libc",
 ]

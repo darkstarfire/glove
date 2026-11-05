@@ -5,6 +5,21 @@ use glove_kit::{
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W,
 };
 
+/// Teclado ABNT2 (sem e com Shift), fileira por fileira.
+const BR: [(&str, &str); 4] = [
+    ("'1234567890-=", "\"!@#$%¨&*()_+"),
+    ("qwertyuiop´[", "QWERTYUIOP`{"),
+    ("asdfghjklç~]", "ASDFGHJKLÇ^}"),
+    ("\\zxcvbnm,.;/", "|ZXCVBNM<>:?"),
+];
+/// Teclado americano.
+const US: [(&str, &str); 4] = [
+    ("`1234567890-=", "~!@#$%^&*()_+"),
+    ("qwertyuiop[]\\", "QWERTYUIOP{}|"),
+    ("asdfghjkl;'", "ASDFGHJKL:\""),
+    ("zxcvbnm,./", "ZXCVBNM<>?"),
+];
+
 const BLOCKS: [(&str, u32, u32); 15] = [
     ("Latim básico", 0x21, 0x7E),
     ("Acentos e latim estendido", 0xA1, 0x17F),
@@ -31,6 +46,62 @@ struct Chars {
     selected: Option<char>,
     scroll: f32,
     copied: Option<char>,
+    /// 0 = mapa de caracteres, 1 = teclado.
+    mode: usize,
+    shift: bool,
+    /// Texto montado clicando nas teclas.
+    text: String,
+    /// Tecla acesa (digitada no teclado de verdade) e até quando.
+    lit: Option<(char, std::time::Instant)>,
+}
+
+impl Chars {
+    /// Teclado na tela (como o Visualizador de Teclado da era): o layout em uso,
+    /// Shift, e cada clique vai para o texto embaixo.
+    fn keyboard(&mut self, ui: &mut Ui, r: Rect) {
+        let layout = glove_config::Config::load().keyboard.layout;
+        let rows = if layout == "br" { BR } else { US };
+        // O que foi digitado de verdade acende a tecla.
+        if let Some(ch) = ui.typed().chars().last() {
+            self.lit = Some((ch, std::time::Instant::now() + std::time::Duration::from_millis(350)));
+        }
+        let lit = self.lit.filter(|(_, t)| std::time::Instant::now() < *t).map(|(c, _)| c);
+        if lit.is_some() {
+            ui.wake_after(std::time::Duration::from_millis(120));
+        }
+        ui.c.fill(rrect(r.x, r.y, r.w, r.h, 8.0), &vgrad(r.y, r.y + r.h, &[(0.0, rgba(214, 216, 222, 255)), (1.0, rgba(180, 184, 192, 255))]));
+        ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 8.0), &solid(rgba(110, 112, 120, 255)), 1.0);
+        let key = ((r.w - 24.0) / 14.0).floor();
+        let kh = key.min((r.h - 24.0) / 5.0);
+        let mut typed = None;
+        for (ri, (normal, shifted)) in rows.iter().enumerate() {
+            let keys: Vec<char> = if self.shift { shifted.chars().collect() } else { normal.chars().collect() };
+            let indent = [0.0, 0.5, 0.75, 1.25][ri] * key;
+            for (ki, ch) in keys.iter().enumerate() {
+                let kr = Rect::new(r.x + 12.0 + indent + ki as f32 * key, r.y + 12.0 + ri as f32 * kh, key - 4.0, kh - 4.0);
+                let on = lit == Some(*ch) || lit.is_some_and(|l| l.to_lowercase().eq(ch.to_lowercase()));
+                if ui.key_button(kr, &ch.to_string(), 14.0, on) {
+                    typed = Some(*ch);
+                }
+            }
+        }
+        // Shift e espaço.
+        let y5 = r.y + 12.0 + 4.0 * kh;
+        if ui.key_button(Rect::new(r.x + 12.0, y5, key * 2.5 - 4.0, kh - 4.0), "Shift", 12.0, self.shift) {
+            self.shift = !self.shift;
+        }
+        if ui.key_button(Rect::new(r.x + 12.0 + key * 3.0, y5, key * 7.0 - 4.0, kh - 4.0), "espaço", 12.0, lit == Some(' ')) {
+            typed = Some(' ');
+        }
+        if ui.key_button(Rect::new(r.x + 12.0 + key * 10.5, y5, key * 2.5 - 4.0, kh - 4.0), "⌫", 14.0, false) {
+            self.text.pop();
+        }
+        if let Some(c) = typed {
+            self.text.push(c);
+            // Shift vale para uma tecla só (como no teclado de verdade).
+            self.shift = false;
+        }
+    }
 }
 
 impl Chars {
@@ -54,11 +125,56 @@ impl App for Chars {
             }
         }
 
+        // Mapa ou teclado (segmentado no alto da lateral).
+        for a in ui.menu_actions().to_vec() {
+            match a.as_str() {
+                "mode-map" => self.mode = 0,
+                "mode-kbd" => self.mode = 1,
+                _ => {}
+            }
+        }
+        if self.mode == 1 {
+            let mut m = self.mode;
+            ui.area(Rect::new(10.0, 10.0, 220.0, 24.0), |ui| {
+                if let Some(i) = ui.segmented_text(&["Caracteres", "Teclado"], Some(m)) {
+                    m = i;
+                }
+            });
+            self.mode = m;
+            let kr = Rect::new(10.0, 44.0, w - 20.0, h - 44.0 - 70.0);
+            self.keyboard(ui, kr);
+            // Texto montado, Copiar e Limpar.
+            let ty = h - 58.0;
+            ui.fonts.draw(ui.c, "Texto:", 12.0, ty + 15.0, 12.0, false, rgba(40, 40, 44, 255));
+            ui.text_field_in(Rect::new(60.0, ty, w - 270.0, 22.0), &mut self.text, false);
+            let (mut copy_t, mut clear) = (false, false);
+            ui.area(Rect::new(w - 200.0, ty - 2.0, 190.0, 26.0), |ui| {
+                ui.horizontal(|ui| {
+                    clear = ui.button("Limpar");
+                    copy_t = ui.default_button("Copiar");
+                });
+            });
+            if clear {
+                self.text.clear();
+            }
+            if copy_t && !self.text.is_empty() {
+                ui.copy(&self.text);
+            }
+            return;
+        }
+        let mut m = self.mode;
+        ui.area(Rect::new(10.0, 10.0, SIDE, 24.0), |ui| {
+            if let Some(i) = ui.segmented_text(&["Caracteres", "Teclado"], Some(m)) {
+                m = i;
+            }
+        });
+        self.mode = m;
+
         // Categorias
         let names: Vec<String> = BLOCKS.iter().map(|b| b.0.to_string()).collect();
         let before = self.block;
-        ui.area(Rect::new(10.0, 10.0, SIDE, h - 20.0), |ui| {
-            ui.list(&mut self.block, &names, SIDE, h - 20.0);
+        ui.area(Rect::new(10.0, 42.0, SIDE, h - 52.0), |ui| {
+            ui.list(&mut self.block, &names, SIDE, h - 52.0);
         });
         if self.block != before {
             self.scroll = 0.0;
@@ -135,13 +251,17 @@ impl App for Chars {
         vec![
             Menu::new("Arquivo", vec![MenuItem::new("close", "Fechar", "Ctrl+W")]),
             Menu::new("Editar", vec![MenuItem::new("copy", "Copiar caractere", "Ctrl+C").enabled(self.selected.is_some())]),
+            Menu::new(
+                "Visualizar",
+                vec![MenuItem::new("mode-map", "Caracteres", "").checked(self.mode == 0), MenuItem::new("mode-kbd", "Teclado", "").checked(self.mode == 1)],
+            ),
         ]
     }
 }
 
 fn main() {
     let opts = WindowOptions { title: "Caracteres".into(), app_id: "glove.Chars".into(), size: (640, 440), fixed: false };
-    if let Err(e) = run(opts, Chars { block: Some(1), selected: None, scroll: 0.0, copied: None }) {
+    if let Err(e) = run(opts, Chars { block: Some(1), selected: None, scroll: 0.0, copied: None, mode: 0, shift: false, text: String::new(), lit: None }) {
         eprintln!("glove-chars: {e}");
     }
 }

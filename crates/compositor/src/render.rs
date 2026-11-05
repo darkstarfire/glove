@@ -176,6 +176,8 @@ impl Glove {
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
         }
+        // Escolhendo a área de uma captura: a película fica por cima de tudo (menos do cursor).
+        self.region_elements(sc, &mut out);
 
         // Tela de login: só as janelas (o app de login) sobre o papel de parede.
         if self.greeter {
@@ -489,7 +491,8 @@ pub fn render_frame(data: &mut CalloopData) {
 /// Depois de cada quadro: captura de tela pedida e aviso de quadro aos apps.
 pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smithay::output::Output) {
     if let Some(path) = state.screenshot_request.take() {
-        match screenshot(state, renderer, &path) {
+        let crop = state.screenshot_crop.take();
+        match screenshot(state, renderer, &path, crop) {
             Ok(()) => {
                 tracing::info!("captura salva em {}", path.display());
                 if std::mem::take(&mut state.open_after_shot) {
@@ -530,7 +533,7 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
 }
 
 /// Desenha a tela inteira numa textura fora da tela e salva como PNG.
-fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path, crop: Option<Rectangle<i32, Logical>>) -> Result<(), Box<dyn std::error::Error>> {
     let (lw, lh) = state.output_size();
     let sc = state.scale();
     let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);
@@ -539,9 +542,20 @@ fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path
     let mut fb = renderer.bind(&mut tex)?;
     let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
     dt.render_output(renderer, &mut fb, 0, &elements, [0.0, 0.0, 0.0, 1.0])?;
-    let mapping = renderer.copy_framebuffer(&fb, Rectangle::from_size((w, h).into()), Fourcc::Abgr8888)?;
+    // Área escolhida (em pixels reais, dentro da tela) ou a tela inteira.
+    let area = match crop {
+        Some(c) => {
+            let x0 = ((c.loc.x as f64 * sc).round() as i32).clamp(0, w - 1);
+            let y0 = ((c.loc.y as f64 * sc).round() as i32).clamp(0, h - 1);
+            let x1 = (((c.loc.x + c.size.w) as f64 * sc).round() as i32).clamp(x0 + 1, w);
+            let y1 = (((c.loc.y + c.size.h) as f64 * sc).round() as i32).clamp(y0 + 1, h);
+            Rectangle::new((x0, y0).into(), (x1 - x0, y1 - y0).into())
+        }
+        None => Rectangle::from_size((w, h).into()),
+    };
+    let mapping = renderer.copy_framebuffer(&fb, area, Fourcc::Abgr8888)?;
     let data = renderer.map_texture(&mapping)?.to_vec();
-    let size = glove_paint::tiny_skia::IntSize::from_wh(w as u32, h as u32).ok_or("tamanho inválido")?;
+    let size = glove_paint::tiny_skia::IntSize::from_wh(area.size.w as u32, area.size.h as u32).ok_or("tamanho inválido")?;
     let pm = glove_paint::Pixmap::from_vec(data, size).ok_or("dados inválidos")?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;

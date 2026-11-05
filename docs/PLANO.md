@@ -154,7 +154,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 8.7 Música (Rust puro, meta ~10 MB) (G)
 - [x] 8.8 Contatos (vCard) e Agenda (.ics) (G)
 - [x] 8.9 Painel de Fontes e Painel de Cores no kit (M)
-- [ ] 8.10 Calculadora científica, Caracteres em modo Teclado, Captura de seleção (M)
+- [x] 8.10 Calculadora científica, Caracteres em modo Teclado, Captura de seleção (M)
 - [ ] 8.11 Vídeo (mpv com controles próprios), Registros, Informações do Sistema, Ajuda (M cada)
 - [ ] 8.12 Correio (por último) (G)
 - [ ] 8.13 Dicionário (10.4) com dicionários livres (formato DICT/StarDict) (M)

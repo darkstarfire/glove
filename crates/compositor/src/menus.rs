@@ -48,7 +48,7 @@ pub struct MenuClient {
     open_subs: Vec<Entry>,
     pub menus: Vec<AppMenu>,
     /// Pedido de captura de tela: (atraso em ms, abrir no Visualizador).
-    pub shot: Option<(u64, bool)>,
+    pub shot: Option<(u64, bool, bool)>,
     /// Pedido de fim de sessão ("encerrar", "reiniciar", "desligar"), vindo do glove-sair.
     pub end: Option<String>,
     /// Pedido de testar um protetor de tela (botão Testar das Preferências).
@@ -112,7 +112,7 @@ impl MenuClient {
             }
             "SHOT" => {
                 let delay = f.get(1).and_then(|v| v.parse().ok()).unwrap_or(0);
-                self.shot = Some((delay, f.get(2) == Some(&"1")));
+                self.shot = Some((delay, f.get(2) == Some(&"1"), f.get(3) == Some(&"1")));
             }
             "SAIR" => self.end = f.get(1).map(|k| k.to_string()),
             "PROTETOR" => self.saver = f.get(1).map(|k| k.to_string()),
@@ -184,9 +184,13 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                         if changed {
                             st.dirty = true;
                         }
-                        if let Some((delay, open)) = c.shot.take() {
-                            // Espera o atraso pedido (e a janela do app sumir) e captura.
+                        if let Some((delay, open, area)) = c.shot.take() {
+                            // Espera o atraso pedido (e a janela do app sumir) e captura (ou começa a escolher a área).
                             let _ = h2.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_millis(delay.max(300))), move |_, _, data| {
+                                if area {
+                                    data.state.start_region_shot(open);
+                                    return smithay::reexports::calloop::timer::TimeoutAction::Drop;
+                                }
                                 data.state.request_screenshot();
                                 data.state.open_after_shot = open;
                                 smithay::reexports::calloop::timer::TimeoutAction::Drop
