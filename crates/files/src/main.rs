@@ -483,6 +483,13 @@ struct Files {
     list_sort: (usize, bool),
     /// Lista: pastas abertas no lugar (triângulo).
     expanded: std::collections::HashSet<PathBuf>,
+    /// Outros itens escolhidos (Ctrl/Shift e retângulo), além de `selected`.
+    extra: Vec<PathBuf>,
+    /// Retângulo elástico (ícones): onde começou.
+    band: Option<(f32, f32)>,
+    /// inotify: atualiza sozinho quando as pastas à vista mudam.
+    notify_fd: i32,
+    watched: HashMap<i32, PathBuf>,
 }
 
 impl Files {
@@ -516,6 +523,10 @@ impl Files {
             goto: None,
             list_sort: (0, true),
             expanded: std::collections::HashSet::new(),
+            extra: Vec::new(),
+            band: None,
+            notify_fd: unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) },
+            watched: HashMap::new(),
         }
     }
 
@@ -661,8 +672,79 @@ impl Files {
             if let (true, Some(target)) = (active, self.drop_target.clone()) {
                 if target != path {
                     let copy = ui.mods().ctrl;
-                    self.transfer(vec![path], target, !copy);
+                    // Arrastar um dos escolhidos leva todos eles.
+                    let items = if self.is_chosen(&path) { self.all_selected() } else { vec![path] };
+                    self.transfer(items, target, !copy);
                 }
+            }
+        }
+    }
+
+    /// Todos os itens escolhidos (o principal primeiro).
+    fn all_selected(&self) -> Vec<PathBuf> {
+        let mut v: Vec<PathBuf> = self.selected.iter().cloned().collect();
+        for e in &self.extra {
+            if !v.contains(e) {
+                v.push(e.clone());
+            }
+        }
+        v
+    }
+
+    fn is_chosen(&self, p: &Path) -> bool {
+        self.selected.as_deref() == Some(p) || self.extra.iter().any(|e| e == p)
+    }
+
+    /// Clique com Ctrl (alterna o item) ou Shift (faixa a partir do principal),
+    /// entre itens da mesma pasta. Devolve verdadeiro se tratou o clique.
+    fn multi_click(&mut self, ui: &Ui, e: &Entry, entries: &[Entry]) -> bool {
+        let m = ui.mods();
+        let same_dir = self.selected.as_ref().is_some_and(|s| s.parent() == e.path.parent());
+        if !(m.ctrl || m.shift) || !same_dir {
+            self.extra.clear();
+            return false;
+        }
+        if m.ctrl {
+            if self.selected.as_deref() == Some(e.path.as_path()) {
+                self.selected = if self.extra.is_empty() { None } else { Some(self.extra.remove(0)) };
+            } else if let Some(i) = self.extra.iter().position(|x| *x == e.path) {
+                self.extra.remove(i);
+            } else {
+                self.extra.push(e.path.clone());
+            }
+        } else if let Some(anchor) = self.selected.clone() {
+            let a = entries.iter().position(|x| x.path == anchor);
+            let b = entries.iter().position(|x| x.path == e.path);
+            if let (Some(a), Some(b)) = (a, b) {
+                let (lo, hi) = (a.min(b), a.max(b));
+                self.extra = entries[lo..=hi].iter().map(|x| x.path.clone()).filter(|p| *p != anchor).collect();
+            }
+        }
+        true
+    }
+
+    /// Mantém o inotify observando as pastas à vista (colunas e as abertas na lista).
+    fn sync_watches(&mut self) {
+        if self.notify_fd < 0 {
+            return;
+        }
+        let mut want: Vec<PathBuf> = self.columns.clone();
+        want.extend(self.expanded.iter().cloned());
+        want.retain(|p| !apps::is_virtual(p));
+        let stale: Vec<i32> = self.watched.iter().filter(|(_, p)| !want.contains(p)).map(|(wd, _)| *wd).collect();
+        for wd in stale {
+            unsafe { libc::inotify_rm_watch(self.notify_fd, wd) };
+            self.watched.remove(&wd);
+        }
+        for p in want {
+            if self.watched.values().any(|w| *w == p) {
+                continue;
+            }
+            let Ok(c) = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()) else { continue };
+            let mask = libc::IN_CREATE | libc::IN_DELETE | libc::IN_MOVED_FROM | libc::IN_MOVED_TO | libc::IN_CLOSE_WRITE | libc::IN_ATTRIB;
+            let wd = unsafe { libc::inotify_add_watch(self.notify_fd, c.as_ptr(), mask) };
+            if wd >= 0 {
+                self.watched.insert(wd, p);
             }
         }
     }
@@ -788,18 +870,23 @@ impl Files {
     }
 
     fn trash_selected(&mut self) {
-        let Some(sel) = self.selected.clone() else { return };
-        match move_to_trash(&sel) {
-            Ok(()) => {
-                self.columns.retain(|c| !c.starts_with(&sel));
-                if self.columns.is_empty() {
-                    self.columns.push(self.base.clone());
+        for sel in self.all_selected() {
+            match move_to_trash(&sel) {
+                Ok(()) => {
+                    self.columns.retain(|c| !c.starts_with(&sel));
+                    if self.columns.is_empty() {
+                        self.columns.push(self.base.clone());
+                    }
+                    self.message = None;
                 }
-                self.selected = None;
-                self.message = None;
+                Err(e) => {
+                    self.message = Some(e);
+                    break;
+                }
             }
-            Err(e) => self.message = Some(e),
         }
+        self.selected = None;
+        self.extra.clear();
     }
 
     // -----------------------------------------------------------------------
@@ -1154,11 +1241,12 @@ impl Files {
             }
         }
         let accent = ui.theme.accent;
+        let extra = self.extra.clone();
         ui.clipped(ci as u64 * 7919 + 1, Rect::new(r.x, r.y, r.w - 1.0, r.h), |c, fonts| {
             c.clear(Color::WHITE);
             for (i, e) in entries.iter().enumerate().skip(first).take(count) {
                 let y = i as f32 * ROW_H - off;
-                let on = chosen.as_ref() == Some(&e.path);
+                let on = chosen.as_ref() == Some(&e.path) || extra.contains(&e.path);
                 if on {
                     let col = if last { accent } else { rgba(200, 204, 212, 255) };
                     c.fill_rect(0.0, y, r.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(col, 0.15)), (1.0, col)]));
@@ -1187,6 +1275,10 @@ impl Files {
             }
         }
         if let Some((e, double)) = action {
+            if !double && self.multi_click(ui, &e, &entries) {
+                ui.redraw = true;
+                return;
+            }
             self.select_in_column(ci, &e);
             if double {
                 self.open(&e);
@@ -1362,7 +1454,40 @@ impl Files {
                 }
             }
         }
+        // Retângulo elástico: arrastar no vazio escolhe os ícones que ele toca.
+        let any_item = action.is_some();
+        if ui.mouse_pressed() && !any_item {
+            let (px, py) = ui.pointer();
+            if px >= area.x && px < area.x + area.w && py >= area.y && py < area.y + area.h && self.ctx.is_none() {
+                self.band = Some((px, py));
+                self.selected = None;
+                self.extra.clear();
+            }
+        }
+        let mut band_rect = None;
+        if let Some((bx, by)) = self.band {
+            let (px, py) = ui.pointer();
+            let r = Rect::new(bx.min(px), by.min(py), (px - bx).abs(), (py - by).abs());
+            let hits: Vec<PathBuf> = entries
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| {
+                    let (x, y) = cell(*i);
+                    let c = Rect::new(area.x + x + cw / 2.0 - 30.0, area.y + y, 60.0, 80.0);
+                    c.x < r.x + r.w && c.x + c.w > r.x && c.y < r.y + r.h && c.y + c.h > r.y
+                })
+                .map(|(_, e)| e.path.clone())
+                .collect();
+            self.selected = hits.first().cloned();
+            self.extra = hits.into_iter().skip(1).collect();
+            band_rect = Some(r);
+            if ui.mouse_released() || !ui.mouse_down() {
+                self.band = None;
+            }
+            ui.wake_after(std::time::Duration::from_millis(30));
+        }
         let sel = self.selected.clone();
+        let extra = self.extra.clone();
         let accent = ui.theme.accent;
         ui.clipped(92, area, |c, fonts| {
             c.clear(Color::WHITE);
@@ -1371,7 +1496,7 @@ impl Files {
                 if y + ch < 0.0 || y > area.h {
                     continue;
                 }
-                let on = sel.as_ref() == Some(&e.path);
+                let on = sel.as_ref() == Some(&e.path) || extra.contains(&e.path);
                 if on {
                     c.fill(rrect(x + cw / 2.0 - 30.0, y, 60.0, 56.0, 6.0), &solid(rgba(0, 0, 0, 40)));
                 }
@@ -1390,8 +1515,14 @@ impl Files {
             let path = entries[i].path.clone();
             self.rename_field(ui, &path, Rect::new(area.x + x + 2.0, area.y + y + 60.0, cw - 4.0, 18.0));
         }
+        if let Some(r) = band_rect {
+            ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(with_alpha(ui.theme.accent, 0.18)));
+            ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w, r.h, 0.0), &solid(with_alpha(ui.theme.accent, 0.7)), 1.0);
+        }
         if let Some((e, double)) = action {
-            self.selected = Some(e.path.clone());
+            if double || !self.multi_click(ui, &e, &entries) {
+                self.selected = Some(e.path.clone());
+            }
             if double {
                 self.open(&e);
             }
@@ -1472,10 +1603,11 @@ impl Files {
             }
             "trash" => self.trash_selected(),
             "copy" | "cut" => {
-                if let Some(p) = self.selected.clone() {
-                    // Para outros apps, o caminho vai também como texto (file://).
-                    ui.copy(&format!("file://{}", p.display()));
-                    self.clip = Some((vec![p], a == "cut"));
+                let all = self.all_selected();
+                if !all.is_empty() {
+                    // Para outros apps, os caminhos vão também como texto (file://, um por linha).
+                    ui.copy(&all.iter().map(|p| format!("file://{}", p.display())).collect::<Vec<_>>().join("\n"));
+                    self.clip = Some((all, a == "cut"));
                     self.message = Some(if a == "cut" { "Recortado: cole (Ctrl+V) na pasta de destino.".into() } else { "Copiado.".into() });
                 }
             }
@@ -1630,6 +1762,7 @@ impl App for Files {
         }
         let (w, h) = (ui.c.w, ui.c.h);
         self.drop_target = None;
+        self.sync_watches();
         // Colar vindo de outro app: o texto chega num quadro seguinte.
         if self.paste_wait {
             if let Some(t) = ui.take_paste() {
@@ -1680,6 +1813,18 @@ impl App for Files {
         self.drag_frame(ui);
         ui.set_enabled(self.ask.is_none());
         self.ask_sheet(ui);
+    }
+
+    fn watch_fd(&self) -> Option<std::os::fd::RawFd> {
+        (self.notify_fd >= 0).then_some(self.notify_fd)
+    }
+
+    /// Algo mudou numa pasta à vista: relê (o cache confere a data da pasta).
+    fn fd_ready(&mut self) -> bool {
+        let mut buf = [0u8; 4096];
+        while unsafe { libc::read(self.notify_fd, buf.as_mut_ptr() as *mut _, buf.len()) } > 0 {}
+        self.cache.clear();
+        true
     }
 
     fn menus(&self) -> Vec<Menu> {

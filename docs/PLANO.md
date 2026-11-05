@@ -122,7 +122,7 @@ Meta: tela de login inteira abaixo de 25 MB.
     e permitir arrastar para o Dock (ver 4.4 "Manter no Dock"). A Busca Rápida (3.9) usa a mesma lista
 - [x] 6.8 Lista ordenável com expansão e datas "Hoje/Ontem"; status com seleção e "somente leitura" (M)
 - [x] 6.9 Diálogo Abrir/Salvar em colunas (`kit::filebrowser`), usado no Editor, Visualizador e Lembretes (G)
-- [ ] 6.11 Atualização automática (inotify), seleção múltipla e retângulo elástico; pendrives na mesa (M)
+- [x] 6.11 Atualização automática (inotify), seleção múltipla e retângulo elástico; pendrives na mesa (M)
 - [ ] 6.12 Pastas inteligentes (10.4): buscas salvas da Busca Rápida que aparecem como pastas (M)
 - [ ] 6.13 Compactar: "Compactar item" no menu do Arquivos e clique duplo em .zip/.tar.gz abre
   (utilitário de arquivo com janela de progresso, como o do 10.3) (M)

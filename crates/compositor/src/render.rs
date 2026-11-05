@@ -212,8 +212,8 @@ impl Glove {
         }
         }
 
-        if let Some(b) = &c.desk_icon {
-            out.extend(mem(renderer, self.desk_icon_rect().loc, b, sc));
+        for (i, b) in c.desk_texs.iter().enumerate() {
+            out.extend(mem(renderer, self.desk_icon_rect(i).loc, b, sc));
         }
         if let Some(b) = &c.wallpaper {
             out.extend(mem(renderer, (0, 0).into(), b, sc));

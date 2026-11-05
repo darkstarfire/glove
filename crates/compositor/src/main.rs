@@ -126,6 +126,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     state.refresh_extras();
     state.start_idle_timer();
+    // Pendrives na mesa: confere os discos montados a cada 3 s (só lê /proc/mounts).
+    state.refresh_desk_items();
+    event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(3)), |_, _, data| {
+        data.state.refresh_desk_items();
+        TimeoutAction::ToDuration(Duration::from_secs(3))
+    })?;
 
     // Relógio: acorda só uma vez por minuto.
     event_loop

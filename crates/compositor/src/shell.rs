@@ -352,9 +352,11 @@ pub struct Chrome {
 
     pub menu: Option<OpenMenu>,
     /// Ícone do disco na mesa.
-    pub desk_icon: Option<Tex>,
-    desk_key: Option<(bool, u64)>,
-    pub desk_selected: bool,
+    /// Ícones da mesa: o disco do sistema e os removíveis montados (pendrives).
+    pub desk_items: Vec<(String, std::path::PathBuf)>,
+    pub desk_texs: Vec<Tex>,
+    desk_key: Option<(Vec<(String, std::path::PathBuf)>, Option<usize>, u64)>,
+    pub desk_selected: Option<usize>,
     pub desk_last_click: Option<std::time::Instant>,
     /// Janela com o mouse sobre os botões (mostra os símbolos).
     pub hover_buttons: Option<Window>,
@@ -425,8 +427,8 @@ pub enum Hit {
     Title { window: Window, button: Option<TitleButton>, group: bool },
     Resize(Window, ResizeEdge),
     Client(Window),
-    /// Ícone na mesa (o disco).
-    DesktopIcon,
+    /// Ícone na mesa (o disco ou um removível).
+    DesktopIcon(usize),
     Desktop,
 }
 
@@ -529,29 +531,44 @@ impl Glove {
                 }
             }
         }
-        if self.desk_icon_rect().to_f64().contains(pos) {
-            return Hit::DesktopIcon;
+        if let Some(i) = (0..self.chrome.desk_items.len()).find(|i| self.desk_icon_rect(*i).to_f64().contains(pos)) {
+            return Hit::DesktopIcon(i);
         }
         Hit::Desktop
     }
 
-    /// Onde fica o ícone do disco (canto superior direito, abaixo da barra de menu).
-    pub fn desk_icon_rect(&self) -> Rectangle<i32, Logical> {
+    /// Onde fica o ícone `i` da mesa: uma coluna no canto superior direito.
+    pub fn desk_icon_rect(&self, i: usize) -> Rectangle<i32, Logical> {
         // Encostado à direita da área útil (o Dock à direita empurra para dentro).
         let a = self.work_area();
         let w = a.loc.x + a.size.w;
-        Rectangle::new((w - chrome::DESK_ICON_W as i32 - 12, MENUBAR_H + 12).into(), (chrome::DESK_ICON_W as i32, chrome::DESK_ICON_H as i32).into())
+        let y = MENUBAR_H + 12 + i as i32 * (chrome::DESK_ICON_H as i32 + 10);
+        Rectangle::new((w - chrome::DESK_ICON_W as i32 - 12, y).into(), (chrome::DESK_ICON_W as i32, chrome::DESK_ICON_H as i32).into())
     }
 
-    /// Clique no ícone do disco: seleciona; clique duplo abre o Arquivos.
-    pub fn click_desk_icon(&mut self) {
+    /// Relê os discos removíveis montados (pendrives) e atualiza a mesa se mudou.
+    pub fn refresh_desk_items(&mut self) {
+        let mut items = vec![("Disco".to_string(), std::path::PathBuf::from("/"))];
+        items.extend(removable_mounts());
+        if items != self.chrome.desk_items {
+            self.chrome.desk_items = items;
+            self.chrome.desk_selected = None;
+            self.dirty = true;
+        }
+    }
+
+    /// Clique num ícone da mesa: seleciona; clique duplo abre no Arquivos.
+    pub fn click_desk_icon(&mut self, i: usize) {
         let now = std::time::Instant::now();
-        let double = self.chrome.desk_last_click.is_some_and(|t| now.duration_since(t).as_millis() < 450);
-        self.chrome.desk_selected = true;
+        let double = self.chrome.desk_selected == Some(i) && self.chrome.desk_last_click.is_some_and(|t| now.duration_since(t).as_millis() < 450);
+        self.chrome.desk_selected = Some(i);
         self.chrome.desk_last_click = Some(now);
         if double {
             self.chrome.desk_last_click = None;
-            self.spawn("glove-files /");
+            if let Some((_, p)) = self.chrome.desk_items.get(i) {
+                let p = p.display().to_string().replace('\'', "'\\''");
+                self.spawn(&format!("glove-files '{p}'"));
+            }
         }
         self.dirty = true;
     }
@@ -1270,10 +1287,16 @@ impl Glove {
             }
         }
 
-        // Ícone do disco
-        let key = (self.chrome.desk_selected, tgen);
-        if self.chrome.desk_key != Some(key) {
-            self.chrome.desk_icon = chrome::desktop_icon(&self.fonts, &self.theme, Icon::Disk, "Disco", self.chrome.desk_selected, sc).map(to_tex);
+        // Ícones da mesa (disco e removíveis)
+        let key = (self.chrome.desk_items.clone(), self.chrome.desk_selected, tgen);
+        if self.chrome.desk_key.as_ref() != Some(&key) {
+            self.chrome.desk_texs = self
+                .chrome
+                .desk_items
+                .iter()
+                .enumerate()
+                .filter_map(|(i, (label, _))| chrome::desktop_icon(&self.fonts, &self.theme, Icon::Disk, label, self.chrome.desk_selected == Some(i), sc).map(to_tex))
+                .collect();
             self.chrome.desk_key = Some(key);
         }
 
@@ -1576,5 +1599,40 @@ impl Glove {
         }
         let f = (start.elapsed().as_secs_f32() / HOP).fract();
         icon * 0.5 * 4.0 * f * (1.0 - f)
+    }
+}
+
+/// Discos removíveis montados (pendrives, cartões): /media/<usuário>/… e
+/// /run/media/<usuário>/… em /proc/mounts, com o nome da pasta.
+pub fn removable_mounts() -> Vec<(String, std::path::PathBuf)> {
+    let user = std::env::var("USER").unwrap_or_default();
+    parse_mounts(&std::fs::read_to_string("/proc/mounts").unwrap_or_default(), &user)
+}
+
+fn parse_mounts(text: &str, user: &str) -> Vec<(String, std::path::PathBuf)> {
+    let prefixes = [format!("/media/{user}/"), format!("/run/media/{user}/")];
+    let mut out = Vec::new();
+    for l in text.lines() {
+        let Some(mp) = l.split_whitespace().nth(1) else { continue };
+        // Espaços vêm como \040 no /proc/mounts.
+        let mp = mp.replace("\\040", " ");
+        if prefixes.iter().any(|p| mp.starts_with(p.as_str())) {
+            let p = std::path::PathBuf::from(&mp);
+            let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            if !out.iter().any(|(_, q)| *q == p) {
+                out.push((name, p));
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod mesa_tests {
+    #[test]
+    fn pendrives() {
+        let m = "/dev/sda1 / ext4 rw 0 0\n/dev/sdb1 /media/ana/MEU\\040PEN vfat rw 0 0\n/dev/sdc1 /run/media/ana/Fotos exfat rw 0 0\n/dev/sdd1 /media/beto/X vfat rw 0 0\n";
+        let v = super::parse_mounts(m, "ana");
+        assert_eq!(v.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), ["MEU PEN", "Fotos"]);
     }
 }

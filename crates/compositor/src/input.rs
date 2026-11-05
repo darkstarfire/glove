@@ -812,17 +812,16 @@ impl Glove {
                             self.focus_window(Some(window));
                         }
                     }
-                    Hit::DesktopIcon => {
+                    Hit::DesktopIcon(i) => {
                         self.focus_window(None);
-                        self.click_desk_icon();
+                        self.click_desk_icon(i);
                         swallow = true;
                     }
                     // Tela de login: o app de login nunca perde o foco.
                     Hit::Desktop if self.greeter => {}
                     Hit::Desktop => {
                         self.focus_window(None);
-                        if self.chrome.desk_selected {
-                            self.chrome.desk_selected = false;
+                        if self.chrome.desk_selected.take().is_some() {
                             self.dirty = true;
                         }
                     }
