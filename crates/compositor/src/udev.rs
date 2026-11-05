@@ -67,6 +67,8 @@ pub struct Drm {
     /// Teclados, mouses e touchpads (para reaplicar as preferências).
     devices: Vec<libinput::Device>,
     cursor_size: (u32, u32),
+    /// Tela apagada (DPMS): o próximo quadro acende de novo.
+    blanked: bool,
 }
 
 /// Um conector com monitor ligado.
@@ -416,7 +418,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
         (w.clamp(32, 512), h.clamp(32, 512))
     };
 
-    let mut backend = Box::new(Drm { session: session.clone(), drm, gbm, renderer, head: None, pending: false, active: true, devices: Vec::new(), cursor_size });
+    let mut backend = Box::new(Drm { session: session.clone(), drm, gbm, renderer, head: None, pending: false, active: true, devices: Vec::new(), cursor_size, blanked: false });
     backend.configure(state, dh);
     if backend.head.is_none() {
         return Err("nenhum monitor pôde ser ligado".into());
@@ -551,6 +553,19 @@ pub fn render_drm(data: &mut CalloopData) {
         return;
     }
     let Some(head) = drm.head.as_mut() else { return };
+    // Parado: desliga a tela (DPMS). O próximo quadro de verdade a liga de novo.
+    if state.idle.screen_off {
+        if !drm.blanked {
+            if let Err(e) = head.compositor.clear() {
+                tracing::warn!("apagar a tela: {e}");
+            }
+            drm.blanked = true;
+            drm.pending = false;
+        }
+        state.dirty = false;
+        return;
+    }
+    drm.blanked = false;
     state.dirty = false;
     state.prepare_chrome();
     state.prepare_cursor();

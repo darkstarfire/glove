@@ -5,6 +5,7 @@ mod handlers;
 mod input;
 mod appmenu;
 mod ending;
+mod lock;
 mod extras;
 mod forcequit;
 mod menus;
@@ -111,6 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Glove rodando em WAYLAND_DISPLAY={}", state.socket_name.to_string_lossy());
 
     state.refresh_extras();
+    state.start_idle_timer();
 
     // Relógio: acorda só uma vez por minuto.
     event_loop

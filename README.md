@@ -132,12 +132,24 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Ctrl+Alt+Backspace | Sair do Glove (encerra a sessão) |
 | Ctrl+Alt+F1…F12 | Trocar de console (só na sessão própria) |
 | Teclas de volume e brilho | Mudam o volume (PipeWire) e o brilho (pelo logind, sem root), com aviso na tela |
+| Super+L | Bloquear a tela (também no menu principal; desbloqueia com a senha do usuário) |
 | Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
 
 ## Configuração
 
 `~/.config/glove/config.toml` (criado na primeira execução). As Preferências editam esse arquivo e o
 Glove recarrega sozinho quando ele muda.
+
+Tela apagada e bloqueio (até o painel Economizador de Energia, etapa 7.4, só pelo arquivo):
+
+```toml
+[energy]
+screen_off_minutes = 10   # parado por N minutos apaga a tela (0 = nunca)
+require_password = true   # pede a senha ao voltar (tela apagada, Repouso, tampa fechada)
+```
+
+O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serviço
+`/etc/pam.d/glove`; sem ele, o Glove usa o serviço `login`.
 
 ## Estrutura
 

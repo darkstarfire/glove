@@ -40,6 +40,9 @@ enum KeyAction {
     Vt(i32),
     /// Ctrl+F2: abre a barra de menu pelo teclado.
     MenuBar,
+    Lock,
+    /// Tecla com a tela bloqueada.
+    LockKey(crate::lock::LockKey),
     /// Tecla com um menu aberto.
     Menu(MenuKey),
     /// Tecla com o painel Forçar Encerrar aberto (nome xkb).
@@ -63,6 +66,7 @@ impl KeyAction {
             "screenshot" => Self::Screenshot,
             "force_quit" => Self::ForceQuit,
             "hide" => Self::Hide,
+            "lock" => Self::Lock,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
             _ => return None,
@@ -204,7 +208,16 @@ impl Glove {
                 self.dirty = true;
             }
             InputEvent::PointerButton { event, .. } => self.on_button(event.button_code(), event.state(), event.time_msec()),
+            InputEvent::SwitchToggle { event } => {
+                use smithay::backend::input::{Switch, SwitchState, SwitchToggleEvent};
+                if event.switch() == Some(Switch::Lid) {
+                    self.lid(event.state() == SwitchState::On);
+                }
+            }
             InputEvent::PointerAxis { event, .. } => {
+                if self.note_input() || self.locked() {
+                    return;
+                }
                 let source = event.source();
                 // Na sessão própria quem inverte é o libinput (mouse e touchpad separados).
                 let sign = if self.nested && self.config.pointer.natural_scroll { -1.0 } else { 1.0 };
@@ -234,6 +247,9 @@ impl Glove {
         // Tela de encerramento: nada mais responde.
         if self.ending_screen_shown() {
             return;
+        }
+        if state == KeyState::Pressed {
+            self.note_input();
         }
         let serial = SERIAL_COUNTER.next_serial();
         let keyboard = self.seat.get_keyboard().unwrap();
@@ -266,6 +282,18 @@ impl Glove {
             if media.is_some() {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(media);
+            }
+            // Bloqueada: toda tecla vai para o campo de senha (nada para os apps,
+            // nenhum atalho; só a troca de console e as de volume/brilho, acima).
+            if st.lock.is_some() {
+                let k = match name.as_str() {
+                    "backspace" => Some(crate::lock::LockKey::Backspace),
+                    "return" | "kp_enter" => Some(crate::lock::LockKey::Enter),
+                    "escape" => Some(crate::lock::LockKey::Escape),
+                    _ => handle.modified_sym().key_char().map(crate::lock::LockKey::Char),
+                };
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(k.map(KeyAction::LockKey));
             }
             // Menu aberto: as teclas são dele (setas, Enter, Esc).
             if st.chrome.menu.is_some() {
@@ -365,6 +393,8 @@ impl Glove {
             Some(KeyAction::Quit) => self.loop_signal.stop(),
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
+            Some(KeyAction::Lock) => self.lock_screen(),
+            Some(KeyAction::LockKey(k)) => self.lock_key(k),
             Some(KeyAction::Menu(k)) => self.menu_key(k),
             Some(KeyAction::VolumeUp) => self.step_volume(1.0),
             Some(KeyAction::VolumeDown) => self.step_volume(-1.0),
@@ -468,7 +498,22 @@ impl Glove {
     }
 
     fn on_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
+        self.note_input();
         self.pointer_pos = pos;
+        if self.locked() {
+            // Nenhum app vê o mouse com a tela bloqueada.
+            let pointer = self.seat.get_pointer().unwrap();
+            let serial = SERIAL_COUNTER.next_serial();
+            pointer.motion(self, None, &MotionEvent { location: pos, serial, time });
+            pointer.frame(self);
+            if let Some(l) = &mut self.lock {
+                if l.pressed {
+                    l.pressed = false;
+                }
+            }
+            self.dirty = true;
+            return;
+        }
         let pointer = self.seat.get_pointer().unwrap();
         if !pointer.is_grabbed() {
             self.update_hover(pos);
@@ -481,6 +526,32 @@ impl Glove {
 
     fn on_button(&mut self, button: u32, state: ButtonState, time: u32) {
         if self.ending_screen_shown() {
+            return;
+        }
+        // O clique que acende a tela só acende.
+        if state == ButtonState::Pressed && self.note_input() {
+            self.swallow_wake_release = true;
+            return;
+        }
+        if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {
+            return;
+        }
+        if self.locked() {
+            let pos = self.pointer_pos;
+            let on_button = self.lock_button_at(pos.x, pos.y);
+            if let Some(l) = &mut self.lock {
+                match state {
+                    ButtonState::Pressed => l.pressed = on_button,
+                    ButtonState::Released => {
+                        let go = l.pressed && on_button;
+                        l.pressed = false;
+                        if go {
+                            self.try_unlock();
+                        }
+                    }
+                }
+            }
+            self.dirty = true;
             return;
         }
         let pointer = self.seat.get_pointer().unwrap();

@@ -172,6 +172,7 @@ pub enum MenuAction {
     RecentDocument(std::path::PathBuf),
     ClearRecent,
     ForceQuit,
+    Lock,
     Sleep,
     Restart,
     ShutDown,
@@ -710,6 +711,7 @@ impl Glove {
             MenuNode::sep(),
             MenuNode::new(MenuItem::item("Forçar Encerrar…").with_shortcut(self.binding("force_quit")), Some(MenuAction::ForceQuit)),
             MenuNode::sep(),
+            MenuNode::new(MenuItem::item("Bloquear Tela").with_shortcut(self.binding("lock")), Some(MenuAction::Lock)),
             item("Repouso", MenuAction::Sleep),
             item("Reiniciar…", MenuAction::Restart),
             item("Desligar…", MenuAction::ShutDown),
@@ -921,9 +923,8 @@ impl Glove {
             }
             MenuAction::ClearRecent => self.recent.clear(),
             MenuAction::ForceQuit => self.open_force_quit(),
-            MenuAction::Sleep => {
-                let _ = std::process::Command::new("systemctl").arg("suspend").spawn();
-            }
+            MenuAction::Lock => self.lock_screen(),
+            MenuAction::Sleep => self.sleep(),
             MenuAction::Restart => self.spawn("glove-sair reiniciar"),
             MenuAction::ShutDown => self.spawn("glove-sair desligar"),
             MenuAction::LogOut => self.spawn(if self.nested { "glove-sair sair" } else { "glove-sair encerrar" }),
@@ -1115,6 +1116,7 @@ impl Glove {
         }
 
         self.prepare_force_quit();
+        self.prepare_lock();
         self.prepare_extras();
         self.prepare_wait_cursor();
         self.prepare_dock();
@@ -1292,7 +1294,7 @@ pub(crate) fn client_nodes(pid: u32, entries: Vec<crate::menus::Entry>) -> Vec<M
 }
 
 /// Nome completo do usuário (campo de comentário do /etc/passwd) ou o login.
-fn user_full_name() -> String {
+pub(crate) fn user_full_name() -> String {
     let uid = unsafe { libc::getuid() };
     let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
     let entry = passwd.lines().map(|l| l.split(':').collect::<Vec<_>>()).find(|f| f.len() > 4 && f[2].parse() == Ok(uid));

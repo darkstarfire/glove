@@ -28,6 +28,22 @@ impl Default for Dock {
     }
 }
 
+/// Economia de energia e bloqueio.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Energy {
+    /// Minutos parado até apagar a tela; 0 = nunca.
+    pub screen_off_minutes: u32,
+    /// Pedir a senha ao voltar (tela apagada, repouso ou tampa fechada).
+    pub require_password: bool,
+}
+
+impl Default for Energy {
+    fn default() -> Self {
+        Self { screen_off_minutes: 10, require_password: true }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Keyboard {
@@ -180,6 +196,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("preferences", "Abrir Preferências"),
     ("screenshot", "Captura de tela"),
     ("force_quit", "Forçar Encerrar"),
+    ("lock", "Bloquear a tela"),
     ("quit", "Sair do Glove"),
 ];
 
@@ -206,6 +223,8 @@ pub struct Config {
     pub dock_apps: Vec<DockApp>,
     /// Comando para abrir a lixeira.
     pub trash_command: String,
+    #[serde(default)]
+    pub energy: Energy,
     /// Porcentagem ao lado do ícone da bateria na barra de menu.
     #[serde(default)]
     pub battery_percent: bool,
@@ -237,6 +256,7 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
         ("preferences", "Super+Comma"),
         ("screenshot", "Print"),
         ("force_quit", "Ctrl+Alt+Escape"),
+        ("lock", "Super+L"),
         ("quit", "Ctrl+Alt+BackSpace"),
     ]
     .into_iter()
@@ -281,6 +301,7 @@ impl Default for Config {
             dock_apps: default_dock_apps(),
             trash_command: "glove-files ~/.local/share/Trash/files".into(),
             battery_percent: false,
+            energy: Energy::default(),
             dock_rev: DOCK_REV,
         }
     }

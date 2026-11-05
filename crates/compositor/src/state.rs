@@ -95,6 +95,12 @@ pub struct Glove {
     pub wait_cursor: crate::forcequit::WaitCursor,
     /// Volume, bateria, controle de volume e aviso na tela.
     pub extras: crate::extras::Extras,
+    /// Tela bloqueada (painel de senha).
+    pub lock: Option<crate::lock::Lock>,
+    /// Tempo parado e tela apagada.
+    pub idle: crate::lock::Idle,
+    /// O clique que acendeu a tela não vai para os apps (nem o soltar dele).
+    pub swallow_wake_release: bool,
 }
 
 impl Glove {
@@ -161,6 +167,9 @@ impl Glove {
             force_quit: None,
             wait_cursor: Default::default(),
             extras: Default::default(),
+            lock: None,
+            idle: Default::default(),
+            swallow_wake_release: false,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

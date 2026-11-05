@@ -1,0 +1,387 @@
+//! Tela apagada por inatividade, bloqueio de tela com senha (PAM) e tampa do notebook.
+//!
+//! - Parado por `energy.screen_off_minutes`: a tela apaga (DPMS na sessão própria;
+//!   dentro de outro desktop, só fica preta) e, com `require_password`, bloqueia.
+//! - Bloqueado: só o papel de parede e o painel de desbloqueio aparecem; nenhum app
+//!   recebe teclado ou mouse. A senha é conferida pelo PAM numa thread à parte.
+//! - Tampa fechada: apaga e bloqueia; aberta: acende.
+
+use std::{
+    ffi::{c_char, c_int, c_void, CStr, CString},
+    time::{Duration, Instant},
+};
+
+use glove_paint::chrome;
+use smithay::reexports::calloop::{
+    channel::{channel, Event as ChannelEvent},
+    timer::{TimeoutAction, Timer},
+};
+
+use crate::{
+    shell::{to_tex, Tex},
+    state::Glove,
+};
+
+/// Balanço do painel quando a senha está errada.
+const SHAKE: Duration = Duration::from_millis(500);
+
+pub struct Lock {
+    password: String,
+    /// Conferindo a senha (o PAM pode demorar alguns segundos quando ela está errada).
+    pub busy: bool,
+    pub message: Option<String>,
+    shake_since: Option<Instant>,
+    pub pressed: bool,
+    since: Instant,
+    pub name: String,
+    key: Option<(usize, Option<String>, bool, bool, bool, i32, u64)>,
+    pub tex: Option<Tex>,
+}
+
+impl Lock {
+    /// Deslocamento horizontal do balanço (lógico).
+    pub fn shake_offset(&self) -> i32 {
+        let Some(t) = self.shake_since else { return 0 };
+        let e = t.elapsed().as_secs_f32();
+        if e >= SHAKE.as_secs_f32() {
+            return 0;
+        }
+        let damp = 1.0 - e / SHAKE.as_secs_f32();
+        ((e * 40.0).sin() * 14.0 * damp).round() as i32
+    }
+}
+
+#[derive(Default)]
+pub struct Idle {
+    pub last_input: Option<Instant>,
+    timer: bool,
+    /// A tela está apagada.
+    pub screen_off: bool,
+}
+
+/// Teclas que o painel de desbloqueio entende.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LockKey {
+    Char(char),
+    Backspace,
+    Enter,
+    Escape,
+}
+
+impl Glove {
+    // -----------------------------------------------------------------------
+    // Inatividade e tela apagada
+    // -----------------------------------------------------------------------
+
+    /// Começa a contar o tempo parado (uma vez, na partida).
+    pub fn start_idle_timer(&mut self) {
+        self.idle.last_input = Some(Instant::now());
+        if self.idle.timer {
+            return;
+        }
+        self.idle.timer = true;
+        let first = self.idle_timeout().unwrap_or(Duration::from_secs(600));
+        self.loop_handle
+            .insert_source(Timer::from_duration(first), |_, _, data| TimeoutAction::ToDuration(data.state.idle_check()))
+            .ok();
+    }
+
+    fn idle_timeout(&self) -> Option<Duration> {
+        let m = self.config.energy.screen_off_minutes;
+        (m > 0).then(|| Duration::from_secs(m as u64 * 60))
+    }
+
+    /// Confere o tempo parado e devolve quando conferir de novo (um acordar por
+    /// período, não a cada segundo).
+    fn idle_check(&mut self) -> Duration {
+        let Some(timeout) = self.idle_timeout() else { return Duration::from_secs(60) };
+        let idle = self.idle.last_input.map(|t| t.elapsed()).unwrap_or_default();
+        if idle >= timeout {
+            if !self.idle.screen_off {
+                tracing::info!("parado há {} min: apagando a tela", timeout.as_secs() / 60);
+                self.screen_off();
+            }
+            return timeout;
+        }
+        timeout - idle
+    }
+
+    pub fn screen_off(&mut self) {
+        if self.config.energy.require_password {
+            self.lock_screen();
+        }
+        self.close_menu();
+        self.idle.screen_off = true;
+        self.dirty = true;
+    }
+
+    /// Qualquer entrada: marca a hora e acende a tela. Devolve verdadeiro se a
+    /// tela estava apagada (o evento só acorda, não vai adiante).
+    pub fn note_input(&mut self) -> bool {
+        self.idle.last_input = Some(Instant::now());
+        if self.idle.screen_off {
+            self.idle.screen_off = false;
+            self.dirty = true;
+            return true;
+        }
+        false
+    }
+
+    /// Tampa do notebook: fechada apaga (e bloqueia); aberta acende.
+    pub fn lid(&mut self, closed: bool) {
+        tracing::info!("tampa {}", if closed { "fechada" } else { "aberta" });
+        if closed {
+            self.screen_off();
+        } else {
+            self.note_input();
+        }
+    }
+
+    /// Repouso: bloqueia antes (se pedido) e pede ao sistema para suspender.
+    pub fn sleep(&mut self) {
+        if self.config.energy.require_password {
+            self.lock_screen();
+        }
+        let _ = std::process::Command::new("systemctl").arg("suspend").spawn();
+    }
+
+    // -----------------------------------------------------------------------
+    // Bloqueio
+    // -----------------------------------------------------------------------
+
+    pub fn locked(&self) -> bool {
+        self.lock.is_some()
+    }
+
+    pub fn lock_screen(&mut self) {
+        if self.lock.is_some() {
+            return;
+        }
+        tracing::info!("tela bloqueada");
+        self.close_menu();
+        self.close_force_quit();
+        self.close_volume_slider();
+        // Nenhum app fica com o teclado enquanto está bloqueado.
+        self.focus_window(None);
+        let name = crate::shell::user_full_name();
+        self.lock = Some(Lock { password: String::new(), busy: false, message: None, shake_since: None, pressed: false, since: Instant::now(), name, key: None, tex: None });
+        self.dirty = true;
+        // Pisca o cursor e anima balanço/giratório só enquanto bloqueado.
+        self.loop_handle
+            .insert_source(Timer::from_duration(Duration::from_millis(100)), |_, _, data| {
+                let st = &mut data.state;
+                let Some(l) = &st.lock else { return TimeoutAction::Drop };
+                let animating = l.busy || l.shake_since.is_some_and(|t| t.elapsed() < SHAKE);
+                st.dirty = true;
+                TimeoutAction::ToDuration(Duration::from_millis(if animating { 33 } else { 530 }))
+            })
+            .ok();
+    }
+
+    fn unlock(&mut self) {
+        tracing::info!("tela desbloqueada");
+        self.lock = None;
+        self.focus_topmost(None);
+        self.dirty = true;
+    }
+
+    pub fn lock_key(&mut self, k: LockKey) {
+        let Some(l) = &mut self.lock else { return };
+        if l.busy {
+            return;
+        }
+        match k {
+            LockKey::Char(c) if !c.is_control() && l.password.len() < 256 => {
+                l.password.push(c);
+                l.message = None;
+            }
+            LockKey::Backspace => {
+                l.password.pop();
+            }
+            LockKey::Escape => {
+                l.password.clear();
+                l.message = None;
+            }
+            LockKey::Enter => self.try_unlock(),
+            _ => {}
+        }
+        self.dirty = true;
+    }
+
+    /// Confere a senha numa thread (o PAM bloqueia) e responde pelo laço de eventos.
+    pub fn try_unlock(&mut self) {
+        let Some(l) = &mut self.lock else { return };
+        if l.busy || l.password.is_empty() {
+            return;
+        }
+        l.busy = true;
+        let password = std::mem::take(&mut l.password);
+        let user = std::env::var("USER").unwrap_or_default();
+        let (tx, rx) = channel::<Result<(), String>>();
+        std::thread::spawn(move || {
+            let r = pam_check(&user, password);
+            let _ = tx.send(r);
+        });
+        self.loop_handle
+            .insert_source(rx, |ev, _, data| {
+                if let ChannelEvent::Msg(r) = ev {
+                    let st = &mut data.state;
+                    match r {
+                        Ok(()) => st.unlock(),
+                        Err(e) => {
+                            tracing::info!("senha recusada: {e}");
+                            if let Some(l) = &mut st.lock {
+                                l.busy = false;
+                                l.message = Some("Senha incorreta. Tente de novo.".into());
+                                l.shake_since = Some(Instant::now());
+                            }
+                            st.dirty = true;
+                        }
+                    }
+                }
+            })
+            .ok();
+        self.dirty = true;
+    }
+
+    /// Canto do painel (sem a sombra), já com o balanço.
+    pub fn lock_panel_pos(&self) -> (i32, i32) {
+        let (w, h) = self.output_size();
+        let shake = self.lock.as_ref().map(|l| l.shake_offset()).unwrap_or(0);
+        (((w as f32 - chrome::LOCK_W) / 2.0) as i32 + shake, ((h as f32 - chrome::LOCK_H) / 2.0 - h as f32 * 0.08) as i32)
+    }
+
+    /// O ponto cai no botão Desbloquear?
+    pub fn lock_button_at(&self, x: f64, y: f64) -> bool {
+        let (px, py) = self.lock_panel_pos();
+        let (bx, by, bw, bh) = chrome::lock_button_rect();
+        let (x, y) = ((x - px as f64) as f32, (y - py as f64) as f32);
+        x >= bx && x < bx + bw && y >= by && y < by + bh
+    }
+
+    pub fn prepare_lock(&mut self) {
+        let sc = self.scale() as f32;
+        let tgen = self.theme_gen;
+        let Some(l) = &mut self.lock else { return };
+        let caret = (l.since.elapsed().as_millis() / 530) % 2 == 0;
+        let spin = if l.busy { (l.since.elapsed().as_millis() / 83 % 12) as i32 } else { 0 };
+        let key = (l.password.chars().count(), l.message.clone(), l.busy, caret, l.pressed, spin, tgen);
+        if l.key.as_ref() != Some(&key) {
+            l.tex = chrome::lock_panel(&self.fonts, &self.theme, &l.name, key.0, l.message.as_deref(), l.busy, caret, l.pressed, spin as f32 / 12.0, sc).map(to_tex);
+            l.key = Some(key);
+        }
+        if l.shake_since.is_some_and(|t| t.elapsed() >= SHAKE) {
+            l.shake_since = None;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PAM (carregado na hora com dlopen: o Glove não depende da biblioteca para compilar)
+// ---------------------------------------------------------------------------
+
+#[repr(C)]
+struct PamMessage {
+    msg_style: c_int,
+    msg: *const c_char,
+}
+
+#[repr(C)]
+struct PamResponse {
+    resp: *mut c_char,
+    resp_retcode: c_int,
+}
+
+#[repr(C)]
+struct PamConv {
+    conv: extern "C" fn(c_int, *mut *const PamMessage, *mut *mut PamResponse, *mut c_void) -> c_int,
+    appdata: *mut c_void,
+}
+
+const PAM_SUCCESS: c_int = 0;
+const PAM_BUF_ERR: c_int = 5;
+const PAM_CONV_ERR: c_int = 19;
+const PAM_PROMPT_ECHO_OFF: c_int = 1;
+const PAM_PROMPT_ECHO_ON: c_int = 2;
+
+/// Responde às perguntas do PAM: a senha para "sem eco"; vazio para as outras.
+extern "C" fn conversation(n: c_int, msgs: *mut *const PamMessage, resp: *mut *mut PamResponse, appdata: *mut c_void) -> c_int {
+    if n <= 0 || n > 32 || msgs.is_null() || resp.is_null() {
+        return PAM_CONV_ERR;
+    }
+    unsafe {
+        // O PAM libera as respostas com free(): precisam vir do malloc.
+        let out = libc::calloc(n as usize, std::mem::size_of::<PamResponse>()) as *mut PamResponse;
+        if out.is_null() {
+            return PAM_BUF_ERR;
+        }
+        let password = &*(appdata as *const CString);
+        for i in 0..n as usize {
+            let m = &**msgs.add(i);
+            let r = &mut *out.add(i);
+            r.resp = match m.msg_style {
+                PAM_PROMPT_ECHO_OFF => libc::strdup(password.as_ptr()),
+                PAM_PROMPT_ECHO_ON => libc::strdup(c"".as_ptr()),
+                _ => std::ptr::null_mut(),
+            };
+        }
+        *resp = out;
+    }
+    PAM_SUCCESS
+}
+
+/// Serviço do PAM: o do Glove, se instalado (data/pam.d/glove), ou o de login.
+fn pam_service() -> &'static CStr {
+    if std::path::Path::new("/etc/pam.d/glove").exists() { c"glove" } else { c"login" }
+}
+
+/// Confere usuário e senha. A senha é apagada da memória no fim.
+fn pam_check(user: &str, password: String) -> Result<(), String> {
+    type Start = unsafe extern "C" fn(*const c_char, *const c_char, *const PamConv, *mut *mut c_void) -> c_int;
+    type Call = unsafe extern "C" fn(*mut c_void, c_int) -> c_int;
+    let mut bytes = password.into_bytes();
+    let secret = CString::new(bytes.clone()).map_err(|_| "senha inválida".to_string());
+    bytes.iter_mut().for_each(|b| *b = 0);
+    let secret = secret?;
+    let user = CString::new(user).map_err(|_| "usuário inválido".to_string())?;
+    let result = unsafe {
+        let lib = libc::dlopen(c"libpam.so.0".as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
+        if lib.is_null() {
+            return Err("libpam não encontrada".into());
+        }
+        let sym = |name: &CStr| libc::dlsym(lib, name.as_ptr());
+        let (start, auth, acct, end) = (sym(c"pam_start"), sym(c"pam_authenticate"), sym(c"pam_acct_mgmt"), sym(c"pam_end"));
+        if start.is_null() || auth.is_null() || acct.is_null() || end.is_null() {
+            return Err("libpam incompleta".into());
+        }
+        let start: Start = std::mem::transmute(start);
+        let auth: Call = std::mem::transmute(auth);
+        let acct: Call = std::mem::transmute(acct);
+        let end: Call = std::mem::transmute(end);
+        let conv = PamConv { conv: conversation, appdata: &secret as *const CString as *mut c_void };
+        let mut h: *mut c_void = std::ptr::null_mut();
+        let mut rc = start(pam_service().as_ptr(), user.as_ptr(), &conv, &mut h);
+        if rc == PAM_SUCCESS {
+            rc = auth(h, 0);
+            if rc == PAM_SUCCESS {
+                rc = acct(h, 0);
+            }
+            end(h, rc);
+        }
+        // A biblioteca fica carregada (o PAM pode ter deixado módulos apontando para ela).
+        rc
+    };
+    // Apaga a cópia da senha.
+    let mut raw = secret.into_bytes();
+    raw.iter_mut().for_each(|b| *b = 0);
+    if result == PAM_SUCCESS { Ok(()) } else { Err(format!("PAM {result}")) }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn senha_errada_e_recusada() {
+        // Usuário que não existe: o PAM tem de recusar (e nunca aceitar).
+        assert!(super::pam_check("glove-usuario-que-nao-existe", "x".into()).is_err());
+    }
+}

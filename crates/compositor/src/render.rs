@@ -56,6 +56,23 @@ impl Glove {
             self.cursor_elements(renderer, sc, &mut out);
         }
 
+        // Tela apagada: nada (na sessão própria a tela nem recebe quadros).
+        if self.idle.screen_off {
+            return out;
+        }
+        // Bloqueada: só o painel de senha sobre o papel de parede; nenhuma janela.
+        if let Some(l) = &self.lock {
+            if let Some(t) = &l.tex {
+                let (x, y) = self.lock_panel_pos();
+                let m = glove_paint::chrome::LOCK_SHADOW as i32;
+                out.extend(mem(renderer, (x - m, y - m).into(), t, sc));
+            }
+            if let Some(b) = &c.wallpaper {
+                out.extend(mem(renderer, (0, 0).into(), b, sc));
+            }
+            return out;
+        }
+
         // Tela de encerramento: cobre tudo (menos o cursor).
         if let Some(e) = self.ending.as_ref().filter(|e| e.screen_since.is_some()) {
             let (w, h) = c.out_size;

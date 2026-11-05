@@ -1122,3 +1122,83 @@ pub fn osd(kind: OsdKind, level: f32, muted: bool, alpha: f32, scale: f32) -> Op
     }
     Some(c)
 }
+
+// ---------------------------------------------------------------------------
+// Tela bloqueada
+// ---------------------------------------------------------------------------
+
+pub const LOCK_W: f32 = 380.0;
+pub const LOCK_H: f32 = 196.0;
+/// Margem de sombra em volta do painel de desbloqueio.
+pub const LOCK_SHADOW: f32 = 24.0;
+const LOCK_FIELD: (f32, f32, f32, f32) = (112.0, 104.0, 248.0, 24.0);
+const LOCK_BUTTON_W: f32 = 116.0;
+
+/// Retângulo do botão Desbloquear (relativo ao conteúdo do painel).
+pub fn lock_button_rect() -> (f32, f32, f32, f32) {
+    (LOCK_W - 20.0 - LOCK_BUTTON_W, LOCK_H - 20.0 - 22.0, LOCK_BUTTON_W, 22.0)
+}
+
+/// Retrato genérico de usuário: cabeça e ombros em gel sobre um fundo claro.
+pub fn user_picture(c: &mut Canvas, x: f32, y: f32, s: f32, accent: Color) {
+    c.fill(rrect(x, y, s, s, s * 0.12), &vgrad(y, y + s, &[(0.0, rgba(236, 240, 246, 255)), (1.0, rgba(200, 210, 226, 255))]));
+    c.stroke(rrect(x + 0.5, y + 0.5, s - 1.0, s - 1.0, s * 0.12), &solid(rgba(0, 0, 0, 90)), 1.0);
+    let body = darken(accent, 0.1);
+    // Ombros: meia elipse cortada pela borda de baixo.
+    let sh = s * 0.36;
+    c.fill(rrect4(x + s * 0.16, y + s - sh - 1.0, s * 0.68, sh, [s * 0.3, s * 0.3, 0.0, 0.0]), &vgrad(y + s - sh, y + s, &[(0.0, lighten(body, 0.35)), (1.0, body)]));
+    gel_circle(c, x + s / 2.0, y + s * 0.4, s * 0.2, body);
+}
+
+/// Painel de desbloqueio, com sombra. `dots`: quantos caracteres digitados;
+/// `message`: aviso em vermelho ("Senha incorreta.") ou None; `busy`: verificando.
+#[allow(clippy::too_many_arguments)]
+pub fn lock_panel(fonts: &Fonts, theme: &Theme, name: &str, dots: usize, message: Option<&str>, busy: bool, caret: bool, pressed: bool, spin: f32, scale: f32) -> Option<Canvas> {
+    let (w, h, m) = (LOCK_W, LOCK_H, LOCK_SHADOW);
+    let mut c = Canvas::new(w + 2.0 * m, h + 2.0 * m, scale)?;
+    if let Some(sh) = Canvas::shadow(-m, -m, w + 2.0 * m, h + 2.0 * m, w, h, &ShadowSpec { blur: 16.0, offset_y: 6.0, radius: 8.0, alpha: 0.5 }, scale) {
+        c.draw_canvas(&sh, 0.0, 0.0);
+    }
+    let (x0, y0) = (m, m);
+    let shape = || rrect(x0, y0, w, h, 8.0);
+    c.fill(shape(), &solid(theme.body_b));
+    // Listras longe dos cantos arredondados.
+    c.pinstripes(x0, y0 + 8.0, w, h - 16.0, theme.body_a, theme.body_b);
+    c.stroke(shape(), &solid(rgba(0, 0, 0, 90)), 1.0 / scale);
+
+    user_picture(&mut c, x0 + 20.0, y0 + 22.0, 76.0, theme.accent);
+    let ink = rgba(20, 20, 20, 255);
+    fonts.draw(&mut c, name, x0 + 112.0, y0 + 40.0, 15.0, true, ink);
+    fonts.draw(&mut c, "Esta tela está bloqueada.", x0 + 112.0, y0 + 62.0, 11.0, false, rgba(50, 50, 50, 255));
+    fonts.draw(&mut c, "Digite sua senha para desbloquear.", x0 + 112.0, y0 + 78.0, 11.0, false, rgba(50, 50, 50, 255));
+
+    // Campo de senha
+    let (fx, fy, fw, fh) = LOCK_FIELD;
+    let (fx, fy) = (x0 + fx, y0 + fy);
+    c.fill(rrect(fx, fy, fw, fh, 3.0), &solid(Color::WHITE));
+    c.stroke(rrect(fx + 0.5, fy + 0.5, fw - 1.0, fh - 1.0, 3.0), &solid(rgba(120, 120, 120, 255)), 1.0);
+    c.hline(fx + 1.0, fy + 1.5, fw - 2.0, rgba(0, 0, 0, 40));
+    let mut dx = fx + 10.0;
+    for _ in 0..dots.min(28) {
+        c.fill(circle(dx + 3.0, fy + fh / 2.0, 3.2), &solid(ink));
+        dx += 8.5;
+    }
+    if caret && !busy {
+        c.fill_rect(dx + 1.0, fy + 5.0, 1.0, fh - 10.0, &solid(ink));
+    }
+    if busy {
+        spinner(&mut c, fx + fw - 13.0, fy + fh / 2.0, 7.5, spin, rgba(70, 70, 70, 255));
+    }
+
+    if let Some(msg) = message {
+        fonts.draw(&mut c, msg, x0 + 112.0, y0 + 146.0, 11.0, true, rgba(200, 30, 30, 255));
+    }
+
+    let (bx, by, bw, bh) = lock_button_rect();
+    let base = if busy { rgba(225, 225, 228, 255) } else { theme.accent };
+    gel_rect(&mut c, x0 + bx, y0 + by, bw, bh, bh / 2.0, if pressed { darken(base, 0.2) } else { base });
+    let label = "Desbloquear";
+    let tw = fonts.measure(label, 13.0, false);
+    fonts.draw(&mut c, label, x0 + bx + (bw - tw) / 2.0, y0 + by + 15.5, 13.0, false, if busy { rgba(140, 140, 140, 255) } else { ink });
+    Some(c)
+}
