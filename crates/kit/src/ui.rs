@@ -366,6 +366,9 @@ pub struct Memory {
     pub(crate) resize_req: bool,
     /// Comandos para o Glove (pelo canal dos menus).
     pub(crate) glove_cmds: Vec<String>,
+    /// Último "documento editado" e "documento aberto" contados ao Glove.
+    pub(crate) edited_sent: Option<bool>,
+    pub(crate) doc_sent: Option<Option<std::path::PathBuf>>,
     pub(crate) minimize_req: bool,
     /// Novo tamanho da janela pedido pelo app: (largura, altura, animar).
     pub(crate) size_req: Option<(u32, u32, bool)>,
@@ -643,6 +646,25 @@ impl<'a> Ui<'a> {
     /// Captura de uma janela: o Glove destaca a janela sob o mouse e o clique a fotografa.
     pub fn request_screenshot_window(&mut self, open: bool) {
         self.mem.glove_cmds.push(format!("SHOT\t300\t{}\t2", open as u8));
+    }
+
+    /// O documento tem alterações não salvas: o Glove põe o ponto no botão de
+    /// fechar (como no Mac). Só manda quando muda.
+    pub fn set_edited(&mut self, on: bool) {
+        if self.mem.edited_sent != Some(on) {
+            self.mem.edited_sent = Some(on);
+            self.mem.glove_cmds.push(format!("EDITADO\t{}", on as u8));
+        }
+    }
+
+    /// O arquivo aberto na janela: o Glove mostra o ícone dele no título
+    /// (arrastável; Ctrl+clique mostra as pastas do caminho). Só manda quando muda.
+    pub fn set_document(&mut self, path: Option<&std::path::Path>) {
+        let v = path.map(std::path::Path::to_path_buf);
+        if self.mem.doc_sent.as_ref() != Some(&v) {
+            self.mem.glove_cmds.push(format!("DOC\t{}", v.as_ref().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default()));
+            self.mem.doc_sent = Some(v);
+        }
     }
 
     /// Pede ao Glove o fim da sessão: "encerrar", "reiniciar" ou "desligar".

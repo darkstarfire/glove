@@ -19,8 +19,8 @@ fn main() {
         for (sx, sy, sh) in window_shadow(ww, wh + TITLE_H, active, scale) {
             screen.draw_canvas(&sh, (x + sx) as f32, (y + sy) as f32);
         }
-        let st = TitleBarState { active, hover: active, pressed: None, zoom_enabled: true };
-        let tb = titlebar(&fonts, &theme, ww as f32, title, &st, scale).unwrap();
+        let st = TitleBarState { active, hover: active, pressed: None, zoom_enabled: true, edited: false, pill: false };
+        let tb = titlebar(&fonts, &theme, ww as f32, title, &st, None, scale).unwrap();
         screen.draw_canvas(&tb, x as f32, y as f32);
         let mut body = Canvas::new(ww as f32, wh as f32, scale).unwrap();
         body.clear(if active { Color::from_rgba8(30, 30, 30, 255) } else { Color::WHITE });

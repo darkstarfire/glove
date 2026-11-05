@@ -620,6 +620,7 @@ impl Viewer {
 
 impl App for Viewer {
     fn ui(&mut self, ui: &mut Ui) {
+        ui.set_document(self.path.as_deref());
         let (w, h) = (ui.c.w, ui.c.h);
         let left = if self.sidebar && self.doc.is_some() { SIDEBAR_W } else { 0.0 };
         let area = Rect::new(left, TOOLBAR_H, w - left, h - 15.0 - TOOLBAR_H);

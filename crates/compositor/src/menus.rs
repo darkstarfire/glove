@@ -54,6 +54,10 @@ pub struct MenuClient {
     pub end: Option<String>,
     /// Pedido de testar um protetor de tela (botão Testar das Preferências).
     pub saver: Option<String>,
+    /// O documento tem alterações não salvas (ponto no botão de fechar).
+    pub edited: bool,
+    /// Arquivo aberto (ícone no título).
+    pub doc: Option<PathBuf>,
 }
 
 impl MenuClient {
@@ -117,6 +121,8 @@ impl MenuClient {
             }
             "SAIR" => self.end = f.get(1).map(|k| k.to_string()),
             "PROTETOR" => self.saver = f.get(1).map(|k| k.to_string()),
+            "EDITADO" => self.edited = f.get(1) == Some(&"1"),
+            "DOC" => self.doc = f.get(1).filter(|p| !p.is_empty()).map(PathBuf::from),
             "END" => {
                 self.menus = std::mem::take(&mut self.pending);
                 return true;
@@ -147,7 +153,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None, edited: false, doc: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -225,7 +231,7 @@ mod tests {
     #[test]
     fn le_submenus() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None, edited: false, doc: None };
         let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
         let done = text.lines().fold(false, |d, l| c.line(l) || d);
         assert!(done);

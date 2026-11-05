@@ -43,9 +43,31 @@ pub struct TitleBarState {
     pub pressed: Option<TitleButton>,
     /// Zoom disponível (janelas de tamanho fixo mostram o botão desbotado).
     pub zoom_enabled: bool,
+    /// Documento com alterações não salvas: ponto no botão de fechar.
+    pub edited: bool,
+    /// O app tem barra de ferramentas: a pílula no canto direito a esconde.
+    pub pill: bool,
 }
 
-pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBarState, scale: f32) -> Option<Canvas> {
+/// Pílula do canto direito do título (esconde a barra de ferramentas): (x, y, w, h).
+pub fn title_pill_rect(w: f32) -> (f32, f32, f32, f32) {
+    let h = TITLE_H as f32;
+    (w - 30.0, h / 2.0 - 5.5, 20.0, 11.0)
+}
+
+/// Onde ficam o ícone do documento e o título: (x do ícone, x do texto, texto já cortado).
+/// Sem documento, o ícone fica em None.
+pub fn title_layout(fonts: &Fonts, w: f32, title: &str, doc: bool) -> (Option<f32>, f32, String) {
+    let px = 13.0;
+    let icon = if doc { 20.0 } else { 0.0 };
+    let avail = (w - 2.0 * 72.0 - icon).max(0.0);
+    let t = fonts.ellipsize(title, px, false, avail);
+    let tw = fonts.measure(&t, px, false);
+    let x = ((w - tw - icon) / 2.0).max(72.0);
+    if doc { (Some(x), x + icon, t) } else { (None, x, t) }
+}
+
+pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBarState, doc_icon: Option<Icon>, scale: f32) -> Option<Canvas> {
     let h = TITLE_H as f32;
     let mut c = Canvas::new(w, h, scale)?;
 
@@ -126,6 +148,10 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
             continue;
         }
         gel_circle(&mut c, cx, cy, BUTTON_R, base);
+        // Alterações não salvas: o ponto escuro no meio do botão vermelho.
+        if b == TitleButton::Close && st.edited && !st.hover {
+            c.fill(circle(cx, cy, 2.3), &solid(with_alpha(darken(base, 0.65), 0.9)));
+        }
         if st.hover {
             let ink = solid(with_alpha(darken(base, 0.7), 0.85));
             let (l, lw) = (2.6, 1.4);
@@ -148,13 +174,20 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
     }
 
     let px = 13.0;
-    let avail = w - 2.0 * 72.0;
-    if avail > 20.0 {
-        let t = fonts.ellipsize(title, px, false, avail);
-        let tw = fonts.measure(&t, px, false);
-        let x = ((w - tw) / 2.0).max(72.0);
+    if w - 2.0 * 72.0 > 20.0 {
+        let (ix, x, t) = title_layout(fonts, w, title, doc_icon.is_some());
+        if let (Some(ix), Some(icon)) = (ix, doc_icon) {
+            icons::draw(&mut c, fonts, icon, ix, cy - 8.0, 16.0, None);
+        }
         let color = if st.active { theme.title_text } else { theme.title_text_inactive };
         fonts.draw_embossed(&mut c, &t, x, 15.5, px, false, color, rgba(255, 255, 255, 180));
+    }
+    // Pílula de vidro que esconde a barra de ferramentas.
+    if st.pill {
+        let (x, y, pw, ph) = title_pill_rect(w);
+        c.fill(rrect(x, y, pw, ph, ph / 2.0), &vgrad(y, y + ph, &[(0.0, rgba(252, 252, 252, 255)), (1.0, rgba(214, 214, 218, 255))]));
+        c.stroke(rrect(x + 0.5, y + 0.5, pw - 1.0, ph - 1.0, ph / 2.0 - 0.5), &solid(rgba(120, 120, 126, if st.active { 220 } else { 140 })), 1.0);
+        c.fill(rrect(x + 3.0, y + 1.5, pw - 6.0, ph * 0.4, ph * 0.2), &solid(rgba(255, 255, 255, 160)));
     }
     Some(c)
 }
@@ -1227,8 +1260,8 @@ pub fn force_quit_panel(fonts: &Fonts, theme: &Theme, rows: &[ForceQuitRow], sel
     let (x0, y0) = (m, m);
     c.fill_rect(x0, y0, w, h, &solid(theme.body_b));
     c.pinstripes(x0, y0, w, h, theme.body_a, theme.body_b);
-    let st = TitleBarState { active: true, hover: title_hover, pressed: match pressed { Some(FqHit::Title(b)) => b, _ => None }, zoom_enabled: false };
-    if let Some(t) = titlebar(fonts, theme, w, "Forçar Encerrar Aplicativos", &st, scale) {
+    let st = TitleBarState { active: true, hover: title_hover, pressed: match pressed { Some(FqHit::Title(b)) => b, _ => None }, zoom_enabled: false, edited: false, pill: false };
+    if let Some(t) = titlebar(fonts, theme, w, "Forçar Encerrar Aplicativos", &st, None, scale) {
         c.draw_canvas(&t, x0, y0);
     }
     let ink = rgba(20, 20, 20, 255);

@@ -64,6 +64,8 @@ pub struct Glove {
     pub hidden: Vec<(Window, Point<i32, Logical>)>,
     /// Último clique numa barra de título (para o clique duplo).
     pub title_click: Option<(Window, std::time::Instant)>,
+    /// Apertou o ícone do documento no título: (arquivo, onde). Andando, vira arrastar.
+    pub proxy_press: Option<(std::path::PathBuf, smithay::utils::Point<f64, smithay::utils::Logical>)>,
     /// Há algo novo para desenhar.
     pub dirty: bool,
     /// Rodando dentro de outro desktop (atalhos usam Alt em vez de Super).
@@ -220,6 +222,7 @@ impl Glove {
             minimized: Vec::new(),
             hidden: Vec::new(),
             title_click: None,
+            proxy_press: None,
             dirty: true,
             nested: false,
             cascade: 0,

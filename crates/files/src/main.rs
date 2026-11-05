@@ -610,6 +610,8 @@ struct Files {
     cfg: glove_config::arquivos::Files,
     /// Submenu aberto no menu de contexto: (qual, topo da linha que o abriu).
     ctx_sub: Option<(String, f32)>,
+    /// Barra de ferramentas e lateral escondidas (pílula do título, Ctrl+Alt+T).
+    bare: bool,
     /// Pasta com mola: a pasta sob o que está sendo arrastado e desde quando.
     spring: Option<(PathBuf, std::time::Instant)>,
     /// Pasta Rede: quando foi lida e o que achou (nome, endereço); a busca roda numa thread.
@@ -663,6 +665,7 @@ impl Files {
             ctx_sub: None,
             mounts: (None, Vec::new()),
             spring: None,
+            bare: false,
             network: Arc::new(std::sync::Mutex::new((None, false, Vec::new()))),
         }
     }
@@ -2244,6 +2247,7 @@ impl Files {
                 "Ctrl+3" => act.push("view-columns"),
                 "Ctrl+H" => act.push("hidden"),
                 "Ctrl+J" => act.push("view-options"),
+                "Ctrl+Alt+T" => act.push("toggle-toolbar"),
                 "Ctrl+E" => act.push("eject"),
                 "Ctrl+K" => act.push("connect"),
                 "Ctrl+Shift+K" => act.push("go-network"),
@@ -2395,6 +2399,10 @@ impl Files {
                 let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--conectar"));
             }
             "go-network" => self.go(PathBuf::from(rede::ROOT)),
+            "toggle-toolbar" => {
+                self.bare = !self.bare;
+                ui.redraw = true;
+            }
             "eject" => {
                 if let Some(m) = self.ejectable() {
                     self.eject(m);
@@ -2537,22 +2545,33 @@ impl App for Files {
             }
         }
         self.guard_menus(ui);
-        self.toolbar(ui);
-        let body_h = h - TOOLBAR_H - BOTTOM_H;
+        // O ícone da pasta no título (arrastável; Ctrl+clique mostra o caminho).
+        let cur = self.current();
+        ui.set_document((!apps::is_virtual(&cur) && !smart::is_smart(&cur) && !rede::is_rede(&cur)).then_some(cur.as_path()));
+        // Sem barra de ferramentas (pílula do título): só o conteúdo, como no Tiger.
+        let top = if self.bare { 0.0 } else { TOOLBAR_H };
+        if !self.bare {
+            self.toolbar(ui);
+        }
+        let body_h = h - top - BOTTOM_H;
         // Metal em volta: a lateral e o conteúdo são painéis brancos encaixados (Tiger).
         // Só as faixas que aparecem (o metal é calculado pixel a pixel; o resto
         // fica embaixo dos painéis brancos).
         let metal = Theme::new(Variant::Metal);
         let (mt, mb) = (darken(metal.metal_bottom, 0.03), darken(metal.metal_bottom, 0.04));
-        let x0 = SIDEBAR_W + PANE_GAP / 2.0;
-        for (sx, sw) in [(0.0, PANE_M), (SIDEBAR_W - PANE_GAP / 2.0, PANE_GAP), (w - PANE_M, PANE_M)] {
-            ui.c.brushed_metal(sx, TOOLBAR_H, sw, body_h, mt, mb);
-            ui.c.metal_sheen(sx, TOOLBAR_H, sw, body_h, w);
+        let side_w = if self.bare { 0.0 } else { SIDEBAR_W };
+        let x0 = if self.bare { PANE_M } else { SIDEBAR_W + PANE_GAP / 2.0 };
+        let strips: Vec<(f32, f32)> = if self.bare { vec![(0.0, PANE_M), (w - PANE_M, PANE_M)] } else { vec![(0.0, PANE_M), (SIDEBAR_W - PANE_GAP / 2.0, PANE_GAP), (w - PANE_M, PANE_M)] };
+        for (sx, sw) in strips {
+            ui.c.brushed_metal(sx, top, sw, body_h, mt, mb);
+            ui.c.metal_sheen(sx, top, sw, body_h, w);
         }
-        ui.c.brushed_metal(0.0, TOOLBAR_H + body_h - 1.0, w, 1.0, mb, mb);
-        let side_r = Rect::new(PANE_M, TOOLBAR_H, SIDEBAR_W - PANE_M - PANE_GAP / 2.0, body_h - 1.0);
-        self.sidebar(ui, side_r);
-        let mut area = Rect::new(x0, TOOLBAR_H, w - x0 - PANE_M, body_h - 1.0);
+        ui.c.brushed_metal(0.0, top + body_h - 1.0, w, 1.0, mb, mb);
+        let side_r = Rect::new(PANE_M, top, (side_w - PANE_M - PANE_GAP / 2.0).max(0.0), body_h - 1.0);
+        if !self.bare {
+            self.sidebar(ui, side_r);
+        }
+        let mut area = Rect::new(x0, top, w - x0 - PANE_M, body_h - 1.0);
         let pane_r = area;
         // Pasta de busca: faixa com o que se procura e Salvar (ou Apagar a busca salva).
         if smart::is_smart(&self.base) {
@@ -2563,8 +2582,8 @@ impl App for Files {
             View::List => self.list_view(ui, area),
             View::Icons => self.icons_view(ui, area),
         }
-        // Contorno dos dois painéis.
-        for r in [side_r, pane_r] {
+        // Contorno dos painéis.
+        for r in if self.bare { vec![pane_r] } else { vec![side_r, pane_r] } {
             ui.c.stroke(rrect(r.x - 0.5, r.y - 0.5, r.w + 1.0, r.h + 1.0, 0.0), &solid(rgba(120, 120, 126, 255)), 1.0);
         }
         // Faixa de baixo em metal com o status (e o puxador de redimensionar).
@@ -2649,6 +2668,7 @@ impl App for Files {
                     MenuItem::new("view-columns", "como Colunas", "Ctrl+3").checked(self.view == View::Columns),
                     MenuItem::Separator,
                     MenuItem::new("hidden", "Mostrar arquivos ocultos", "Ctrl+H").checked(self.hidden),
+                    MenuItem::new("toggle-toolbar", if self.bare { "Mostrar Barra de Ferramentas" } else { "Ocultar Barra de Ferramentas" }, "Ctrl+Alt+T"),
                     MenuItem::new("view-options", "Mostrar Opções de Visualização", "Ctrl+J"),
                 ],
             ),

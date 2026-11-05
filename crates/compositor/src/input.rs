@@ -78,6 +78,8 @@ enum KeyAction {
     Desk(crate::desk::DeskKey),
     /// F12: abre ou fecha o Painel de Widgets.
     Dashboard,
+    /// Ctrl+`: a próxima janela do mesmo app.
+    CycleWindows,
     /// Tecla com o Painel aberto.
     DashKey(crate::desk::DeskKey),
 }
@@ -106,6 +108,7 @@ impl KeyAction {
             "expose_app" => Self::ExposeApp,
             "expose_desktop" => Self::ExposeDesktop,
             "dashboard" => Self::Dashboard,
+            "cycle_windows" => Self::CycleWindows,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
             _ => return None,
@@ -588,6 +591,7 @@ impl Glove {
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
             Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
+            Some(KeyAction::CycleWindows) => self.cycle_app_windows(),
             Some(KeyAction::DashKey(k)) => self.dashboard_key(k),
             Some(KeyAction::SearchMove(d)) => self.search_move(d),
             Some(KeyAction::LockKey(k)) => self.lock_key(k),
@@ -765,6 +769,13 @@ impl Glove {
             self.dirty = true;
             return;
         }
+        // Arrastando o ícone do documento (do título): vira arrastar do sistema.
+        if let Some((doc, at)) = self.proxy_press.clone() {
+            if (pos.x - at.x).powi(2) + (pos.y - at.y).powi(2) > 25.0 {
+                self.proxy_press = None;
+                self.desk_start_drag(vec![doc], at);
+            }
+        }
         self.desk_motion(pos);
         let pointer = self.seat.get_pointer().unwrap();
         if !pointer.is_grabbed() {
@@ -922,6 +933,27 @@ impl Glove {
                         }
                         swallow = true;
                     }
+                    // Pílula: esconde/mostra a barra de ferramentas do app.
+                    Hit::Title { window, pill: true, .. } => {
+                        self.focus_window(Some(window.clone()));
+                        if let Some(pid) = self.window_pid(&window) {
+                            if let Some(c) = self.menu_clients.iter_mut().rev().find(|c| c.pid == pid) {
+                                c.activate("toggle-toolbar");
+                            }
+                        }
+                        swallow = true;
+                    }
+                    // Ícone do documento: Ctrl+clique mostra as pastas do caminho; arrastar leva o arquivo.
+                    Hit::Title { window, proxy: Some(doc), button: None, .. } => {
+                        self.focus_window(Some(window.clone()));
+                        let ctrl = self.seat.get_keyboard().is_some_and(|k| k.modifier_state().ctrl || k.modifier_state().logo);
+                        if ctrl || button == BTN_RIGHT {
+                            self.open_path_menu(&doc, pos);
+                        } else if button == BTN_LEFT {
+                            self.proxy_press = Some((doc, pos));
+                        }
+                        swallow = true;
+                    }
                     Hit::Title { window, button: Some(b), .. } => {
                         self.focus_window(Some(window.clone()));
                         self.chrome.pressed_button = Some((window, b));
@@ -975,6 +1007,7 @@ impl Glove {
             }
             self.chrome.swallow_release = swallow;
         } else if state == ButtonState::Released {
+            self.proxy_press = None;
             self.desk_release();
             let hit = self.hit_test(pos);
             // Menu: escolher um item ao soltar

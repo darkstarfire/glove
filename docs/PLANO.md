@@ -334,9 +334,13 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
 - [x] 9.10.6 Arquivos: **pastas com mola**: segurar o arrastado (de qualquer app ou da mesa) sobre uma
   pasta por 0,9 s abre a pasta na janela, e dá para continuar descendo até soltar; na mesa, segurar
   sobre uma pasta abre uma janela dela (P)
-- [ ] 9.10.7 Janelas: **botão-pílula** no canto do título que oculta a barra de ferramentas; **ponto no
-  botão fechar** quando o documento tem alterações não salvas; **ícone do documento** no título
-  (arrastável; Ctrl+clique mostra o caminho em menu); **Ctrl+`** alterna as janelas do mesmo app (M)
+- [x] 9.10.7 Janelas: **botão-pílula** no canto do título nos apps com barra de ferramentas (o app põe o
+  item `toggle-toolbar` nos menus; no Arquivos esconde a barra e a lateral, também em Visualizar ▸
+  Ocultar Barra de Ferramentas, Ctrl+Alt+T); **ponto no botão fechar** com alterações não salvas
+  (`ui.set_edited`, no Editor); **ícone do documento** no título (`ui.set_document`, no Editor, no
+  Visualizador e na pasta do Arquivos): arrastar leva o arquivo, Ctrl+clique (ou botão direito) mostra
+  as pastas do caminho e abre a escolhida; **Ctrl+`** alterna as janelas do mesmo app (atalho editável
+  nas Preferências) (M)
 - [ ] 9.10.8 **Imprimir** (Ctrl+P) como folha do kit, por CUPS, com Pré-visualizar e Salvar como PDF
   (`Print`), no Editor, Visualizador, Navegador e Correio (M)
 - [ ] 9.10.9 **Acesso às Chaves** (`Keychain-Access`): ver, copiar e apagar senhas guardadas (Secret

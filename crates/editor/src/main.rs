@@ -461,7 +461,10 @@ impl App for Editor {
             self.run_action(action, ui);
         }
 
-        let title = format!("{}{}", self.name(), if self.buf.modified { " — Editado" } else { "" });
+        // Como no Tiger: o ponto no botão de fechar diz que há alterações; o ícone do arquivo vai no título.
+        ui.set_edited(self.buf.modified);
+        ui.set_document(self.path.as_deref());
+        let title = self.name();
         if title != self.last_title {
             ui.set_title(&title);
             self.last_title = title;

@@ -779,7 +779,7 @@ impl Glove {
 
     /// Começa o arrastar do sistema com os itens: soltos numa janela, o app recebe
     /// a lista de arquivos; na mesa ou no Dock, o Glove cuida (ver `desk_drop`).
-    fn desk_start_drag(&mut self, paths: Vec<PathBuf>, origin: Point<f64, Logical>) {
+    pub(crate) fn desk_start_drag(&mut self, paths: Vec<PathBuf>, origin: Point<f64, Logical>) {
         use smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction;
         use smithay::wayland::selection::data_device::{start_dnd, SourceMetadata};
         self.desk.drag = Some(DeskDrag { paths, origin });
@@ -1155,6 +1155,32 @@ impl Glove {
             MenuNode::new(MenuItem::item("Ocultar Outros").with_shortcut(self.binding("hide_others")), Some(MenuAction::HideOthers(0))),
             MenuNode::new(if self.hidden.is_empty() { MenuItem::item("Mostrar Todos").disabled() } else { MenuItem::item("Mostrar Todos") }, Some(MenuAction::ShowAll)),
         ]
+    }
+
+    /// Ctrl+clique no ícone do documento: o arquivo e as pastas até a raiz; escolher abre no Arquivos.
+    pub fn open_path_menu(&mut self, doc: &Path, pos: Point<f64, Logical>) {
+        let mut nodes = Vec::new();
+        let mut cur = Some(doc);
+        while let Some(p) = cur {
+            let name = if p == Path::new("/") { "Disco".to_string() } else { p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() };
+            let icon_dir = if p.is_dir() { p.to_path_buf() } else { p.parent().map(Path::to_path_buf).unwrap_or_default() };
+            nodes.push(MenuNode::new(MenuItem::item(name), Some(MenuAction::Desk(DeskCmd::Go(icon_dir)))));
+            cur = p.parent();
+        }
+        self.show_context_menu(nodes, (pos.x - 20.0, pos.y + 10.0).into());
+    }
+
+    /// Ctrl+`: traz a janela de baixo do app em foco (dá a volta nas janelas dele).
+    pub fn cycle_app_windows(&mut self) {
+        let Some(pid) = self.focused_pid() else { return };
+        let wins = self.windows_of_pid(pid);
+        if wins.len() < 2 {
+            return;
+        }
+        // A de baixo da pilha (a primeira) vem para a frente.
+        if let Some(w) = wins.first().cloned() {
+            self.focus_window(Some(w));
+        }
     }
 
     /// Menu de contexto no ponto (clamped à tela).

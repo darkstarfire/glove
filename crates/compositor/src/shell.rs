@@ -187,7 +187,7 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
 /// Cache por janela das peças desenhadas.
 #[derive(Default)]
 pub struct Deco {
-    title_key: Option<(i32, TitleBarState, String, u64)>,
+    title_key: Option<(i32, TitleBarState, String, u64, Option<std::path::PathBuf>)>,
     pub title: Option<Tex>,
     shadow_key: Option<(i32, i32, bool, u64)>,
     pub shadows: Vec<(i32, i32, Tex)>,
@@ -471,7 +471,7 @@ pub enum Hit {
     Search(Option<usize>),
     MenuBar { target: Option<BarTarget> },
     Dock(Option<usize>),
-    Title { window: Window, button: Option<TitleButton>, group: bool },
+    Title { window: Window, button: Option<TitleButton>, group: bool, pill: bool, proxy: Option<std::path::PathBuf> },
     Resize(Window, ResizeEdge),
     Client(Window),
     /// Ícone na mesa (o disco ou um removível).
@@ -550,10 +550,19 @@ impl Glove {
                 let title = Rectangle::new((geo.loc.x, geo.loc.y - top).into(), (geo.size.w, top).into()).to_f64();
                 if title.contains(pos) {
                     let (tx, ty) = ((px - title.loc.x) as f32, (py - title.loc.y) as f32);
+                    let (pill, doc) = self.window_extras(w);
+                    let (bx, by, bw, bh) = chrome::title_pill_rect(geo.size.w as f32);
+                    let pill = pill && tx >= bx - 3.0 && tx <= bx + bw + 3.0 && ty >= by - 3.0 && ty <= by + bh + 3.0;
+                    let proxy = doc.filter(|_| {
+                        let (ix, _, _) = chrome::title_layout(&self.fonts, geo.size.w as f32, &window_info(w).0, true);
+                        ix.is_some_and(|ix| tx >= ix - 2.0 && tx <= ix + 18.0)
+                    });
                     return Hit::Title {
                         window: w.clone(),
                         button: chrome::title_button_at(tx, ty),
                         group: chrome::over_button_group(tx, ty),
+                        pill,
+                        proxy,
                     };
                 }
             }
@@ -1654,6 +1663,16 @@ impl Glove {
         }
     }
 
+    /// O que o app da janela contou ao Glove: se tem barra de ferramentas (o item
+    /// "toggle-toolbar" nos menus) e o documento aberto.
+    pub fn window_extras(&self, w: &Window) -> (bool, Option<std::path::PathBuf>) {
+        let Some(c) = self.window_pid(w).and_then(|pid| self.menu_clients.iter().rev().find(|c| c.pid == pid)) else { return (false, None) };
+        fn has(items: &[crate::menus::Entry]) -> bool {
+            items.iter().any(|e| e.id == "toggle-toolbar" || has(&e.sub))
+        }
+        (c.menus.iter().any(|m| has(&m.items)), c.doc.clone())
+    }
+
     fn prepare_decorations(&mut self) {
         let sc = self.scale() as f32;
         let focused = self.focused_window();
@@ -1672,14 +1691,18 @@ impl Glove {
                 continue;
             }
             let active = focused.as_ref() == Some(w);
+            let (pill, doc) = self.window_extras(w);
+            let edited = self.window_pid(w).and_then(|pid| self.menu_clients.iter().rev().find(|c| c.pid == pid)).is_some_and(|c| c.edited);
             let st = TitleBarState {
                 active,
                 hover: self.chrome.hover_buttons.as_ref() == Some(w),
                 pressed: self.chrome.pressed_button.as_ref().filter(|(pw, _)| pw == w).map(|(_, b)| *b),
                 zoom_enabled: !fixed_size(w),
+                edited,
+                pill,
             };
             let (title, app_id) = window_info(w);
-            let tkey = (size.w, st.clone(), title.clone(), tgen);
+            let tkey = (size.w, st.clone(), title.clone(), tgen, doc.clone());
             if deco.title_key.as_ref() != Some(&tkey) {
                 // Janelas "unificadas" do Tiger (o Arquivos): título em metal escovado,
                 // emendado na barra de ferramentas do app, em qualquer tema.
@@ -1690,7 +1713,8 @@ impl Glove {
                 } else {
                     &self.theme
                 };
-                deco.title = chrome::titlebar(&self.fonts, theme, size.w as f32, &title, &st, sc).map(to_tex);
+                let doc_icon = doc.as_ref().map(|p| glove_paint::icons::file_icon(p, p.is_dir()));
+                deco.title = chrome::titlebar(&self.fonts, theme, size.w as f32, &title, &st, doc_icon, sc).map(to_tex);
                 deco.title_key = Some(tkey);
             }
             let skey = (size.w, size.h, active, tgen);
