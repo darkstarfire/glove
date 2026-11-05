@@ -3,6 +3,7 @@
 
 use std::time::{Duration, Instant};
 
+mod rede;
 mod som;
 
 use glove_config::{Config, OutputsInfo};
@@ -28,6 +29,7 @@ enum Pane {
     Monitor,
     Som,
     Energia,
+    Rede,
     Dock,
     Teclado,
     Mouse,
@@ -49,7 +51,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 10] = [
+const PANES: [PaneInfo; 11] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -59,6 +61,7 @@ const PANES: [PaneInfo; 10] = [
     PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear" },
     PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto" },
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
+    PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
 
@@ -178,6 +181,7 @@ struct Prefs {
     /// Painel de energia: aba e "configurações para" (0 tomada, 1 bateria).
     energy_tab: usize,
     energy_source: usize,
+    rede: rede::Rede,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
@@ -201,6 +205,20 @@ const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
 
 impl Prefs {
     fn new() -> Self {
+        let mut p = Self::build();
+        if p.pane == Pane::Rede {
+            p.rede.refresh();
+        }
+        // "glove-prefs rede --entrar REDE" (do menu Wi-Fi): já pede a senha dela.
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(ssid) = args.iter().position(|a| a == "--entrar").and_then(|i| args.get(i + 1)) {
+            p.rede.show = 1 + rede_wifi_index();
+            p.rede.prompt = Some((ssid.clone(), String::new()));
+        }
+        p
+    }
+
+    fn build() -> Self {
         let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
         let mut images = Vec::new();
         for d in ["Imagens", "Pictures"] {
@@ -214,7 +232,8 @@ impl Prefs {
             }
         }
         images.sort();
-        let arg = std::env::args().nth(1).unwrap_or_default();
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        let arg = args.first().cloned().unwrap_or_default();
         // "atalhos" é a segunda aba do Teclado (como no 10.4).
         let (pane, kbd_tab) = match arg.as_str() {
             "atalhos" => (Pane::Teclado, 1),
@@ -232,6 +251,7 @@ impl Prefs {
             sound_tab: 0,
             energy_tab: 0,
             energy_source: usize::from(on_battery()),
+            rede: rede::Rede::default(),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -250,6 +270,9 @@ impl Prefs {
             self.ctx = None;
             if p == Pane::Som {
                 self.audio = som::status();
+            }
+            if p == Pane::Rede {
+                self.rede.refresh();
             }
         }
     }
@@ -1307,7 +1330,13 @@ thread_local! {
 
 impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
-        self.keyboard(ui);
+        // Com a folha da senha aberta, só ela responde.
+        let sheet = self.pane == Pane::Rede && self.rede.prompt.is_some();
+        if sheet {
+            ui.set_enabled(false);
+        } else {
+            self.keyboard(ui);
+        }
         self.toolbar(ui);
         let (w, h) = (ui.c.w, ui.c.h);
         ui.set_title(info(self.pane).map_or("Preferências", |i| i.name));
@@ -1317,6 +1346,13 @@ impl App for Prefs {
             Pane::Mesa => self.mesa(ui),
             Pane::Som => self.som(ui),
             Pane::Energia => self.energia(ui),
+            Pane::Rede => {
+                let mut menu = self.config.wifi_menu;
+                if self.rede.ui(ui, &mut menu) {
+                    self.config.wifi_menu = menu;
+                    self.save();
+                }
+            }
             Pane::Monitor => self.monitor(ui),
             Pane::Trackpad => self.trackpad(ui),
             Pane::Dock => self.dock(ui),
@@ -1324,6 +1360,10 @@ impl App for Prefs {
             Pane::Mouse => self.mouse(ui),
             Pane::Terminal => self.terminal(ui),
         });
+        if sheet {
+            ui.set_enabled(true);
+            self.rede.prompt_sheet(ui);
+        }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
         ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, 720.0), true);
     }
@@ -1345,7 +1385,7 @@ impl App for Prefs {
         // Contagem da confirmação de resolução; e os monitores conectados (cabo).
         if self.confirm.is_some() {
             Some(Duration::from_millis(500))
-        } else if matches!(self.pane, Pane::Monitor | Pane::Som) {
+        } else if matches!(self.pane, Pane::Monitor | Pane::Som | Pane::Rede) {
             Some(Duration::from_secs(2))
         } else {
             None
@@ -1359,6 +1399,9 @@ impl App for Prefs {
         self.outputs = OutputsInfo::load();
         if self.pane == Pane::Som {
             self.audio = som::status();
+        }
+        if self.pane == Pane::Rede {
+            self.rede.refresh();
         }
     }
 
@@ -1390,6 +1433,11 @@ impl Prefs {
             ui.redraw = true;
         }
     }
+}
+
+/// Posição da interface Wi-Fi na lista do painel Rede (0 se não houver).
+fn rede_wifi_index() -> usize {
+    glove_config::rede::devices().and_then(|l| l.iter().position(|i| i.kind == "wifi")).unwrap_or(0)
 }
 
 /// Quebra o nome em até duas linhas que caibam em `max`.

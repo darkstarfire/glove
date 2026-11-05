@@ -65,6 +65,8 @@ pub enum PrefKind {
     Sound,
     /// Lâmpada acesa.
     Energy,
+    /// Esfera azul com as ondas do Wi-Fi.
+    Network,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1002,6 +1004,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Desktop => pref_desktop(pm, x, y, s),
         PrefKind::Sound => pref_sound(pm, x, y, s),
         PrefKind::Energy => pref_energy(pm, x, y, s),
+        PrefKind::Network => pref_network(pm, x, y, s),
     }
 }
 
@@ -1194,4 +1197,26 @@ fn pref_energy(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pm.fill(rrect(bx, yy, bw, s * 0.05, s * 0.02), &vgrad(yy, yy + s * 0.05, &[(0.0, rgba(235, 236, 240, 255)), (1.0, rgba(140, 144, 152, 255))]));
     }
     pm.fill(oval(cx - r * 0.2, by + s * 0.16, r * 0.4, s * 0.06), &solid(rgba(70, 72, 80, 255)));
+}
+
+/// Esfera de vidro azul com meridianos e as ondas do Wi-Fi saindo do alto.
+fn pref_network(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (cx, cy, r) = (x + s * 0.5, y + s * 0.58, s * 0.32);
+    pm.fill(oval(cx - r, cy + r * 0.8, r * 2.0, r * 0.5), &solid(rgba(0, 0, 0, 40)));
+    pm.fill(circle(cx, cy, r), &radial(cx - r * 0.35, cy - r * 0.4, r * 1.7, &[(0.0, rgba(150, 205, 255, 255)), (0.6, rgba(40, 110, 220, 255)), (1.0, rgba(15, 50, 140, 255))]));
+    let line = solid(rgba(255, 255, 255, 110));
+    pm.stroke(oval(cx - r * 0.45, cy - r, r * 0.9, r * 2.0), &line, lw);
+    pm.stroke(oval(cx - r, cy - r * 0.35, r * 2.0, r * 0.7), &line, lw);
+    pm.stroke(circle(cx, cy, r), &solid(rgba(10, 40, 110, 255)), lw);
+    gloss(pm, cx - r * 0.7, cy - r * 0.95, r * 1.4, r * 0.8, r * 0.4);
+    // Ondas do Wi-Fi saindo do alto da esfera.
+    for (k, a) in [(1.0, 255u8), (1.6, 200), (2.2, 150)] {
+        let rr = s * 0.09 * k;
+        let (ox, oy) = (cx, cy - r - s * 0.02);
+        let mut pb = PathBuilder::new();
+        pb.move_to(ox - rr * 0.8, oy - rr * 0.35);
+        pb.quad_to(ox, oy - rr * 1.25, ox + rr * 0.8, oy - rr * 0.35);
+        pm.stroke(pb.finish(), &solid(rgba(255, 150, 30, a)), (s * 0.045).max(1.2));
+    }
 }

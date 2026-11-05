@@ -215,6 +215,10 @@ pub enum MenuAction {
     ToggleBatteryPercent,
     /// Abre as Preferências num painel.
     OpenPrefs(String),
+    /// Liga (true) ou desliga o Wi-Fi.
+    SetWifi(bool),
+    /// Entrar numa rede: (nome, pede senha).
+    JoinWifi(String, bool),
     /// Fecha todas as janelas do app em foco.
     QuitApp(u32),
     /// Item de um menu do próprio app.
@@ -1120,6 +1124,8 @@ impl Glove {
                 self.dirty = true;
             }
             MenuAction::OpenPrefs(pane) => self.spawn(&format!("glove-prefs {pane}")),
+            MenuAction::SetWifi(on) => self.set_wifi(on),
+            MenuAction::JoinWifi(ssid, secure) => self.join_wifi(&ssid, secure),
             MenuAction::QuitApp(pid) => {
                 for w in self.windows_of_pid(pid) {
                     self.close_window(&w);

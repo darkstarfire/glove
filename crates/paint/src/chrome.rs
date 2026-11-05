@@ -1071,6 +1071,8 @@ pub enum Extra {
     Volume { level: f32, muted: bool },
     Battery { percent: u8, charging: bool, show_percent: bool },
     Display,
+    /// Wi-Fi: ligado e quantas ondas acesas (0 = sem rede).
+    Wifi { on: bool, bars: u8 },
 }
 
 /// Largura do extra na barra.
@@ -1080,6 +1082,7 @@ fn extra_width(fonts: &Fonts, e: &Extra) -> f32 {
         Extra::Battery { percent, show_percent: true, .. } => 36.0 + fonts.measure(&format!("{percent}%"), MENUBAR_PX - 1.0, false),
         Extra::Battery { .. } => 36.0,
         Extra::Display => 30.0,
+        Extra::Wifi { .. } => 30.0,
     }
 }
 
@@ -1146,6 +1149,26 @@ fn battery_glyph(c: &mut Canvas, x: f32, y: f32, percent: u8, charging: bool, co
     }
 }
 
+/// Leque do Wi-Fi: três arcos sobre um ponto; os apagados ficam claros.
+/// Desligado: só o contorno.
+fn wifi_glyph(c: &mut Canvas, cx: f32, base: f32, on: bool, bars: u8, color: Color) {
+    let dim = with_alpha(color, color.alpha() * 0.28);
+    for k in 0..3u8 {
+        let r = 4.5 + k as f32 * 4.0;
+        let mut pb = tiny_skia::PathBuilder::new();
+        let a0 = std::f32::consts::PI * 1.25;
+        let steps = 12;
+        for i in 0..=steps {
+            let a = a0 + std::f32::consts::FRAC_PI_2 * i as f32 / steps as f32;
+            let (x, y) = (cx + r * a.cos(), base + r * a.sin());
+            if i == 0 { pb.move_to(x, y) } else { pb.line_to(x, y) }
+        }
+        let lit = on && k < bars;
+        c.stroke(pb.finish(), &solid(if lit { color } else { dim }), if on { 2.0 } else { 1.0 });
+    }
+    c.fill(circle(cx, base - 1.0, 1.6), &solid(if on && bars > 0 { color } else { dim }));
+}
+
 fn display_glyph(c: &mut Canvas, x: f32, y: f32, color: Color) {
     c.stroke(rrect(x + 0.5, y + 0.5, 16.0, 11.0, 1.5), &solid(color), 1.2);
     c.fill_rect(x + 2.5, y + 2.5, 12.0, 7.0, &solid(with_alpha(color, color.alpha() * 0.35)));
@@ -1180,6 +1203,7 @@ fn draw_extras(c: &mut Canvas, fonts: &Fonts, theme: &Theme, extras: &[Extra], r
                 battery_glyph(c, bx, 6.0, *percent, *charging, col);
             }
             Extra::Display => display_glyph(c, a + 7.0, 3.0, col),
+            Extra::Wifi { on, bars } => wifi_glyph(c, a + 15.0, 16.0, *on, *bars, col),
         }
         ranges[i] = (a, b);
         x = a;

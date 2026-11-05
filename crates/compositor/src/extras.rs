@@ -37,6 +37,7 @@ pub struct BatteryInfo {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExtraKind {
     Display,
+    Wifi,
     Volume,
     Battery,
 }
@@ -69,6 +70,19 @@ pub struct Extras {
     osd_timer: bool,
     /// Brilho de antes de baixar por causa da bateria.
     undimmed: Option<u32>,
+    /// Wi-Fi: (ligado, sinal da rede em uso). None = sem placa Wi-Fi ou sem NetworkManager.
+    pub wifi: Option<(bool, Option<u8>)>,
+}
+
+/// Estado do Wi-Fi para o ícone da barra (lê o NetworkManager).
+fn read_wifi() -> Option<(bool, Option<u8>)> {
+    let devs = glove_config::rede::devices()?;
+    if !devs.iter().any(|d| d.kind == "wifi") {
+        return None;
+    }
+    let on = glove_config::rede::wifi_enabled().unwrap_or(false);
+    let signal = if on { glove_config::rede::wifi_list(false).into_iter().find(|w| w.in_use).map(|w| w.signal) } else { None };
+    Some((on, signal))
 }
 
 /// O aviso fica 1,2 s e some em 0,3 s.
@@ -168,6 +182,11 @@ impl Glove {
     pub fn refresh_extras(&mut self) {
         let vol = read_volume();
         let bat = read_battery(&power_supply_root());
+        let wifi = if self.greeter { None } else { read_wifi() };
+        if wifi != self.extras.wifi {
+            self.extras.wifi = wifi;
+            self.dirty = true;
+        }
         // Saiu da tomada: o brilho baixa um pouco; voltou: volta ao de antes.
         let was_ac = self.extras.battery.as_ref().map(|b| b.on_ac);
         if let (Some(was), Some(now)) = (was_ac, bat.as_ref().map(|b| b.on_ac)) {
@@ -188,6 +207,9 @@ impl Glove {
         if self.config.monitor.menu_extra {
             v.push(ExtraKind::Display);
         }
+        if self.extras.wifi.is_some() && self.config.wifi_menu {
+            v.push(ExtraKind::Wifi);
+        }
         if self.extras.volume.is_some() && self.config.sound.menu_extra {
             v.push(ExtraKind::Volume);
         }
@@ -202,6 +224,10 @@ impl Glove {
             .into_iter()
             .map(|k| match k {
                 ExtraKind::Display => Extra::Display,
+                ExtraKind::Wifi => {
+                    let (on, signal) = self.extras.wifi.unwrap_or((false, None));
+                    Extra::Wifi { on, bars: signal.map_or(0, |s| 1 + (s.min(99) / 34)) }
+                }
                 ExtraKind::Volume => {
                     let (level, muted) = self.extras.volume.unwrap_or((0.0, true));
                     Extra::Volume { level, muted }
@@ -235,6 +261,11 @@ impl Glove {
                 let nodes = self.display_menu();
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
+            ExtraKind::Wifi => {
+                self.extras.wifi = read_wifi().or(self.extras.wifi);
+                let nodes = self.wifi_menu();
+                self.show_menu(BarTarget::Extra(k), nodes);
+            }
         }
     }
 
@@ -266,9 +297,52 @@ impl Glove {
         v.push(MenuNode::sep());
         v.push(MenuNode::new(MenuItem::check("Mostrar porcentagem", self.config.battery_percent), Some(MenuAction::ToggleBatteryPercent)));
         v.push(MenuNode::sep());
-        // O painel Economizador de Energia chega na etapa 7.4.
-        v.push(MenuNode::new(MenuItem::item("Abrir Economizador de Energia…").disabled(), None));
+        v.push(MenuNode::new(MenuItem::item("Abrir Economizador de Energia…"), Some(MenuAction::OpenPrefs("energia".into()))));
         v
+    }
+
+    /// Menu do Wi-Fi (como o do AirPort): ligar/desligar e as redes visíveis.
+    fn wifi_menu(&self) -> Vec<MenuNode> {
+        let info = |t: &str| MenuNode::new(MenuItem::item(t).disabled(), None);
+        let on = self.extras.wifi.is_some_and(|w| w.0);
+        let mut v = vec![info(if on { "Wi-Fi: Ligado" } else { "Wi-Fi: Desligado" })];
+        v.push(MenuNode::new(MenuItem::item(if on { "Desligar Wi-Fi" } else { "Ligar Wi-Fi" }), Some(MenuAction::SetWifi(!on))));
+        if on {
+            v.push(MenuNode::sep());
+            let nets = glove_config::rede::wifi_list(false);
+            if nets.is_empty() {
+                v.push(info("Nenhuma rede encontrada"));
+            }
+            for n in nets.into_iter().take(12) {
+                v.push(MenuNode::new(MenuItem::check(n.ssid.clone(), n.in_use), Some(MenuAction::JoinWifi(n.ssid, n.secure))));
+            }
+            v.push(MenuNode::sep());
+            v.push(MenuNode::new(MenuItem::item("Entrar em Outra Rede…"), Some(MenuAction::OpenPrefs("rede".into()))));
+        }
+        v.push(MenuNode::sep());
+        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Rede…"), Some(MenuAction::OpenPrefs("rede".into()))));
+        v
+    }
+
+    /// Liga ou desliga o Wi-Fi (sem travar a tela: o nmcli roda numa thread).
+    pub fn set_wifi(&mut self, on: bool) {
+        std::thread::spawn(move || glove_config::rede::set_wifi(on));
+        if let Some(w) = self.extras.wifi.as_mut() {
+            *w = (on, None);
+        }
+        self.dirty = true;
+    }
+
+    /// Escolheu uma rede no menu: as abertas e as salvas conectam direto; as
+    /// outras abrem as Preferências pedindo a senha.
+    pub fn join_wifi(&mut self, ssid: &str, secure: bool) {
+        if secure && !glove_config::rede::saved_connections().iter().any(|c| c == ssid) {
+            let quoted = format!("'{}'", ssid.replace('\'', "'\\''"));
+            self.spawn(&format!("glove-prefs rede --entrar {quoted}"));
+        } else {
+            let ssid = ssid.to_string();
+            std::thread::spawn(move || glove_config::rede::connect(&ssid, None));
+        }
     }
 
     fn display_menu(&self) -> Vec<MenuNode> {

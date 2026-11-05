@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod rede;
 pub mod sons;
 
 /// Painel Som.
@@ -338,6 +339,9 @@ pub struct Config {
     pub appearance: Appearance,
     #[serde(default)]
     pub sound: Sound,
+    /// Menu Wi-Fi na barra de menu.
+    #[serde(default = "yes")]
+    pub wifi_menu: bool,
     pub keyboard: Keyboard,
     pub pointer: Pointer,
     pub touchpad: Touchpad,
@@ -450,6 +454,7 @@ impl Default for Config {
             welcome_done: false,
             appearance: Appearance::default(),
             sound: Sound::default(),
+            wifi_menu: true,
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }
