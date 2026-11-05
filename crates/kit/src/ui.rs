@@ -409,6 +409,8 @@ pub struct Ui<'a> {
     counter: u64,
     /// Clique engolido por um pop-up aberto.
     captured: bool,
+    /// Controles desligados de propósito (`set_active(false)`): aparecem apagados.
+    dimmed: bool,
     /// Pede outro quadro logo em seguida.
     pub redraw: bool,
     /// Pede para fechar a janela.
@@ -426,7 +428,7 @@ impl<'a> Ui<'a> {
     pub(crate) fn new(c: &'a mut Canvas, theme: &'a Theme, fonts: &'a Fonts, doc_fonts: &'a Fonts, resizable: bool, input: &'a Input, mem: &'a mut Memory) -> Self {
         let (w, h) = (c.w, c.h);
         let captured = mem.popup.as_ref().is_some_and(|p| p.rect.contains(input.pos)) || mem.popup.is_some() && input.pressed;
-        let mut ui = Self { c, theme, fonts, doc_fonts, resizable, input, mem, stack: Vec::new(), seed: 0, counter: 0, captured, redraw: false, close: false };
+        let mut ui = Self { c, theme, fonts, doc_fonts, resizable, input, mem, stack: Vec::new(), seed: 0, counter: 0, captured, dimmed: false, redraw: false, close: false };
         ui.stack.push(Layout { horizontal: false, x0: 0.0, y0: 0.0, cx: 0.0, cy: 0.0, width: w, used_w: 0.0, used_h: 0.0, spacing: 8.0 });
         let _ = h;
         ui
@@ -546,6 +548,13 @@ impl<'a> Ui<'a> {
     /// Desliga (ou religa) a interação com os widgets seguintes (ex.: atrás de uma folha).
     pub fn set_enabled(&mut self, on: bool) {
         self.captured = !on;
+    }
+
+    /// Liga ou desliga os controles seguintes; desligados, aparecem apagados
+    /// (diferente de `set_enabled`, que só ignora os cliques, como atrás de uma folha).
+    pub fn set_active(&mut self, on: bool) {
+        self.captured = !on;
+        self.dimmed = !on;
     }
 
     pub fn mods(&self) -> &Mods {
@@ -771,11 +780,12 @@ impl<'a> Ui<'a> {
         let w = (self.fonts.measure(t, TEXT, false) + 32.0).max(min_w).ceil();
         let r = self.alloc(w, CONTROL_H);
         let (_, down, clicked) = self.interact(id, r);
-        let base = if down || default { self.theme.accent } else { rgba(238, 238, 240, 255) };
+        let base = if (down || default) && !self.dimmed { self.theme.accent } else { rgba(238, 238, 240, 255) };
         let base = if down { darken(base, 0.2) } else { base };
         gel_rect(self.c, r.x, r.y, r.w, r.h, r.h / 2.0, base);
         let tw = self.fonts.measure(t, TEXT, false);
-        self.fonts.draw(self.c, t, r.x + (r.w - tw) / 2.0, r.y + 15.5, TEXT, false, ink());
+        let col = if self.dimmed { rgba(150, 150, 154, 255) } else { ink() };
+        self.fonts.draw(self.c, t, r.x + (r.w - tw) / 2.0, r.y + 15.5, TEXT, false, col);
         clicked
     }
 
@@ -849,7 +859,8 @@ impl<'a> Ui<'a> {
             pb.line_to(bx + 11.0, by + 3.5);
             self.c.stroke(pb.finish(), &solid(rgba(20, 30, 60, 240)), 2.0);
         }
-        self.fonts.draw(self.c, t, r.x + 20.0, r.y + 14.0, TEXT, false, ink());
+        let col = if self.dimmed { rgba(150, 150, 154, 255) } else { ink() };
+        self.fonts.draw(self.c, t, r.x + 20.0, r.y + 14.0, TEXT, false, col);
         clicked
     }
 

@@ -19,6 +19,14 @@ export SDL_VIDEODRIVER=wayland
 export ELECTRON_OZONE_PLATFORM_HINT=auto
 export _JAVA_AWT_WM_NONREPARENTING=1
 
+# Idioma e formatos escolhidos no painel Internacional (LANG e LC_*).
+amb="${XDG_CONFIG_HOME:-$HOME/.config}/glove/ambiente.conf"
+if [ -f "$amb" ]; then
+    set -a
+    . "$amb"
+    set +a
+fi
+
 # O compositor: ao lado deste script (instalado) ou o do projeto (desenvolvimento).
 dir="$(dirname "$(readlink -f "$0")")"
 glove=glove

@@ -296,13 +296,13 @@ impl Rede {
         let idle = self.busy.is_none();
         let (mut join, mut leave, mut scan) = (false, false, false);
         ui.horizontal(|ui| {
-            ui.set_enabled(idle && on);
+            ui.set_active(idle && on);
             scan = ui.button("Buscar Redes");
-            ui.set_enabled(idle && on && i.connected());
+            ui.set_active(idle && on && i.connected());
             leave = ui.button("Desconectar");
-            ui.set_enabled(idle && on && sel.as_ref().is_some_and(|n| !n.in_use));
+            ui.set_active(idle && on && sel.as_ref().is_some_and(|n| !n.in_use));
             join = ui.default_button("Conectar…");
-            ui.set_enabled(true);
+            ui.set_active(true);
         });
         if scan {
             self.start("Buscando redes…".into(), "Busca concluída.".into(), || {
@@ -361,10 +361,10 @@ impl Rede {
         let mut revert = false;
         ui.horizontal(|ui| {
             ui.space(LW);
-            ui.set_enabled(can);
+            ui.set_active(can);
             revert = ui.button("Reverter");
             apply = ui.default_button("Aplicar");
-            ui.set_enabled(true);
+            ui.set_active(true);
         });
         if revert {
             self.load_ip(true);

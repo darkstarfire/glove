@@ -5,8 +5,10 @@ use std::time::{Duration, Instant};
 
 use glove_config::KEYBOARD_LAYOUTS as LAYOUTS;
 
+mod contas;
 mod datahora;
 mod inicio;
+mod internacional;
 mod rede;
 mod som;
 
@@ -37,6 +39,8 @@ enum Pane {
     DataHora,
     Inicio,
     Acesso,
+    Contas,
+    Internacional,
     Dock,
     Teclado,
     Mouse,
@@ -58,7 +62,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 14] = [
+const PANES: [PaneInfo; 15] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -70,7 +74,8 @@ const PANES: [PaneInfo; 14] = [
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
     PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
     PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
-    PaneInfo { pane: Pane::Inicio, id: "inicio", icon: Icon::Pref(PrefKind::LoginItems), name: "Itens de Início", category: 3, keywords: "abrir ao entrar autostart iniciar sessão login aplicativos automático" },
+    PaneInfo { pane: Pane::Contas, id: "contas", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart" },
+    PaneInfo { pane: Pane::Internacional, id: "internacional", icon: Icon::Pref(PrefKind::International), name: "Internacional", category: 0, keywords: "idioma língua formatos data número moeda região menu de entrada layout teclado" },
     PaneInfo { pane: Pane::Acesso, id: "acesso", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
@@ -182,6 +187,8 @@ struct Prefs {
     rede: rede::Rede,
     datahora: datahora::DataHora,
     inicio: inicio::Inicio,
+    contas: contas::Contas,
+    internacional: internacional::Internacional,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Aba do Acesso Universal.
     access_tab: usize,
@@ -214,6 +221,13 @@ impl Prefs {
         let mut p = Self::build();
         if std::env::args().nth(1).as_deref() == Some("protetor") {
             p.desk_tab = 1;
+        }
+        if std::env::args().nth(1).as_deref() == Some("inicio") {
+            p.contas.tab = 2;
+        }
+        if p.pane == Pane::Contas {
+            p.contas.refresh();
+            p.inicio.refresh();
         }
         if p.pane == Pane::Rede {
             p.rede.refresh();
@@ -254,6 +268,7 @@ impl Prefs {
             "atalhos" => (Pane::Teclado, 1),
             "entrada" => (Pane::Teclado, 2),
             "protetor" => (Pane::Mesa, 0),
+            "inicio" => (Pane::Contas, 0),
             a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
         };
         Self {
@@ -274,6 +289,8 @@ impl Prefs {
             rede: rede::Rede::default(),
             datahora: datahora::DataHora::default(),
             inicio: inicio::Inicio::default(),
+            contas: contas::Contas::default(),
+            internacional: internacional::Internacional::default(),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -300,6 +317,10 @@ impl Prefs {
                 self.datahora.refresh();
             }
             if p == Pane::Inicio {
+                self.inicio.refresh();
+            }
+            if p == Pane::Contas {
+                self.contas.refresh();
                 self.inicio.refresh();
             }
         }
@@ -1553,7 +1574,9 @@ thread_local! {
 impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
         // Com a folha da senha aberta, só ela responde.
-        let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some()) || (self.pane == Pane::Inicio && self.inicio.sheet_open());
+        let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some())
+            || (matches!(self.pane, Pane::Inicio | Pane::Contas) && self.inicio.sheet_open())
+            || (self.pane == Pane::Contas && self.contas.sheet_open());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -1576,6 +1599,18 @@ impl App for Prefs {
                 }
             }
             Pane::Inicio => self.inicio.ui(ui),
+            Pane::Contas => self.contas.ui(ui, &mut self.inicio),
+            Pane::Internacional => {
+                let mut tab = self.internacional.tab;
+                let shown = tab;
+                ui.space(4.0);
+                ui.tab_box(&mut tab, &["Idioma", "Formatos", "Menu de Entrada"], 380.0, |ui| match shown {
+                    0 => self.internacional.idioma(ui),
+                    1 => self.internacional.formatos(ui),
+                    _ => self.menu_entrada(ui),
+                });
+                self.internacional.tab = tab;
+            }
             Pane::Acesso => self.acesso(ui),
             Pane::DataHora => {
                 let mut c = self.config.clock.clone();
@@ -1595,6 +1630,8 @@ impl App for Prefs {
             ui.set_enabled(true);
             if self.pane == Pane::Rede {
                 self.rede.prompt_sheet(ui);
+            } else if self.contas.sheet_open() {
+                self.contas.sheets(ui);
             } else {
                 self.inicio.picker_sheet(ui);
             }

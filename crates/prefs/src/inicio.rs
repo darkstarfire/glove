@@ -91,9 +91,9 @@ impl Inicio {
         ui.horizontal(|ui| {
             ui.spacing(4.0);
             plus = ui.small_button("+");
-            ui.set_enabled(self.sel.is_some());
+            ui.set_active(self.sel.is_some());
             minus = ui.small_button("−");
-            ui.set_enabled(true);
+            ui.set_active(true);
         });
         if plus {
             self.picker = Some((inicio::installed_apps(), None));
@@ -133,9 +133,9 @@ impl Inicio {
             ui.horizontal(|ui| {
                 ui.space(sw - 40.0 - 200.0);
                 cancel = ui.button("Cancelar");
-                ui.set_enabled(sel.is_some());
+                ui.set_active(sel.is_some());
                 add |= ui.default_button("Adicionar");
-                ui.set_enabled(true);
+                ui.set_active(true);
             });
         });
         let esc = ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape);

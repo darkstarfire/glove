@@ -73,6 +73,10 @@ pub enum PrefKind {
     LoginItems,
     /// Figura de braços abertos num círculo azul (símbolo de acessibilidade).
     Access,
+    /// Duas silhuetas (contas de usuário).
+    Accounts,
+    /// Balão de fala com letras de vários alfabetos.
+    International,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1014,6 +1018,8 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::DateTime => pref_datetime(pm, x, y, s),
         PrefKind::LoginItems => pref_login_items(pm, x, y, s),
         PrefKind::Access => pref_access(pm, x, y, s),
+        PrefKind::Accounts => pref_accounts(pm, x, y, s),
+        PrefKind::International => pref_international(pm, x, y, s),
     }
 }
 
@@ -1303,4 +1309,63 @@ fn pref_access(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     line(pm, (cx, cy - r * 0.22), (cx, cy + r * 0.15));
     line(pm, (cx, cy + r * 0.15), (cx - r * 0.25, cy + r * 0.55));
     line(pm, (cx, cy + r * 0.15), (cx + r * 0.25, cy + r * 0.55));
+}
+
+/// Duas silhuetas, uma na frente da outra (contas).
+fn pref_accounts(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let person = |pm: &mut Canvas, cx: f32, top: f32, k: f32, body: Color| {
+        let r = s * 0.13 * k;
+        pm.fill(circle(cx, top + r, r), &radial(cx - r * 0.3, top + r * 0.6, r * 1.6, &[(0.0, rgba(255, 226, 196, 255)), (1.0, rgba(214, 160, 120, 255))]));
+        let (bw, bh) = (s * 0.42 * k, s * 0.34 * k);
+        let by = top + r * 2.1;
+        pm.fill(rrect4(cx - bw / 2.0, by, bw, bh, [bw * 0.45, bw * 0.45, s * 0.03, s * 0.03]), &vgrad(by, by + bh, &[(0.0, lighten(body, 0.25)), (1.0, body)]));
+    };
+    person(pm, x + s * 0.64, y + s * 0.1, 0.85, rgba(110, 120, 140, 255));
+    person(pm, x + s * 0.4, y + s * 0.22, 1.0, rgba(40, 110, 220, 255));
+}
+
+/// Balão de fala azul com três sinais de escrita desenhados (a, ñ, ö estilizados).
+fn pref_international(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.12, s * 0.88, s * 0.6);
+    let mut pb = PathBuilder::new();
+    let r = s * 0.12;
+    pb.move_to(bx + r, by);
+    pb.line_to(bx + bw - r, by);
+    pb.quad_to(bx + bw, by, bx + bw, by + r);
+    pb.line_to(bx + bw, by + bh - r);
+    pb.quad_to(bx + bw, by + bh, bx + bw - r, by + bh);
+    pb.line_to(bx + bw * 0.42, by + bh);
+    pb.line_to(bx + bw * 0.22, by + bh + s * 0.16);
+    pb.line_to(bx + bw * 0.26, by + bh);
+    pb.line_to(bx + r, by + bh);
+    pb.quad_to(bx, by + bh, bx, by + bh - r);
+    pb.line_to(bx, by + r);
+    pb.quad_to(bx, by, bx + r, by);
+    pb.close();
+    let p = pb.finish();
+    pm.fill(p.clone(), &vgrad(by, by + bh, &[(0.0, rgba(120, 180, 250, 255)), (1.0, rgba(30, 90, 200, 255))]));
+    pm.stroke(p, &solid(rgba(20, 60, 140, 255)), lw);
+    gloss(pm, bx + s * 0.04, by + s * 0.02, bw - s * 0.08, bh * 0.45, r);
+    // Três "letras" brancas: um círculo com haste, um til sobre um arco e dois pontos sobre um anel.
+    let white = solid(rgba(255, 255, 255, 240));
+    let w = (s * 0.045).max(1.2);
+    let cy = by + bh * 0.58;
+    pm.stroke(circle(bx + bw * 0.22, cy, s * 0.07), &white, w);
+    let mut pb = PathBuilder::new();
+    pb.move_to(bx + bw * 0.22 + s * 0.07, cy - s * 0.08);
+    pb.line_to(bx + bw * 0.22 + s * 0.07, cy + s * 0.07);
+    pm.stroke(pb.finish(), &white, w);
+    let mut pb = PathBuilder::new();
+    pb.move_to(bx + bw * 0.42, cy + s * 0.07);
+    pb.line_to(bx + bw * 0.42, cy - s * 0.02);
+    pb.quad_to(bx + bw * 0.5, cy - s * 0.09, bx + bw * 0.58, cy - s * 0.02);
+    pb.line_to(bx + bw * 0.58, cy + s * 0.07);
+    pb.move_to(bx + bw * 0.42, cy - s * 0.15);
+    pb.quad_to(bx + bw * 0.46, cy - s * 0.2, bx + bw * 0.5, cy - s * 0.15);
+    pb.quad_to(bx + bw * 0.54, cy - s * 0.1, bx + bw * 0.58, cy - s * 0.15);
+    pm.stroke(pb.finish(), &white, w);
+    pm.stroke(circle(bx + bw * 0.78, cy + s * 0.01, s * 0.065), &white, w);
+    pm.fill(circle(bx + bw * 0.74, cy - s * 0.12, s * 0.022), &white);
+    pm.fill(circle(bx + bw * 0.82, cy - s * 0.12, s * 0.022), &white);
 }

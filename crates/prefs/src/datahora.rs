@@ -248,7 +248,7 @@ impl DataHora {
                 ui.text_field(&mut self.date, 110.0);
                 ui.label("Hora:");
                 ui.text_field(&mut self.time, 90.0);
-                ui.set_enabled(!self.busy);
+                ui.set_active(!self.busy);
                 if ui.button("Definir") {
                     match parse_datetime(&self.date, &self.time) {
                         Some(dt) => {
@@ -258,7 +258,7 @@ impl DataHora {
                         None => self.message = Some((false, "use a data como 05/11/2026 e a hora como 14:30.".into())),
                     }
                 }
-                ui.set_enabled(true);
+                ui.set_active(true);
             });
         }
     }
@@ -302,14 +302,14 @@ impl DataHora {
         let chosen = self.city.and_then(|i| rows.get(i)).map(|r| r.1.clone());
         let can = !self.busy && chosen.as_ref().is_some_and(|z| *z != tz);
         ui.horizontal(|ui| {
-            ui.set_enabled(can);
+            ui.set_active(can);
             if ui.default_button("Definir Fuso Horário") {
                 if let Some(z) = chosen.clone() {
                     let ok = format!("Fuso horário: {}.", city_name(&z));
                     self.start(ok, move || timedatectl(&["set-timezone", &z]));
                 }
             }
-            ui.set_enabled(true);
+            ui.set_active(true);
         });
     }
 
@@ -329,13 +329,13 @@ impl DataHora {
             });
             ui.space(4.0);
             let digital = !c.analog;
-            ui.set_enabled(digital && c.show);
+            ui.set_active(digital && c.show);
             save |= ui.checkbox(&mut c.seconds, "Mostrar os segundos");
             save |= ui.checkbox(&mut c.weekday, "Mostrar o dia da semana");
             save |= ui.checkbox(&mut c.date, "Mostrar a data");
             save |= ui.checkbox(&mut c.h24, "Usar o relógio de 24 horas");
             save |= ui.checkbox(&mut c.blink, "Piscar os dois-pontos");
-            ui.set_enabled(true);
+            ui.set_active(true);
         });
         ui.space(10.0);
         let (y, mo, d, wd, h, m, s) = glove_kit::local_time();
