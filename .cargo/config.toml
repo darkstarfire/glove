@@ -1,0 +1,3 @@
+# Metade dos núcleos: a máquina continua usável enquanto compila.
+[build]
+jobs = 6

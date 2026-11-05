@@ -1300,7 +1300,12 @@ impl<A: App> DataDeviceHandler for Runner<A> {
         if let Some(o) = &offer {
             let files = o.with_mime_types(|m| m.iter().any(|t| t == crate::clipfiles::URI_LIST));
             o.accept_mime_type(o.serial, files.then(|| crate::clipfiles::URI_LIST.to_string()));
-            o.set_actions(if files { DndAction::Copy | DndAction::Move } else { DndAction::empty() }, if files { DndAction::Move } else { DndAction::empty() });
+            let (all, preferred) = match (files, self.w.mem.drop_copy) {
+                (false, _) => (DndAction::empty(), DndAction::empty()),
+                (true, true) => (DndAction::Copy, DndAction::Copy),
+                (true, false) => (DndAction::Copy | DndAction::Move, DndAction::Move),
+            };
+            o.set_actions(all, preferred);
             self.w.mem.dnd_hover = files;
         }
         self.w.input.pos = (x as f32, y as f32);

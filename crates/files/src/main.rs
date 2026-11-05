@@ -2,6 +2,7 @@
 
 mod apps;
 mod info;
+mod mesa;
 mod ops;
 mod smart;
 mod thumb;
@@ -2151,6 +2152,11 @@ impl App for Files {
         }
         let (w, h) = (ui.c.w, ui.c.h);
         self.drop_target = None;
+        // Item escolhido que saiu da pasta (movido por outro app ou pela mesa): some da escolha.
+        if self.selected.as_ref().is_some_and(|p| !apps::is_virtual(p) && !smart::is_smart(p) && p.symlink_metadata().is_err()) {
+            self.selected = None;
+        }
+        self.extra.retain(|p| apps::is_virtual(p) || p.symlink_metadata().is_ok());
         let dropped = ui.take_drop();
         self.dnd_hover = ui.drag_hovering() || dropped.is_some();
         self.sync_watches();
@@ -2310,6 +2316,24 @@ fn main() {
             eprintln!("glove-files: {e}");
         }
         return;
+    }
+    // Pedidos da mesa (o compositor desenha a mesa e chama o Arquivos para o resto).
+    match args.get(1).map(String::as_str) {
+        Some("--abrir") => return mesa::open_paths(&args[2..].iter().map(PathBuf::from).collect::<Vec<_>>()),
+        Some("--transferir") if args.len() > 4 => {
+            return mesa::transfer(args[2] == "mover", PathBuf::from(&args[3]), args[4..].iter().map(PathBuf::from).collect());
+        }
+        Some("--opcoes-mesa") => return mesa::view_options(),
+        Some("--duplicar") => return mesa::duplicate(args[2..].iter().map(PathBuf::from).collect()),
+        Some("--lixo") => {
+            for p in &args[2..] {
+                if let Err(e) = move_to_trash(Path::new(p)) {
+                    eprintln!("glove-files: {p}: {e}");
+                }
+            }
+            return;
+        }
+        _ => {}
     }
     if std::env::args().any(|a| a == "--esvaziar-lixeira") {
         let count = std::fs::read_dir(trash_dir().join("files")).map(|d| d.count()).unwrap_or(0);

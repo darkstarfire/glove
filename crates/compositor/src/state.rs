@@ -117,6 +117,8 @@ pub struct Glove {
     pub startup: Option<crate::startup::Startup>,
     /// Busca Rápida.
     pub search: crate::search::Search,
+    /// A mesa: itens da pasta Mesa e discos (ver desk.rs).
+    pub desk: crate::desk::Desk,
     /// Exposé em andamento.
     pub expose: Option<crate::expose::Expose>,
     /// O mouse saiu dos cantos desde o último disparo.
@@ -241,6 +243,7 @@ impl Glove {
             swallow_wake_release: false,
             startup: None,
             search: Default::default(),
+            desk: Default::default(),
             expose: None,
             corner_armed: true,
             switcher: None,

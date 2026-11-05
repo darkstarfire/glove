@@ -294,6 +294,14 @@ impl Glove {
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
         }
+        // Ícones da mesa sendo arrastados: translúcidos, seguindo o mouse.
+        if let Some(off) = self.desk_drag_offset() {
+            for p in self.desk.drag.as_ref().map(|d| d.paths.as_slice()).unwrap_or_default() {
+                if let (Some(i), Some((_, t))) = (self.desk.index_of(p), self.desk.texs.get(p)) {
+                    out.extend(mem_alpha(renderer, self.desk.rects[i].loc + off, t, sc, Some(0.6)));
+                }
+            }
+        }
         // Escolhendo a área de uma captura: a película fica por cima de tudo (menos do cursor).
         self.region_elements(sc, &mut out);
 
@@ -452,8 +460,14 @@ impl Glove {
         }
         }
 
-        for (i, b) in c.desk_texs.iter().enumerate() {
-            out.extend(mem(renderer, self.desk_icon_rect(i).loc, b, sc));
+        // Mesa: o retângulo de escolher por cima dos ícones.
+        if let (Some((a, b)), Some((_, t))) = (self.desk.rubber, &self.desk.rubber_tex) {
+            out.extend(mem(renderer, (a.x.min(b.x).round() as i32, a.y.min(b.y).round() as i32).into(), t, sc));
+        }
+        for (it, r) in self.desk.items.iter().zip(&self.desk.rects) {
+            if let Some((_, t)) = self.desk.texs.get(&it.path) {
+                out.extend(mem(renderer, r.loc, t, sc));
+            }
         }
         if let Some(b) = &c.wallpaper {
             out.extend(mem(renderer, (0, 0).into(), b, sc));

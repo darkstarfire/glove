@@ -350,6 +350,8 @@ pub struct Memory {
     pub(crate) drag_out: Option<Vec<std::path::PathBuf>>,
     /// Algo sendo arrastado por cima desta janela (de qualquer app).
     pub(crate) dnd_hover: bool,
+    /// Arquivos soltos aqui são só lidos (ex.: o Terminal escreve o caminho): pede "copiar", nunca "mover".
+    pub(crate) drop_copy: bool,
     /// Arquivos soltos nesta janela e onde.
     pub(crate) dropped: Option<(Vec<std::path::PathBuf>, (f32, f32))>,
     /// Widget que pediu para colar.
@@ -704,6 +706,11 @@ impl<'a> Ui<'a> {
     /// Começa a arrastar arquivos para fora da janela (chame com o botão apertado).
     pub fn start_drag_files(&mut self, paths: &[std::path::PathBuf]) {
         self.mem.drag_out = Some(paths.to_vec());
+    }
+
+    /// Arquivos soltos nesta janela só são lidos (o app não os move): o arrastar vira "copiar".
+    pub fn drop_as_copy(&mut self) {
+        self.mem.drop_copy = true;
     }
 
     /// Algo (arquivos de outro app ou desta janela) está sendo arrastado por cima.

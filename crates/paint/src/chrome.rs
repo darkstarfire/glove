@@ -546,6 +546,11 @@ impl DockLayout {
     }
 }
 
+/// Espessura da prateleira do Dock (o que as janelas não podem cobrir), para ícones de `base`.
+pub fn dock_shelf_thickness(base: f32) -> f32 {
+    base + DOCK_PAD_Y + 11.0
+}
+
 /// Posição de cada ícone com o Dock em `side`. `hover` é a coordenada ao longo do Dock.
 pub fn dock_layout_on(items: &[DockItem], hover: Option<f32>, zoom: f32, base: f32, max: f32, side: DockSide) -> DockLayout {
     if side == DockSide::Bottom {
@@ -627,7 +632,7 @@ fn dock_layout_room(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f
     }
     // A prateleira envolve os ícones no tamanho normal; ampliados, eles saem por cima.
     // Folga em cima: o ícone não encosta na borda da prateleira (como no Tiger).
-    let shelf_h = base + DOCK_PAD_Y + 11.0;
+    let shelf_h = dock_shelf_thickness(base);
     let shelf = (center - total / 2.0 - DOCK_PAD_X, height as f32 - shelf_h, total + 2.0 * DOCK_PAD_X, shelf_h);
     DockLayout { width, height, items: out, shelf, side: DockSide::Bottom }
 }
@@ -841,28 +846,166 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
 // Ícones da mesa
 // ---------------------------------------------------------------------------
 
-pub const DESK_ICON_W: f32 = 96.0;
-pub const DESK_ICON_H: f32 = 84.0;
+/// Medidas dos ícones da mesa (Opções de Visualização da mesa).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DeskStyle {
+    /// Lado do ícone.
+    pub icon: f32,
+    /// Tamanho do nome.
+    pub text: f32,
+    /// Nome à direita do ícone.
+    pub right: bool,
+}
 
-/// Ícone na mesa: desenho + nome em branco com sombra (destacado se selecionado).
-pub fn desktop_icon(fonts: &Fonts, theme: &Theme, icon: Icon, label: &str, selected: bool, scale: f32) -> Option<Canvas> {
-    let (w, h) = (DESK_ICON_W, DESK_ICON_H);
-    let mut c = Canvas::new(w, h, scale)?;
-    let s = 52.0;
-    if selected {
-        c.fill(rrect((w - s) / 2.0 - 4.0, 0.0, s + 8.0, s + 4.0, 6.0), &solid(rgba(0, 0, 0, 70)));
+/// Largura do nome à direita do ícone.
+const DESK_SIDE_TEXT: f32 = 130.0;
+
+impl DeskStyle {
+    /// Tamanho da célula de um ícone (a grade da mesa usa a mesma).
+    pub fn cell(&self) -> (f32, f32) {
+        let line = self.text + 3.0;
+        if self.right {
+            (self.icon + 10.0 + DESK_SIDE_TEXT, self.icon.max(2.0 * line) + 8.0)
+        } else {
+            ((self.icon + 40.0).max(90.0), self.icon + 10.0 + 2.0 * line + 4.0)
+        }
     }
-    icons::draw(&mut c, fonts, icon, (w - s) / 2.0, 2.0, s, None);
-    let px = 12.0;
-    let t = fonts.ellipsize(label, px, true, w - 6.0);
-    let tw = fonts.measure(&t, px, true);
-    let (x, y) = ((w - tw) / 2.0, s + 20.0);
-    if selected {
-        c.fill(rrect(x - 6.0, y - 13.0, tw + 12.0, 17.0, 8.5), &solid(theme.accent));
+
+    fn text_width(&self) -> f32 {
+        if self.right { DESK_SIDE_TEXT - 6.0 } else { self.cell().0 - 8.0 }
+    }
+
+    /// Onde fica o desenho do ícone dentro da célula: (x, y).
+    pub fn icon_at(&self) -> (f32, f32) {
+        let (w, h) = self.cell();
+        if self.right { (4.0, ((h - self.icon) / 2.0).floor()) } else { ((w - self.icon) / 2.0, 4.0) }
+    }
+}
+
+/// O texto em linhas que cabem em `max` (quebra nas palavras; palavra grande, nas letras).
+pub fn wrap_lines(fonts: &Fonts, text: &str, px: f32, bold: bool, max: f32) -> Vec<String> {
+    let mut out = vec![String::new()];
+    for word in text.split_inclusive(' ') {
+        let cur = out.last_mut().unwrap();
+        if fonts.measure(&format!("{cur}{word}"), px, bold) <= max || cur.is_empty() && fonts.measure(word, px, bold) <= max {
+            cur.push_str(word);
+            continue;
+        }
+        if !cur.is_empty() {
+            out.push(String::new());
+        }
+        for ch in word.chars() {
+            let cur = out.last_mut().unwrap();
+            if !cur.is_empty() && fonts.measure(&format!("{cur}{ch}"), px, bold) > max {
+                out.push(ch.to_string());
+            } else {
+                cur.push(ch);
+            }
+        }
+    }
+    out
+}
+
+/// O nome em até duas linhas (quebra nas palavras; a segunda termina em "…").
+pub fn wrap_two_lines(fonts: &Fonts, text: &str, px: f32, bold: bool, max: f32) -> Vec<String> {
+    if fonts.measure(text, px, bold) <= max {
+        return vec![text.to_string()];
+    }
+    // Primeira linha: o máximo de palavras que cabem (ou letras, se a palavra não cabe).
+    let words: Vec<&str> = text.split(' ').collect();
+    let mut first = String::new();
+    let mut used = 0;
+    for (k, w) in words.iter().enumerate() {
+        let cand = if first.is_empty() { w.to_string() } else { format!("{first} {w}") };
+        if fonts.measure(&cand, px, bold) > max {
+            break;
+        }
+        first = cand;
+        used = k + 1;
+    }
+    let rest = if used == 0 {
+        let mut cut = 0;
+        for (bi, _) in text.char_indices().skip(1) {
+            if fonts.measure(&text[..bi], px, bold) > max {
+                break;
+            }
+            cut = bi;
+        }
+        first = text[..cut].to_string();
+        text[cut..].to_string()
     } else {
-        fonts.draw(&mut c, &t, x + 1.0, y + 1.0, px, true, rgba(0, 0, 0, 180));
+        words[used..].join(" ")
+    };
+    vec![first, fonts.ellipsize(&rest, px, bold, max)]
+}
+
+/// Um ícone da mesa (do tamanho da célula de `style`): desenho, atalho, nome em
+/// branco com sombra; escolhido = fundo escuro no ícone e nome em pílula de
+/// destaque; `hot` = destino de um arrastar; `rename` = (texto, tudo escolhido).
+#[allow(clippy::too_many_arguments)]
+pub fn desk_icon(fonts: &Fonts, theme: &Theme, style: &DeskStyle, icon: Icon, link: bool, label: &str, selected: bool, hot: bool, rename: Option<(&str, bool)>, scale: f32) -> Option<Canvas> {
+    let (w, h) = style.cell();
+    let mut c = Canvas::new(w, h, scale)?;
+    let s = style.icon;
+    let (ix, iy) = style.icon_at();
+    if selected || hot {
+        c.fill(rrect(ix - 4.0, iy - 3.0, s + 8.0, s + 6.0, 6.0), &solid(rgba(0, 0, 0, if hot { 110 } else { 70 })));
     }
-    fonts.draw(&mut c, &t, x, y, px, true, Color::WHITE);
+    icons::draw(&mut c, fonts, icon, ix, iy, s, None);
+    if link {
+        icons::alias_badge(&mut c, ix, iy, s);
+    }
+    let px = style.text;
+    let line = px + 3.0;
+    let max = style.text_width();
+    let (tx0, ty0) = if style.right { (ix + s + 6.0, (h - 2.0 * line) / 2.0 + px) } else { (0.0, iy + s + 6.0 + px) };
+    // Renomeando: campo branco com o texto em até duas linhas (as últimas, onde se
+    // digita), escolhido por inteiro no começo.
+    if let Some((text, all)) = rename {
+        let mut lines = wrap_lines(fonts, text, px, false, max - 8.0);
+        if lines.len() > 2 {
+            lines.drain(..lines.len() - 2);
+        }
+        let widest = lines.iter().map(|l| fonts.measure(l, px, false)).fold(0.0f32, f32::max);
+        let fw = (widest + 10.0).max(40.0).min(max + 4.0);
+        let fh = lines.len() as f32 * line + 4.0;
+        let fx = if style.right { tx0 - 3.0 } else { ((w - fw) / 2.0).max(1.0) };
+        let fy = ty0 - px - 1.0;
+        c.fill(rrect(fx + 1.0, fy + 1.0, fw, fh, 2.0), &solid(rgba(0, 0, 0, 80)));
+        c.fill(rrect(fx, fy, fw, fh, 2.0), &solid(Color::WHITE));
+        let x = fx + 5.0;
+        for (k, l) in lines.iter().enumerate() {
+            let y = ty0 + 1.0 + k as f32 * line;
+            let lw = fonts.measure(l, px, false);
+            if all && !text.is_empty() {
+                c.fill(rrect(x - 1.0, y - px, lw + 2.0, px + 3.0, 1.0), &solid(theme.accent));
+            }
+            fonts.draw(&mut c, l, x, y, px, false, rgba(10, 10, 10, 255));
+            if !all && k == lines.len() - 1 {
+                c.fill_rect((x + lw + 1.0).round(), y - px, 1.0, px + 3.0, &solid(rgba(10, 10, 10, 255)));
+            }
+        }
+        return Some(c);
+    }
+    for (k, t) in wrap_two_lines(fonts, label, px, true, max).iter().enumerate() {
+        let tw = fonts.measure(t, px, true);
+        let x = if style.right { tx0 } else { ((w - tw) / 2.0).floor() };
+        let y = ty0 + k as f32 * line;
+        if selected {
+            c.fill(rrect(x - 5.0, y - px, tw + 10.0, px + 4.0, (px + 4.0) / 2.0), &solid(theme.accent));
+        } else {
+            fonts.draw(&mut c, t, x + 1.0, y + 1.0, px, true, rgba(0, 0, 0, 190));
+        }
+        fonts.draw(&mut c, t, x, y, px, true, Color::WHITE);
+    }
+    Some(c)
+}
+
+/// Retângulo de escolher na mesa: cinza translúcido com borda clara.
+pub fn rubber_band(w: f32, h: f32, scale: f32) -> Option<Canvas> {
+    let mut c = Canvas::new(w.max(1.0), h.max(1.0), scale)?;
+    c.fill_rect(0.0, 0.0, w, h, &solid(rgba(180, 190, 210, 70)));
+    c.stroke(rrect(0.5, 0.5, (w - 1.0).max(0.5), (h - 1.0).max(0.5), 0.0), &solid(rgba(235, 240, 250, 210)), 1.0);
     Some(c)
 }
 

@@ -266,6 +266,8 @@ pub enum MenuAction {
     QuitApp(u32),
     /// Item de um menu do próprio app.
     Client(u32, String),
+    /// Comando da mesa (menus da mesa e a barra com a mesa em foco).
+    Desk(crate::desk::DeskCmd),
 }
 
 /// Qual menu da barra está aberto.
@@ -278,6 +280,8 @@ pub enum BarTarget {
     Extra(usize),
     /// Menu de um ícone do Dock (pela posição no Dock).
     Dock(usize),
+    /// Menu de contexto (botão direito na mesa).
+    Context,
 }
 
 /// Item de menu com o que ele faz e, se for submenu, os filhos.
@@ -399,13 +403,6 @@ pub struct Chrome {
     pub last_scale: f64,
 
     pub menu: Option<OpenMenu>,
-    /// Ícone do disco na mesa.
-    /// Ícones da mesa: o disco do sistema e os removíveis montados (pendrives).
-    pub desk_items: Vec<(String, std::path::PathBuf)>,
-    pub desk_texs: Vec<Tex>,
-    desk_key: Option<(Vec<(String, std::path::PathBuf)>, Option<usize>, u64)>,
-    pub desk_selected: Option<usize>,
-    pub desk_last_click: Option<std::time::Instant>,
     /// Janela com o mouse sobre os botões (mostra os símbolos).
     pub hover_buttons: Option<Window>,
     pub pressed_button: Option<(Window, TitleButton)>,
@@ -585,53 +582,17 @@ impl Glove {
                 }
             }
         }
-        if let Some(i) = (0..self.chrome.desk_items.len()).find(|i| self.desk_icon_rect(*i).to_f64().contains(pos)) {
-            return Hit::DesktopIcon(i);
+        if !self.greeter {
+            if let Some(i) = self.desk_item_at(pos) {
+                return Hit::DesktopIcon(i);
+            }
         }
         Hit::Desktop
     }
 
-    /// Onde fica o ícone `i` da mesa: uma coluna no canto superior direito.
-    pub fn desk_icon_rect(&self, i: usize) -> Rectangle<i32, Logical> {
-        // Encostado à direita da área útil (o Dock à direita empurra para dentro).
-        let a = self.work_area();
-        let w = a.loc.x + a.size.w;
-        let y = MENUBAR_H + 12 + i as i32 * (chrome::DESK_ICON_H as i32 + 10);
-        Rectangle::new((w - chrome::DESK_ICON_W as i32 - 12, y).into(), (chrome::DESK_ICON_W as i32, chrome::DESK_ICON_H as i32).into())
-    }
-
-    /// Relê os discos removíveis montados (pendrives) e atualiza a mesa se mudou.
+    /// Pendrives e pasta Mesa (chamado pelo relógio de 1 s).
     pub fn refresh_desk_items(&mut self) {
-        let mut items = vec![("Disco".to_string(), std::path::PathBuf::from("/"))];
-        items.extend(removable_mounts());
-        if items != self.chrome.desk_items {
-            // Mídia Removível: um disco novo (não os que já estavam na partida) abre no Arquivos.
-            if !self.chrome.desk_items.is_empty() && self.config.removable_action == "abrir" && !self.greeter {
-                for (_, path) in items.iter().filter(|i| !self.chrome.desk_items.contains(i)) {
-                    let q = path.display().to_string().replace('\'', "'\\''");
-                    self.spawn(&format!("glove-files '{q}'"));
-                }
-            }
-            self.chrome.desk_items = items;
-            self.chrome.desk_selected = None;
-            self.dirty = true;
-        }
-    }
-
-    /// Clique num ícone da mesa: seleciona; clique duplo abre no Arquivos.
-    pub fn click_desk_icon(&mut self, i: usize) {
-        let now = std::time::Instant::now();
-        let double = self.chrome.desk_selected == Some(i) && self.chrome.desk_last_click.is_some_and(|t| now.duration_since(t).as_millis() < self.config.pointer.double_click_ms as u128);
-        self.chrome.desk_selected = Some(i);
-        self.chrome.desk_last_click = Some(now);
-        if double {
-            self.chrome.desk_last_click = None;
-            if let Some((_, p)) = self.chrome.desk_items.get(i) {
-                let p = p.display().to_string().replace('\'', "'\\''");
-                self.spawn(&format!("glove-files '{p}'"));
-            }
-        }
-        self.dirty = true;
+        self.refresh_desk(false);
     }
 
     // -----------------------------------------------------------------------
@@ -657,6 +618,8 @@ impl Glove {
             // Menus e dicas X11 nunca levam o foco.
             Some(w) if self.x11_overlays.contains(&w) => return,
             Some(w) => {
+                // Renomeando na mesa e clicou numa janela: o nome novo vale.
+                self.desk_commit_rename();
                 self.space.raise_element(&w, true);
                 self.note_app_used(&w);
                 let target = match w.x11_surface() {
@@ -741,7 +704,14 @@ impl Glove {
             return Rectangle::new((0, 0).into(), (w, h).into());
         }
         // Espaço reservado para o Dock (tamanho dos ícones + prateleira); escondido, nada.
-        let reserve = if self.config.dock.autohide { 0 } else { (self.config.dock.size.clamp(24, 128) as f32 * 0.62 + 30.0) as i32 };
+        // A espessura exata da prateleira: a janela maximizada encosta nela, sem cobrir.
+        // Vale a prateleira que está na tela (o Dock encolhe quando não cabe na borda).
+        let shelf = match &self.chrome.dock_layout {
+            Some(l) if l.side.vertical() => l.shelf.2,
+            Some(l) => l.shelf.3,
+            None => chrome::dock_shelf_thickness(self.config.dock.size.clamp(24, 128) as f32),
+        };
+        let reserve = if self.config.dock.autohide { 0 } else { shelf.ceil() as i32 };
         match chrome::DockSide::from_config(&self.config.dock.position) {
             chrome::DockSide::Bottom => Rectangle::new((0, MENUBAR_H).into(), (w, (h - MENUBAR_H - reserve).max(100)).into()),
             chrome::DockSide::Left => Rectangle::new((reserve, MENUBAR_H).into(), ((w - reserve).max(100), h - MENUBAR_H).into()),
@@ -846,6 +816,32 @@ impl Glove {
         self.dirty = true;
     }
 
+    /// A área útil mudou (o Dock mudou de tamanho ou de lado): as janelas em zoom
+    /// voltam a ocupar a área inteira, encostadas no Dock.
+    pub fn refit_zoomed(&mut self) {
+        let wins: Vec<Window> = self.space.elements().cloned().collect();
+        for w in wins {
+            let zoomed = w.user_data().get::<RefCell<Restore>>().is_some_and(|r| r.borrow().0.is_some());
+            if !zoomed {
+                continue;
+            }
+            let top = deco_top(&w);
+            let area = self.zoom_area(&w);
+            let rect = Rectangle::new((area.loc.x, area.loc.y + top).into(), (area.size.w, area.size.h - top).into());
+            if self.space.element_geometry(&w) == Some(rect) {
+                continue;
+            }
+            if let Some(x) = w.x11_surface() {
+                let _ = x.configure(rect);
+            } else if let Some(t) = w.toplevel() {
+                t.with_pending_state(|s| s.size = Some(rect.size));
+                t.send_pending_configure();
+            }
+            self.space.map_element(w.clone(), rect.loc, false);
+        }
+        self.dirty = true;
+    }
+
     /// Posiciona uma janela nova no centro da área útil (com cascata leve).
     pub fn place_new_window(&mut self, w: &Window) {
         if w.user_data().get::<Placed>().is_some() {
@@ -906,6 +902,7 @@ impl Glove {
                     .map(|a| a.name)
                     .unwrap_or_else(|| if app_id.is_empty() { title } else { pretty_app_name(&app_id) })
             }
+            None if self.desk_active() => "Arquivos".to_string(),
             None => "Glove".to_string(),
         }
     }
@@ -922,6 +919,7 @@ impl Glove {
         t.extend(self.bar_menus().into_iter().map(|m| match m {
             crate::appmenu::BarMenu::Client(m) => m.title,
             crate::appmenu::BarMenu::Window(_) => crate::appmenu::WINDOW_MENU.to_string(),
+            crate::appmenu::BarMenu::Desk(t) => t,
         }));
         t
     }
@@ -932,6 +930,7 @@ impl Glove {
         match target {
             BarTarget::Extra(k) => self.open_extra(k),
             BarTarget::Dock(i) => self.open_dock_menu(i),
+            BarTarget::Context => {}
             BarTarget::Logo => self.open_main_menu(),
             BarTarget::Title(0) => self.open_app_menu(),
             BarTarget::Title(i) => {
@@ -939,6 +938,7 @@ impl Glove {
                 let nodes = match self.bar_menus().into_iter().nth(i - 1) {
                     Some(crate::appmenu::BarMenu::Client(m)) => client_nodes(pid, m.items),
                     Some(crate::appmenu::BarMenu::Window(extra)) => self.window_menu_nodes(extra),
+                    Some(crate::appmenu::BarMenu::Desk(title)) => self.desk_bar_nodes(&title),
                     None => return,
                 };
                 self.show_menu(target, nodes);
@@ -976,7 +976,7 @@ impl Glove {
             BarTarget::Logo => self.chrome.logo_range.0,
             BarTarget::Title(i) => self.chrome.title_ranges.get(i).map(|r| r.0).unwrap_or(0.0),
             BarTarget::Extra(k) => self.chrome.extra_ranges.get(k).map(|r| r.0).unwrap_or(0.0),
-            BarTarget::Dock(_) => 0.0,
+            BarTarget::Dock(_) | BarTarget::Context => 0.0,
         };
         let mut level = self.menu_level(nodes, (x as i32, MENUBAR_H).into());
         // Menus dos extras ficam encostados à direita se não couberem.
@@ -984,6 +984,10 @@ impl Glove {
         level.origin.x = level.origin.x.min(sw - level.size.w).max(0);
         self.chrome.menu = Some(OpenMenu { target, levels: vec![level], pointer_x: None });
         self.dirty = true;
+    }
+
+    pub(crate) fn new_menu_level(&self, nodes: Vec<MenuNode>) -> MenuLevel {
+        self.menu_level(nodes, (0, 0).into())
     }
 
     fn menu_level(&self, nodes: Vec<MenuNode>, origin: Point<i32, Logical>) -> MenuLevel {
@@ -1199,7 +1203,7 @@ impl Glove {
     fn menu_neighbor(&mut self, target: BarTarget, dir: i32) {
         let n = self.bar_titles().len() as i32 + 1; // logotipo + títulos
         let idx = match target {
-            BarTarget::Logo | BarTarget::Extra(_) | BarTarget::Dock(_) => 0,
+            BarTarget::Logo | BarTarget::Extra(_) | BarTarget::Dock(_) | BarTarget::Context => 0,
             BarTarget::Title(i) => i as i32 + 1,
         };
         let next = (idx + dir).rem_euclid(n);
@@ -1319,6 +1323,7 @@ impl Glove {
                     c.activate(&id);
                 }
             }
+            MenuAction::Desk(c) => self.desk_cmd(c),
         }
     }
 
@@ -1425,7 +1430,7 @@ impl Glove {
         let open = self.chrome.menu.as_ref().and_then(|m| match m.target {
             BarTarget::Logo => Some(0),
             BarTarget::Title(i) => Some(i + 1),
-            BarTarget::Extra(_) | BarTarget::Dock(_) => None,
+            BarTarget::Extra(_) | BarTarget::Dock(_) | BarTarget::Context => None,
         });
         let open_extra = match self.chrome.menu.as_ref().map(|m| m.target) {
             Some(BarTarget::Extra(k)) => Some(k),
@@ -1479,18 +1484,8 @@ impl Glove {
             }
         }
 
-        // Ícones da mesa (disco e removíveis)
-        let key = (self.chrome.desk_items.clone(), self.chrome.desk_selected, tgen);
-        if self.chrome.desk_key.as_ref() != Some(&key) {
-            self.chrome.desk_texs = self
-                .chrome
-                .desk_items
-                .iter()
-                .enumerate()
-                .filter_map(|(i, (label, _))| chrome::desktop_icon(&self.fonts, &self.theme, Icon::Disk, label, self.chrome.desk_selected == Some(i), sc).map(to_tex))
-                .collect();
-            self.chrome.desk_key = Some(key);
-        }
+        // Ícones da mesa
+        self.prepare_desk();
 
         self.prepare_force_quit();
         self.prepare_startup();
@@ -1626,7 +1621,11 @@ impl Glove {
         }
         self.chrome.dock_items = items;
         self.chrome.dock_actions = actions;
+        let before = self.work_area();
         self.chrome.dock_layout = Some(layout);
+        if self.work_area() != before {
+            self.refit_zoomed();
+        }
     }
 
     fn prepare_decorations(&mut self) {

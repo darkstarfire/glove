@@ -8,6 +8,45 @@ pub mod inicio;
 pub mod rede;
 pub mod sons;
 
+/// Mesa (Opções de Visualização da mesa, Ctrl+J com a mesa em foco).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Desk {
+    /// Lado do ícone, em pontos (32 a 128).
+    pub icon_size: u32,
+    /// Tamanho do nome (10 a 16).
+    pub text_size: u32,
+    /// Nome à direita do ícone (em vez de embaixo).
+    pub label_right: bool,
+    /// Mostrar o disco do sistema e os pendrives/discos externos.
+    pub show_disks: bool,
+    pub show_removable: bool,
+    /// Manter organizado por: "" (livre), "nome", "data", "tamanho" ou "tipo".
+    pub arrange: String,
+}
+
+impl Default for Desk {
+    fn default() -> Self {
+        Self { icon_size: 52, text_size: 12, label_right: false, show_disks: true, show_removable: true, arrange: String::new() }
+    }
+}
+
+/// A pasta Mesa do usuário (`XDG_DESKTOP_DIR`), criada se faltar.
+pub fn desktop_dir() -> PathBuf {
+    let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| "/".into()));
+    let from_dirs = std::fs::read_to_string(home.join(".config/user-dirs.dirs")).ok().and_then(|t| {
+        let line = t.lines().find(|l| l.starts_with("XDG_DESKTOP_DIR="))?.to_string();
+        let v = line.split_once('=')?.1.trim().trim_matches('"').to_string();
+        Some(match v.strip_prefix("$HOME") {
+            Some(rest) => home.join(rest.trim_start_matches('/')),
+            None => PathBuf::from(v),
+        })
+    });
+    let dir = from_dirs.filter(|p| *p != home).unwrap_or_else(|| home.join("Desktop"));
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
 /// Relógio da barra de menu (painel Data e Hora, aba Relógio).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -618,6 +657,8 @@ pub struct Config {
     /// Troca rápida de usuário: o nome na ponta da barra de menu, com a lista de contas.
     #[serde(default)]
     pub user_menu: bool,
+    #[serde(default)]
+    pub desk: Desk,
 }
 
 pub fn default_prefs_favorites() -> Vec<String> {
@@ -753,6 +794,7 @@ impl Default for Config {
             prefs_favorites: default_prefs_favorites(),
             x11_apps: true,
             user_menu: false,
+            desk: Desk::default(),
         }
     }
 }

@@ -527,6 +527,13 @@ impl App for Terminal {
         if let Some(t) = ui.take_paste() {
             self.paste(&t);
         }
+        // Arquivos ou pastas soltos aqui: o caminho completo, entre aspas se preciso
+        // (como no Terminal do Mac), seguido de um espaço.
+        ui.drop_as_copy();
+        if let Some((paths, _)) = ui.take_drop() {
+            let text: Vec<String> = paths.iter().map(|p| shell_quote(&p.to_string_lossy())).collect();
+            self.paste(&format!("{} ", text.join(" ")));
+        }
         // Teclado: atalhos do Terminal primeiro, o resto vai para o shell.
         if ui.menu_actions().iter().any(|a| a == "prefs") {
             // Preferências do Terminal: o painel Terminal das Preferências do Glove.
@@ -710,5 +717,26 @@ fn main() {
     let opts = WindowOptions { title: "Terminal".into(), app_id: "glove.Terminal".into(), size, fixed: false, min_size: None };
     if let Err(e) = run(opts, term) {
         eprintln!("glove-term: {e}");
+    }
+}
+
+/// Caminho pronto para o shell: sem aspas se só tiver caracteres seguros; senão
+/// entre aspas simples (com ' escapado como '\'').
+fn shell_quote(s: &str) -> String {
+    let safe = !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || "/._-+,:@%=".contains(c));
+    if safe {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
+#[cfg(test)]
+mod drop_tests {
+    #[test]
+    fn caminhos_para_o_shell() {
+        assert_eq!(super::shell_quote("/home/ana/notas.txt"), "/home/ana/notas.txt");
+        assert_eq!(super::shell_quote("/home/ana/Área de trabalho"), "'/home/ana/Área de trabalho'");
+        assert_eq!(super::shell_quote("/tmp/it's"), "'/tmp/it'\\''s'");
     }
 }

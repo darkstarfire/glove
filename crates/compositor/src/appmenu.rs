@@ -19,6 +19,8 @@ pub enum BarMenu {
     Client(AppMenu),
     /// Menu Janela do Glove, com os itens que o app tiver posto no "Janela" dele.
     Window(Vec<Entry>),
+    /// Menu do Arquivos com a mesa em foco (Arquivo, Editar, Visualizar, Ir).
+    Desk(String),
 }
 
 impl Glove {
@@ -34,6 +36,9 @@ impl Glove {
 
     /// Menus da barra depois do nome do app: os do app e, por último, Janela.
     pub fn bar_menus(&self) -> Vec<BarMenu> {
+        if self.desk_active() {
+            return Glove::desk_bar_titles().into_iter().map(BarMenu::Desk).collect();
+        }
         let mut out = Vec::new();
         let mut extra = Vec::new();
         for m in self.focused_menus() {
@@ -54,6 +59,11 @@ impl Glove {
 
     /// Menu com o nome do app.
     pub fn open_app_menu(&mut self) {
+        if self.desk_active() {
+            let nodes = self.desk_app_nodes();
+            self.show_menu(BarTarget::Title(0), nodes);
+            return;
+        }
         let focused = self.focused_window();
         let app = self.focused_app_name();
         let pid = self.focused_pid().unwrap_or(0);

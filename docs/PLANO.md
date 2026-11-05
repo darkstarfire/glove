@@ -31,7 +31,8 @@ use as páginas da [512pixels](https://512pixels.net/projects/aqua-screenshot-li
 ## Como cada etapa é feita
 
 1. Implementar a etapa (uma por vez, na ordem abaixo).
-2. Compilar com `./compilar.sh` (apaga antes os restos de compilações antigas).
+2. Compilar com `./compilar.sh` (apaga antes os restos de compilações antigas). A compilação usa 6
+   núcleos (`.cargo/config.toml`), para a máquina continuar usável.
 3. Testar: `cargo test --release` e capturas de tela comparadas com as referências.
 4. Medir a memória quando a etapa mexer em processo residente (meta: máquina de 500 MB).
 5. Marcar `[x]` aqui e fazer **um commit por etapa**, enviado ao GitHub.
@@ -265,25 +266,39 @@ Defeitos vistos usando a sessão no dia a dia (17 capturas de tela), todos corri
   acha, para cada pixel, de onde ele vem na janela), com curvas contínuas e bordas suaves
 - [x] 9.9.23 Sombra das janelas cobre também os cantos de cima arredondados (antes o pedaço recortado
   ficava sem sombra e o canto parecia vivo sobre outra janela)
+- [x] 9.9.41 Janela maximizada encosta exatamente no Dock, em qualquer tamanho: a área útil usa a
+  espessura real da prateleira na tela (inclusive quando o Dock encolhe para caber) e as janelas em
+  zoom se reajustam quando o Dock muda
+- [x] 9.9.42 Arrastar arquivos ou pastas para o Terminal escreve o caminho completo (entre aspas quando
+  tem espaço), como no Terminal do Mac; o arrastar vira "copiar", nunca "mover"
 
 ## Fase 9.10 — O que faltou do Tiger (levantamento de 05/11/2026)
 
 Segunda passada nas 91 capturas de `referencias/tiger/` contra o Glove atual, depois do uso real
 mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 10.
 
-- [ ] 9.10.1 **Mesa como o Arquivos** (`Desktop`): mostra os itens da pasta Mesa (`xdg-user-dir DESKTOP`)
-  além dos discos; menu do fundo (Nova Pasta, Obter Informações, Alterar Fundo da Mesa…, Limpar,
-  Organizar por ▸, Mostrar Opções de Visualização); menu do ícone (Abrir, Abrir com ▸, Mover para o
-  Lixo, Obter Informações, Compactar, Duplicar, Criar Atalho, Copiar, Rótulo); arrastar ícones pela mesa
-  (posição guardada), para pastas, janelas e o Lixo, e do Arquivos para a mesa; renomear no lugar;
-  atalhos do Arquivos (Ctrl+Shift+N, Ctrl+Backspace, Enter, Ctrl+O/D/I/J); com a mesa em foco a barra
-  de menu mostra os menus do Arquivos (G)
+- [x] 9.10.1 **Mesa como o Arquivos** (`Desktop`): os itens da pasta Mesa (`XDG_DESKTOP_DIR`, com
+  nome e ícone dos atalhos `.desktop`) além dos discos, numa grade a partir do canto superior direito,
+  nomes em até duas linhas; menu do fundo (Nova Pasta, Obter Informações, Colar, Alterar Fundo da
+  Mesa…, Limpar, Organizar por ▸, Mostrar Opções de Visualização); menu do ícone (Abrir, Mover para a
+  Lixeira, Obter Informações, Renomear, Compactar, Duplicar, Criar Atalho, Copiar); clique duplo abre;
+  retângulo e Shift/Ctrl escolhem vários; arrastar pela mesa (posição guardada em
+  `~/.config/glove/mesa-posicoes`), para pastas e discos da mesa, para o Lixo e os apps do Dock e para
+  janelas (arrastar do sistema), e das janelas do Arquivos para a mesa (cai onde foi solto); Alt copia;
+  renomear no lugar (Enter; a pasta nova já nasce renomeando); atalhos do Arquivos (Ctrl+N,
+  Ctrl+Shift+N, Ctrl+O, Ctrl+I, Ctrl+D, Ctrl+L, Ctrl+J, Ctrl+A, Ctrl+C/V, Ctrl+Backspace, setas,
+  digitar o nome); com a mesa em foco a barra mostra Arquivos, Arquivo, Editar, Visualizar e Ir.
+  Opções de Visualização (Ctrl+J): tamanho dos ícones e do texto, nome embaixo ou à direita, manter
+  organizado por, discos e pendrives na mesa (`[desk]` no config.toml). O glove-files ganhou
+  `--abrir`, `--transferir`, `--duplicar`, `--lixo` e `--opcoes-mesa`. "Abrir com ▸" e Rótulo ficam
+  com a 9.10.3 (G)
 - [ ] 9.10.2 **Painel de Widgets** (`Dashboard`, F12): camada escurecida sobre a mesa com widgets
   originais (Relógio, Calculadora, Calendário, Clima, Lembrete, Dicionário, Conversor de unidades,
   Monitor), barra de widgets com o "+" para adicionar e fechar, posição guardada; tecla e canto ativo
   no painel "Exposé e Painel" das Preferências (G)
 - [ ] 9.10.3 Arquivos: **Preferências do Arquivos** (Geral: itens na mesa, pasta das novas janelas;
-  Rótulos; Barra Lateral; Avançado: extensões, aviso ao esvaziar o Lixo), **rótulos de cor**,
+  Rótulos; Barra Lateral; Avançado: extensões, aviso ao esvaziar o Lixo), **rótulos de cor** (também no
+  menu dos ícones da mesa), **Abrir com ▸** nos menus de contexto do Arquivos e da mesa,
   **Opções de Visualização** (Ctrl+J: tamanho dos ícones, posição do nome, organizar por, fundo) (M)
 - [ ] 9.10.4 Arquivos: **Ejetar** na barra lateral e na mesa (botão ⏏, arrastar o disco para o Lixo vira
   Ejetar) e o aviso "disco não foi ejetado corretamente" (`Finder-Eject-Warning`) (M)
@@ -306,7 +321,7 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
 - Pular: Classic, .Mac/iDisk, AirPort, iSync, Internet Connect (coberto por Rede), Automator e
   Editor de Scripts (não há AppleScript no Linux); iChat fica na 10.9 (Mensagens)
 
-## Fase 10 — O Glove "como deveria ter sido" (depois de cumprir toda a era)
+## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
 Ideias para depois das fases 1 a 9.10: o que veio depois do Tiger (ou nunca veio), redesenhado no
 visual gel. Cada uma será detalhada antes de começar.

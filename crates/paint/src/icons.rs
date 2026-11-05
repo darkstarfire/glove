@@ -2053,3 +2053,21 @@ fn mail(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pm.stroke(w.finish(), &solid(rgba(60, 60, 70, 170)), lw);
     }
 }
+
+/// Ícone de um arquivo pela extensão (o mesmo critério do Arquivos); pastas = `Folder`.
+pub fn file_icon(path: &std::path::Path, is_dir: bool) -> Icon {
+    if is_dir {
+        return Icon::Folder;
+    }
+    let ext = path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
+    match ext.as_str() {
+        "txt" | "md" | "log" | "conf" | "ini" | "csv" | "rtf" => Icon::Document,
+        "rs" | "toml" | "json" | "c" | "h" | "cpp" | "hpp" | "py" | "sh" | "xml" | "html" | "css" | "js" | "ts" | "yaml" | "yml" | "go" | "java" | "rb" | "lua" => Icon::CodeFile,
+        "png" | "jpg" | "jpeg" | "gif" | "bmp" | "webp" | "svg" | "tif" | "tiff" => Icon::Picture,
+        "mp3" | "ogg" | "oga" | "flac" | "wav" | "m4a" | "opus" | "aac" => Icon::AudioFile,
+        "mp4" | "mkv" | "webm" | "avi" | "mov" | "m4v" | "ogv" => Icon::VideoFile,
+        "zip" | "tar" | "gz" | "tgz" | "xz" | "bz2" | "7z" | "rar" | "zst" | "deb" | "rpm" => Icon::ArchiveFile,
+        "pdf" => Icon::PdfFile,
+        _ => Icon::File,
+    }
+}

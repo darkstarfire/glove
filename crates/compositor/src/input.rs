@@ -74,6 +74,8 @@ enum KeyAction {
     Mute,
     BrightnessUp,
     BrightnessDown,
+    /// Tecla com a mesa em foco.
+    Desk(crate::desk::DeskKey),
 }
 
 impl KeyAction {
@@ -479,6 +481,17 @@ impl Glove {
                     st.suppressed_keys.push(code);
                     FilterResult::Intercept(Some(a))
                 }
+                // Mesa em foco (nenhuma janela): as teclas do Arquivos valem para ela.
+                None if st.desk_active() && !mods.alt && !mods.logo => {
+                    let ch = handle.modified_sym().key_char();
+                    match crate::desk::desk_key_of(&name, ch, mods.ctrl, mods.shift, st.desk.rename.is_some()) {
+                        Some(k) => {
+                            st.suppressed_keys.push(code);
+                            FilterResult::Intercept(Some(KeyAction::Desk(k)))
+                        }
+                        None => FilterResult::Forward,
+                    }
+                }
                 None => FilterResult::Forward,
             }
         });
@@ -558,6 +571,7 @@ impl Glove {
             Some(KeyAction::ExposeDesktop) => self.toggle_expose(crate::expose::ExposeMode::Desktop),
             Some(KeyAction::ExposeEsc) => self.leave_expose(None),
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
+            Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::SearchMove(d)) => self.search_move(d),
             Some(KeyAction::LockKey(k)) => self.lock_key(k),
             Some(KeyAction::Menu(k)) => self.menu_key(k),
@@ -725,6 +739,7 @@ impl Glove {
             self.dirty = true;
             return;
         }
+        self.desk_motion(pos);
         let pointer = self.seat.get_pointer().unwrap();
         if !pointer.is_grabbed() {
             self.update_hover(pos);
@@ -913,22 +928,21 @@ impl Glove {
                     }
                     Hit::DesktopIcon(i) => {
                         self.focus_window(None);
-                        self.click_desk_icon(i);
+                        self.desk_press(Some(i), button, pos);
                         swallow = true;
                     }
                     // Tela de login: o app de login nunca perde o foco.
                     Hit::Desktop if self.greeter => {}
                     Hit::Desktop => {
                         self.focus_window(None);
-                        if self.chrome.desk_selected.take().is_some() {
-                            self.dirty = true;
-                        }
+                        self.desk_press(None, button, pos);
                     }
                     Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Search(_) => {}
                 }
             }
             self.chrome.swallow_release = swallow;
         } else if state == ButtonState::Released {
+            self.desk_release();
             let hit = self.hit_test(pos);
             // Menu: escolher um item ao soltar
             if let (Some(_), Hit::Menu(l, Some(i))) = (&self.chrome.menu, &hit) {

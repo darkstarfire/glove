@@ -22,6 +22,10 @@ Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger
   (deformação feita na placa de vídeo), miniaturas vivas e Lixo cheio/vazio
 - Janelas com sombra, fechar/minimizar/zoom, arrastar (inclusive entre monitores, encolhendo para
   caber) e redimensionar; **Super+Tab** com a faixa de ícones do Tiger; **Exposé** e cantos ativos
+- **Mesa como o Arquivos** do Tiger: os itens da pasta Mesa e os discos, com menus, arrastar (pela
+  mesa, para pastas, para o Lixo, para janelas e das janelas para a mesa), renomear no lugar,
+  Organizar por, Limpar e Opções de Visualização (Ctrl+J); com a mesa em foco a barra mostra os
+  menus do Arquivos
 - **Busca Rápida** (Super+Espaço): apps instalados, Preferências e arquivos
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
@@ -43,7 +47,7 @@ Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger
 |---|---|
 | Arquivos | Finder do Tiger: metal, barra lateral, colunas/lista/ícones, prévia com zoom, copiar/mover com progresso, Lixo, Obter Informações, pastas inteligentes, compactar |
 | Preferências | Grade "Mostrar Todos" com os painéis da era (Aparência, Mesa e Protetor, Dock, Monitores, Som, Rede, Energia, Teclado, Mouse, Trackpad, Data e Hora, Contas, Internacional, Itens de Início, Acesso Universal, Terminal…) |
-| Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font |
+| Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font; arrastar um arquivo escreve o caminho |
 | Editor de Texto | Régua, alinhamento, Localizar/Substituir, desfazer, aviso de não salvo |
 | Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar |
 | Navegador | Abre o navegador que cabe na máquina (NetSurf com pouca RAM, Firefox acima) |
@@ -115,8 +119,8 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 - Log da sessão: `~/.local/state/glove/sessao.log`
 - Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
 
-Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): arquivos e menus na mesa, Painel de
-Widgets (F12), Imprimir, Conectar ao Servidor e Ejetar pela barra lateral do Arquivos.
+Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): Painel de Widgets (F12), Imprimir,
+Conectar ao Servidor e Ejetar pela barra lateral do Arquivos.
 
 ## Atalhos (padrão, editáveis nas Preferências)
 

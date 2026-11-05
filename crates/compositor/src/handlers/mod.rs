@@ -53,6 +53,15 @@ delegate_seat!(Glove);
 
 impl SelectionHandler for Glove {
     type SelectionUserData = ();
+
+    /// Um app quer colar o que foi copiado na mesa.
+    fn send_selection(&mut self, _ty: smithay::wayland::selection::SelectionTarget, mime_type: String, fd: std::os::fd::OwnedFd, _seat: Seat<Self>, _user_data: &()) {
+        let data = crate::desk::payload(&self.desk.clip, &mime_type);
+        std::thread::spawn(move || {
+            use std::io::Write;
+            let _ = std::fs::File::from(fd).write_all(&data);
+        });
+    }
 }
 
 impl DataDeviceHandler for Glove {
@@ -61,17 +70,56 @@ impl DataDeviceHandler for Glove {
     }
 }
 impl ClientDndGrabHandler for Glove {
-    /// Um app começou a arrastar: o ícone dele (se houver) segue o mouse.
-    fn started(&mut self, _source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>, icon: Option<smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>, _seat: smithay::input::Seat<Self>) {
+    /// Um app começou a arrastar: o ícone dele (se houver) segue o mouse, e a
+    /// lista de arquivos é pedida já (para o caso de soltarem na mesa).
+    fn started(&mut self, source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>, icon: Option<WlSurface>, _seat: Seat<Self>) {
         self.dnd_icon = icon;
+        if let Some(s) = &source {
+            self.desk_watch_drag(s);
+        }
         self.dirty = true;
     }
-    fn dropped(&mut self, _target: Option<smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>, _validated: bool, _seat: smithay::input::Seat<Self>) {
+    fn dropped(&mut self, target: Option<WlSurface>, _validated: bool, _seat: Seat<Self>) {
         self.dnd_icon = None;
+        // Fora de qualquer janela: a mesa (ou o Dock) recebe.
+        if target.is_none() {
+            let copy = self.seat.get_keyboard().is_some_and(|k| k.modifier_state().alt);
+            self.desk.pending_drop = Some((self.pointer_pos, copy));
+            self.desk_incoming_drop();
+        } else {
+            self.desk.incoming = None;
+        }
+        self.desk.hot = None;
         self.dirty = true;
     }
 }
-impl ServerDndGrabHandler for Glove {}
+impl ServerDndGrabHandler for Glove {
+    /// Arrastando da mesa: um app pediu os arquivos.
+    fn send(&mut self, mime_type: String, fd: std::os::fd::OwnedFd, _seat: Seat<Self>) {
+        self.desk_send(&mime_type, fd);
+    }
+    fn dropped(&mut self, _seat: Seat<Self>) {
+        // Se nenhum app aceitar, vem `cancelled` logo depois e a mesa cuida.
+        self.desk.drag_dropped = true;
+        self.dirty = true;
+    }
+    fn cancelled(&mut self, _seat: Seat<Self>) {
+        if self.desk.drag_dropped {
+            let pos = self.pointer_pos;
+            self.desk_drop(pos);
+        }
+        self.desk.drag = None;
+        self.desk.drag_dropped = false;
+        self.desk.hot = None;
+        self.dirty = true;
+    }
+    fn finished(&mut self, _seat: Seat<Self>) {
+        self.desk.drag = None;
+        self.desk.drag_dropped = false;
+        self.desk.hot = None;
+        self.dirty = true;
+    }
+}
 delegate_data_device!(Glove);
 
 impl OutputHandler for Glove {}

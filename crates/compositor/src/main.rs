@@ -4,6 +4,7 @@ mod grabs;
 mod handlers;
 mod input;
 mod appmenu;
+mod desk;
 mod dockmenu;
 mod ending;
 mod expose;
@@ -139,11 +140,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     state.refresh_extras();
     state.start_idle_timer();
-    // Pendrives na mesa: confere os discos montados a cada 3 s (só lê /proc/mounts).
+    // Mesa: confere a cada segundo os discos montados (lê /proc/mounts) e se a
+    // pasta Mesa mudou (só a data dela; a pasta só é relida quando muda).
     state.refresh_desk_items();
-    event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(3)), |_, _, data| {
+    event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(1)), |_, _, data| {
         data.state.refresh_desk_items();
-        TimeoutAction::ToDuration(Duration::from_secs(3))
+        TimeoutAction::ToDuration(Duration::from_secs(1))
     })?;
 
     // Relógio: acorda só uma vez por minuto.
