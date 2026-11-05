@@ -92,7 +92,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 - [x] 4.2 Ícone pula ao abrir um app (M)
 - [x] 4.3 Animação de minimizar até o Dock (Escala) e miniatura viva da janela minimizada (G)
 - [x] 4.4 Menu de contexto do Dock com bico apontando para o ícone (Manter, Mostrar no Arquivos, Encerrar) (M)
-- [ ] 4.5 Ocultar automaticamente, posição esquerda/direita, ampliação até 112 (M)
+- [x] 4.5 Ocultar automaticamente, posição esquerda/direita, ampliação até 112 (M)
 
 ## Fase 5 — Tela de login e inicialização
 

@@ -20,11 +20,15 @@ pub struct Dock {
     pub size: u32,
     pub magnification: bool,
     pub max_size: u32,
+    /// "embaixo", "esquerda" ou "direita".
+    pub position: String,
+    /// Some e reaparece quando o mouse encosta na borda.
+    pub autohide: bool,
 }
 
 impl Default for Dock {
     fn default() -> Self {
-        Self { size: 56, magnification: true, max_size: 80 }
+        Self { size: 56, magnification: true, max_size: 80, position: "embaixo".into(), autohide: false }
     }
 }
 

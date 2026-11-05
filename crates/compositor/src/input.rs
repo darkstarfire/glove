@@ -556,9 +556,12 @@ impl Glove {
         // Dock (ampliação segue o mouse)
         match &hit {
             Hit::Dock(i) => {
-                let x = (pos.x - self.chrome.dock_pos().x as f64) as f32;
-                self.chrome.dock_hover_x = Some(x);
-                self.chrome.dock_last_x = x;
+                let d = self.chrome.dock_pos();
+                let (lx, ly) = ((pos.x - d.x as f64) as f32, (pos.y - d.y as f64) as f32);
+                // Ao longo do Dock: x embaixo, y nas laterais.
+                let along = if self.chrome.dock_side.vertical() { ly } else { lx };
+                self.chrome.dock_hover_x = Some(along);
+                self.chrome.dock_last_x = along;
                 self.chrome.animate_dock_zoom(1.0);
                 // Recalcula já para o item sob o mouse ficar certo.
                 self.prepare_dock();
@@ -567,7 +570,7 @@ impl Glove {
                     .chrome
                     .dock_layout
                     .as_ref()
-                    .and_then(|l| chrome::dock_item_at(l, x, (pos.y - d.y as f64) as f32))
+                    .and_then(|l| chrome::dock_item_at(l, (pos.x - d.x as f64) as f32, (pos.y - d.y as f64) as f32))
                     .or(*i);
                 self.chrome.dock_hover = idx;
                 self.dirty = true;
@@ -579,6 +582,19 @@ impl Glove {
                     self.dirty = true;
                 }
             }
+        }
+
+        // Ocultar automaticamente: aparece com o mouse na borda, some ao sair.
+        if self.config.dock.autohide {
+            let (w, h) = self.output_size();
+            let at_edge = match self.chrome.dock_side {
+                chrome::DockSide::Bottom => pos.y >= h as f64 - 2.0,
+                chrome::DockSide::Left => pos.x <= 1.0,
+                chrome::DockSide::Right => pos.x >= w as f64 - 2.0,
+            };
+            let keep = at_edge || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
+            self.chrome.animate_dock_hide(if keep { 0.0 } else { 1.0 });
+            self.dirty = true;
         }
 
         // Símbolos nos botões da janela

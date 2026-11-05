@@ -212,6 +212,23 @@ impl Prefs {
                 self.save();
             }
         });
+        ui.space(8.0);
+        let words = ["esquerda", "embaixo", "direita"];
+        let mut pos = words.iter().position(|w| *w == self.config.dock.position).unwrap_or(1);
+        ui.form_row("Posição na tela", LW, |ui| {
+            if ui.radio_group(&mut pos, &["À esquerda", "Embaixo", "À direita"]) {
+                self.config.dock.position = words[pos].to_string();
+                self.save();
+            }
+        });
+        ui.space(6.0);
+        let mut hide = self.config.dock.autohide;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut hide, "Ocultar e mostrar o Dock automaticamente") {
+                self.config.dock.autohide = hide;
+                self.save();
+            }
+        });
     }
 
     fn teclado(&mut self, ui: &mut Ui) {

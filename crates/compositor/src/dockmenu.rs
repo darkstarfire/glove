@@ -71,6 +71,12 @@ impl Glove {
         let Some(l) = &self.chrome.dock_layout else { return };
         let Some(&(x, y, s)) = l.items.get(i) else { return };
         let d = self.chrome.dock_pos();
+        if self.chrome.dock_side.vertical() {
+            // Dock na lateral: o menu abre ao lado do ícone.
+            let r = (d.x as f32 + x, d.y as f32 + y, s);
+            self.show_dock_menu_side(i, nodes, r);
+            return;
+        }
         let center = d.x as f32 + x + s / 2.0;
         let top = d.y as f32 + y;
         self.show_dock_menu(i, nodes, center, top);

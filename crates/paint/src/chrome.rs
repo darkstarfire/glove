@@ -487,6 +487,31 @@ const DOCK_PAD_Y: f32 = 4.0;
 const DOCK_SEP: f32 = 14.0;
 const DOCK_LABEL_H: f32 = 26.0;
 
+/// Borda da tela em que o Dock fica.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DockSide {
+    #[default]
+    Bottom,
+    Left,
+    Right,
+}
+
+impl DockSide {
+    pub fn from_config(s: &str) -> Self {
+        match s {
+            "esquerda" => Self::Left,
+            "direita" => Self::Right,
+            _ => Self::Bottom,
+        }
+    }
+    pub fn vertical(self) -> bool {
+        self != Self::Bottom
+    }
+}
+
+/// Espaço ao lado dos ícones para o nome, com o Dock na lateral.
+const DOCK_SIDE_LABEL_W: f32 = 180.0;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DockLayout {
     /// Tamanho lógico.
@@ -496,17 +521,60 @@ pub struct DockLayout {
     pub items: Vec<(f32, f32, f32)>,
     /// Prateleira de vidro: (x, y, w, h).
     pub shelf: (f32, f32, f32, f32),
+    pub side: DockSide,
+}
+
+impl DockLayout {
+    /// Coordenada ao longo do Dock (x embaixo, y nas laterais).
+    pub fn along(&self, x: f32, y: f32) -> f32 {
+        if self.side.vertical() { y } else { x }
+    }
+}
+
+/// Posição de cada ícone com o Dock em `side`. `hover` é a coordenada ao longo do Dock.
+pub fn dock_layout_on(items: &[DockItem], hover: Option<f32>, zoom: f32, base: f32, max: f32, side: DockSide) -> DockLayout {
+    if side == DockSide::Bottom {
+        return dock_layout(items, hover, zoom, base, max);
+    }
+    // Mede como se estivesse embaixo (com espaço para o nome ao lado) e gira.
+    let h = dock_layout_room(items, hover, zoom, base, max, DOCK_SIDE_LABEL_W);
+    let thick = h.height as f32;
+    let items = h
+        .items
+        .iter()
+        .map(|&(x, y, s)| {
+            // Distância da borda da tela até o ícone, igual à de baixo.
+            let from_edge = thick - (y + s);
+            let nx = if side == DockSide::Left { from_edge } else { thick - from_edge - s };
+            (nx, x, s)
+        })
+        .collect();
+    let (sx, _, sw, sh) = h.shelf;
+    let shelf = if side == DockSide::Left { (0.0, sx, sh, sw) } else { (thick - sh, sx, sh, sw) };
+    DockLayout { width: h.height, height: h.width, items, shelf, side }
 }
 
 /// Posição de cada ícone. `hover_x` é relativo ao Dock; `zoom` (0 a 1) é a força
 /// da ampliação, animada ao entrar e sair do Dock para não pular de uma vez.
 pub fn dock_layout(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f32, max: f32) -> DockLayout {
+    dock_layout_room(items, hover_x, zoom, base, max, DOCK_LABEL_H)
+}
+
+/// Comprimento do Dock (ao longo da borda) para esses ícones e tamanhos.
+pub fn dock_length(items: &[DockItem], base: f32, max: f32) -> f32 {
+    let n = items.len() as f32;
+    let seps = items.iter().filter(|i| i.separator_before).count() as f32;
+    n * (base + DOCK_GAP) - DOCK_GAP + seps * DOCK_SEP + (max - base).max(0.0) * 3.2 + 2.0 * DOCK_PAD_X + 4.0
+}
+
+/// Dock embaixo, com `label_room` de espaço acima dos ícones para o nome.
+fn dock_layout_room(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f32, max: f32, label_room: f32) -> DockLayout {
     let n = items.len() as f32;
     let seps = items.iter().filter(|i| i.separator_before).count() as f32;
     let base_w = n * (base + DOCK_GAP) - DOCK_GAP + seps * DOCK_SEP;
     let extra = (max - base).max(0.0) * 3.2;
     let width = (base_w + extra + 2.0 * DOCK_PAD_X).ceil() as u32 + 4;
-    let height = (DOCK_LABEL_H + max.max(base) + 2.0 * DOCK_PAD_Y + 6.0).ceil() as u32;
+    let height = (label_room + max.max(base) + 2.0 * DOCK_PAD_Y + 6.0).ceil() as u32;
     let center = width as f32 / 2.0;
 
     let mut base_centers = Vec::with_capacity(items.len());
@@ -545,11 +613,18 @@ pub fn dock_layout(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f3
     // A prateleira envolve os ícones no tamanho normal; ampliados, eles saem por cima.
     let shelf_h = base + DOCK_PAD_Y + 6.0;
     let shelf = (center - total / 2.0 - DOCK_PAD_X, height as f32 - shelf_h, total + 2.0 * DOCK_PAD_X, shelf_h);
-    DockLayout { width, height, items: out, shelf }
+    DockLayout { width, height, items: out, shelf, side: DockSide::Bottom }
 }
 
 /// Item do Dock sob (x, y) relativos ao Dock.
 pub fn dock_item_at(layout: &DockLayout, x: f32, y: f32) -> Option<usize> {
+    if layout.side.vertical() {
+        let (sx, _, sw, _) = layout.shelf;
+        return layout.items.iter().position(|(ix, iy, s)| {
+            let across = if layout.side == DockSide::Left { x >= 0.0 && x < (ix + s).max(sx + sw) } else { x >= ix.min(sx) && x < layout.width as f32 };
+            across && y >= *iy - DOCK_GAP / 2.0 && y < iy + s + DOCK_GAP / 2.0
+        });
+    }
     let sy = layout.shelf.1;
     layout
         .items
@@ -559,6 +634,15 @@ pub fn dock_item_at(layout: &DockLayout, x: f32, y: f32) -> Option<usize> {
 
 /// O mouse está sobre o Dock (prateleira ou ícones)?
 pub fn dock_contains(layout: &DockLayout, x: f32, y: f32) -> bool {
+    if layout.side.vertical() {
+        let (sx, sy, sw, sh) = layout.shelf;
+        let (lo, hi) = if layout.side == DockSide::Left {
+            (0.0, layout.items.iter().map(|i| i.0 + i.2).fold(sx + sw, f32::max))
+        } else {
+            (layout.items.iter().map(|i| i.0).fold(sx, f32::min), layout.width as f32)
+        };
+        return x >= lo && x < hi && y >= sy && y < sy + sh;
+    }
     let (sx, sy, sw, _) = layout.shelf;
     let top = layout.items.iter().map(|i| i.1).fold(sy, f32::min);
     x >= sx && x < sx + sw && y >= top && y < layout.height as f32
@@ -580,7 +664,13 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
 
     // Prateleira de vidro fosco: retângulo translúcido com bordas claras.
     // Vidro branco translúcido com listras finas, encostado na borda de baixo.
-    let shelf = rrect4(sx, sy, sw, sh + 2.0, [2.0, 2.0, 0.0, 0.0]);
+    let side = layout.side;
+    // Cantos arredondados só do lado de dentro (longe da borda da tela).
+    let shelf = match side {
+        DockSide::Bottom => rrect4(sx, sy, sw, sh + 2.0, [2.0, 2.0, 0.0, 0.0]),
+        DockSide::Left => rrect4(sx - 2.0, sy, sw + 2.0, sh, [0.0, 2.0, 2.0, 0.0]),
+        DockSide::Right => rrect4(sx, sy, sw + 2.0, sh, [2.0, 0.0, 0.0, 2.0]),
+    };
     if theme.variant == Variant::Claro {
         // 10.4: vidro branco liso, sem listras.
         c.fill(shelf.clone(), &solid(rgba(255, 255, 255, 115)));
@@ -589,36 +679,71 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
         c.pinstripes(sx + 1.0, sy + 1.0, sw - 2.0, sh - 1.0, rgba(255, 255, 255, 0), rgba(255, 255, 255, 34));
     }
     c.stroke(shelf, &solid(rgba(255, 255, 255, 170)), 1.0);
-    c.hline(sx, sy - 1.0, sw, rgba(0, 0, 0, 50));
-    c.hline(sx + 2.0, sy + 1.0, sw - 4.0, rgba(255, 255, 255, 210));
+    match side {
+        DockSide::Bottom => {
+            c.hline(sx, sy - 1.0, sw, rgba(0, 0, 0, 50));
+            c.hline(sx + 2.0, sy + 1.0, sw - 4.0, rgba(255, 255, 255, 210));
+        }
+        DockSide::Left => c.vline(sx + sw, sy, sh, rgba(0, 0, 0, 50)),
+        DockSide::Right => c.vline(sx - 1.0, sy, sh, rgba(0, 0, 0, 50)),
+    }
 
     for (i, (it, (x, y, s))) in items.iter().zip(&layout.items).enumerate() {
         if it.separator_before {
-            let lx = x - DOCK_GAP / 2.0 - DOCK_SEP / 2.0;
-            c.vline(lx, sy, sh, rgba(0, 0, 0, 70));
-            c.vline(lx + 1.0, sy, sh, rgba(255, 255, 255, 190));
+            if side.vertical() {
+                let ly = y - DOCK_GAP / 2.0 - DOCK_SEP / 2.0;
+                c.hline(sx, ly, sw, rgba(0, 0, 0, 70));
+                c.hline(sx, ly + 1.0, sw, rgba(255, 255, 255, 190));
+            } else {
+                let lx = x - DOCK_GAP / 2.0 - DOCK_SEP / 2.0;
+                c.vline(lx, sy, sh, rgba(0, 0, 0, 70));
+                c.vline(lx + 1.0, sy, sh, rgba(255, 255, 255, 190));
+            }
         }
-        // App abrindo: o ícone pula (até o topo do Dock, no máximo).
-        let y = &(y - it.bounce.clamp(0.0, (y - 2.0).max(0.0)));
+        // App abrindo: o ícone pula para longe da borda (até o fim do Dock, no máximo).
+        let (x, y) = match side {
+            DockSide::Bottom => (x, &(y - it.bounce.clamp(0.0, (y - 2.0).max(0.0)))),
+            DockSide::Left => (&(x + it.bounce.clamp(0.0, (layout.width as f32 - x - s - 2.0).max(0.0))), y),
+            DockSide::Right => (&(x - it.bounce.clamp(0.0, (x - 2.0).max(0.0))), y),
+        };
         if !it.thumbnail {
             icons::draw_bare(&mut c, fonts, it.icon, *x, *y, *s, it.letter);
         }
         if it.running {
-            // Indicador de app aberto: pequeno triângulo escuro na base.
-            let cx = x + s / 2.0;
-            let by = layout.height as f32 - 1.5;
+            // Indicador de app aberto: pequeno triângulo escuro junto à borda da tela.
             let mut pb = tiny_skia::PathBuilder::new();
-            pb.move_to(cx - 4.0, by);
-            pb.line_to(cx + 4.0, by);
-            pb.line_to(cx, by - 4.5);
+            match side {
+                DockSide::Bottom => {
+                    let (cx, by) = (x + s / 2.0, layout.height as f32 - 1.5);
+                    pb.move_to(cx - 4.0, by);
+                    pb.line_to(cx + 4.0, by);
+                    pb.line_to(cx, by - 4.5);
+                }
+                DockSide::Left => {
+                    let cy = y + s / 2.0;
+                    pb.move_to(1.5, cy - 4.0);
+                    pb.line_to(1.5, cy + 4.0);
+                    pb.line_to(6.0, cy);
+                }
+                DockSide::Right => {
+                    let (cy, bx) = (y + s / 2.0, layout.width as f32 - 1.5);
+                    pb.move_to(bx, cy - 4.0);
+                    pb.line_to(bx, cy + 4.0);
+                    pb.line_to(bx - 4.5, cy);
+                }
+            }
             pb.close();
             c.fill(pb.finish(), &solid(rgba(15, 20, 30, 220)));
         }
         if hover == Some(i) {
             let px = 14.0;
             let tw = fonts.measure(&it.label, px, true);
-            let lx = (x + s / 2.0 - tw / 2.0).clamp(10.0, layout.width as f32 - tw - 10.0);
-            let ly = (y - 8.0).max(16.0);
+            let (lx, ly) = match side {
+                DockSide::Bottom => ((x + s / 2.0 - tw / 2.0).clamp(10.0, layout.width as f32 - tw - 10.0), (y - 8.0).max(16.0)),
+                // Nas laterais, o nome fica ao lado do ícone.
+                DockSide::Left => (x + s + 10.0, y + s / 2.0 + 5.0),
+                DockSide::Right => ((x - 10.0 - tw).max(4.0), y + s / 2.0 + 5.0),
+            };
             outlined_label(fonts, &mut c, &it.label, lx, ly, px);
         }
     }

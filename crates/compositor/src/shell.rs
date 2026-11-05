@@ -165,6 +165,9 @@ pub enum MenuAction {
     Preferences,
     /// Liga/desliga a ampliação do Dock.
     DockMagnification,
+    DockAutohide,
+    /// "esquerda", "embaixo" ou "direita".
+    SetDockSide(String),
     DockPreferences,
     /// Abre um app dos Itens Recentes (app_id).
     RecentApp(String),
@@ -320,6 +323,11 @@ pub struct Chrome {
     /// Força da ampliação (0 a 1) e a animação em curso: (de, para, início).
     pub dock_zoom: f32,
     pub dock_zoom_anim: Option<(f32, f32, std::time::Instant)>,
+    /// Borda em que o Dock fica.
+    pub dock_side: chrome::DockSide,
+    /// Ocultar automaticamente: 0 = à vista, 1 = escondido; e a animação (de, para, início).
+    pub dock_hide: f32,
+    pub dock_hide_anim: Option<(f32, f32, std::time::Instant)>,
     pub dock_hover: Option<usize>,
     pub dock_pressed: Option<usize>,
     dock_key: Option<(Vec<DockItem>, Option<i32>, i32, Option<usize>, u64)>,
@@ -354,9 +362,30 @@ impl Chrome {
 
     pub fn dock_pos(&self) -> Point<i32, Logical> {
         let (w, h) = self.out_size;
-        match &self.dock_layout {
-            Some(l) => ((w - l.width as i32) / 2, h - l.height as i32).into(),
-            None => (0, h).into(),
+        let Some(l) = &self.dock_layout else { return (0, h).into() };
+        // Escondido: desliza para fora pela borda (sobra só a sombra da prateleira).
+        let (lw, lh) = (l.width as i32, l.height as i32);
+        match self.dock_side {
+            chrome::DockSide::Bottom => {
+                let out = (self.dock_hide * l.height as f32) as i32;
+                ((w - lw) / 2, h - lh + out).into()
+            }
+            chrome::DockSide::Left => {
+                let out = (self.dock_hide * l.width as f32) as i32;
+                (-out, (h - lh) / 2).into()
+            }
+            chrome::DockSide::Right => {
+                let out = (self.dock_hide * l.width as f32) as i32;
+                (w - lw + out, (h - lh) / 2).into()
+            }
+        }
+    }
+
+    /// Começa a esconder (1) ou mostrar (0) o Dock.
+    pub fn animate_dock_hide(&mut self, to: f32) {
+        let current_to = self.dock_hide_anim.map(|a| a.1).unwrap_or(self.dock_hide);
+        if current_to != to {
+            self.dock_hide_anim = Some((self.dock_hide, to, std::time::Instant::now()));
         }
     }
 }
@@ -431,7 +460,7 @@ impl Glove {
             let t = self.chrome.title_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64);
             return Hit::MenuBar { target: t.map(BarTarget::Title) };
         }
-        if let Some(l) = &self.chrome.dock_layout {
+        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| self.chrome.dock_hide < 0.5) {
             let d = self.chrome.dock_pos();
             let (lx, ly) = ((px - d.x as f64) as f32, (py - d.y as f64) as f32);
             if chrome::dock_contains(l, lx, ly) {
@@ -489,7 +518,9 @@ impl Glove {
 
     /// Onde fica o ícone do disco (canto superior direito, abaixo da barra de menu).
     pub fn desk_icon_rect(&self) -> Rectangle<i32, Logical> {
-        let (w, _) = self.output_size();
+        // Encostado à direita da área útil (o Dock à direita empurra para dentro).
+        let a = self.work_area();
+        let w = a.loc.x + a.size.w;
         Rectangle::new((w - chrome::DESK_ICON_W as i32 - 12, MENUBAR_H + 12).into(), (chrome::DESK_ICON_W as i32, chrome::DESK_ICON_H as i32).into())
     }
 
@@ -573,9 +604,13 @@ impl Glove {
     /// Área útil: abaixo da barra de menu e acima do Dock.
     pub fn work_area(&self) -> Rectangle<i32, Logical> {
         let (w, h) = self.output_size();
-        // Espaço reservado embaixo para o Dock (tamanho dos ícones + prateleira).
-        let reserve = (self.config.dock.size.clamp(24, 128) as f32 * 0.62 + 30.0) as i32;
-        Rectangle::new((0, MENUBAR_H).into(), (w, (h - MENUBAR_H - reserve).max(100)).into())
+        // Espaço reservado para o Dock (tamanho dos ícones + prateleira); escondido, nada.
+        let reserve = if self.config.dock.autohide { 0 } else { (self.config.dock.size.clamp(24, 128) as f32 * 0.62 + 30.0) as i32 };
+        match chrome::DockSide::from_config(&self.config.dock.position) {
+            chrome::DockSide::Bottom => Rectangle::new((0, MENUBAR_H).into(), (w, (h - MENUBAR_H - reserve).max(100)).into()),
+            chrome::DockSide::Left => Rectangle::new((reserve, MENUBAR_H).into(), ((w - reserve).max(100), h - MENUBAR_H).into()),
+            chrome::DockSide::Right => Rectangle::new((0, MENUBAR_H).into(), ((w - reserve).max(100), h - MENUBAR_H).into()),
+        }
     }
 
     pub fn toggle_zoom(&mut self, w: &Window) {
@@ -718,6 +753,19 @@ impl Glove {
         self.dirty = true;
     }
 
+    /// Menu de ícone com o Dock na lateral: ao lado do ícone (x, y, tamanho).
+    pub(crate) fn show_dock_menu_side(&mut self, i: usize, nodes: Vec<MenuNode>, icon: (f32, f32, f32)) {
+        self.close_menu();
+        let mut level = self.menu_level(nodes, (0, 0).into());
+        let (sw, sh) = self.output_size();
+        let (ix, iy, s) = icon;
+        let x = if self.chrome.dock_side == chrome::DockSide::Left { (ix + s + 12.0) as i32 } else { (ix - 12.0) as i32 - level.size.w };
+        let y = ((iy + s / 2.0) as i32 - level.size.h / 2).clamp(MENUBAR_H + 4, (sh - level.size.h - 4).max(MENUBAR_H + 4));
+        level.origin = (x.clamp(0, (sw - level.size.w).max(0)), y).into();
+        self.chrome.menu = Some(OpenMenu { target: BarTarget::Dock(i), levels: vec![level], pointer_x: None });
+        self.dirty = true;
+    }
+
     pub(crate) fn show_menu(&mut self, target: BarTarget, nodes: Vec<MenuNode>) {
         let x = match target {
             BarTarget::Logo => self.chrome.logo_range.0,
@@ -744,7 +792,18 @@ impl Glove {
     pub fn open_main_menu(&mut self) {
         let item = |label: &str, a: MenuAction| MenuNode::new(MenuItem::item(label), Some(a));
         let mag = if self.config.dock.magnification { "Desativar Ampliação" } else { "Ativar Ampliação" };
-        let dock = vec![item(mag, MenuAction::DockMagnification), MenuNode::sep(), item("Preferências do Dock…", MenuAction::DockPreferences)];
+        let hide = if self.config.dock.autohide { "Desativar Ocultação" } else { "Ativar Ocultação" };
+        let pos = |label: &str, word: &str| MenuNode::new(MenuItem::check(label, self.config.dock.position == word || (word == "embaixo" && !matches!(self.config.dock.position.as_str(), "esquerda" | "direita"))), Some(MenuAction::SetDockSide(word.to_string())));
+        let dock = vec![
+            item(hide, MenuAction::DockAutohide),
+            item(mag, MenuAction::DockMagnification),
+            MenuNode::sep(),
+            pos("Posição à Esquerda", "esquerda"),
+            pos("Posição Embaixo", "embaixo"),
+            pos("Posição à Direita", "direita"),
+            MenuNode::sep(),
+            item("Preferências do Dock…", MenuAction::DockPreferences),
+        ];
         let logout = if self.nested { "Sair do Glove…".to_string() } else { format!("Encerrar Sessão de {}…", user_full_name()) };
         let nodes = vec![
             item("Sobre o Glove", MenuAction::About),
@@ -955,6 +1014,16 @@ impl Glove {
                 self.dirty = true;
             }
             MenuAction::DockPreferences => self.spawn("glove-prefs dock"),
+            MenuAction::DockAutohide => {
+                self.config.dock.autohide = !self.config.dock.autohide;
+                let _ = self.config.save();
+                self.dirty = true;
+            }
+            MenuAction::SetDockSide(side) => {
+                self.config.dock.position = side;
+                let _ = self.config.save();
+                self.dirty = true;
+            }
             MenuAction::RecentApp(id) => {
                 if let Some(i) = self.config.dock_apps.iter().position(|a| a.app_id == id) {
                     self.run_dock_action(DockAction::App(i));
@@ -1259,9 +1328,33 @@ impl Glove {
                 self.dirty = true;
             }
         }
+        // Ocultar automaticamente: desliza pelo relógio, como a ampliação.
+        if let Some((from, to, start)) = self.chrome.dock_hide_anim {
+            let t = (start.elapsed().as_secs_f32() / 0.22).min(1.0);
+            let e = t * t * (3.0 - 2.0 * t);
+            self.chrome.dock_hide = from + (to - from) * e;
+            if t >= 1.0 {
+                self.chrome.dock_hide_anim = None;
+            } else {
+                self.dirty = true;
+            }
+        }
+        if !self.config.dock.autohide && self.chrome.dock_hide != 0.0 && self.chrome.dock_hide_anim.is_none() {
+            self.chrome.dock_hide = 0.0;
+        }
+        self.chrome.dock_side = chrome::DockSide::from_config(&self.config.dock.position);
+        // Muitos ícones: encolhe até caber na borda (como no Mac).
+        let (sw, sh) = self.output_size();
+        let room = if self.chrome.dock_side.vertical() { sh - MENUBAR_H - 8 } else { sw - 8 } as f32;
+        let (mut base, mut max) = (base, max);
+        while base > 16.0 && chrome::dock_length(&items, base, max) > room {
+            let k = (base - 1.0) / base;
+            base -= 1.0;
+            max = (max * k).max(base);
+        }
         let zoom = self.chrome.dock_zoom;
         let hover_x = self.chrome.dock_hover_x.or((zoom > 0.0).then_some(self.chrome.dock_last_x));
-        let layout = chrome::dock_layout(&items, hover_x, zoom, base, max);
+        let layout = chrome::dock_layout_on(&items, hover_x, zoom, base, max, self.chrome.dock_side);
         // Com o menu de um ícone aberto, o nome sob o mouse some (o menu já diz qual é).
         let hover = if self.dock_menu_open() { None } else { self.chrome.dock_hover };
         let key = (items.clone(), hover_x.map(|x| x.round() as i32), (zoom * 1000.0) as i32, hover, self.theme_gen ^ ((base as u64) << 32) ^ ((max as u64) << 44));
