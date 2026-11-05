@@ -77,6 +77,14 @@ pub enum PrefKind {
     Accounts,
     /// Balão de fala com letras de vários alfabetos.
     International,
+    /// Pendrive na frente de um disco.
+    Removable,
+    /// Fone sem fio com ondas.
+    Wireless,
+    /// Pasta azul com uma placa de "compartilhada".
+    Sharing,
+    /// Três ícones de app com um selo de "padrão".
+    DefaultApps,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1020,6 +1028,10 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Access => pref_access(pm, x, y, s),
         PrefKind::Accounts => pref_accounts(pm, x, y, s),
         PrefKind::International => pref_international(pm, x, y, s),
+        PrefKind::Removable => pref_removable(pm, x, y, s),
+        PrefKind::Wireless => pref_wireless(pm, x, y, s),
+        PrefKind::Sharing => pref_sharing(pm, x, y, s),
+        PrefKind::DefaultApps => pref_default_apps(pm, x, y, s),
     }
 }
 
@@ -1368,4 +1380,73 @@ fn pref_international(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(circle(bx + bw * 0.78, cy + s * 0.01, s * 0.065), &white, w);
     pm.fill(circle(bx + bw * 0.74, cy - s * 0.12, s * 0.022), &white);
     pm.fill(circle(bx + bw * 0.82, cy - s * 0.12, s * 0.022), &white);
+}
+
+/// Disco prateado atrás e um pendrive azul na frente.
+fn pref_removable(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (cx, cy, r) = (x + s * 0.42, y + s * 0.44, s * 0.36);
+    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(250, 250, 252, 255)), (0.5, rgba(190, 200, 215, 255)), (1.0, rgba(240, 236, 250, 255))]));
+    pm.stroke(circle(cx, cy, r), &solid(rgba(130, 134, 144, 255)), lw);
+    pm.fill(circle(cx, cy, r * 0.22), &solid(rgba(210, 214, 222, 255)));
+    pm.fill(circle(cx, cy, r * 0.1), &solid(rgba(255, 255, 255, 255)));
+    // Pendrive
+    let (bx, by, bw, bh) = (x + s * 0.5, y + s * 0.42, s * 0.24, s * 0.46);
+    pm.fill_rect(bx + bw * 0.2, by - s * 0.1, bw * 0.6, s * 0.12, &vgrad(by - s * 0.1, by, &[(0.0, rgba(235, 236, 240, 255)), (1.0, rgba(160, 164, 172, 255))]));
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.02, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 50)));
+    gel_rect(pm, bx, by, bw, bh, s * 0.05, rgba(40, 110, 220, 255));
+}
+
+/// Fone de ouvido sem fio com as ondas do sinal.
+fn pref_wireless(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let w = (s * 0.07).max(1.5);
+    let (cx, cy, r) = (x + s * 0.44, y + s * 0.5, s * 0.3);
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r, cy + r * 0.2);
+    pb.cubic_to(cx - r, cy - r * 1.3, cx + r, cy - r * 1.3, cx + r, cy + r * 0.2);
+    pm.stroke_round(pb.finish(), &solid(rgba(90, 94, 104, 255)), w);
+    for side in [-1.0f32, 1.0] {
+        let ex = cx + side * r - s * 0.08;
+        gel_rect(pm, ex, cy, s * 0.16, s * 0.26, s * 0.07, rgba(60, 64, 74, 255));
+    }
+    for (k, a) in [(1.0, 230u8), (1.7, 170)] {
+        let rr = s * 0.08 * k;
+        let (ox, oy) = (x + s * 0.8, y + s * 0.22);
+        let mut pb = PathBuilder::new();
+        pb.move_to(ox - rr * 0.3, oy - rr);
+        pb.quad_to(ox + rr * 0.6, oy, ox - rr * 0.3, oy + rr);
+        pm.stroke(pb.finish(), &solid(rgba(40, 110, 220, a)), (s * 0.04).max(1.0));
+    }
+}
+
+/// Pasta azul com uma plaquinha amarela de "compartilhada".
+fn pref_sharing(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    folder(pm, x, y + s * 0.04, s * 0.92);
+    let (bx, by, bw, bh) = (x + s * 0.5, y + s * 0.56, s * 0.44, s * 0.3);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.02, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 50)));
+    gel_rect(pm, bx, by, bw, bh, s * 0.05, rgba(240, 180, 40, 255));
+    // Duas cabecinhas na placa.
+    for k in 0..2 {
+        let cx = bx + bw * (0.33 + k as f32 * 0.34);
+        pm.fill(circle(cx, by + bh * 0.35, s * 0.045), &solid(rgba(255, 255, 255, 240)));
+        pm.fill(rrect4(cx - s * 0.06, by + bh * 0.55, s * 0.12, s * 0.07, [s * 0.05, s * 0.05, 0.0, 0.0]), &solid(rgba(255, 255, 255, 240)));
+    }
+}
+
+/// Três aplicativos em leque com o selo verde de "escolhido".
+fn pref_default_apps(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let colors = [rgba(150, 100, 210, 255), rgba(240, 170, 50, 255), rgba(40, 110, 220, 255)];
+    for (k, c) in colors.iter().enumerate() {
+        let o = k as f32 * s * 0.12;
+        let (bx, by) = (x + s * 0.08 + o, y + s * 0.1 + o);
+        pm.fill(rrect(bx + s * 0.01, by + s * 0.02, s * 0.5, s * 0.5, s * 0.08), &solid(rgba(0, 0, 0, 45)));
+        gel_rect(pm, bx, by, s * 0.5, s * 0.5, s * 0.08, *c);
+    }
+    let (cx, cy, r) = (x + s * 0.74, y + s * 0.74, s * 0.18);
+    gel_circle(pm, cx, cy, r, rgba(70, 180, 60, 255));
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r * 0.45, cy);
+    pb.line_to(cx - r * 0.1, cy + r * 0.38);
+    pb.line_to(cx + r * 0.5, cy - r * 0.38);
+    pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), (s * 0.05).max(1.2));
 }

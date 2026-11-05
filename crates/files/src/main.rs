@@ -439,9 +439,13 @@ fn sibling(name: &str) -> PathBuf {
 
 fn open_file(e: &Entry) {
     use std::process::Command;
+    // Aplicativos Padrão: se o usuário escolheu outro app para o tipo, vale o dele.
+    let chosen_other = |mime: &str| {
+        Command::new("xdg-mime").args(["query", "default", mime]).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).is_some_and(|d| !d.is_empty() && !d.starts_with("glove-"))
+    };
     let mut cmd = match e.kind {
-        Kind::Text => Command::new(sibling("glove-edit")),
-        Kind::Picture if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["png", "jpg", "jpeg"].contains(&x.to_ascii_lowercase().as_str())) => Command::new(sibling("glove-view")),
+        Kind::Text if !chosen_other("text/plain") => Command::new(sibling("glove-edit")),
+        Kind::Picture if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["png", "jpg", "jpeg"].contains(&x.to_ascii_lowercase().as_str())) && !chosen_other("image/png") => Command::new(sibling("glove-view")),
         Kind::Archive if expandable(&e.path) => {
             let mut c = Command::new(sibling("glove-arquivo"));
             c.arg("expandir");

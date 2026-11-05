@@ -5,10 +5,13 @@ use std::time::{Duration, Instant};
 
 use glove_config::KEYBOARD_LAYOUTS as LAYOUTS;
 
+mod bluetooth;
+mod compart;
 mod contas;
 mod datahora;
 mod inicio;
 mod internacional;
+mod padrao;
 mod rede;
 mod som;
 
@@ -41,6 +44,10 @@ enum Pane {
     Acesso,
     Contas,
     Internacional,
+    Compart,
+    Midia,
+    Padrao,
+    Bluetooth,
     Dock,
     Teclado,
     Mouse,
@@ -62,7 +69,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 15] = [
+const PANES: [PaneInfo; 19] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -77,6 +84,10 @@ const PANES: [PaneInfo; 15] = [
     PaneInfo { pane: Pane::Contas, id: "contas", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart" },
     PaneInfo { pane: Pane::Internacional, id: "internacional", icon: Icon::Pref(PrefKind::International), name: "Internacional", category: 0, keywords: "idioma língua formatos data número moeda região menu de entrada layout teclado" },
     PaneInfo { pane: Pane::Acesso, id: "acesso", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
+    PaneInfo { pane: Pane::Midia, id: "midia", icon: Icon::Pref(PrefKind::Removable), name: "Mídia Removível", category: 1, keywords: "pendrive usb disco externo cartão cd dvd abrir automaticamente" },
+    PaneInfo { pane: Pane::Bluetooth, id: "bluetooth", icon: Icon::Pref(PrefKind::Wireless), name: "Bluetooth", category: 2, keywords: "fone teclado mouse sem fio parear conectar aparelho" },
+    PaneInfo { pane: Pane::Compart, id: "compartilhamento", icon: Icon::Pref(PrefKind::Sharing), name: "Compartilhamento", category: 2, keywords: "nome do computador ssh sessão remota samba arquivos impressoras rede" },
+    PaneInfo { pane: Pane::Padrao, id: "padrao", icon: Icon::Pref(PrefKind::DefaultApps), name: "Aplicativos Padrão", category: 3, keywords: "navegador e-mail abrir com texto imagens pdf música vídeo padrão" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
 
@@ -189,6 +200,9 @@ struct Prefs {
     inicio: inicio::Inicio,
     contas: contas::Contas,
     internacional: internacional::Internacional,
+    compart: compart::Compart,
+    padrao: padrao::Padrao,
+    bluetooth: bluetooth::Bluetooth,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
     /// Aba do Acesso Universal.
     access_tab: usize,
@@ -291,6 +305,9 @@ impl Prefs {
             inicio: inicio::Inicio::default(),
             contas: contas::Contas::default(),
             internacional: internacional::Internacional::default(),
+            compart: compart::Compart::default(),
+            padrao: padrao::Padrao::default(),
+            bluetooth: bluetooth::Bluetooth::default(),
             audio: if pane == Pane::Som { som::status() } else { None },
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
@@ -322,6 +339,15 @@ impl Prefs {
             if p == Pane::Contas {
                 self.contas.refresh();
                 self.inicio.refresh();
+            }
+            if p == Pane::Compart {
+                self.compart.refresh();
+            }
+            if p == Pane::Padrao {
+                self.padrao.refresh();
+            }
+            if p == Pane::Bluetooth {
+                self.bluetooth.refresh();
             }
         }
     }
@@ -440,9 +466,12 @@ impl Prefs {
         let draw_cell = |ui: &mut Ui, r: &Rect, i: &PaneInfo, ink: Color| {
             glove_kit::paint::icons::draw(ui.c, ui.fonts, i.icon, r.x + (r.w - 32.0) / 2.0, r.y + 6.0, 32.0, None);
             // Nome em até duas linhas, centrado.
-            for (n, l) in wrap2(ui, i.name, r.w - 6.0).iter().enumerate() {
-                let tw = ui.text_width(l, 11.0, false);
-                ui.fonts.draw(ui.c, l, r.x + (r.w - tw) / 2.0, r.y + 52.0 + n as f32 * 13.0, 11.0, false, ink);
+            for (n, l) in wrap2(ui, i.name, r.w - 4.0).iter().enumerate() {
+                // Palavra comprida demais ("Compartilhamento") encolhe um pouco para caber.
+                let full = ui.text_width(l, 11.0, false);
+                let px = if full > r.w - 4.0 { (11.0 * (r.w - 4.0) / full).max(8.5) } else { 11.0 };
+                let tw = ui.text_width(l, px, false);
+                ui.fonts.draw(ui.c, l, r.x + (r.w - tw) / 2.0, r.y + 52.0 + n as f32 * 13.0, px, false, ink);
             }
         };
         for (r, i) in &cells {
@@ -1254,6 +1283,24 @@ fn on_battery() -> bool {
 }
 
 impl Prefs {
+    /// Mídia Removível: o que fazer quando um pendrive ou disco é conectado.
+    fn midia(&mut self, ui: &mut Ui) {
+        const LW: f32 = 230.0;
+        ui.space(8.0);
+        let opts = ["Abrir no Arquivos".to_string(), "Não fazer nada".to_string()];
+        let ids = ["abrir", "nada"];
+        let mut cur = ids.iter().position(|i| *i == self.config.removable_action).unwrap_or(0);
+        ui.form_row("Ao conectar um pendrive ou disco", LW, |ui| {
+            if ui.popup(&mut cur, &opts, 200.0) {
+                self.config.removable_action = ids[cur].to_string();
+                self.save();
+            }
+        });
+        ui.form_note(LW, "Ele também aparece na mesa, ao lado do Disco.");
+        ui.space(14.0);
+        ui.small("CDs e DVDs: o Glove ainda não toca música nem filmes; abra-os com o app de sua escolha.");
+    }
+
     fn acesso(&mut self, ui: &mut Ui) {
         const LW: f32 = 150.0;
         let mut tab = self.access_tab;
@@ -1600,6 +1647,10 @@ impl App for Prefs {
             }
             Pane::Inicio => self.inicio.ui(ui),
             Pane::Contas => self.contas.ui(ui, &mut self.inicio),
+            Pane::Compart => self.compart.ui(ui),
+            Pane::Padrao => self.padrao.ui(ui),
+            Pane::Bluetooth => self.bluetooth.ui(ui),
+            Pane::Midia => self.midia(ui),
             Pane::Internacional => {
                 let mut tab = self.internacional.tab;
                 let shown = tab;
@@ -1657,7 +1708,7 @@ impl App for Prefs {
         // Contagem da confirmação de resolução; e os monitores conectados (cabo).
         if self.confirm.is_some() {
             Some(Duration::from_millis(500))
-        } else if matches!(self.pane, Pane::Monitor | Pane::Som | Pane::Rede) {
+        } else if matches!(self.pane, Pane::Monitor | Pane::Som | Pane::Rede | Pane::Bluetooth) {
             Some(Duration::from_secs(2))
         } else {
             None
@@ -1674,6 +1725,9 @@ impl App for Prefs {
         }
         if self.pane == Pane::Rede {
             self.rede.refresh();
+        }
+        if self.pane == Pane::Bluetooth {
+            self.bluetooth.refresh();
         }
     }
 
@@ -1723,6 +1777,10 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
         if ui.text_width(&a, 11.0, false) <= max {
             return vec![a, words[cut..].join(" ")];
         }
+    }
+    // Nem a primeira palavra cabe: quebra nela mesmo assim (quem desenha encolhe).
+    if words.len() > 1 {
+        return vec![words[0].to_string(), words[1..].join(" ")];
     }
     vec![t.to_string()]
 }

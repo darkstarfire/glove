@@ -560,6 +560,13 @@ impl Glove {
         let mut items = vec![("Disco".to_string(), std::path::PathBuf::from("/"))];
         items.extend(removable_mounts());
         if items != self.chrome.desk_items {
+            // Mídia Removível: um disco novo (não os que já estavam na partida) abre no Arquivos.
+            if !self.chrome.desk_items.is_empty() && self.config.removable_action == "abrir" && !self.greeter {
+                for (_, path) in items.iter().filter(|i| !self.chrome.desk_items.contains(i)) {
+                    let q = path.display().to_string().replace('\'', "'\\''");
+                    self.spawn(&format!("glove-files '{q}'"));
+                }
+            }
             self.chrome.desk_items = items;
             self.chrome.desk_selected = None;
             self.dirty = true;

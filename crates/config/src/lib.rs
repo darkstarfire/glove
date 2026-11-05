@@ -493,6 +493,9 @@ pub struct Config {
     pub access: Access,
     #[serde(default)]
     pub saver: Saver,
+    /// Ao conectar um pendrive ou disco: "abrir" (no Arquivos) ou "nada".
+    #[serde(default = "default_removable")]
+    pub removable_action: String,
     /// Menu Wi-Fi na barra de menu.
     #[serde(default = "yes")]
     pub wifi_menu: bool,
@@ -529,6 +532,10 @@ pub fn default_prefs_favorites() -> Vec<String> {
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
 pub const DOCK_REV: u32 = 2;
+
+fn default_removable() -> String {
+    "abrir".into()
+}
 
 fn yes() -> bool {
     true
@@ -617,6 +624,7 @@ impl Default for Config {
             clock: Clock::default(),
             access: Access::default(),
             saver: Saver::default(),
+            removable_action: default_removable(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }

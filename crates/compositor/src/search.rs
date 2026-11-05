@@ -219,7 +219,11 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
 }
 
 /// Painéis das Preferências: (nome, argumento do glove-prefs).
-const PREFS: [(&str, &str); 19] = [
+const PREFS: [(&str, &str); 23] = [
+    ("Mídia Removível (pendrive)", "midia"),
+    ("Bluetooth", "bluetooth"),
+    ("Compartilhamento (nome do computador)", "compartilhamento"),
+    ("Aplicativos Padrão (abrir com)", "padrao"),
     ("Contas (usuário, senha, imagem)", "contas"),
     ("Internacional (idioma, formatos)", "internacional"),
     ("Protetor de Tela", "protetor"),
