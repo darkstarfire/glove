@@ -10,7 +10,86 @@ use glove_kit::{
 };
 
 const HISTORY: usize = 60;
-const TOP_H: f32 = 120.0;
+/// Barra de ferramentas e o painel de abas embaixo.
+const TOOL_H: f32 = 50.0;
+const BOTTOM_H: f32 = 178.0;
+
+/// Detalhe da CPU desde a leitura anterior: (usuário, sistema, ocioso), de 0 a 1.
+fn cpu_split(prev: &[u64], cur: &[u64]) -> (f32, f32, f32) {
+    let d = |i: usize| cur.get(i).copied().unwrap_or(0).saturating_sub(prev.get(i).copied().unwrap_or(0)) as f32;
+    let total: f32 = (0..cur.len()).map(d).sum::<f32>().max(1.0);
+    let user = d(0) + d(1);
+    let system = d(2) + d(5) + d(6);
+    let idle = d(3) + d(4);
+    (user / total, system / total, idle / total)
+}
+
+fn cpu_fields() -> Vec<u64> {
+    let s = std::fs::read_to_string("/proc/stat").unwrap_or_default();
+    s.lines().next().unwrap_or("").split_whitespace().skip(1).filter_map(|x| x.parse().ok()).collect()
+}
+
+/// Memória em KB: (total, livre, em cache, disponível, swap total, swap livre).
+fn mem_detail() -> (u64, u64, u64, u64, u64, u64) {
+    let s = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let get = |k: &str| s.lines().find(|l| l.starts_with(k)).and_then(|l| l.split_whitespace().nth(1)).and_then(|v| v.parse().ok()).unwrap_or(0u64);
+    (get("MemTotal:"), get("MemFree:"), get("Cached:") + get("Buffers:"), get("MemAvailable:"), get("SwapTotal:"), get("SwapFree:"))
+}
+
+/// Discos inteiros (sem partições) do /proc/diskstats: (bytes lidos, bytes gravados, leituras, gravações).
+pub fn disk_counters(text: &str) -> (u64, u64, u64, u64) {
+    let mut t = (0, 0, 0, 0);
+    for l in text.lines() {
+        let f: Vec<&str> = l.split_whitespace().collect();
+        if f.len() < 10 {
+            continue;
+        }
+        let name = f[2];
+        let whole = (name.starts_with("sd") || name.starts_with("vd") || name.starts_with("hd")) && !name.ends_with(|c: char| c.is_ascii_digit())
+            || (name.starts_with("nvme") || name.starts_with("mmcblk")) && !name.contains('p');
+        if !whole || name.starts_with("mmcblk") && name.contains("boot") {
+            continue;
+        }
+        let n = |i: usize| f[i].parse::<u64>().unwrap_or(0);
+        t.0 += n(5) * 512;
+        t.1 += n(9) * 512;
+        t.2 += n(3);
+        t.3 += n(7);
+    }
+    t
+}
+
+/// Bytes recebidos e enviados (todas as interfaces menos a "lo").
+pub fn net_counters(text: &str) -> (u64, u64) {
+    let mut t = (0, 0);
+    for l in text.lines().skip(2) {
+        let Some((name, rest)) = l.split_once(':') else { continue };
+        if name.trim() == "lo" {
+            continue;
+        }
+        let f: Vec<u64> = rest.split_whitespace().filter_map(|v| v.parse().ok()).collect();
+        if f.len() >= 9 {
+            t.0 += f[0];
+            t.1 += f[8];
+        }
+    }
+    t
+}
+
+/// (total, livre) em bytes do sistema de arquivos de `path`.
+fn disk_usage(path: &str) -> Option<(u64, u64)> {
+    let c = std::ffi::CString::new(path).ok()?;
+    let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+    if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+        return None;
+    }
+    Some((st.f_blocks as u64 * st.f_frsize as u64, st.f_bavail as u64 * st.f_frsize as u64))
+}
+
+fn human_bytes(b: f64) -> String {
+    let (v, u) = if b >= 1e9 { (b / 1e9, "GB") } else if b >= 1e6 { (b / 1e6, "MB") } else if b >= 1e3 { (b / 1e3, "KB") } else { (b, "B") };
+    format!("{v:.1} {u}").replace('.', ",")
+}
 
 #[derive(Clone)]
 struct Proc {
@@ -20,6 +99,7 @@ struct Proc {
     user: String,
     cpu: f32,
     mem_kb: u64,
+    threads: u64,
 }
 
 /// Soma de "jiffies" da CPU: (ocupado, total).
@@ -76,6 +156,23 @@ struct Monitor {
     message: Option<String>,
     /// Pedido de forçar encerramento esperando confirmação: (pid, nome).
     confirm_kill: Option<(i32, String)>,
+    /// Filtro da barra (nome ou PID).
+    filter: String,
+    /// Aba do painel de baixo.
+    tab: usize,
+    cpu_prev: Vec<u64>,
+    cpu_split: (f32, f32, f32),
+    /// Leituras anteriores e quando foram: disco e rede.
+    disk_prev: (u64, u64, u64, u64),
+    net_prev: (u64, u64),
+    stamp: std::time::Instant,
+    /// Taxas por segundo: (lido, gravado, leituras, gravações) e (recebido, enviado).
+    disk_rate: (f32, f32, f32, f32),
+    net_rate: (f32, f32),
+    disk_hist: Vec<(f32, f32)>,
+    net_hist: Vec<(f32, f32)>,
+    disk_total: (u64, u64),
+    net_total: (u64, u64),
 }
 
 impl Monitor {
@@ -99,6 +196,19 @@ impl Monitor {
             ncpu,
             message: None,
             confirm_kill: None,
+            filter: String::new(),
+            tab: 0,
+            cpu_prev: cpu_fields(),
+            cpu_split: (0.0, 0.0, 1.0),
+            disk_prev: disk_counters(&std::fs::read_to_string("/proc/diskstats").unwrap_or_default()),
+            net_prev: net_counters(&std::fs::read_to_string("/proc/net/dev").unwrap_or_default()),
+            stamp: std::time::Instant::now(),
+            disk_rate: (0.0, 0.0, 0.0, 0.0),
+            net_rate: (0.0, 0.0),
+            disk_hist: Vec::new(),
+            net_hist: Vec::new(),
+            disk_total: (0, 0),
+            net_total: (0, 0),
         };
         let uid = unsafe { libc::getuid() };
         m.me = m.users.get(&uid).cloned().unwrap_or_else(|| uid.to_string());
@@ -117,6 +227,29 @@ impl Monitor {
             self.history.remove(0);
         }
         self.mem = mem_info();
+        let cur = cpu_fields();
+        self.cpu_split = cpu_split(&self.cpu_prev, &cur);
+        self.cpu_prev = cur;
+        // Disco e rede: diferença desde a última leitura, por segundo.
+        let dt = self.stamp.elapsed().as_secs_f32().max(0.1);
+        self.stamp = std::time::Instant::now();
+        let d = disk_counters(&std::fs::read_to_string("/proc/diskstats").unwrap_or_default());
+        let p = self.disk_prev;
+        let rate = |a: u64, b: u64| a.saturating_sub(b) as f32 / dt;
+        self.disk_rate = (rate(d.0, p.0), rate(d.1, p.1), rate(d.2, p.2), rate(d.3, p.3));
+        self.disk_prev = d;
+        self.disk_total = (d.0, d.1);
+        let n = net_counters(&std::fs::read_to_string("/proc/net/dev").unwrap_or_default());
+        self.net_rate = (rate(n.0, self.net_prev.0), rate(n.1, self.net_prev.1));
+        self.net_prev = n;
+        self.net_total = n;
+        self.disk_hist.push((self.disk_rate.0, self.disk_rate.1));
+        self.net_hist.push(self.net_rate);
+        for h in [&mut self.disk_hist, &mut self.net_hist] {
+            if h.len() > HISTORY {
+                h.remove(0);
+            }
+        }
 
         let mut procs = Vec::new();
         let mut ticks = HashMap::new();
@@ -131,6 +264,7 @@ impl Monitor {
             let ppid = rest.get(1).and_then(|v| v.parse::<i32>().ok()).unwrap_or(0);
             let t = rest.get(11).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) + rest.get(12).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             let rss_pages: u64 = rest.get(21).and_then(|v| v.parse().ok()).unwrap_or(0);
+            let threads: u64 = rest.get(17).and_then(|v| v.parse().ok()).unwrap_or(1);
             let prev = self.last_ticks.get(&pid).copied().unwrap_or(t);
             let cpu = if self.last_total == 0 { 0.0 } else { (t.saturating_sub(prev)) as f32 / dtotal * self.ncpu * 100.0 };
             ticks.insert(pid, t);
@@ -140,7 +274,7 @@ impl Monitor {
                 e.metadata().map(|m| m.uid()).unwrap_or(0)
             };
             let user = self.users.get(&uid).cloned().unwrap_or_else(|| uid.to_string());
-            procs.push(Proc { pid, ppid, name, user, cpu, mem_kb: rss_pages * 4 });
+            procs.push(Proc { pid, ppid, name, user, cpu, mem_kb: rss_pages * 4, threads });
         }
         self.procs = procs;
         self.last_ticks = ticks;
@@ -160,50 +294,159 @@ impl Monitor {
         }
     }
 
-    fn header(&self, ui: &mut Ui) {
-        let w = ui.c.w;
-        // Gráfico da CPU
-        let g = Rect::new(14.0, 12.0, (w * 0.6).min(w - 260.0).max(200.0), TOP_H - 24.0);
+    /// Gráfico verde da era: área e linha de uma ou duas séries (0 a 1).
+    fn graph(ui: &mut Ui, g: Rect, series: &[(&[f32], (u8, u8, u8))]) {
         ui.c.fill(rrect(g.x, g.y, g.w, g.h, 4.0), &solid(rgba(12, 22, 16, 255)));
         for i in 1..4 {
             ui.c.hline(g.x, g.y + g.h * i as f32 / 4.0, g.w, rgba(40, 80, 50, 255));
         }
-        if self.history.len() > 1 {
+        for (data, (r, gg, b)) in series {
+            if data.len() < 2 {
+                continue;
+            }
             let n = HISTORY as f32 - 1.0;
-            let pt = |i: usize, v: f32| (g.x + g.w - (self.history.len() - 1 - i) as f32 / n * g.w, g.y + g.h - v.clamp(0.0, 1.0) * (g.h - 4.0) - 2.0);
+            let pt = |i: usize, v: f32| (g.x + g.w - (data.len() - 1 - i) as f32 / n * g.w, g.y + g.h - v.clamp(0.0, 1.0) * (g.h - 4.0) - 2.0);
             let mut area = PathBuilder::new();
             let mut line = PathBuilder::new();
             let (x0, _) = pt(0, 0.0);
             area.move_to(x0, g.y + g.h);
-            for (i, v) in self.history.iter().enumerate() {
+            for (i, v) in data.iter().enumerate() {
                 let (x, y) = pt(i, *v);
                 area.line_to(x, y);
                 if i == 0 { line.move_to(x, y) } else { line.line_to(x, y) }
             }
             area.line_to(g.x + g.w, g.y + g.h);
             area.close();
-            ui.c.fill(area.finish(), &vgrad(g.y, g.y + g.h, &[(0.0, rgba(80, 255, 110, 120)), (1.0, rgba(80, 255, 110, 10))]));
-            ui.c.stroke(line.finish(), &solid(rgba(110, 255, 130, 255)), 1.5);
+            ui.c.fill(area.finish(), &vgrad(g.y, g.y + g.h, &[(0.0, rgba(*r, *gg, *b, 110)), (1.0, rgba(*r, *gg, *b, 10))]));
+            ui.c.stroke(line.finish(), &solid(rgba(*r, *gg, *b, 255)), 1.5);
         }
-        let t = format!("CPU {:.0}%", self.cpu_now * 100.0);
-        ui.fonts.draw(ui.c, &t, g.x + 8.0, g.y + 16.0, 12.0, true, rgba(150, 255, 160, 255));
+    }
 
-        // Memória
-        let (total, avail) = self.mem;
-        let used = total.saturating_sub(avail);
-        let mx = g.x + g.w + 20.0;
-        let mw = w - mx - 14.0;
-        ui.fonts.draw(ui.c, "Memória", mx, 28.0, 13.0, true, rgba(20, 20, 20, 255));
-        let bar = Rect::new(mx, 40.0, mw, 18.0);
-        ui.c.fill(rrect(bar.x, bar.y, bar.w, bar.h, 9.0), &vgrad(bar.y, bar.y + bar.h, &[(0.0, rgba(160, 160, 166, 255)), (1.0, rgba(225, 225, 230, 255))]));
-        let frac = if total > 0 { used as f32 / total as f32 } else { 0.0 };
-        if frac > 0.02 {
-            gel_rect(ui.c, bar.x, bar.y, (bar.w * frac).max(bar.h), bar.h, 9.0, if frac > 0.85 { rgba(230, 70, 60, 255) } else { ui.theme.accent });
+    /// Pizza (Memória e Uso do Disco): fatias (fração, cor).
+    fn pie(ui: &mut Ui, cx: f32, cy: f32, r: f32, slices: &[(f32, glove_kit::paint::Color)]) {
+        let mut a0 = -std::f32::consts::FRAC_PI_2;
+        ui.c.fill(circle(cx + 1.0, cy + 2.0, r), &solid(rgba(0, 0, 0, 50)));
+        for (f, c) in slices {
+            let a1 = a0 + f.clamp(0.0, 1.0) * std::f32::consts::TAU;
+            let mut pb = PathBuilder::new();
+            pb.move_to(cx, cy);
+            let steps = ((a1 - a0) / 0.1).ceil().max(1.0) as usize;
+            for i in 0..=steps {
+                let a = a0 + (a1 - a0) * i as f32 / steps as f32;
+                pb.line_to(cx + r * a.cos(), cy + r * a.sin());
+            }
+            pb.close();
+            ui.c.fill(pb.finish(), &solid(*c));
+            a0 = a1;
         }
-        let l1 = format!("Em uso: {}", human_kb(used));
-        let l2 = format!("Livre: {}  ·  Total: {}", human_kb(avail), human_kb(total));
-        ui.fonts.draw(ui.c, &l1, mx, 76.0, 12.0, false, rgba(30, 30, 30, 255));
-        ui.fonts.draw(ui.c, &l2, mx, 94.0, 11.0, false, rgba(90, 90, 90, 255));
+        ui.c.fill(circle(cx - r * 0.25, cy - r * 0.3, r * 0.6), &radial(cx - r * 0.25, cy - r * 0.3, r * 0.6, &[(0.0, rgba(255, 255, 255, 90)), (1.0, rgba(255, 255, 255, 0))]));
+        ui.c.stroke(circle(cx, cy, r), &solid(rgba(0, 0, 0, 90)), 1.0);
+    }
+
+    /// Lista "rótulo: valor" com o quadradinho da cor (legenda).
+    fn legend(ui: &mut Ui, x: f32, y: f32, rows: &[(&str, String, Option<glove_kit::paint::Color>)]) {
+        for (i, (k, v, c)) in rows.iter().enumerate() {
+            let yy = y + i as f32 * 18.0;
+            let mut tx = x;
+            if let Some(c) = c {
+                ui.c.fill(rrect(x, yy - 9.0, 10.0, 10.0, 2.0), &solid(*c));
+                tx += 16.0;
+            }
+            let t = format!("{k}:");
+            ui.fonts.draw(ui.c, &t, tx, yy, 11.0, false, rgba(60, 60, 66, 255));
+            let kw = ui.text_width(&t, 11.0, false);
+            ui.fonts.draw(ui.c, v, tx + kw + 6.0, yy, 11.0, true, rgba(20, 20, 24, 255));
+        }
+    }
+
+    /// Painel de abas embaixo: CPU, Memória, Disco, Uso do Disco e Rede.
+    fn panels(&mut self, ui: &mut Ui, area: Rect) {
+        let mut tab = self.tab;
+        let shown = tab;
+        ui.area(area, |ui| {
+            ui.tab_box(&mut tab, &["CPU", "Memória", "Atividade do Disco", "Uso do Disco", "Rede"], area.h - 8.0, |ui| {
+                let (x0, y0) = ui.cursor();
+                let w = ui.available_width();
+                let gh = area.h - 62.0;
+                let g = Rect::new(x0 + w - (w * 0.45).max(200.0), y0, (w * 0.45).max(200.0), gh);
+                let green = rgba(70, 200, 80, 255);
+                let red = rgba(220, 70, 60, 255);
+                let blue = rgba(70, 130, 230, 255);
+                match shown {
+                    0 => {
+                        let (u, sy, id) = self.cpu_split;
+                        let threads: u64 = self.procs.iter().map(|p| p.threads).sum();
+                        Self::legend(ui, x0, y0 + 12.0, &[
+                            ("Usuário", format!("{:.1} %", u * 100.0).replace('.', ","), Some(green)),
+                            ("Sistema", format!("{:.1} %", sy * 100.0).replace('.', ","), Some(red)),
+                            ("Ocioso", format!("{:.1} %", id * 100.0).replace('.', ","), Some(rgba(30, 30, 34, 255))),
+                            ("Processos", self.procs.len().to_string(), None),
+                            ("Threads", threads.to_string(), None),
+                        ]);
+                        Self::graph(ui, g, &[(&self.history, (110, 255, 130))]);
+                        let t = format!("CPU {:.0}%", self.cpu_now * 100.0);
+                        ui.fonts.draw(ui.c, &t, g.x + 8.0, g.y + 16.0, 12.0, true, rgba(150, 255, 160, 255));
+                    }
+                    1 => {
+                        let (total, free, cache, avail, swt, swf) = mem_detail();
+                        let used = total.saturating_sub(avail);
+                        let cached = cache.min(total.saturating_sub(used).saturating_sub(free));
+                        let t = total.max(1) as f32;
+                        Self::legend(ui, x0, y0 + 12.0, &[
+                            ("Em uso", human_kb(used), Some(red)),
+                            ("Em cache", human_kb(cached), Some(blue)),
+                            ("Livre", human_kb(free), Some(green)),
+                            ("Total", human_kb(total), None),
+                            ("Swap em uso", format!("{} de {}", human_kb(swt.saturating_sub(swf)), human_kb(swt)), None),
+                        ]);
+                        let r = (gh / 2.0 - 4.0).min(60.0);
+                        Self::pie(ui, g.x + g.w / 2.0, g.y + gh / 2.0, r, &[(used as f32 / t, red), (cached as f32 / t, blue), (free as f32 / t, green)]);
+                    }
+                    2 => {
+                        let (rb, wb, ro, wo) = self.disk_rate;
+                        Self::legend(ui, x0, y0 + 12.0, &[
+                            ("Leitura", format!("{}/s", human_bytes(rb as f64)), Some(green)),
+                            ("Gravação", format!("{}/s", human_bytes(wb as f64)), Some(red)),
+                            ("Leituras", format!("{:.0} por segundo", ro), None),
+                            ("Gravações", format!("{:.0} por segundo", wo), None),
+                            ("Lido / gravado", format!("{} / {}", human_bytes(self.disk_total.0 as f64), human_bytes(self.disk_total.1 as f64)), None),
+                        ]);
+                        let peak = self.disk_hist.iter().map(|(a, b)| a.max(*b)).fold(1.0f32, f32::max);
+                        let r: Vec<f32> = self.disk_hist.iter().map(|(a, _)| a / peak).collect();
+                        let wr: Vec<f32> = self.disk_hist.iter().map(|(_, b)| b / peak).collect();
+                        Self::graph(ui, g, &[(&r, (110, 255, 130)), (&wr, (255, 110, 100))]);
+                    }
+                    3 => {
+                        let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+                        let (total, free) = disk_usage(&home).or_else(|| disk_usage("/")).unwrap_or((1, 0));
+                        let used = total.saturating_sub(free);
+                        Self::legend(ui, x0, y0 + 12.0, &[
+                            ("Em uso", human_bytes(used as f64), Some(blue)),
+                            ("Livre", human_bytes(free as f64), Some(green)),
+                            ("Total", human_bytes(total as f64), None),
+                        ]);
+                        let r = (gh / 2.0 - 4.0).min(60.0);
+                        let t = total.max(1) as f32;
+                        Self::pie(ui, g.x + g.w / 2.0, g.y + gh / 2.0, r, &[(used as f32 / t, blue), (free as f32 / t, green)]);
+                    }
+                    _ => {
+                        let (rx, tx) = self.net_rate;
+                        Self::legend(ui, x0, y0 + 12.0, &[
+                            ("Recebendo", format!("{}/s", human_bytes(rx as f64)), Some(green)),
+                            ("Enviando", format!("{}/s", human_bytes(tx as f64)), Some(red)),
+                            ("Recebido", human_bytes(self.net_total.0 as f64), None),
+                            ("Enviado", human_bytes(self.net_total.1 as f64), None),
+                        ]);
+                        let peak = self.net_hist.iter().map(|(a, b)| a.max(*b)).fold(1.0f32, f32::max);
+                        let r: Vec<f32> = self.net_hist.iter().map(|(a, _)| a / peak).collect();
+                        let t: Vec<f32> = self.net_hist.iter().map(|(_, b)| b / peak).collect();
+                        Self::graph(ui, g, &[(&r, (110, 255, 130)), (&t, (255, 110, 100))]);
+                    }
+                }
+                ui.alloc(w, gh);
+            });
+        });
+        self.tab = tab;
     }
 
     /// Compara dois processos pela coluna da ordenação.
@@ -224,7 +467,7 @@ impl Monitor {
     fn rows(&self) -> Vec<(i32, TableRow)> {
         let cells = |p: &Proc| vec![p.name.clone(), p.pid.to_string(), p.user.clone(), format!("{:.1}", p.cpu).replace('.', ","), human_kb(p.mem_kb)];
         let mut out = Vec::new();
-        if self.show == 2 {
+        if self.show == 2 && self.filter.trim().is_empty() {
             // Hierarquia: cada processo embaixo do pai, irmãos na ordem escolhida.
             let pids: HashSet<i32> = self.procs.iter().map(|p| p.pid).collect();
             let mut kids: HashMap<i32, Vec<&Proc>> = HashMap::new();
@@ -245,7 +488,8 @@ impl Monitor {
                 }
             }
         } else {
-            let mut v: Vec<&Proc> = self.procs.iter().filter(|p| self.show == 0 || p.user == self.me).collect();
+            let f = self.filter.trim().to_lowercase();
+            let mut v: Vec<&Proc> = self.procs.iter().filter(|p| (self.show == 0 || p.user == self.me) && (f.is_empty() || p.name.to_lowercase().contains(&f) || p.pid.to_string() == f)).collect();
             v.sort_by(|a, b| self.compare(a, b));
             out.extend(v.into_iter().map(|p| (p.pid, TableRow { cells: cells(p), ..TableRow::default() })));
         }
@@ -328,26 +572,42 @@ impl App for Monitor {
             }
         }
         let (w, h) = (ui.c.w, ui.c.h);
-        self.header(ui);
-        let area = Rect::new(0.0, TOP_H, w, h - TOP_H - 34.0);
-        self.table(ui, area);
-
-        // Rodapé: total de processos e botão de encerrar.
-        let fy = h - 34.0;
-        ui.c.fill_rect(0.0, fy, w, 34.0, &vgrad(fy, h, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(216, 216, 220, 255))]));
-        ui.c.hline(0.0, fy, w, rgba(150, 150, 156, 255));
+        // Barra de ferramentas: Encerrar Processo, Mostrar e Filtro (como no 10.4).
+        ui.c.fill_rect(0.0, 0.0, w, TOOL_H, &vgrad(0.0, TOOL_H, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(204, 204, 208, 255))]));
+        ui.c.hline(0.0, TOOL_H - 1.0, w, rgba(140, 140, 146, 255));
+        let has = self.selected.is_some();
+        let lab = |ui: &mut Ui, t: &str, cx: f32| {
+            let tw = ui.text_width(t, 10.0, false);
+            ui.fonts.draw(ui.c, t, cx - tw / 2.0, TOOL_H - 6.0, 10.0, false, rgba(40, 40, 44, 255));
+        };
+        ui.area(Rect::new(14.0, 6.0, 120.0, 26.0), |ui| {
+            ui.set_active(has && !asking);
+            if ui.small_button("Encerrar") {
+                self.kill(libc::SIGTERM);
+            }
+            ui.set_active(!asking);
+        });
+        lab(ui, "Encerrar Processo", 14.0 + 40.0);
         let shows = ["Todos os processos".to_string(), "Meus processos".to_string(), "Em hierarquia".to_string()];
-        ui.area(Rect::new(14.0, fy + 6.0, 170.0, 22.0), |ui| {
+        let mx = (w / 2.0 - 85.0).max(150.0);
+        ui.area(Rect::new(mx, 6.0, 170.0, 22.0), |ui| {
             if ui.popup(&mut self.show, &shows, 170.0) {
                 self.table.scroll = 0.0;
             }
         });
+        lab(ui, "Mostrar", mx + 85.0);
+        let fw = 150.0;
+        ui.search_field_in(Rect::new(w - fw - 14.0, 8.0, fw, glove_kit::SEARCH_H), &mut self.filter, "Nome ou PID");
+        lab(ui, "Filtro", w - fw / 2.0 - 14.0);
+
+        let area = Rect::new(0.0, TOOL_H, w, h - TOOL_H - BOTTOM_H - 18.0);
+        self.table(ui, area);
+        // Linha de status entre a tabela e o painel.
+        let sy = area.y + area.h;
+        ui.c.fill_rect(0.0, sy, w, 18.0, &solid(rgba(232, 232, 236, 255)));
         let info = self.message.clone().unwrap_or_else(|| format!("{} processos", self.procs.len()));
-        ui.fonts.draw(ui.c, &info, 198.0, fy + 21.0, 11.0, false, rgba(60, 60, 60, 255));
-        let has = self.selected.is_some();
-        if has && ui.gel_button(Rect::new(w - 170.0, fy + 6.0, 150.0, 22.0), "Encerrar processo", rgba(240, 240, 243, 255), 12.0, false) {
-            self.kill(libc::SIGTERM);
-        }
+        ui.fonts.draw(ui.c, &info, 12.0, sy + 13.0, 10.0, false, rgba(70, 70, 76, 255));
+        self.panels(ui, Rect::new(10.0, sy + 20.0, w - 20.0, BOTTOM_H - 4.0));
 
         if let Some((pid, name)) = self.confirm_kill.clone() {
             let title = format!("Forçar o encerramento de “{name}”?");
@@ -392,8 +652,23 @@ impl App for Monitor {
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Monitor".into(), app_id: "glove.Monitor".into(), size: (640, 480), fixed: false };
+    let opts = WindowOptions { title: "Monitor".into(), app_id: "glove.Monitor".into(), size: (720, 600), fixed: false };
     if let Err(e) = run(opts, Monitor::new()) {
         eprintln!("glove-monitor: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contadores() {
+        let d = "   8       0 sda 100 0 2000 0 50 0 4000 0 0 0 0\n   8       1 sda1 90 0 1800 0 40 0 3000 0 0 0 0\n 179       0 mmcblk0 10 0 8 0 1 0 16 0 0 0 0\n 179       1 mmcblk0p1 5 0 4 0 1 0 8 0 0 0 0\n";
+        assert_eq!(disk_counters(d), ((2000 + 8) * 512, (4000 + 16) * 512, 110, 51));
+        let n = "Inter-|   Receive\n face |bytes\n    lo: 500 1 0 0 0 0 0 0 500 1 0 0 0 0 0 0\n  wlan0: 1000 10 0 0 0 0 0 0 300 5 0 0 0 0 0 0\n";
+        assert_eq!(net_counters(n), (1000, 300));
+        let (u, s, i) = cpu_split(&[0, 0, 0, 0, 0, 0, 0], &[30, 10, 20, 40, 0, 0, 0]);
+        assert!((u - 0.4).abs() < 1e-6 && (s - 0.2).abs() < 1e-6 && (i - 0.4).abs() < 1e-6);
     }
 }

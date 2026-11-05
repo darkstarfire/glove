@@ -149,7 +149,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 8.2 Lembretes com moldura própria (faixa colorida) e um processo só para todas as notas (M)
 - [x] 8.3 Editor: régua, alinhamento, Localizar/Substituir (M)
 - [x] 8.4 Visualizador: barra de ferramentas, miniaturas, PDF (M)
-- [ ] 8.5 Monitor: ordenar, filtrar, abas CPU/Memória/Disco/Rede (M)
+- [x] 8.5 Monitor: ordenar, filtrar, abas CPU/Memória/Disco/Rede (M)
 - [ ] 8.6 Busca: colunas Data/Tamanho/Tipo, painel de caminho; Discos em dois painéis (M)
 - [ ] 8.7 Música (Rust puro, meta ~10 MB) (G)
 - [ ] 8.8 Contatos (vCard) e Agenda (.ics) (G)
