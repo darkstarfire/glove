@@ -195,6 +195,8 @@ struct Prefs {
     outputs: Option<OutputsInfo>,
     /// Resolução nova esperando confirmação: (monitor e resolução anteriores, prazo).
     confirm: Option<(String, String, Instant)>,
+    /// Organização dos monitores antes da mudança (volta junto com a resolução).
+    confirm_arrangement: Option<String>,
     /// Aba aberta no painel Teclado.
     kbd_tab: usize,
     /// Grupos abertos no painel Atalhos.
@@ -304,6 +306,7 @@ impl Prefs {
             images,
             outputs: OutputsInfo::load(),
             confirm: None,
+            confirm_arrangement: None,
             kbd_tab,
             open_groups: [true, false, false],
             desk_source: 0,
@@ -934,7 +937,8 @@ impl Prefs {
         const LW: f32 = 150.0;
         let nested = self.nested();
         let outputs = self.outputs.clone().unwrap_or_default();
-        let active = outputs.outputs.iter().find(|o| o.active).cloned().unwrap_or_default();
+        // As resoluções mostradas são as do monitor principal (barra de menu).
+        let active = outputs.outputs.iter().find(|o| o.primary).or_else(|| outputs.outputs.iter().find(|o| o.active)).cloned().unwrap_or_default();
         if nested {
             ui.small("O Glove está numa janela dentro de outro desktop: a resolução é a da janela.");
             ui.small("O que for escolhido aqui vale quando você entrar na sessão Glove.");
@@ -980,7 +984,7 @@ impl Prefs {
                             ids.push(o.name.clone());
                         }
                         let mut cur = ids.iter().position(|i| *i == self.config.monitor.output).unwrap_or(0);
-                        ui.label("Monitor:");
+                        ui.label("Monitor principal (barra de menu):");
                         if ui.popup(&mut cur, &names, 220.0) {
                             self.ask_confirm();
                             self.config.monitor.output = ids[cur].clone();
@@ -1009,6 +1013,34 @@ impl Prefs {
                 });
             });
             ui.space(10.0);
+            // Organização: mais de um monitor ligado ao computador.
+            if outputs.outputs.len() > 1 {
+                const ARR: [(&str, &str); 3] = [("estender", "Estender a mesa"), ("espelhar", "Espelhar (a mesma imagem)"), ("um", "Usar só o principal")];
+                const SIDES: [(&str, &str); 3] = [("direita", "À direita do principal"), ("esquerda", "À esquerda do principal"), ("abaixo", "Abaixo do principal")];
+                let names: Vec<String> = ARR.iter().map(|a| a.1.to_string()).collect();
+                let mut cur = ARR.iter().position(|a| a.0 == self.config.monitor.arrangement).unwrap_or(0);
+                ui.form_row("Com mais monitores", LW, |ui| {
+                    if ui.popup(&mut cur, &names, 220.0) {
+                        self.ask_confirm();
+                        self.config.monitor.arrangement = ARR[cur].0.into();
+                        self.save();
+                    }
+                });
+                if self.config.monitor.arrangement == "estender" {
+                    let names: Vec<String> = SIDES.iter().map(|a| a.1.to_string()).collect();
+                    let mut cur = SIDES.iter().position(|a| a.0 == self.config.monitor.side).unwrap_or(0);
+                    ui.form_row("Os outros ficam", LW, |ui| {
+                        if ui.popup(&mut cur, &names, 220.0) {
+                            self.config.monitor.side = SIDES[cur].0.into();
+                            self.save();
+                        }
+                    });
+                    ui.form_note(LW, "A barra de menu e o Dock ficam no principal; arraste janelas para os outros.");
+                } else if self.config.monitor.arrangement == "espelhar" {
+                    ui.form_note(LW, "Os monitores usam a maior resolução que todos aceitam.");
+                }
+                ui.space(10.0);
+            }
         }
         let auto = active.auto_scale.max(1.0);
         let names: Vec<String> = SCALES.iter().map(|v| if *v == 0.0 { format!("Automático ({})", scale_label(auto)) } else { scale_label(*v) }).collect();
@@ -1052,6 +1084,7 @@ impl Prefs {
     /// Guarda o monitor e a resolução atuais para poder voltar.
     fn ask_confirm(&mut self) {
         if self.confirm.is_none() {
+            self.confirm_arrangement = Some(self.config.monitor.arrangement.clone());
             let m = &self.config.monitor;
             self.confirm = Some((m.output.clone(), m.mode.clone(), Instant::now() + Duration::from_secs(CONFIRM_SECS)));
         } else if let Some(c) = self.confirm.as_mut() {
@@ -1063,6 +1096,9 @@ impl Prefs {
         if let Some((output, mode, _)) = self.confirm.take() {
             self.config.monitor.output = output;
             self.config.monitor.mode = mode;
+            if let Some(a) = self.confirm_arrangement.take() {
+                self.config.monitor.arrangement = a;
+            }
             self.save();
         }
     }

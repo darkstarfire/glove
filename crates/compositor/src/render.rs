@@ -106,6 +106,60 @@ fn mem_alpha(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, s
 }
 
 impl Glove {
+    /// Um monitor extra (mesa estendida): o cursor, as janelas que passam por
+    /// ele e o papel de parede. Barra de menu e Dock só no principal.
+    pub fn build_extra_elements(&self, renderer: &mut GlesRenderer, area: Rectangle<i32, Logical>, sc: f64) -> Vec<GloveElement> {
+        let mut out = Vec::new();
+        let origin = area.loc;
+        if self.saver.is_some() || self.idle.screen_off {
+            return out;
+        }
+        if area.to_f64().contains(self.pointer_pos) {
+            self.cursor_elements_at(renderer, sc, origin, &mut out);
+        }
+        // Bloqueada ou encerrando: só o papel de parede (nada das janelas).
+        let covered = self.lock.is_some() || self.greeter || self.ending.as_ref().is_some_and(|e| e.screen_since.is_some()) || self.startup.as_ref().is_some_and(|s| s.covering());
+        if !covered {
+            for w in self.x11_overlays.iter().rev() {
+                let Some(x) = w.x11_surface() else { continue };
+                let g = x.geometry();
+                if g.overlaps(area) {
+                    out.extend(w.render_elements::<GloveElement>(renderer, (g.loc - origin).to_physical_precise_round(sc), Scale::from(sc), 1.0));
+                }
+            }
+            for w in self.space.elements().rev() {
+                if self.min_animating(w) {
+                    continue;
+                }
+                let Some(geo) = self.space.element_geometry(w) else { continue };
+                let framed = Rectangle::new((geo.loc.x - 30, geo.loc.y - TITLE_H - 30).into(), (geo.size.w + 60, geo.size.h + TITLE_H + 60).into());
+                if !framed.overlaps(area) {
+                    continue;
+                }
+                let render_loc = geo.loc - w.geometry().loc - origin;
+                out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+                if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
+                    let d = deco.borrow();
+                    let top = (geo.loc.x - origin.x, geo.loc.y - TITLE_H - origin.y);
+                    if let Some(t) = &d.title {
+                        out.extend(mem(renderer, top.into(), t, sc));
+                    }
+                    for (sx, sy, s) in &d.shadows {
+                        out.extend(mem(renderer, (top.0 + sx, top.1 + sy).into(), s, sc));
+                    }
+                }
+            }
+        }
+        // Papel de parede esticado para esta tela.
+        if let Some(t) = &self.chrome.wallpaper {
+            if let Some(buf) = t.upload(renderer) {
+                let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
+                out.push(GloveElement::Texture(TextureRenderElement::from_texture_buffer((0.0, 0.0), &buf, None, Some(src), Some(area.size), Kind::Unspecified)));
+            }
+        }
+        out
+    }
+
     /// Elementos do quadro, da frente para o fundo. `cursor`: desenhar o cursor
     /// (na sessão própria; dentro de outro desktop o cursor é o dele).
     pub fn build_elements(&self, renderer: &mut GlesRenderer, cursor: bool) -> Vec<GloveElement> {
@@ -407,8 +461,13 @@ impl Glove {
     }
 
     fn cursor_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
+        self.cursor_elements_at(renderer, sc, Point::from((0, 0)), out);
+    }
+
+    /// Cursor numa tela que começa em `origin` (lógico).
+    fn cursor_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, origin: Point<i32, Logical>, out: &mut Vec<GloveElement>) {
         use smithay::input::pointer::{CursorImageStatus, CursorImageSurfaceData};
-        let pos = self.pointer_pos;
+        let pos = self.pointer_pos - origin.to_f64();
         // App sem responder sob o mouse: cursor de espera, girando.
         if self.wait_cursor.shown {
             if let Some(t) = &self.wait_cursor.tex {
@@ -496,6 +555,12 @@ pub fn render_frame(data: &mut CalloopData) {
 
 /// Depois de cada quadro: captura de tela pedida e aviso de quadro aos apps.
 pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smithay::output::Output) {
+    if let Some((path, area, sc)) = state.extra_shot.take() {
+        match extra_screenshot(state, renderer, &path, area, sc) {
+            Ok(()) => tracing::info!("captura do monitor extra em {}", path.display()),
+            Err(e) => tracing::warn!("captura do monitor extra falhou: {e}"),
+        }
+    }
     if let Some(path) = state.screenshot_request.take() {
         let crop = state.screenshot_crop.take();
         match screenshot(state, renderer, &path, crop) {
@@ -539,6 +604,22 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
 }
 
 /// Desenha a tela inteira numa textura fora da tela e salva como PNG.
+/// Depuração: desenha o que um monitor extra (na área dada) mostraria e salva em PNG.
+fn extra_screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path, area: Rectangle<i32, Logical>, sc: f64) -> Result<(), Box<dyn std::error::Error>> {
+    let (w, h) = ((area.size.w as f64 * sc).round() as i32, (area.size.h as f64 * sc).round() as i32);
+    let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into())?;
+    let elements = state.build_extra_elements(renderer, area, sc);
+    let mut fb = renderer.bind(&mut tex)?;
+    let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
+    dt.render_output(renderer, &mut fb, 0, &elements, [0.0, 0.0, 0.0, 1.0])?;
+    let mapping = renderer.copy_framebuffer(&fb, Rectangle::from_size((w, h).into()), Fourcc::Abgr8888)?;
+    let data = renderer.map_texture(&mapping)?.to_vec();
+    let size = glove_paint::tiny_skia::IntSize::from_wh(w as u32, h as u32).ok_or("tamanho inválido")?;
+    let pm = glove_paint::Pixmap::from_vec(data, size).ok_or("dados inválidos")?;
+    pm.save_png(path)?;
+    Ok(())
+}
+
 fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path, crop: Option<Rectangle<i32, Logical>>) -> Result<(), Box<dyn std::error::Error>> {
     let (lw, lh) = state.output_size();
     let sc = state.scale();

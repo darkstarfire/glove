@@ -170,6 +170,16 @@ impl Glove {
     /// Tampa do notebook: fechada apaga (e bloqueia); aberta acende.
     pub fn lid(&mut self, closed: bool) {
         tracing::info!("tampa {}", if closed { "fechada" } else { "aberta" });
+        let was = std::mem::replace(&mut self.lid_closed, closed);
+        // Com monitor externo, só a tela embutida liga e desliga (como no modo "tampa fechada").
+        let external = self.space.outputs().any(|o| !["eDP", "LVDS", "DSI"].iter().any(|p| o.name().starts_with(p)));
+        if external && !self.nested {
+            if was != closed {
+                self.reconfigure_outputs = true;
+            }
+            self.note_input();
+            return;
+        }
         if closed {
             self.screen_off();
         } else {

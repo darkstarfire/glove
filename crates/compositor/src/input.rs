@@ -167,6 +167,16 @@ impl Glove {
                 let y = it.next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
                 self.on_motion((x, y).into(), t);
             }
+            // "shot2 CAMINHO X Y L A ESCALA": o que um monitor extra nessa área mostraria.
+            Some("shot2") => {
+                let p = it.next().map(std::path::PathBuf::from);
+                let n: Vec<f64> = it.filter_map(|v| v.parse().ok()).collect();
+                if let (Some(p), [x, y, w, h, sc]) = (p, n.as_slice()) {
+                    let area = smithay::utils::Rectangle::new((*x as i32, *y as i32).into(), (*w as i32, *h as i32).into());
+                    self.extra_shot = Some((p, area, *sc));
+                    self.dirty = true;
+                }
+            }
             // "run comando": abre um programa nesta sessão (como o Dock abriria).
             Some("run") => {
                 let cmd = line.splitn(2, ' ').nth(1).unwrap_or("").trim();
@@ -251,17 +261,15 @@ impl Glove {
         match event {
             InputEvent::Keyboard { event, .. } => self.on_key(event.key_code().raw(), event.state(), event.time_msec()),
             InputEvent::PointerMotionAbsolute { event, .. } => {
-                let Some(output) = self.space.outputs().next() else { return };
-                let geo = self.space.output_geometry(output).unwrap();
+                let Some(output) = self.primary() else { return };
+                let Some(geo) = self.space.output_geometry(output) else { return };
                 let pos = event.position_transformed(geo.size) + geo.loc.to_f64();
                 self.on_motion(pos, event.time_msec());
             }
             // Mouse e touchpad de verdade (sessão própria): movimento relativo.
             InputEvent::PointerMotion { event, .. } => {
-                let (w, h) = self.output_size();
-                let mut pos = self.pointer_pos + event.delta();
-                pos.x = pos.x.clamp(0.0, w as f64 - 1.0);
-                pos.y = pos.y.clamp(0.0, h as f64 - 1.0);
+                // Pode passar de um monitor para o outro; nunca sai de todos.
+                let pos = self.clamp_to_outputs(self.pointer_pos + event.delta());
                 self.on_motion(pos, event.time_msec());
                 self.dirty = true;
             }

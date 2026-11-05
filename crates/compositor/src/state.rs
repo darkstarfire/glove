@@ -152,6 +152,14 @@ pub struct Glove {
     pub xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState,
     /// Janelas X11 que se posicionam sozinhas (menus, dicas): fora do espaço das janelas.
     pub x11_overlays: Vec<Window>,
+    /// Nome do monitor principal (barra de menu e Dock); os outros estendem a mesa.
+    pub primary_output: Option<String>,
+    /// Tampa do notebook fechada (com monitor externo, a tela embutida desliga).
+    pub lid_closed: bool,
+    /// Os monitores precisam ser reorganizados (a tampa abriu ou fechou).
+    pub reconfigure_outputs: bool,
+    /// Depuração: capturar a imagem que um monitor extra mostraria (arquivo, área, escala).
+    pub extra_shot: Option<(std::path::PathBuf, smithay::utils::Rectangle<i32, Logical>, f64)>,
 }
 
 impl Glove {
@@ -255,6 +263,10 @@ impl Glove {
             xdisplay: None,
             xwayland_shell_state,
             x11_overlays: Vec::new(),
+            primary_output: None,
+            lid_closed: false,
+            reconfigure_outputs: false,
+            extra_shot: None,
         }
     }
 
@@ -382,9 +394,68 @@ impl Glove {
 
     /// Depois de trocar de resolução, o ponteiro volta para dentro da tela.
     pub fn keep_pointer_inside(&mut self) {
-        let (w, h) = self.output_size();
-        self.pointer_pos.x = self.pointer_pos.x.clamp(0.0, w as f64 - 1.0);
-        self.pointer_pos.y = self.pointer_pos.y.clamp(0.0, h as f64 - 1.0);
+        self.pointer_pos = self.clamp_to_outputs(self.pointer_pos);
+    }
+
+    /// O monitor principal (barra de menu e Dock).
+    pub fn primary(&self) -> Option<&smithay::output::Output> {
+        let mut outs = self.space.outputs();
+        match &self.primary_output {
+            Some(n) => self.space.outputs().find(|o| o.name() == *n).or_else(|| outs.next()),
+            None => outs.next(),
+        }
+    }
+
+    /// Retângulo (lógico) do monitor em que está o ponto.
+    pub fn output_rect_at(&self, p: Point<f64, Logical>) -> Option<smithay::utils::Rectangle<i32, Logical>> {
+        self.space.outputs().filter_map(|o| self.space.output_geometry(o)).find(|g| g.to_f64().contains(p))
+    }
+
+    /// O ponto, trazido para dentro de algum monitor (o mais perto).
+    pub fn clamp_to_outputs(&self, p: Point<f64, Logical>) -> Point<f64, Logical> {
+        if self.output_rect_at(p).is_some() {
+            return p;
+        }
+        let rects: Vec<_> = self.space.outputs().filter_map(|o| self.space.output_geometry(o)).collect();
+        if rects.is_empty() {
+            let (w, h) = self.output_size();
+            return (p.x.clamp(0.0, w as f64 - 1.0), p.y.clamp(0.0, h as f64 - 1.0)).into();
+        }
+        rects
+            .iter()
+            .map(|g| {
+                let g = g.to_f64();
+                let q: Point<f64, Logical> = (p.x.clamp(g.loc.x, g.loc.x + g.size.w - 1.0), p.y.clamp(g.loc.y, g.loc.y + g.size.h - 1.0)).into();
+                let d = (q.x - p.x).powi(2) + (q.y - p.y).powi(2);
+                (d, q)
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, q)| q)
+            .unwrap_or(p)
+    }
+
+    /// Janelas que ficaram fora de todos os monitores (um saiu do cabo) voltam ao principal.
+    pub fn rescue_windows(&mut self) {
+        let rects: Vec<_> = self.space.outputs().filter_map(|o| self.space.output_geometry(o)).collect();
+        if rects.is_empty() {
+            return;
+        }
+        let area = self.work_area();
+        let lost: Vec<Window> = self
+            .space
+            .elements()
+            .filter(|w| self.space.element_geometry(w).is_some_and(|g| !rects.iter().any(|r| r.overlaps(g))))
+            .cloned()
+            .collect();
+        for (i, w) in lost.iter().enumerate() {
+            let top = crate::shell::deco_top(w);
+            let off = (i as i32 % 6) * 26;
+            self.space.map_element(w.clone(), (area.loc.x + 40 + off, area.loc.y + top + 20 + off), false);
+            self.sync_x11(w);
+        }
+        if !lost.is_empty() {
+            self.dirty = true;
+        }
     }
 
     /// Dentro de outro desktop: a "tela" é a janela do Glove.
@@ -398,6 +469,7 @@ impl Glove {
                 description: "Janela do Glove".into(),
                 size_mm: (0, 0),
                 active: true,
+                primary: true,
                 current: mode.clone(),
                 preferred: mode.clone(),
                 modes: vec![mode],

@@ -368,11 +368,27 @@ pub struct Monitor {
     pub scale: f64,
     /// Menu de monitores (brilho, resolução) na barra de menu.
     pub menu_extra: bool,
+    /// Com mais de um monitor: "estender" (mesa maior), "espelhar" (a mesma
+    /// imagem) ou "um" (só o principal).
+    #[serde(default = "default_arrangement")]
+    pub arrangement: String,
+    /// Onde ficam os outros monitores, vistos do principal: "direita",
+    /// "esquerda" ou "abaixo".
+    #[serde(default = "default_side")]
+    pub side: String,
+}
+
+fn default_arrangement() -> String {
+    "estender".into()
+}
+
+fn default_side() -> String {
+    "direita".into()
 }
 
 impl Default for Monitor {
     fn default() -> Self {
-        Self { output: String::new(), mode: String::new(), scale: 0.0, menu_extra: true }
+        Self { output: String::new(), mode: String::new(), scale: 0.0, menu_extra: true, arrangement: default_arrangement(), side: default_side() }
     }
 }
 
@@ -392,6 +408,9 @@ pub struct OutputInfo {
     /// Tamanho físico em mm.
     pub size_mm: (u32, u32),
     pub active: bool,
+    /// O monitor principal (barra de menu e Dock).
+    #[serde(default)]
+    pub primary: bool,
     /// "LxA@Hz" em uso.
     pub current: String,
     pub preferred: String,

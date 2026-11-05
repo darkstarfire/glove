@@ -478,9 +478,7 @@ pub enum Hit {
 
 impl Glove {
     pub fn output_size(&self) -> (i32, i32) {
-        self.space
-            .outputs()
-            .next()
+        self.primary()
             .and_then(|o| self.space.output_geometry(o))
             .map(|g| (g.size.w, g.size.h))
             .unwrap_or((1280, 800))
@@ -517,7 +515,8 @@ impl Glove {
                 }
             }
         }
-        if py < MENUBAR_H as f64 {
+        let (ow, _) = self.output_size();
+        if py >= 0.0 && py < MENUBAR_H as f64 && px >= 0.0 && px < ow as f64 {
             let (a, b) = self.chrome.logo_range;
             if px >= a as f64 && px < b as f64 {
                 return Hit::MenuBar { target: Some(BarTarget::Logo) };
@@ -715,6 +714,21 @@ impl Glove {
         self.focus_window(Some(w));
     }
 
+    /// Área para o zoom da janela: num monitor extra, ele inteiro (lá não há
+    /// barra de menu nem Dock); no principal, a área útil.
+    pub fn zoom_area(&self, w: &Window) -> Rectangle<i32, Logical> {
+        let primary = self.primary().and_then(|o| self.space.output_geometry(o));
+        if let Some(g) = self.space.element_geometry(w) {
+            let center: Point<f64, Logical> = ((g.loc.x + g.size.w / 2) as f64, (g.loc.y + g.size.h / 2) as f64).into();
+            if let Some(r) = self.output_rect_at(center) {
+                if Some(r) != primary {
+                    return r;
+                }
+            }
+        }
+        self.work_area()
+    }
+
     /// Área útil: abaixo da barra de menu e acima do Dock.
     pub fn work_area(&self) -> Rectangle<i32, Logical> {
         let (w, h) = self.output_size();
@@ -756,7 +770,7 @@ impl Glove {
             None => {
                 restore.borrow_mut().0 = Some(geo);
                 let top = deco_top(w);
-                let area = self.work_area();
+                let area = self.zoom_area(w);
                 t.with_pending_state(|s| {
                     s.states.set(xdg_toplevel::State::Maximized);
                     s.size = Some((area.size.w, area.size.h - top).into());
@@ -786,7 +800,7 @@ impl Glove {
             None => {
                 restore.borrow_mut().0 = Some(geo);
                 let top = deco_top(w);
-                let area = self.work_area();
+                let area = self.zoom_area(w);
                 let _ = x.set_maximized(true);
                 Rectangle::new((area.loc.x, area.loc.y + top).into(), (area.size.w, area.size.h - top).into())
             }
@@ -1336,7 +1350,7 @@ impl Glove {
 
     /// Escala da tela (1.0, 1.5, 2.0…).
     pub fn scale(&self) -> f64 {
-        self.space.outputs().next().map(|o| o.current_scale().fractional_scale()).unwrap_or(1.0)
+        self.primary().map(|o| o.current_scale().fractional_scale()).unwrap_or(1.0)
     }
 
     pub fn prepare_chrome(&mut self) {

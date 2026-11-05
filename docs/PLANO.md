@@ -162,7 +162,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 
 ## Fase 9 — Sessão avançada
 
-- [ ] 9.1 Vários monitores ao mesmo tempo (estender/espelhar) (G)
+- [x] 9.1 Vários monitores ao mesmo tempo (estender/espelhar) (G)
 - [x] 9.2 Apps X11 (XWayland) (M)
 - [ ] 9.3 Troca rápida de usuário (Baixa)
 

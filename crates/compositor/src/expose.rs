@@ -272,7 +272,11 @@ impl Glove {
         let (w, h) = (w as f64 - 1.0, h as f64 - 1.0);
         let near = |a: f64, b: f64| (a - b).abs() <= 1.0;
         let hc = &self.config.hot_corners;
-        let corner = if near(pos.x, 0.0) && near(pos.y, 0.0) {
+        // Com outro monitor ao lado, a borda de passagem não é canto.
+        let open = |dx: f64, dy: f64| self.output_rect_at((pos.x + dx, pos.y + dy).into()).is_none();
+        let corner = if !(open(-2.0, 0.0) || open(2.0, 0.0)) || !(open(0.0, -2.0) || open(0.0, 2.0)) {
+            None
+        } else if near(pos.x, 0.0) && near(pos.y, 0.0) {
             Some(hc.top_left.clone())
         } else if near(pos.x, w) && near(pos.y, 0.0) {
             Some(hc.top_right.clone())

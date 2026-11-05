@@ -257,9 +257,10 @@ impl Glove {
             return;
         };
 
-        let output = self.space.outputs().next().unwrap();
-        let output_geo = self.space.output_geometry(output).unwrap();
-        let window_geo = self.space.element_geometry(window).unwrap();
+        let Some(window_geo) = self.space.element_geometry(window) else { return };
+        // O monitor em que está a janela (pelo meio dela); senão, o principal.
+        let center: smithay::utils::Point<f64, smithay::utils::Logical> = ((window_geo.loc.x + window_geo.size.w / 2) as f64, (window_geo.loc.y + window_geo.size.h / 2) as f64).into();
+        let Some(output_geo) = self.output_rect_at(center).or_else(|| self.primary().and_then(|o| self.space.output_geometry(o))) else { return };
 
         // The target geometry for the positioner should be relative to its parent's geometry, so
         // we will compute that here.
