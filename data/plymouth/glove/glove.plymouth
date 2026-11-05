@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Glove
+Description=Início e desligamento do Glove: fundo cinza claro, orbe e giratório (arte gerada por código).
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/glove
+ScriptFile=/usr/share/plymouth/themes/glove/glove.script

@@ -152,6 +152,16 @@ O instalador nunca troca o gerenciador de login sozinho; se o greetd não estive
 mostra os comandos para trocar e para voltar. Para ver a tela numa janela, sem instalar:
 `glove --greeter -c "glove-login --fake"` (senha de teste: `glove`).
 
+## Tela de início do sistema (opcional, Plymouth)
+
+Tema com fundo cinza claro, orbe e giratório, desenhado por código (`glove-arte`):
+
+```sh
+./target/release/glove-arte plymouth data/plymouth/glove   # (re)gera a arte
+sudo ./data/instalar-plymouth.sh             # instala e ativa (refaz o initramfs)
+sudo ./data/instalar-plymouth.sh --remover   # volta ao tema anterior
+```
+
 ## Configuração
 
 `~/.config/glove/config.toml` (criado na primeira execução). As Preferências editam esse arquivo e o
@@ -201,6 +211,7 @@ crates/find        Busca (`glove-find`)
 crates/disks       Discos (`glove-disks`)
 crates/chess       Xadrez (`glove-chess`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
+crates/arte        `glove-arte`: gera a arte usada fora do Glove (tema do Plymouth)
 crates/login       tela de login (`glove-login`, roda em `glove --greeter` pelo greetd; `--fake` para testar)
 data/              sessão: glove-session, glove.desktop, instalar-sessao.sh
 ```

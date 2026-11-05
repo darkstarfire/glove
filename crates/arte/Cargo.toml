@@ -1,0 +1,8 @@
+[package]
+name = "glove-arte"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-paint = { path = "../paint" }
