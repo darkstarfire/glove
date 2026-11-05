@@ -186,6 +186,7 @@ crates/find        Busca (`glove-find`)
 crates/disks       Discos (`glove-disks`)
 crates/chess       Xadrez (`glove-chess`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
+crates/login       tela de login (`glove-login`, roda em `glove --greeter` pelo greetd; `--fake` para testar)
 data/              sessão: glove-session, glove.desktop, instalar-sessao.sh
 ```
 

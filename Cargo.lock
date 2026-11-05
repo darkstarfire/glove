@@ -763,6 +763,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-login"
+version = "0.1.0"
+dependencies = [
+ "glove-config",
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-monitor"
 version = "0.1.0"
 dependencies = [

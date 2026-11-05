@@ -1075,6 +1075,37 @@ impl<'a> Ui<'a> {
         changed
     }
 
+    /// Campo de senha: bolinhas no lugar das letras (nada de copiar o texto).
+    /// `autofocus` põe o cursor nele. Devolve verdadeiro quando o Enter é pressionado.
+    pub fn password_field_in(&mut self, r: Rect, value: &mut String, autofocus: bool) -> bool {
+        let id = self.next_id();
+        if autofocus {
+            self.mem.focus = Some(id);
+        }
+        let (_, enter) = self.edit_line(id, r, value);
+        let focused = self.mem.focus == Some(id);
+        if focused {
+            self.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, 5.0), &solid(with_alpha(self.theme.accent, 0.45)));
+        }
+        self.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
+        self.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));
+        self.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, 3.0, &vgrad(r.y + 1.0, r.y + 4.0, &[(0.0, rgba(0, 0, 0, 40)), (1.0, rgba(0, 0, 0, 0))]));
+        let n = value.chars().count();
+        let cur = (*self.mem.cursor.get(&id).unwrap_or(&n)).min(n);
+        let step = 8.0;
+        let max = ((r.w - 16.0) / step) as usize;
+        let first = n.saturating_sub(max);
+        let cy = r.y + r.h / 2.0;
+        for i in first..n {
+            self.c.fill(circle(r.x + 9.0 + (i - first) as f32 * step, cy, 3.0), &solid(ink()));
+        }
+        if focused {
+            let cx = r.x + 5.5 + (cur.saturating_sub(first)) as f32 * step;
+            self.c.fill_rect(cx, r.y + 4.0, 1.0, r.h - 8.0, &solid(ink()));
+        }
+        enter
+    }
+
     // -----------------------------------------------------------------------
     // Busca, segmentado e itens de barra de ferramentas
     // -----------------------------------------------------------------------
