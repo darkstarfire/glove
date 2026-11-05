@@ -5,9 +5,11 @@
 
 pub mod filebrowser;
 pub mod menu;
+mod panels;
 mod platform;
 mod text;
 pub mod ui;
+pub use panels::{ColorPanel, FontPanel};
 pub use text::{Align, TextBuffer};
 
 pub use glove_paint as paint;

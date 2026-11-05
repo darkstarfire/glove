@@ -370,6 +370,8 @@ pub struct Memory {
     alert_sounded: Option<String>,
     /// Pedido de arrastar a janela (moldura própria).
     pub(crate) move_req: bool,
+    /// Fonte nova para o texto dos documentos (família do fontconfig).
+    pub(crate) doc_font_req: Option<String>,
     /// Número da janela desta memória (apps com várias janelas).
     pub(crate) window_id: u32,
     /// Janelas novas pedidas pelo app: (número, opções).
@@ -591,6 +593,12 @@ impl<'a> Ui<'a> {
     /// Pede ao Glove o fim da sessão: "encerrar", "reiniciar" ou "desligar".
     pub fn request_end_session(&mut self, kind: &str) {
         self.mem.glove_cmds.push(format!("SAIR\t{kind}"));
+    }
+
+    /// Troca a fonte do texto dos documentos (text_area) desta janela e das
+    /// outras do app. Vale a partir do próximo quadro.
+    pub fn set_doc_font(&mut self, family: &str) {
+        self.mem.doc_font_req = Some(family.to_string());
     }
 
     /// Começa a arrastar a janela (chame num clique da moldura própria).

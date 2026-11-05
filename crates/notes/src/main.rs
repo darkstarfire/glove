@@ -13,7 +13,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 
 use glove_kit::paint::draw::*;
-use glove_kit::{run, App, Choice, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
+use glove_kit::{run, App, Choice, ColorPanel, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
 
 const COLORS: [(&str, &str, (u8, u8, u8)); 6] = [
     ("amarelo", "Amarelo", (255, 244, 160)),
@@ -61,6 +61,8 @@ struct Note {
     deleted: bool,
     /// Recolhido (só a faixa): a altura de antes.
     collapsed: Option<f32>,
+    /// Cor escolhida no Painel de Cores (em vez das seis de sempre).
+    custom: Option<(u8, u8, u8)>,
 }
 
 impl Note {
@@ -69,14 +71,22 @@ impl Note {
     }
 
     fn load(id: u32) -> Self {
-        let mut n = Self { id, buf: TextBuffer::new(""), color: 0, deleted: false, collapsed: None };
+        let mut n = Self { id, buf: TextBuffer::new(""), color: 0, deleted: false, collapsed: None, custom: None };
         if let Ok(t) = std::fs::read_to_string(n.path("txt")) {
             n.buf = TextBuffer::new(t);
         }
         if let Ok(c) = std::fs::read_to_string(n.path("cor")) {
-            n.color = COLORS.iter().position(|(id, _, _)| *id == c.trim()).unwrap_or(0);
+            let c = c.trim();
+            n.color = COLORS.iter().position(|(id, _, _)| *id == c).unwrap_or(0);
+            // "#rrggbb": cor do Painel de Cores.
+            if let Some(hex) = c.strip_prefix('#').filter(|h| h.len() == 6) {
+                let v = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+                if let (Some(r), Some(g), Some(b)) = (v(0), v(2), v(4)) {
+                    n.custom = Some((r, g, b));
+                }
+            }
         }
-        n.buf.paper = Some(COLORS[n.color].2);
+        n.buf.paper = Some(n.paper());
         n.buf.font_px = 14.0;
         n
     }
@@ -94,8 +104,16 @@ impl Note {
             }
         };
         write(self.path("txt"), self.buf.text());
-        write(self.path("cor"), COLORS[self.color].0);
+        let cor = match self.custom {
+            Some((r, g, b)) => format!("#{r:02x}{g:02x}{b:02x}"),
+            None => COLORS[self.color].0.to_string(),
+        };
+        write(self.path("cor"), &cor);
         self.buf.modified = false;
+    }
+
+    fn paper(&self) -> (u8, u8, u8) {
+        self.custom.unwrap_or(COLORS[self.color].2)
     }
 
     fn title(&self) -> String {
@@ -122,6 +140,8 @@ struct Notes {
     /// Exportar/Importar: (janela, diálogo, é exportar, tamanho antes).
     file: Option<(u32, FileBrowser, bool, (f32, f32))>,
     titles: HashMap<u32, String>,
+    /// Painel de Cores: (janela, painel, tamanho da janela antes).
+    colors: Option<(u32, ColorPanel, (f32, f32))>,
 }
 
 impl Notes {
@@ -180,7 +200,7 @@ impl Notes {
     /// Faixa colorida: fechar à esquerda, recolher à direita; arrasta a janela.
     fn frame(ui: &mut Ui, note: &mut Note) -> (bool, bool) {
         let (w, h) = (ui.c.w, ui.c.h);
-        let (r, g, b) = COLORS[note.color].2;
+        let (r, g, b) = note.paper();
         let paper = rgba(r, g, b, 255);
         let active = ui.window_active();
         let top = if active { darken(paper, 0.1) } else { darken(paper, 0.04) };
@@ -227,6 +247,7 @@ impl App for Notes {
                 "Ctrl+M" => acts.push("minimize".into()),
                 "Ctrl+Shift+E" => acts.push("export".into()),
                 "Ctrl+Shift+I" => acts.push("import".into()),
+                "Ctrl+Shift+C" => acts.push("cor-outra".into()),
                 _ => {}
             }
         }
@@ -261,10 +282,19 @@ impl App for Notes {
                     self.file = Some((win, fb, a == "export", size));
                     ui.set_window_size(560.0, 420.0, true);
                 }
+                "cor-outra" if self.colors.is_none() => {
+                    let rgb = self.note_mut(id).map(|n| n.paper()).unwrap_or((255, 244, 160));
+                    let mut p = ColorPanel::new(rgb);
+                    p.open = true;
+                    // A janela cresce para caber o painel e volta depois.
+                    self.colors = Some((win, p, (ui.c.w, ui.c.h)));
+                    ui.set_window_size(280.0, 340.0, true);
+                }
                 c if c.starts_with("cor-") => {
                     if let (Some(i), Some(n)) = (COLORS.iter().position(|(cid, _, _)| c[4..] == **cid), self.note_mut(id)) {
                         n.color = i;
-                        n.buf.paper = Some(COLORS[i].2);
+                        n.custom = None;
+                        n.buf.paper = Some(n.paper());
                         n.save();
                     }
                 }
@@ -304,6 +334,20 @@ impl App for Notes {
             note.save();
         }
         let (close, fold) = Self::frame(ui, note);
+        // Painel de Cores desta nota.
+        if let Some((cw, panel, size)) = &mut self.colors {
+            if *cw == win {
+                if ui.color_panel(panel) {
+                    note.custom = Some(panel.rgb);
+                    note.buf.paper = Some(panel.rgb);
+                    note.save();
+                }
+                if !panel.open {
+                    ui.set_window_size(size.0, size.1, true);
+                    self.colors = None;
+                }
+            }
+        }
         if close {
             note.save();
             ui.close = true;
@@ -326,7 +370,10 @@ impl App for Notes {
 
     fn menus(&self) -> Vec<Menu> {
         let color = self.notes.iter().find(|n| n.id == self.active).map(|n| n.color).unwrap_or(0);
-        let cores: Vec<MenuItem> = COLORS.iter().enumerate().map(|(i, (id, name, _))| MenuItem::new(&format!("cor-{id}"), name, "").checked(i == color)).collect();
+        let custom = self.notes.iter().find(|n| n.id == self.active).is_some_and(|n| n.custom.is_some());
+        let mut cores: Vec<MenuItem> = COLORS.iter().enumerate().map(|(i, (id, name, _))| MenuItem::new(&format!("cor-{id}"), name, "").checked(i == color && !custom)).collect();
+        cores.push(MenuItem::Separator);
+        cores.push(MenuItem::new("cor-outra", "Outra Cor…", "Ctrl+Shift+C").checked(custom));
         vec![
             Menu::new(
                 "Arquivo",
@@ -422,7 +469,7 @@ fn main() {
     let mut windows = HashMap::new();
     windows.insert(0, first);
     glove_kit::use_own_frame();
-    let app = Notes { notes: vec![note], windows, to_open: ids, requests: Vec::new(), listener, active: first, file: None, titles: HashMap::new() };
+    let app = Notes { notes: vec![note], windows, to_open: ids, requests: Vec::new(), listener, active: first, file: None, titles: HashMap::new(), colors: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-notes: {e}");
     }

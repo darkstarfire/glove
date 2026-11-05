@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use glove_kit::paint::draw::*;
-use glove_kit::{run, Align, AlertKind, App, Choice, FileBrowser, Glyph, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
+use glove_kit::{run, Align, AlertKind, App, Choice, FileBrowser, FontPanel, Glyph, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
 
 /// Altura da régua e da barra de Localizar.
 const RULER_H: f32 = 30.0;
@@ -68,6 +68,7 @@ struct Editor {
     last_title: String,
     ruler: bool,
     find: Option<Find>,
+    fonts: FontPanel,
 }
 
 fn home() -> PathBuf {
@@ -88,7 +89,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>) -> Self {
-        let mut ed = Self { buf: TextBuffer::new(""), path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None };
+        let mut ed = Self { buf: TextBuffer::new(""), path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new("", 13.0) };
         if let Some(p) = path {
             match std::fs::read_to_string(&p) {
                 Ok(t) => {
@@ -173,6 +174,10 @@ impl Editor {
                 }
             }
             Some("ruler") => self.ruler = !self.ruler,
+            Some("fonts") => {
+                self.fonts.size = self.font_px();
+                self.fonts.open = !self.fonts.open;
+            }
             Some("align-left") => self.buf.align = Align::Left,
             Some("align-center") => self.buf.align = Align::Center,
             Some("align-right") => self.buf.align = Align::Right,
@@ -430,6 +435,7 @@ impl App for Editor {
                     "Ctrl+Shift+G" => action = Some("find-prev"),
                     "Ctrl+E" => action = Some("use-selection"),
                     "Ctrl+R" => action = Some("ruler"),
+                    "Ctrl+T" => action = Some("fonts"),
                     "Ctrl+Shift+S" => {
                         let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).or_else(|| Some(documents_dir()));
                         self.sheet = Sheet::SaveAs { fb: FileBrowser::save(dir, &self.name()), then_close: false };
@@ -481,6 +487,11 @@ impl App for Editor {
         }
         ui.text_area(&mut self.buf, Rect::new(0.0, top, w, h - top));
         ui.set_enabled(!sheet_open);
+        // Painel de Fontes: muda a fonte e o tamanho do documento na hora.
+        if ui.font_panel(&mut self.fonts) {
+            ui.set_doc_font(&self.fonts.family);
+            self.buf.font_px = self.fonts.size;
+        }
         self.sheet(ui);
     }
 
@@ -527,6 +538,8 @@ impl App for Editor {
             Menu::new(
                 "Formatar",
                 vec![
+                    MenuItem::new("fonts", if self.fonts.open { "Ocultar Fontes" } else { "Mostrar Fontes" }, "Ctrl+T"),
+                    MenuItem::Separator,
                     MenuItem::new("bigger", "Aumentar fonte", "Ctrl+equal"),
                     MenuItem::new("smaller", "Diminuir fonte", "Ctrl+minus"),
                     MenuItem::new("font-reset", "Tamanho normal", "").enabled(self.buf.font_px > 0.0),

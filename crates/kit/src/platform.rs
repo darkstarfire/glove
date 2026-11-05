@@ -804,6 +804,12 @@ impl<A: App> Runner<A> {
                 });
             }
         }
+        if let Some(f) = self.w.mem.doc_font_req.take() {
+            if let Some(fonts) = Fonts::load_family(&f) {
+                self.doc_fonts = fonts;
+                self.w.dirty = true;
+            }
+        }
         if std::mem::take(&mut self.w.mem.move_req) {
             if let Some(seat) = &self.seat {
                 self.w.window.move_(seat, self.last_serial);
