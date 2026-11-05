@@ -115,9 +115,9 @@ pub fn open(path: &Path) -> Result<(), String> {
         let app = glove_config::default_dock_apps().into_iter().find(|a| a.app_id == id).ok_or("app não encontrado")?;
         let first = app.command.split_whitespace().next().unwrap_or("");
         let cmd = app.command.replacen(first, &super::sibling(first).to_string_lossy(), 1);
-        return std::process::Command::new("sh").arg("-c").arg(cmd).spawn().map(|_| ()).map_err(|e| e.to_string());
+        return super::launch(std::process::Command::new("sh").arg("-c").arg(cmd)).map_err(|e| e.to_string());
     }
-    std::process::Command::new("gio").arg("launch").arg(path).spawn().map(|_| ()).map_err(|e| format!("Não foi possível abrir: {e}"))
+    super::launch(std::process::Command::new("gio").arg("launch").arg(path)).map_err(|e| format!("Não foi possível abrir: {e}"))
 }
 
 #[cfg(test)]

@@ -425,18 +425,37 @@ impl App for EmptyTrash {
     }
 }
 
+/// Abre um programa sem ficar esperando por ele; uma thread recolhe o
+/// processo quando ele termina (sem zumbis).
+fn launch(cmd: &mut std::process::Command) -> std::io::Result<()> {
+    let mut child = cmd.spawn()?;
+    std::thread::spawn(move || child.wait());
+    Ok(())
+}
+
 fn sibling(name: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(name))).filter(|p| p.is_file()).unwrap_or_else(|| name.into())
 }
 
 fn open_file(e: &Entry) {
-    let _ = match e.kind {
-        Kind::Text => std::process::Command::new(sibling("glove-edit")).arg(&e.path).spawn(),
-        Kind::Picture if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["png", "jpg", "jpeg"].contains(&x.to_ascii_lowercase().as_str())) => {
-            std::process::Command::new(sibling("glove-view")).arg(&e.path).spawn()
+    use std::process::Command;
+    let mut cmd = match e.kind {
+        Kind::Text => Command::new(sibling("glove-edit")),
+        Kind::Picture if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["png", "jpg", "jpeg"].contains(&x.to_ascii_lowercase().as_str())) => Command::new(sibling("glove-view")),
+        Kind::Archive if expandable(&e.path) => {
+            let mut c = Command::new(sibling("glove-arquivo"));
+            c.arg("expandir");
+            c
         }
-        _ => std::process::Command::new("xdg-open").arg(&e.path).spawn(),
+        _ => Command::new("xdg-open"),
     };
+    let _ = launch(cmd.arg(&e.path));
+}
+
+/// Arquivos que o Utilitário de Arquivo sabe expandir.
+fn expandable(p: &Path) -> bool {
+    let low = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    [".zip", ".tar", ".tgz", ".txz", ".tbz2", ".tzst", ".gz", ".xz", ".bz2", ".zst"].iter().any(|e| low.ends_with(e))
 }
 
 struct Files {
@@ -716,6 +735,15 @@ impl Files {
                     self.transfer(items, target, !copy);
                 }
             }
+        }
+    }
+
+    /// "Compactar “Fotos”" ou "Compactar 3 itens".
+    fn compress_label(&self) -> String {
+        match self.all_selected().as_slice() {
+            [] => "Compactar".into(),
+            [one] => format!("Compactar “{}”", one.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            v => format!("Compactar {} itens", v.len()),
         }
     }
 
@@ -1012,6 +1040,7 @@ impl Files {
             ("rename", "Renomear".into(), sel),
             ("duplicate", "Duplicar".into(), sel && !self.in_trash()),
             ("alias", "Criar Atalho".into(), sel && !self.in_trash()),
+            ("compress", self.compress_label(), sel && !self.in_trash()),
             if self.in_trash() { ("put-back", "Devolver".into(), sel) } else { ("trash", "Mover para a Lixeira".into(), sel) },
             ("", String::new(), false),
             ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
@@ -1069,6 +1098,7 @@ impl Files {
                 ("rename", "Renomear".into(), true),
                 ("duplicate", "Duplicar".into(), !self.in_trash()),
                 ("alias", "Criar Atalho".into(), !self.in_trash()),
+                ("compress", self.compress_label(), !self.in_trash()),
                 ("", String::new(), false),
                 ("copy", "Copiar".into(), true),
                 ("cut", "Recortar".into(), true),
@@ -1675,7 +1705,7 @@ impl Files {
     fn action(&mut self, a: &str, ui: &mut Ui) {
         match a {
             "new-window" => {
-                let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(self.current()).spawn();
+                let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(self.current()));
             }
             "new-folder" => self.new_folder(),
             "open" => {
@@ -1715,6 +1745,14 @@ impl Files {
                     self.start_job(vec![ops::Item { src: p, dest, replace: false }], false);
                 }
             }
+            "compress" => {
+                let items = self.all_selected();
+                if !items.is_empty() {
+                    if let Err(e) = launch(std::process::Command::new(sibling("glove-arquivo")).arg("compactar").args(&items)) {
+                        self.message = Some(format!("Não foi possível abrir o Utilitário de Arquivo: {e}"));
+                    }
+                }
+            }
             "alias" => {
                 if let Some(p) = self.selected.clone() {
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -1734,7 +1772,7 @@ impl Files {
             // Uma janela de informações por item (como no Mac).
             "info" => {
                 if let Some(p) = self.selected.clone().or_else(|| Some(self.current())) {
-                    let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--info").arg(p).spawn();
+                    let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--info").arg(p));
                 }
             }
             "paste" => match self.clip.clone() {
@@ -1760,7 +1798,7 @@ impl Files {
                 }
             }
             "empty-trash" => {
-                let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--esvaziar-lixeira").spawn();
+                let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--esvaziar-lixeira"));
             }
             "close" => ui.close = true,
             "view-icons" => self.view = View::Icons,
@@ -1934,6 +1972,7 @@ impl App for Files {
                     MenuItem::new("rename", "Renomear", "F2").enabled(sel),
                     MenuItem::new("duplicate", "Duplicar", "Ctrl+D").enabled(sel && !self.in_trash()),
                     MenuItem::new("alias", "Criar Atalho", "Ctrl+L").enabled(sel && !self.in_trash()),
+                    MenuItem::new("compress", &self.compress_label(), "").enabled(sel && !self.in_trash()),
                     MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar janela", "Ctrl+W"),

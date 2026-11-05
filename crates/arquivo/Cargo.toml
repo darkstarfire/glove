@@ -1,0 +1,8 @@
+[package]
+name = "glove-arquivo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glove-kit = { path = "../kit" }

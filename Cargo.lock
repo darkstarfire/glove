@@ -682,6 +682,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "glove-arquivo"
+version = "0.1.0"
+dependencies = [
+ "glove-kit",
+]
+
+[[package]]
 name = "glove-arte"
 version = "0.1.0"
 dependencies = [

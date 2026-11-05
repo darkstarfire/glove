@@ -124,7 +124,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 6.9 Diálogo Abrir/Salvar em colunas (`kit::filebrowser`), usado no Editor, Visualizador e Lembretes (G)
 - [x] 6.11 Atualização automática (inotify), seleção múltipla e retângulo elástico; pendrives na mesa (M)
 - [x] 6.12 Pastas inteligentes (10.4): buscas salvas da Busca Rápida que aparecem como pastas (M)
-- [ ] 6.13 Compactar: "Compactar item" no menu do Arquivos e clique duplo em .zip/.tar.gz abre
+- [x] 6.13 Compactar: "Compactar item" no menu do Arquivos e clique duplo em .zip/.tar.gz abre
   (utilitário de arquivo com janela de progresso, como o do 10.3) (M)
 
 ## Fase 7 — Preferências
