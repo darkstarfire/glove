@@ -65,6 +65,12 @@ impl Glove {
             self.cursor_elements(renderer, sc, &mut out);
         }
 
+        // Troca de apps por cima de tudo (menos o cursor).
+        if let (Some(s), Some((x, y))) = (&self.switcher, self.switcher_pos()) {
+            if let Some(t) = &s.tex {
+                out.extend(mem(renderer, (x, y).into(), t, sc));
+            }
+        }
         // Tela apagada: nada (na sessão própria a tela nem recebe quadros).
         if self.idle.screen_off {
             return out;

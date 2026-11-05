@@ -16,6 +16,7 @@ mod shell;
 mod search;
 mod startup;
 mod state;
+mod switcher;
 mod udev;
 mod winit;
 

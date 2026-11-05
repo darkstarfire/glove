@@ -1386,3 +1386,43 @@ pub fn expose_label(fonts: &Fonts, text: &str, scale: f32) -> Option<Canvas> {
     fonts.draw(&mut c, &t, 14.0, 17.5, px, true, Color::WHITE);
     Some(c)
 }
+
+// ---------------------------------------------------------------------------
+// Troca de apps (Super+Tab, como no 10.4)
+// ---------------------------------------------------------------------------
+
+const SW_ICON: f32 = 96.0;
+const SW_CELL: f32 = 124.0;
+const SW_PAD: f32 = 18.0;
+const SW_LABEL_H: f32 = 34.0;
+
+/// Tamanho da faixa para `n` apps (encolhe os ícones se não couber em `max_w`).
+pub fn app_switcher_size(n: usize, max_w: f32) -> (f32, f32, f32) {
+    let k = ((max_w - 2.0 * SW_PAD) / (n.max(1) as f32 * SW_CELL)).min(1.0);
+    let cell = SW_CELL * k;
+    (n.max(1) as f32 * cell + 2.0 * SW_PAD, cell + SW_LABEL_H + SW_PAD, k)
+}
+
+/// Faixa escura translúcida com os ícones; o escolhido num quadrado claro e o
+/// nome dele embaixo.
+pub fn app_switcher(fonts: &Fonts, apps: &[(Icon, String)], selected: usize, max_w: f32, scale: f32) -> Option<Canvas> {
+    let (w, h, k) = app_switcher_size(apps.len(), max_w);
+    let mut c = Canvas::new(w, h, scale)?;
+    c.fill(rrect(0.0, 0.0, w, h, 20.0 * k.max(0.5)), &solid(rgba(24, 26, 30, 165)));
+    let cell = SW_CELL * k;
+    let icon = SW_ICON * k;
+    for (i, (ic, _)) in apps.iter().enumerate() {
+        let x = SW_PAD + i as f32 * cell;
+        let y = SW_PAD * 0.8;
+        if i == selected {
+            c.fill(rrect(x + 2.0, y, cell - 4.0, cell - 4.0, 12.0 * k.max(0.5)), &solid(rgba(255, 255, 255, 70)));
+        }
+        icons::draw(&mut c, fonts, *ic, x + (cell - icon) / 2.0, y + (cell - 4.0 - icon) / 2.0, icon, None);
+    }
+    if let Some((_, name)) = apps.get(selected) {
+        let px = 15.0;
+        let tw = fonts.measure(name, px, true);
+        fonts.draw(&mut c, name, ((w - tw) / 2.0).max(8.0), h - SW_LABEL_H / 2.0 + 2.0, px, true, Color::WHITE);
+    }
+    Some(c)
+}

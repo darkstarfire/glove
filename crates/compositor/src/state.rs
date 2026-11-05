@@ -109,6 +109,12 @@ pub struct Glove {
     pub expose: Option<crate::expose::Expose>,
     /// O mouse saiu dos cantos desde o último disparo.
     pub corner_armed: bool,
+    /// Troca de apps (Super+Tab) aberta.
+    pub switcher: Option<crate::switcher::Switcher>,
+    /// Apps (pid) do usado mais recentemente para o mais antigo.
+    pub app_mru: Vec<u32>,
+    /// O Super foi solto com a troca aberta: trocar depois de entregar a tecla.
+    pub switcher_commit: bool,
 }
 
 impl Glove {
@@ -182,6 +188,9 @@ impl Glove {
             search: Default::default(),
             expose: None,
             corner_armed: true,
+            switcher: None,
+            app_mru: Vec::new(),
+            switcher_commit: false,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

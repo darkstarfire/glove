@@ -510,6 +510,7 @@ impl Glove {
         match window {
             Some(w) => {
                 self.space.raise_element(&w, true);
+                self.note_app_used(&w);
                 keyboard.set_focus(self, window_surface(&w).cloned(), serial);
             }
             None => {
@@ -1135,6 +1136,7 @@ impl Glove {
         self.prepare_startup();
         self.prepare_search();
         self.prepare_expose();
+        self.prepare_switcher();
         self.prepare_lock();
         self.prepare_extras();
         self.prepare_wait_cursor();

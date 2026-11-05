@@ -88,7 +88,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 ## Fase 4 — Dock completo
 
-- [ ] 4.1 Super+Tab no estilo do Tiger: faixa de ícones grandes no meio da tela, com o nome do app (M)
+- [x] 4.1 Super+Tab no estilo do Tiger: faixa de ícones grandes no meio da tela, com o nome do app (M)
 - [ ] 4.2 Ícone pula ao abrir um app (M)
 - [ ] 4.3 Animação de minimizar até o Dock (Escala) e miniatura viva da janela minimizada (G)
 - [ ] 4.4 Menu de contexto do Dock com bico apontando para o ícone (Manter, Mostrar no Arquivos, Encerrar) (M)

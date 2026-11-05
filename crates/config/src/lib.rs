@@ -202,7 +202,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("hide", "Ocultar o app"),
     ("hide_others", "Ocultar os outros apps"),
     ("zoom", "Zoom da janela"),
-    ("cycle", "Trocar de janela"),
+    ("cycle", "Trocar de app"),
     ("expose_all", "Exposé: todas as janelas"),
     ("expose_app", "Exposé: janelas do app"),
     ("expose_desktop", "Exposé: mostrar a mesa"),

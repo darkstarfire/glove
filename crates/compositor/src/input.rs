@@ -41,6 +41,9 @@ enum KeyAction {
     /// Ctrl+F2: abre a barra de menu pelo teclado.
     MenuBar,
     Lock,
+    /// Tecla com a troca de apps aberta (ou Super+Shift+Tab para abrir voltando).
+    Switcher(crate::switcher::SwitcherKey),
+    SwitcherBack,
     ExposeAll,
     ExposeApp,
     ExposeDesktop,
@@ -193,6 +196,21 @@ impl Glove {
                     self.on_key(code + 8, KeyState::Released, t);
                 }
             }
+            // "press super" / "release super": segura e solta uma tecla.
+            Some(cmd @ ("press" | "release")) => {
+                let name = it.next().unwrap_or("");
+                let code = match name {
+                    "ctrl" => 29,
+                    "shift" => 42,
+                    "alt" => 56,
+                    "super" => 125,
+                    k => debug_keycode(k).0,
+                };
+                if code != 0 {
+                    let st = if cmd == "press" { KeyState::Pressed } else { KeyState::Released };
+                    self.on_key(code + 8, st, t);
+                }
+            }
             Some("click") => {
                 self.on_button(BTN_LEFT, ButtonState::Pressed, t);
                 self.on_button(BTN_LEFT, ButtonState::Released, t + 1);
@@ -271,6 +289,10 @@ impl Glove {
         let keyboard = self.seat.get_keyboard().unwrap();
         let action = keyboard.input::<Option<KeyAction>, _>(self, code.into(), state, serial, time, |st, mods, handle| {
             if state == KeyState::Released {
+                // Soltou o Super com a troca de apps aberta: troca (depois de entregar a tecla).
+                if st.switcher.is_some() && !mods.logo && !(st.nested && mods.alt) {
+                    st.switcher_commit = true;
+                }
                 if let Some(i) = st.suppressed_keys.iter().position(|k| *k == code) {
                     st.suppressed_keys.remove(i);
                     return FilterResult::Intercept(None);
@@ -310,6 +332,26 @@ impl Glove {
                 };
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(k.map(KeyAction::LockKey));
+            }
+            // Troca de apps aberta: as teclas são dela.
+            if st.switcher.is_some() {
+                use crate::switcher::SwitcherKey as K;
+                let k = match name.as_str() {
+                    "tab" | "iso_left_tab" if mods.shift => Some(K::Prev),
+                    "tab" | "right" => Some(K::Next),
+                    "iso_left_tab" | "left" => Some(K::Prev),
+                    "q" => Some(K::Quit),
+                    "h" => Some(K::Hide),
+                    "escape" => Some(K::Cancel),
+                    _ => None,
+                };
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(k.map(KeyAction::Switcher));
+            }
+            // Super+Shift+Tab: abre voltando.
+            if (mods.logo || (st.nested && mods.alt)) && mods.shift && matches!(name.as_str(), "tab" | "iso_left_tab") {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::SwitcherBack));
             }
             // Exposé: Esc volta.
             if st.expose.is_some() && name == "escape" {
@@ -378,6 +420,9 @@ impl Glove {
             }
         });
 
+        if std::mem::take(&mut self.switcher_commit) {
+            self.switcher_key(crate::switcher::SwitcherKey::Commit);
+        }
         // Tecla entregue a um app: aproveita para ver se ele responde.
         if state == KeyState::Pressed && action.as_ref().is_some_and(|a| a.is_none()) {
             if let Some(w) = self.focused_window() {
@@ -399,13 +444,9 @@ impl Glove {
                     self.minimize_window(&w);
                 }
             }
-            Some(KeyAction::Cycle) => {
-                // A janela mais ao fundo vem para a frente.
-                let bottom = self.space.elements().next().cloned();
-                if let Some(w) = bottom {
-                    self.focus_window(Some(w));
-                }
-            }
+            Some(KeyAction::Cycle) => self.switcher_open_or_next(false),
+            Some(KeyAction::SwitcherBack) => self.switcher_open_or_next(true),
+            Some(KeyAction::Switcher(k)) => self.switcher_key(k),
             Some(KeyAction::Zoom) => {
                 if let Some(w) = self.focused_window() {
                     self.toggle_zoom(&w);
