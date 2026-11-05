@@ -36,6 +36,7 @@ enum Pane {
     Rede,
     DataHora,
     Inicio,
+    Acesso,
     Dock,
     Teclado,
     Mouse,
@@ -57,7 +58,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 13] = [
+const PANES: [PaneInfo; 14] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa", category: 0, keywords: "papel de parede fundo imagem cor sólida foto" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -70,6 +71,7 @@ const PANES: [PaneInfo; 13] = [
     PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
     PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
     PaneInfo { pane: Pane::Inicio, id: "inicio", icon: Icon::Pref(PrefKind::LoginItems), name: "Itens de Início", category: 3, keywords: "abrir ao entrar autostart iniciar sessão login aplicativos automático" },
+    PaneInfo { pane: Pane::Acesso, id: "acesso", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
 ];
 
@@ -181,6 +183,8 @@ struct Prefs {
     datahora: datahora::DataHora,
     inicio: inicio::Inicio,
     audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
+    /// Aba do Acesso Universal.
+    access_tab: usize,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
     /// Miniaturas de papel de parede já desenhadas.
@@ -198,7 +202,7 @@ struct Prefs {
 const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
     ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
-    ("Sistema", &["screenshot", "force_quit", "lock", "input_next", "quit"]),
+    ("Sistema", &["screenshot", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
 ];
 
 impl Prefs {
@@ -253,6 +257,7 @@ impl Prefs {
             kbd_tab,
             open_groups: [true, false, false],
             desk_source: 0,
+            access_tab: 0,
             sound_tab: 0,
             energy_tab: 0,
             energy_source: usize::from(on_battery()),
@@ -1132,6 +1137,79 @@ fn on_battery() -> bool {
 }
 
 impl Prefs {
+    fn acesso(&mut self, ui: &mut Ui) {
+        const LW: f32 = 150.0;
+        let mut tab = self.access_tab;
+        let shown = tab;
+        ui.space(4.0);
+        ui.tab_box(&mut tab, &["Visão", "Mouse"], 290.0, |ui| match shown {
+            0 => {
+                let mut a = self.config.access.clone();
+                let mut zoom = usize::from(!a.zoom);
+                ui.form_row("Zoom", LW, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing(14.0);
+                        if ui.radio_group(&mut zoom, &["Ligado", "Desligado"]) {
+                            a.zoom = zoom == 0;
+                        }
+                    });
+                });
+                let mut lvl = a.zoom_level;
+                ui.form_row("Ampliação", LW, |ui| {
+                    let t = Ticks { count: 8, labels: &[(0.0, "1,5×"), (1.0, "8×")], snap: false };
+                    if ui.slider_ticks(&mut lvl, 1.5, 8.0, 260.0, &t, a.zoom) {
+                        a.zoom_level = (lvl * 4.0).round() / 4.0;
+                    }
+                });
+                ui.form_note(LW, "Super+Alt+8 liga e desliga; Super+Alt+= e Super+Alt+− aproximam e afastam.");
+                ui.space(10.0);
+                let mut inv = usize::from(a.invert);
+                ui.form_row("Monitor", LW, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing(14.0);
+                        if ui.radio_group(&mut inv, &["Preto no branco", "Branco no preto"]) {
+                            a.invert = inv == 1;
+                        }
+                    });
+                    ui.checkbox(&mut a.grayscale, "Usar escala de cinza");
+                });
+                let mut ct = a.contrast;
+                ui.form_row("Melhorar o contraste", LW, |ui| {
+                    let t = Ticks { count: 5, labels: &[(0.0, "Normal"), (1.0, "Máximo")], snap: false };
+                    if ui.slider_ticks(&mut ct, 0.0, 1.0, 260.0, &t, true) {
+                        a.contrast = (ct * 20.0).round() / 20.0;
+                    }
+                });
+                if a != self.config.access {
+                    self.config.access = a;
+                    self.save();
+                }
+            }
+            _ => {
+                let mut k = self.config.access.cursor_size;
+                ui.form_row("Tamanho do cursor", LW, |ui| {
+                    let t = Ticks { count: 7, labels: &[(0.0, "Normal"), (1.0, "Grande")], snap: false };
+                    if ui.slider_ticks(&mut k, 1.0, 4.0, 260.0, &t, true) {
+                        self.config.access.cursor_size = (k * 4.0).round() / 4.0;
+                        self.save();
+                    }
+                });
+                // Prévia: a seta no tamanho escolhido.
+                ui.form_row("", LW, |ui| {
+                    let s = 24.0 * self.config.access.cursor_size;
+                    let r = ui.alloc(s.max(24.0), s.max(24.0));
+                    if let Some(c) = glove_kit::paint::chrome::cursor_arrow(ui.c.scale * self.config.access.cursor_size) {
+                        ui.c.draw_canvas(&c, r.x, r.y);
+                    }
+                });
+                if self.nested() {
+                    ui.form_note(LW, "Dentro de outro desktop a seta é a dele; isto vale na sessão Glove.");
+                }
+            }
+        });
+        self.access_tab = tab;
+    }
+
     /// Slider de minutos (com "Nunca" no fim); devolve o novo valor se mudou.
     fn minutes_slider(ui: &mut Ui, label: &str, minutes: u32) -> Option<u32> {
         let mut idx = ENERGY_STEPS.iter().position(|m| *m == minutes).unwrap_or_else(|| ENERGY_STEPS.iter().position(|m| *m >= minutes).unwrap_or(ENERGY_STEPS.len() - 1)) as f32;
@@ -1402,6 +1480,7 @@ impl App for Prefs {
                 }
             }
             Pane::Inicio => self.inicio.ui(ui),
+            Pane::Acesso => self.acesso(ui),
             Pane::DataHora => {
                 let mut c = self.config.clock.clone();
                 if self.datahora.ui(ui, &mut c) {

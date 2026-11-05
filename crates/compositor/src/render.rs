@@ -9,7 +9,9 @@ use smithay::{
     backend::allocator::Fourcc,
     backend::renderer::{
         damage::OutputDamageTracker,
-        gles::GlesTexture,
+        element::Id,
+        gles::{element::TextureShaderElement, GlesTexProgram, GlesTexture, Uniform, UniformName, UniformType},
+        Renderer,
         Bind, ExportMem, Offscreen,
         element::{
             texture::TextureRenderElement,
@@ -33,6 +35,56 @@ render_elements! {
     Scaled=RescaleRenderElement<WaylandSurfaceRenderElement<GlesRenderer>>,
     ScaledTexture=RescaleRenderElement<TextureRenderElement<GlesTexture>>,
     Solid=SolidColorRenderElement,
+    Shader=TextureShaderElement,
+}
+
+/// Efeitos do Acesso Universal: escala de cinza, contraste e cores invertidas,
+/// aplicados à tela inteira já desenhada (num passo extra).
+const EFFECT_SHADER: &str = r#"#version 100
+
+//_DEFINES_
+
+#if defined(EXTERNAL)
+#extension GL_OES_EGL_image_external : require
+#endif
+
+precision mediump float;
+#if defined(EXTERNAL)
+uniform samplerExternalOES tex;
+#else
+uniform sampler2D tex;
+#endif
+
+uniform float alpha;
+varying vec2 v_coords;
+
+#if defined(DEBUG_FLAGS)
+uniform float tint;
+#endif
+
+uniform float invert;
+uniform float gray;
+uniform float contrast;
+
+void main() {
+    vec3 c = texture2D(tex, v_coords).rgb;
+    if (gray > 0.5) {
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        c = vec3(l);
+    }
+    c = clamp((c - 0.5) * (1.0 + contrast * 1.5) + 0.5, 0.0, 1.0);
+    if (invert > 0.5) {
+        c = vec3(1.0) - c;
+    }
+    gl_FragColor = vec4(c, 1.0) * alpha;
+}
+"#;
+
+/// Textura fora da tela e o programa do efeito (guardados entre quadros).
+#[derive(Default)]
+pub struct EffectCache {
+    tex: Option<(GlesTexture, (i32, i32))>,
+    program: Option<GlesTexProgram>,
 }
 
 fn mem(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, scale: f64) -> Option<GloveElement> {
@@ -57,6 +109,60 @@ impl Glove {
     /// Elementos do quadro, da frente para o fundo. `cursor`: desenhar o cursor
     /// (na sessão própria; dentro de outro desktop o cursor é o dele).
     pub fn build_elements(&self, renderer: &mut GlesRenderer, cursor: bool) -> Vec<GloveElement> {
+        let scene = self.build_scene(renderer, cursor);
+        if !self.config.access.screen_effects() || self.greeter {
+            return scene;
+        }
+        match self.apply_effects(renderer, &scene) {
+            Some(e) => vec![e],
+            None => scene,
+        }
+    }
+
+    /// Acesso Universal: desenha a cena numa textura e devolve um elemento só,
+    /// com o zoom (um recorte em volta do mouse esticado na tela) e o efeito de cor.
+    fn apply_effects(&self, renderer: &mut GlesRenderer, scene: &[GloveElement]) -> Option<GloveElement> {
+        let a = &self.config.access;
+        let (lw, lh) = self.output_size();
+        let sc = self.scale();
+        let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);
+        let mut cache = self.effects.borrow_mut();
+        if cache.tex.as_ref().map(|t| t.1) != Some((w, h)) {
+            let t: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into()).ok()?;
+            cache.tex = Some((t, (w, h)));
+        }
+        if cache.program.is_none() {
+            let names = [UniformName::new("invert", UniformType::_1f), UniformName::new("gray", UniformType::_1f), UniformName::new("contrast", UniformType::_1f)];
+            match renderer.compile_custom_texture_shader(EFFECT_SHADER, &names) {
+                Ok(p) => cache.program = Some(p),
+                Err(e) => {
+                    tracing::warn!("efeito de tela não compilou: {e:?}");
+                    return None;
+                }
+            }
+        }
+        let (mut tex, _) = cache.tex.clone()?;
+        {
+            let mut fb = renderer.bind(&mut tex).ok()?;
+            let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
+            dt.render_output(renderer, &mut fb, 0, scene, [0.0, 0.0, 0.0, 1.0]).ok()?;
+        }
+        // Zoom: recorte do tamanho da tela ÷ nível, centrado no mouse (sem sair da tela).
+        let z = if a.zoom { a.zoom_level.clamp(1.0, 8.0) as f64 } else { 1.0 };
+        let (vw, vh) = (w as f64 / z, h as f64 / z);
+        let (px, py) = (self.pointer_pos.x * sc, self.pointer_pos.y * sc);
+        // O ponto sob o mouse fica sob o mouse (como no zoom "acompanhar o ponteiro").
+        let x0 = (px - px / z).clamp(0.0, w as f64 - vw);
+        let y0 = (py - py / z).clamp(0.0, h as f64 - vh);
+        let src = Rectangle::new((x0, y0).into(), (vw, vh).into());
+        let el = TextureRenderElement::from_static_texture(Id::new(), renderer.context_id(), (0.0, 0.0), tex, 1, Transform::Normal, None, Some(src), Some((lw, lh).into()), None, Kind::Unspecified);
+        let on = |b: bool| if b { 1.0f32 } else { 0.0 };
+        let uniforms = vec![Uniform::new("invert", on(a.invert)), Uniform::new("gray", on(a.grayscale)), Uniform::new("contrast", a.contrast.clamp(0.0, 1.0))];
+        Some(GloveElement::Shader(TextureShaderElement::new(el, cache.program.clone()?, uniforms)))
+    }
+
+    /// Elementos da cena, da frente para o fundo (sem os efeitos de tela).
+    fn build_scene(&self, renderer: &mut GlesRenderer, cursor: bool) -> Vec<GloveElement> {
         let mut out = Vec::new();
         let c = &self.chrome;
         let sc = self.scale();
@@ -307,9 +413,11 @@ impl Glove {
                 let hotspot = smithay::wayland::compositor::with_states(surface, |s| {
                     s.data_map.get::<CursorImageSurfaceData>().map(|d| d.lock().unwrap().hotspot).unwrap_or_default()
                 });
-                let loc = (pos - hotspot.to_f64()).to_physical(sc).to_i32_round();
+                // Cursor maior (Acesso Universal): o dos apps também cresce.
+                let k = self.config.access.cursor_size.clamp(1.0, 4.0) as f64;
+                let loc = (pos - hotspot.to_f64().upscale(k)).to_physical(sc).to_i32_round();
                 out.extend(
-                    render_elements_from_surface_tree::<_, WaylandSurfaceRenderElement<GlesRenderer>>(renderer, surface, loc, sc, 1.0, Kind::Cursor)
+                    render_elements_from_surface_tree::<_, WaylandSurfaceRenderElement<GlesRenderer>>(renderer, surface, loc, sc * k, 1.0, Kind::Cursor)
                         .into_iter()
                         .map(GloveElement::Surface),
                 );
@@ -317,7 +425,8 @@ impl Glove {
             CursorImageStatus::Named(_) => {
                 if let Some(t) = &self.cursor_tex {
                     let (hx, hy) = glove_paint::chrome::CURSOR_HOTSPOT;
-                    let loc = Point::<f64, Logical>::from((pos.x - hx as f64, pos.y - hy as f64));
+                    let k = self.config.access.cursor_size.clamp(1.0, 4.0) as f64;
+                    let loc = Point::<f64, Logical>::from((pos.x - hx as f64 * k, pos.y - hy as f64 * k));
                     if let Some(buf) = t.upload(renderer) {
                         let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
                         out.push(GloveElement::Texture(TextureRenderElement::from_texture_buffer(

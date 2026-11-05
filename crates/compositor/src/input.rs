@@ -44,6 +44,10 @@ enum KeyAction {
     Lock,
     /// Próximo layout do Menu de Entrada.
     InputNext,
+    ZoomToggle,
+    ZoomIn,
+    ZoomOut,
+    InvertColors,
     /// Tecla com a troca de apps aberta (ou Super+Shift+Tab para abrir voltando).
     Switcher(crate::switcher::SwitcherKey),
     SwitcherBack,
@@ -82,6 +86,10 @@ impl KeyAction {
             "hide" => Self::Hide,
             "lock" => Self::Lock,
             "input_next" => Self::InputNext,
+            "zoom_toggle" => Self::ZoomToggle,
+            "zoom_in" => Self::ZoomIn,
+            "zoom_out" => Self::ZoomOut,
+            "invert_colors" => Self::InvertColors,
             "search" => Self::Search,
             "expose_all" => Self::ExposeAll,
             "expose_app" => Self::ExposeApp,
@@ -488,6 +496,19 @@ impl Glove {
             Some(KeyAction::Vt(n)) => self.vt_request = Some(n),
             Some(KeyAction::MenuBar) => self.open_menubar_by_key(),
             Some(KeyAction::Lock) => self.lock_screen(),
+            Some(KeyAction::ZoomToggle) => self.change_access(|a| a.zoom = !a.zoom),
+            Some(KeyAction::ZoomIn) => self.change_access(|a| {
+                a.zoom = true;
+                a.zoom_level = (a.zoom_level * 1.25).min(8.0);
+            }),
+            Some(KeyAction::ZoomOut) => self.change_access(|a| {
+                a.zoom_level = (a.zoom_level / 1.25).max(1.0);
+                if a.zoom_level < 1.05 {
+                    a.zoom = false;
+                    a.zoom_level = 2.0;
+                }
+            }),
+            Some(KeyAction::InvertColors) => self.change_access(|a| a.invert = !a.invert),
             Some(KeyAction::InputNext) => {
                 if let Some((l, v)) = glove_config::next_layout(&self.config.keyboard) {
                     self.set_layout(&l, &v);
@@ -630,6 +651,10 @@ impl Glove {
     fn on_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
         self.note_input();
         self.pointer_pos = pos;
+        // Com zoom, a tela acompanha o mouse.
+        if self.config.access.zoom {
+            self.dirty = true;
+        }
         if !self.locked() && !self.greeter {
             self.hot_corner(pos);
         }

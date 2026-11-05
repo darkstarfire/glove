@@ -71,6 +71,8 @@ pub enum PrefKind {
     DateTime,
     /// Lista de apps com a seta verde de "abrir".
     LoginItems,
+    /// Figura de braços abertos num círculo azul (símbolo de acessibilidade).
+    Access,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1011,6 +1013,7 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Network => pref_network(pm, x, y, s),
         PrefKind::DateTime => pref_datetime(pm, x, y, s),
         PrefKind::LoginItems => pref_login_items(pm, x, y, s),
+        PrefKind::Access => pref_access(pm, x, y, s),
     }
 }
 
@@ -1278,4 +1281,26 @@ fn pref_login_items(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pb.line_to(cx - r * 0.3, cy + r * 0.45);
     pb.close();
     pm.fill(pb.finish(), &solid(rgba(255, 255, 255, 240)));
+}
+
+/// Círculo azul em gel com uma figura humana de braços abertos.
+fn pref_access(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let (cx, cy, r) = (x + s * 0.5, y + s * 0.5, s * 0.42);
+    pm.fill(circle(cx + s * 0.01, cy + s * 0.03, r), &solid(rgba(0, 0, 0, 50)));
+    gel_circle(pm, cx, cy, r, rgba(40, 110, 220, 255));
+    pm.stroke(circle(cx, cy, r * 0.86), &solid(rgba(255, 255, 255, 230)), (s * 0.03).max(1.0));
+    let white = solid(rgba(255, 255, 255, 255));
+    pm.fill(circle(cx, cy - r * 0.48, r * 0.12), &white);
+    let w = (s * 0.06).max(1.4);
+    let line = |pm: &mut Canvas, a: (f32, f32), b: (f32, f32)| {
+        let mut pb = PathBuilder::new();
+        pb.move_to(a.0, a.1);
+        pb.line_to(b.0, b.1);
+        pm.stroke_round(pb.finish(), &white, w);
+    };
+    // Braços abertos, corpo e pernas.
+    line(pm, (cx - r * 0.5, cy - r * 0.22), (cx + r * 0.5, cy - r * 0.22));
+    line(pm, (cx, cy - r * 0.22), (cx, cy + r * 0.15));
+    line(pm, (cx, cy + r * 0.15), (cx - r * 0.25, cy + r * 0.55));
+    line(pm, (cx, cy + r * 0.15), (cx + r * 0.25, cy + r * 0.55));
 }

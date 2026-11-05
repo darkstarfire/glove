@@ -59,6 +59,37 @@ impl Clock {
     }
 }
 
+/// Acesso Universal (feito pelo compositor).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Access {
+    /// Zoom da tela inteira, seguindo o mouse.
+    pub zoom: bool,
+    /// Quanto o zoom aproxima (1,5 a 8).
+    pub zoom_level: f32,
+    /// Branco no preto.
+    pub invert: bool,
+    /// Escala de cinza.
+    pub grayscale: bool,
+    /// Contraste a mais, de 0 (normal) a 1 (máximo).
+    pub contrast: f32,
+    /// Tamanho do cursor (1 = normal, até 4).
+    pub cursor_size: f32,
+}
+
+impl Default for Access {
+    fn default() -> Self {
+        Self { zoom: false, zoom_level: 2.0, invert: false, grayscale: false, contrast: 0.0, cursor_size: 1.0 }
+    }
+}
+
+impl Access {
+    /// Algum efeito de tela ligado (precisa do passo extra de desenho)?
+    pub fn screen_effects(&self) -> bool {
+        (self.zoom && self.zoom_level > 1.01) || self.invert || self.grayscale || self.contrast > 0.01
+    }
+}
+
 /// Painel Som.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -414,6 +445,10 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("lock", "Bloquear a tela"),
     ("search", "Busca Rápida"),
     ("input_next", "Próximo layout de teclado"),
+    ("zoom_toggle", "Zoom: ligar e desligar"),
+    ("zoom_in", "Zoom: aproximar"),
+    ("zoom_out", "Zoom: afastar"),
+    ("invert_colors", "Inverter as cores"),
     ("quit", "Sair do Glove"),
 ];
 
@@ -438,6 +473,8 @@ pub struct Config {
     pub sound: Sound,
     #[serde(default)]
     pub clock: Clock,
+    #[serde(default)]
+    pub access: Access,
     /// Menu Wi-Fi na barra de menu.
     #[serde(default = "yes")]
     pub wifi_menu: bool,
@@ -505,6 +542,10 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
         ("lock", "Super+L"),
         ("search", "Super+space"),
         ("input_next", "Super+Alt+space"),
+        ("zoom_toggle", "Super+Alt+8"),
+        ("zoom_in", "Super+Alt+equal"),
+        ("zoom_out", "Super+Alt+minus"),
+        ("invert_colors", "Ctrl+Super+Alt+8"),
         ("quit", "Ctrl+Alt+BackSpace"),
     ]
     .into_iter()
@@ -556,6 +597,7 @@ impl Default for Config {
             sound: Sound::default(),
             wifi_menu: true,
             clock: Clock::default(),
+            access: Access::default(),
             dock_rev: DOCK_REV,
             prefs_favorites: default_prefs_favorites(),
         }

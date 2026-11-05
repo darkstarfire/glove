@@ -86,6 +86,8 @@ pub struct Glove {
     /// A seta padrão, desenhada na escala atual.
     pub cursor_tex: Option<crate::shell::Tex>,
     pub cursor_tex_scale: f64,
+    /// Textura e programa dos efeitos do Acesso Universal.
+    pub effects: std::cell::RefCell<crate::render::EffectCache>,
     /// Ctrl+Alt+F1…F12 na sessão própria: trocar para esse console.
     pub vt_request: Option<i32>,
     /// Fim de sessão em andamento.
@@ -200,6 +202,7 @@ impl Glove {
             cursor_status: smithay::input::pointer::CursorImageStatus::default_named(),
             cursor_tex: None,
             cursor_tex_scale: 0.0,
+            effects: Default::default(),
             ending: None,
             pinger: Default::default(),
             force_quit: None,
@@ -322,6 +325,17 @@ impl Glove {
         true
     }
 
+    /// Muda o Acesso Universal pelas teclas: vale na hora e fica salvo.
+    pub fn change_access(&mut self, f: impl FnOnce(&mut glove_config::Access)) {
+        f(&mut self.config.access);
+        let mut c = Config::load();
+        c.access = self.config.access.clone();
+        if let Err(e) = c.save() {
+            tracing::warn!("não salvou o acesso universal: {e}");
+        }
+        self.dirty = true;
+    }
+
     /// O relógio da barra precisa mudar a cada segundo?
     pub fn clock_every_second(c: &Config) -> bool {
         c.clock.show && !c.clock.analog && (c.clock.seconds || c.clock.blink)
@@ -329,10 +343,16 @@ impl Glove {
 
     /// Seta do cursor na escala da tela (refeita só quando a escala muda).
     pub fn prepare_cursor(&mut self) {
-        let sc = self.scale();
-        if self.cursor_tex.is_none() || self.cursor_tex_scale != sc {
-            self.cursor_tex = glove_paint::chrome::cursor_arrow(sc as f32).map(crate::shell::to_tex);
-            self.cursor_tex_scale = sc;
+        // Escala da tela × tamanho do cursor (Acesso Universal).
+        let k = self.config.access.cursor_size.clamp(1.0, 4.0) as f64;
+        let key = self.scale() * k;
+        if self.cursor_tex.is_none() || self.cursor_tex_scale != key {
+            self.cursor_tex = glove_paint::chrome::cursor_arrow(key as f32).map(|c| {
+                let mut t = crate::shell::to_tex(c);
+                t.size = t.size.to_f64().upscale(k).to_i32_round();
+                t
+            });
+            self.cursor_tex_scale = key;
         }
     }
 
