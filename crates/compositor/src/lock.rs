@@ -59,6 +59,8 @@ pub struct Idle {
     pub screen_off: bool,
     /// Já pediu o repouso nesta parada (só pede de novo depois de uma entrada).
     slept: bool,
+    /// Já pediu para sair da sessão nesta parada (Segurança).
+    logout_asked: bool,
 }
 
 /// Teclas que o painel de desbloqueio entende.
@@ -136,6 +138,21 @@ impl Glove {
                 next = next.min(timeout - idle);
             }
         }
+        // Segurança: sair da sessão depois de tanto tempo parado (o glove-sair mostra
+        // o aviso com a contagem; mexer no mouse cancela).
+        let lm = self.config.security.logout_minutes;
+        if lm > 0 && !self.greeter {
+            let timeout = Duration::from_secs(lm as u64 * 60);
+            if idle >= timeout {
+                if !self.idle.logout_asked {
+                    tracing::info!("parado há {lm} min: encerrando a sessão");
+                    self.idle.logout_asked = true;
+                    self.spawn(if self.nested { "glove-sair sair" } else { "glove-sair encerrar" });
+                }
+            } else {
+                next = next.min(timeout - idle);
+            }
+        }
         next.max(Duration::from_secs(1))
     }
 
@@ -155,6 +172,7 @@ impl Glove {
     pub fn note_input(&mut self) -> bool {
         self.idle.last_input = Some(Instant::now());
         self.idle.slept = false;
+        self.idle.logout_asked = false;
         // Qualquer entrada tira o protetor (e só serve para isso).
         if self.stop_saver() {
             return true;

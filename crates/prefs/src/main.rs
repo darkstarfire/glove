@@ -60,6 +60,9 @@ enum Pane {
     Mouse,
     Trackpad,
     Terminal,
+    Seguranca,
+    Busca,
+    Expose,
 }
 
 /// Categorias da grade (como no 10.4). As vazias não aparecem.
@@ -76,7 +79,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 23] = [
+const PANES: [PaneInfo; 26] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -100,6 +103,9 @@ const PANES: [PaneInfo; 23] = [
     PaneInfo { pane: Pane::Inicializacao, id: "inicializacao", icon: Icon::Pref(PrefKind::StartupDisk), name: "Disco de Inicialização", category: 3, keywords: "boot iniciar sistema operacional uefi reiniciar disco" },
     PaneInfo { pane: Pane::Fala, id: "fala", icon: Icon::Pref(PrefKind::Speech), name: "Fala", category: 3, keywords: "voz ler em voz alta falar sintetizador" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
+    PaneInfo { pane: Pane::Seguranca, id: "seguranca", icon: Icon::Pref(PrefKind::Security), name: "Segurança", category: 0, keywords: "senha bloquear repouso protetor sair encerrar sessão inatividade firewall ufw proteção" },
+    PaneInfo { pane: Pane::Busca, id: "busca", icon: Icon::Search, name: "Busca Rápida", category: 0, keywords: "spotlight buscar procurar categorias privacidade pastas excluir resultados" },
+    PaneInfo { pane: Pane::Expose, id: "expose", icon: Icon::Pref(PrefKind::Expose), name: "Exposé e Painel", category: 0, keywords: "exposé expose cantos ativos janelas mesa painel de widgets dashboard f9 f10 f11 f12" },
 ];
 
 fn info(p: Pane) -> Option<&'static PaneInfo> {
@@ -249,6 +255,9 @@ struct Prefs {
     forward: Vec<Pane>,
     /// Texto da busca da barra.
     search: String,
+    /// Busca Rápida: pasta escolhida na lista da privacidade e a que vai entrar.
+    busca_sel: Option<usize>,
+    busca_nova: String,
     /// Menu de contexto de um painel da grade: (posição, painel).
     ctx: Option<((f32, f32), Pane)>,
 }
@@ -355,6 +364,8 @@ impl Prefs {
             back: Vec::new(),
             forward: Vec::new(),
             search: String::new(),
+            busca_sel: None,
+            busca_nova: String::new(),
             ctx: None,
         }
     }
@@ -769,7 +780,14 @@ impl Prefs {
             self.save();
         }
         ui.space(8.0);
-        // Cantos ativos (o mesmo ajuste do Exposé).
+        // Cantos ativos: no painel Exposé e Painel (como no Tiger, um botão leva até lá).
+        if ui.button("Cantos Ativos…") {
+            self.go(Pane::Expose);
+        }
+    }
+
+    /// Os quatro cantos da tela e o que cada um faz.
+    fn hot_corners_ui(&mut self, ui: &mut Ui) {
         ui.label("Cantos ativos:");
         const ACTIONS: [(&str, &str); 6] = [("", "—"), ("todas", "Todas as janelas"), ("app", "Janelas do app"), ("mesa", "Mesa"), ("painel", "Painel de Widgets"), ("protetor", "Iniciar o protetor de tela")];
         let names: Vec<String> = ACTIONS.iter().map(|a| a.1.to_string()).collect();
@@ -1466,7 +1484,155 @@ impl Prefs {
         });
         ui.form_note(LW, "Ele também aparece na mesa, ao lado do Disco.");
         ui.space(14.0);
-        ui.small("CDs e DVDs: o Glove ainda não toca música nem filmes; abra-os com o app de sua escolha.");
+        // CDs e DVDs (como o painel do Tiger).
+        let data_opts = ["Abrir no Arquivos".to_string(), "Não fazer nada".to_string()];
+        let data_ids = ["abrir", "nada"];
+        let mut cur = data_ids.iter().position(|i| *i == self.config.media.data_disc).unwrap_or(0);
+        ui.form_row("Ao inserir um CD ou DVD de dados", LW, |ui| {
+            if ui.popup(&mut cur, &data_opts, 200.0) {
+                self.config.media.data_disc = data_ids[cur].to_string();
+                self.save();
+            }
+        });
+        ui.space(6.0);
+        let dvd_opts = ["Abrir no Vídeo".to_string(), "Abrir no Arquivos".to_string(), "Não fazer nada".to_string()];
+        let dvd_ids = ["video", "abrir", "nada"];
+        let mut cur = dvd_ids.iter().position(|i| *i == self.config.media.video_dvd).unwrap_or(0);
+        ui.form_row("Ao inserir um DVD de vídeo", LW, |ui| {
+            if ui.popup(&mut cur, &dvd_opts, 200.0) {
+                self.config.media.video_dvd = dvd_ids[cur].to_string();
+                self.save();
+            }
+        });
+    }
+
+    /// Segurança: senha ao voltar, sair por inatividade e o firewall (ufw).
+    fn seguranca(&mut self, ui: &mut Ui) {
+        ui.space(8.0);
+        let mut pw = self.config.energy.require_password;
+        if ui.checkbox(&mut pw, "Pedir a senha ao sair do repouso ou do protetor de tela") {
+            self.config.energy.require_password = pw;
+            self.save();
+        }
+        ui.space(10.0);
+        let mut on = self.config.security.logout_minutes > 0;
+        if ui.checkbox(&mut on, "Encerrar a sessão depois de um tempo sem uso") {
+            self.config.security.logout_minutes = if on { 60 } else { 0 };
+            self.save();
+        }
+        if on {
+            ui.indent(20.0, |ui| {
+                if let Some(m) = Self::minutes_slider(ui, "Depois de:", self.config.security.logout_minutes) {
+                    self.config.security.logout_minutes = m;
+                    self.save();
+                }
+                ui.small("Antes de sair, aparece o aviso com a contagem (mexer no mouse cancela).");
+            });
+        }
+        ui.space(14.0);
+        ui.separator();
+        ui.space(8.0);
+        ui.heading("Firewall");
+        ui.space(4.0);
+        let installed = std::path::Path::new("/usr/sbin/ufw").exists() || std::path::Path::new("/sbin/ufw").exists();
+        if !installed {
+            ui.small("O firewall (ufw) não está instalado. Para instalar: sudo apt install ufw");
+            return;
+        }
+        let enabled = std::fs::read_to_string("/etc/ufw/ufw.conf").ok().is_some_and(|t| t.lines().any(|l| l.trim().eq_ignore_ascii_case("ENABLED=yes")));
+        ui.label(if enabled { "Ligado: as conexões que chegam de fora são bloqueadas (as que você abre passam)." } else { "Desligado: o computador aceita conexões de fora." });
+        ui.space(6.0);
+        if ui.button(if enabled { "Desligar o firewall" } else { "Ligar o firewall" }) {
+            let arg = if enabled { "disable" } else { "enable" };
+            // Pede a senha de administrador pelo polkit.
+            std::thread::spawn(move || {
+                let _ = std::process::Command::new("pkexec").args(["ufw", arg]).status();
+            });
+        }
+        ui.wake_after(Duration::from_secs(2));
+    }
+
+    /// Busca Rápida: o que aparece nos resultados e as pastas que ficam de fora.
+    fn busca(&mut self, ui: &mut Ui) {
+        ui.space(8.0);
+        ui.label("Mostrar nos resultados:");
+        ui.space(4.0);
+        let mut sp = self.config.search.clone();
+        let mut changed = false;
+        ui.indent(16.0, |ui| {
+            changed |= ui.checkbox(&mut sp.apps, "Aplicativos");
+            changed |= ui.checkbox(&mut sp.prefs, "Preferências do Sistema");
+            changed |= ui.checkbox(&mut sp.files, "Pastas e arquivos");
+        });
+        ui.space(12.0);
+        ui.label("Privacidade: a busca não olha estas pastas.");
+        ui.space(4.0);
+        let rows: Vec<String> = sp.excluded.clone();
+        ui.indent(16.0, |ui| {
+            ui.list(&mut self.busca_sel, &rows, 420.0, 110.0);
+            ui.space(6.0);
+            ui.horizontal(|ui| {
+                ui.text_field(&mut self.busca_nova, 300.0);
+                ui.spacing(8.0);
+                if ui.button("Adicionar") && !self.busca_nova.trim().is_empty() {
+                    let t = self.busca_nova.trim();
+                    let p = match t.strip_prefix("~/") {
+                        Some(rest) => std::env::var("HOME").map(|h| format!("{h}/{rest}")).unwrap_or_else(|_| t.to_string()),
+                        None => t.to_string(),
+                    };
+                    if !sp.excluded.contains(&p) {
+                        sp.excluded.push(p);
+                        changed = true;
+                    }
+                    self.busca_nova.clear();
+                }
+                ui.spacing(8.0);
+                ui.set_enabled(self.busca_sel.is_some());
+                if ui.button("Remover") {
+                    if let Some(i) = self.busca_sel.take() {
+                        if i < sp.excluded.len() {
+                            sp.excluded.remove(i);
+                            changed = true;
+                        }
+                    }
+                }
+                ui.set_enabled(true);
+            });
+            ui.small("Escreva o caminho da pasta (ex.: ~/Particular) e clique em Adicionar.");
+        });
+        if changed {
+            self.config.search = sp;
+            self.save();
+        }
+    }
+
+    /// Exposé e Painel: os cantos ativos e as teclas.
+    fn expose(&mut self, ui: &mut Ui) {
+        ui.space(8.0);
+        self.hot_corners_ui(ui);
+        ui.space(14.0);
+        ui.separator();
+        ui.space(8.0);
+        ui.label("Atalhos de teclado:");
+        ui.space(4.0);
+        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard"] {
+            let label = glove_config::action_label(action);
+            let mut keys = self.config.shortcut(action).unwrap_or("").to_string();
+            let mut changed = false;
+            ui.push_id(action, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label_right(label, 220.0);
+                    changed = ui.shortcut_field(&mut keys, 200.0);
+                });
+            });
+            if changed {
+                match self.config.shortcuts.iter_mut().find(|s| s.action == action) {
+                    Some(s) => s.keys = keys,
+                    None => self.config.shortcuts.push(glove_config::Shortcut { action: action.to_string(), keys }),
+                }
+                self.save();
+            }
+        }
     }
 
     fn acesso(&mut self, ui: &mut Ui) {
@@ -1984,6 +2150,9 @@ impl App for Prefs {
             Pane::Teclado => self.teclado(ui),
             Pane::Mouse => self.mouse(ui),
             Pane::Terminal => self.terminal(ui),
+            Pane::Seguranca => self.seguranca(ui),
+            Pane::Busca => self.busca(ui),
+            Pane::Expose => self.expose(ui),
         });
         if sheet {
             ui.set_enabled(true);

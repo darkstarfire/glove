@@ -360,9 +360,13 @@ mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 1
   Whois (protocolo falado direto: IANA e o servidor indicado), Finger (porta 79) e Portas (varredura TCP
   de/até, 64 de cada vez, com o nome do serviço); saída em fonte fixa que acompanha o fim, botão Parar.
   O kit agora liga o relógio do `App::tick` também quando o app só passa a pedir depois de aberto (M)
-- [ ] 9.10.11 Preferências que faltam: **Segurança** (senha ao sair do repouso e do protetor, sair após
-  inatividade, firewall pelo ufw), **Busca Rápida** (categorias e ordem, privacidade),
-  **CDs e DVDs** (ação ao inserir), **Exposé e Painel** num painel próprio (`System-Preferences-*`) (M)
+- [x] 9.10.11 Preferências que faltavam: **Segurança** (senha ao sair do repouso e do protetor; encerrar a
+  sessão depois de N minutos parado, com o aviso de contagem do glove-sair; firewall pelo ufw, com o
+  estado lido de /etc/ufw/ufw.conf e Ligar/Desligar pelo pkexec), **Busca Rápida** (categorias
+  Aplicativos, Preferências e Arquivos; Privacidade: pastas que a busca não olha), **CDs e DVDs** no painel
+  Mídia Removível (CD/DVD de dados: abrir no Arquivos ou nada; DVD de vídeo: abrir no Vídeo, no Arquivos
+  ou nada) e **Exposé e Painel** num painel próprio (os quatro cantos ativos e as teclas F9–F12; a Mesa
+  ganhou o botão "Cantos Ativos…" que leva até lá). Configuração em `[security]`, `[search]` e `[media]` (M)
 - Pular: Classic, .Mac/iDisk, AirPort, iSync, Internet Connect (coberto por Rede), Automator e
   Editor de Scripts (não há AppleScript no Linux); iChat fica na 10.9 (Mensagens)
 

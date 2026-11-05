@@ -10,6 +10,47 @@ pub mod inicio;
 pub mod rede;
 pub mod sons;
 
+/// Segurança (Preferências ▸ Segurança).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct Security {
+    /// Sair da sessão depois de N minutos parado (0 = nunca), com o aviso de 2 minutos.
+    pub logout_minutes: u32,
+}
+
+/// Busca Rápida (Preferências ▸ Busca Rápida): o que aparece e onde não procurar.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SearchPrefs {
+    pub apps: bool,
+    pub prefs: bool,
+    pub files: bool,
+    /// Pastas que a busca não olha (Privacidade).
+    pub excluded: Vec<String>,
+}
+
+impl Default for SearchPrefs {
+    fn default() -> Self {
+        Self { apps: true, prefs: true, files: true, excluded: Vec::new() }
+    }
+}
+
+/// CDs e DVDs (Preferências ▸ Mídia Removível).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Media {
+    /// Ao inserir um CD ou DVD de dados: "abrir" (no Arquivos) ou "nada".
+    pub data_disc: String,
+    /// Ao inserir um DVD de vídeo: "video" (no Vídeo), "abrir" (no Arquivos) ou "nada".
+    pub video_dvd: String,
+}
+
+impl Default for Media {
+    fn default() -> Self {
+        Self { data_disc: "abrir".into(), video_dvd: "video".into() }
+    }
+}
+
 /// Mesa (Opções de Visualização da mesa, Ctrl+J com a mesa em foco).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -666,6 +707,12 @@ pub struct Config {
     /// Preferências do Arquivos e Opções de Visualização das janelas.
     #[serde(default)]
     pub files: arquivos::Files,
+    #[serde(default)]
+    pub security: Security,
+    #[serde(default)]
+    pub search: SearchPrefs,
+    #[serde(default)]
+    pub media: Media,
 }
 
 pub fn default_prefs_favorites() -> Vec<String> {
@@ -807,6 +854,9 @@ impl Default for Config {
             user_menu: false,
             desk: Desk::default(),
             files: arquivos::Files::default(),
+            security: Security::default(),
+            search: SearchPrefs::default(),
+            media: Media::default(),
         }
     }
 }

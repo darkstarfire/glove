@@ -223,7 +223,7 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
 }
 
 /// Painéis das Preferências: (nome, argumento do glove-prefs).
-const PREFS: [(&str, &str); 27] = [
+const PREFS: [(&str, &str); 30] = [
     ("Atualização de Software", "atualizacao"),
     ("Disco de Inicialização", "inicializacao"),
     ("Fala (voz)", "fala"),
@@ -251,6 +251,9 @@ const PREFS: [(&str, &str); 27] = [
     ("Trackpad", "trackpad"),
     ("Atalhos de teclado", "atalhos"),
     ("Terminal", "terminal"),
+    ("Segurança (senha, firewall)", "seguranca"),
+    ("Busca Rápida (categorias, privacidade)", "busca"),
+    ("Exposé e Painel (cantos ativos)", "expose"),
 ];
 
 /// Pasta pessoal sem itens ocultos nem pastas pesadas de código, até MAX_FILES.
@@ -356,19 +359,30 @@ impl Glove {
         if !q.is_empty() {
             let row = |section: &str, icon, name: &str| QsRow { section: Some(section.to_string()), icon, name: name.to_string() };
             // Apps: nome primeiro, palavras-chave valem menos.
+            // Preferências ▸ Busca Rápida: as categorias ligadas e as pastas fora da busca.
+            let sp = self.config.search.clone();
+            let excluded: Vec<std::path::PathBuf> = sp.excluded.iter().map(std::path::PathBuf::from).collect();
             let mut apps: Vec<(u32, &App)> = self
                 .search
                 .apps
                 .iter()
+                .filter(|_| sp.apps)
                 .map(|a| (score(&normalize(&a.name), &q).max(score(&a.keywords, &q) / 2), a))
                 .filter(|(s, _)| *s > 0)
                 .collect();
             // Empate: os apps do Glove primeiro, depois o nome mais curto.
             apps.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.glove_id.is_some().cmp(&a.1.glove_id.is_some())).then(a.1.name.len().cmp(&b.1.name.len())));
-            let mut prefs: Vec<(u32, &(&str, &'static str))> = PREFS.iter().map(|p| (score(&normalize(p.0), &q), p)).filter(|(s, _)| *s > 0).collect();
+            let mut prefs: Vec<(u32, &(&str, &'static str))> = PREFS.iter().filter(|_| sp.prefs).map(|p| (score(&normalize(p.0), &q), p)).filter(|(s, _)| *s > 0).collect();
             prefs.sort_by(|a, b| b.0.cmp(&a.0));
             // Arquivos: só quando o texto começa uma palavra do nome (menos ruído).
-            let mut files: Vec<(u32, &FileEntry)> = self.search.files.iter().map(|f| (score(&f.norm, &q), f)).filter(|(s, _)| *s >= 60).collect();
+            let mut files: Vec<(u32, &FileEntry)> = self
+                .search
+                .files
+                .iter()
+                .filter(|f| sp.files && !excluded.iter().any(|e| f.path.starts_with(e)))
+                .map(|f| (score(&f.norm, &q), f))
+                .filter(|(s, _)| *s >= 60)
+                .collect();
             files.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.path.as_os_str().len().cmp(&b.1.path.as_os_str().len())));
 
             // Melhor resultado: o app de nota mais alta (ou o melhor arquivo).

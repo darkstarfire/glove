@@ -121,6 +121,10 @@ pub enum PrefKind {
     StartupDisk,
     /// Rosto de perfil com ondas de som saindo da boca.
     Speech,
+    /// Cadeado (Segurança).
+    Security,
+    /// Janelas espalhadas (Exposé e Painel).
+    Expose,
 }
 
 /// Pastas especiais (Mesa, Documentos…), cada uma com seu desenho.
@@ -1355,6 +1359,43 @@ fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
         PrefKind::Update => pref_update(pm, x, y, s),
         PrefKind::StartupDisk => pref_startup_disk(pm, x, y, s),
         PrefKind::Speech => pref_speech(pm, x, y, s),
+        PrefKind::Security => pref_security(pm, x, y, s),
+        PrefKind::Expose => pref_expose(pm, x, y, s),
+    }
+}
+
+/// Cadeado prateado com o arco por cima (Segurança).
+fn pref_security(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    let (cx, top) = (x + s * 0.5, y + s * 0.12);
+    let r = s * 0.2;
+    let mut pb = PathBuilder::new();
+    pb.move_to(cx - r, y + s * 0.46);
+    pb.line_to(cx - r, top + r);
+    pb.quad_to(cx - r, top, cx, top);
+    pb.quad_to(cx + r, top, cx + r, top + r);
+    pb.line_to(cx + r, y + s * 0.46);
+    pm.stroke(pb.finish(), &linear(cx - r, 0.0, cx + r, 0.0, &[(0.0, rgba(140, 144, 152, 255)), (0.5, rgba(236, 238, 242, 255)), (1.0, rgba(120, 124, 132, 255))]), s * 0.09);
+    let (bx, by, bw, bh) = (x + s * 0.2, y + s * 0.42, s * 0.6, s * 0.46);
+    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(250, 214, 110, 255)), (1.0, rgba(196, 140, 40, 255))]));
+    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(130, 90, 20, 255)), lw);
+    pm.fill(circle(cx, by + bh * 0.42, s * 0.06), &solid(rgba(70, 46, 10, 255)));
+    pm.fill_rect(cx - s * 0.025, by + bh * 0.42, s * 0.05, bh * 0.32, &solid(rgba(70, 46, 10, 255)));
+}
+
+/// Quatro janelinhas espalhadas sobre a mesa (Exposé e Painel).
+fn pref_expose(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let lw = (s / 64.0).max(1.0);
+    pm.fill(rrect(x + s * 0.06, y + s * 0.14, s * 0.88, s * 0.72, s * 0.05), &vgrad(y + s * 0.14, y + s * 0.86, &[(0.0, rgba(90, 140, 220, 255)), (1.0, rgba(30, 70, 150, 255))]));
+    pm.stroke(rrect(x + s * 0.06, y + s * 0.14, s * 0.88, s * 0.72, s * 0.05), &solid(rgba(20, 40, 90, 255)), lw);
+    for (k, (wx, wy)) in [(0.12, 0.2), (0.52, 0.2), (0.12, 0.52), (0.52, 0.52)].iter().enumerate() {
+        let (px, py, pw, ph) = (x + s * wx, y + s * wy, s * 0.36, s * 0.28);
+        pm.fill(rrect(px + s * 0.01, py + s * 0.02, pw, ph, s * 0.02), &solid(rgba(0, 0, 0, 70)));
+        pm.fill(rrect(px, py, pw, ph, s * 0.02), &solid(rgba(250, 250, 252, 255)));
+        pm.fill_rect(px, py, pw, ph * 0.22, &vgrad(py, py + ph * 0.22, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(200, 200, 206, 255))]));
+        let dot = [rgba(240, 80, 70, 255), rgba(250, 190, 50, 255), rgba(100, 200, 80, 255), rgba(120, 160, 230, 255)][k];
+        pm.fill(circle(px + pw * 0.12, py + ph * 0.11, s * 0.018), &solid(dot));
     }
 }
 

@@ -396,10 +396,18 @@ impl Glove {
         // Mídia Removível: um disco novo (não os que já estavam na partida) abre no Arquivos.
         if !self.desk.mounts.is_empty() || self.desk.dir_stamp.is_some() {
             let known: Vec<&PathBuf> = self.desk.mounts.iter().map(|m| &m.1).collect();
-            if self.config.removable_action == "abrir" {
+            {
                 // Só pendrives (o Conectar ao Servidor já abre a janela do servidor).
                 for (_, path) in removable.iter().filter(|m| !known.contains(&&m.1)) {
-                    self.spawn(&format!("glove-files {}", quote(path)));
+                    // CD ou DVD (aparelho /dev/sr*): as escolhas próprias dos discos.
+                    let optical = self.desk.removable_prev.iter().any(|m| &m.path == path && m.dev.starts_with("/dev/sr"));
+                    let video = optical && (path.join("VIDEO_TS").is_dir() || path.join("video_ts").is_dir());
+                    let action = if video { self.config.media.video_dvd.clone() } else if optical { self.config.media.data_disc.clone() } else { self.config.removable_action.clone() };
+                    match action.as_str() {
+                        "video" => self.spawn(&format!("glove-video {}", quote(path))),
+                        "abrir" => self.spawn(&format!("glove-files {}", quote(path))),
+                        _ => {}
+                    }
                 }
             }
         }
