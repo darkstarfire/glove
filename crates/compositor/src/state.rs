@@ -115,6 +115,8 @@ pub struct Glove {
     pub app_mru: Vec<u32>,
     /// O Super foi solto com a troca aberta: trocar depois de entregar a tecla.
     pub switcher_commit: bool,
+    /// Apps abrindo pelo Dock: (app_id, início, fim do último pulo).
+    pub launching: Vec<(String, std::time::Instant, Option<std::time::Instant>)>,
 }
 
 impl Glove {
@@ -191,6 +193,7 @@ impl Glove {
             switcher: None,
             app_mru: Vec::new(),
             switcher_commit: false,
+            launching: Vec::new(),
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,

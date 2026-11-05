@@ -54,7 +54,7 @@ fn main() {
         (Icon::Settings, "Preferências", false),
     ]
     .into_iter()
-    .map(|(icon, label, running)| DockItem { icon, label: label.into(), letter: None, running, separator_before: false })
+    .map(|(icon, label, running)| DockItem { icon, label: label.into(), letter: None, running, separator_before: false, bounce: 0.0 })
     .collect();
     let base = dock_layout(&dock_items, None, 0.0, DOCK_BASE, DOCK_MAX);
     let layout = dock_layout(&dock_items, Some(base.items[1].0 + 24.0), 1.0, DOCK_BASE, DOCK_MAX);

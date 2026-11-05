@@ -609,6 +609,8 @@ impl Glove {
         w.user_data().insert_if_missing(|| Placed);
         // Itens Recentes: só apps que o Glove sabe abrir de novo.
         let app_id = window_info(w).1;
+        // A janela apareceu: o ícone para de pular (no fim do pulo atual).
+        self.stop_bounce(&app_id);
         if self.config.dock_apps.iter().any(|a| a.app_id == app_id) {
             self.recent.add_app(&app_id);
         }
@@ -1033,6 +1035,7 @@ impl Glove {
                     self.restore_minimized(idx);
                 } else {
                     self.spawn(&app.command);
+                    self.start_bounce(&app.app_id);
                 }
             }
             DockAction::Restore(i) => self.restore_minimized(i),
@@ -1165,6 +1168,7 @@ impl Glove {
                 letter: app.name.chars().next(),
                 running: !app.app_id.is_empty() && running.contains(&app.app_id.to_lowercase()),
                 separator_before: false,
+                bounce: self.dock_bounce(&app.app_id, self.config.dock.size.clamp(24, 128) as f32),
             });
             actions.push(DockAction::App(i));
         }
@@ -1177,11 +1181,12 @@ impl Glove {
                 label,
                 running: false,
                 separator_before: i == 0,
+                bounce: 0.0,
             });
             actions.push(DockAction::Restore(i));
         }
         // Lixeira sempre no fim, do outro lado do separador.
-        items.push(DockItem { icon: Icon::Trash, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty() });
+        items.push(DockItem { icon: Icon::Trash, label: "Lixeira".into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0 });
         actions.push(DockAction::Trash);
         (items, actions)
     }
@@ -1326,5 +1331,59 @@ pub(crate) fn user_full_name() -> String {
             if full.is_empty() { f[0].to_string() } else { full.to_string() }
         }
         None => login,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ícone que pula no Dock enquanto o app abre
+// ---------------------------------------------------------------------------
+
+/// Um pulo (subida e descida).
+const HOP: f32 = 0.55;
+/// Para de pular se a janela não aparecer nesse tempo.
+const BOUNCE_MAX: std::time::Duration = std::time::Duration::from_secs(8);
+
+impl Glove {
+    pub fn start_bounce(&mut self, app_id: &str) {
+        if app_id.is_empty() || self.launching.iter().any(|l| l.0.eq_ignore_ascii_case(app_id)) {
+            return;
+        }
+        self.launching.push((app_id.to_string(), std::time::Instant::now(), None));
+        if self.launching.len() == 1 {
+            self.loop_handle
+                .insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_millis(16)), |_, _, data| {
+                    let st = &mut data.state;
+                    let now = std::time::Instant::now();
+                    st.launching.retain(|(_, start, end)| end.map_or(start.elapsed() < BOUNCE_MAX, |e| now < e));
+                    st.dirty = true;
+                    if st.launching.is_empty() {
+                        smithay::reexports::calloop::timer::TimeoutAction::Drop
+                    } else {
+                        smithay::reexports::calloop::timer::TimeoutAction::ToDuration(std::time::Duration::from_millis(16))
+                    }
+                })
+                .ok();
+        }
+    }
+
+    /// A janela do app apareceu: termina o pulo atual e para.
+    pub fn stop_bounce(&mut self, app_id: &str) {
+        for (id, start, end) in &mut self.launching {
+            if end.is_none() && id.eq_ignore_ascii_case(app_id) {
+                let t = start.elapsed().as_secs_f32();
+                let left = HOP - t % HOP;
+                *end = Some(std::time::Instant::now() + std::time::Duration::from_secs_f32(left));
+            }
+        }
+    }
+
+    /// Altura do pulo do ícone agora (parábola: sobe rápido, freia no alto, cai).
+    pub fn dock_bounce(&self, app_id: &str, icon: f32) -> f32 {
+        let Some((_, start, end)) = self.launching.iter().find(|l| !app_id.is_empty() && l.0.eq_ignore_ascii_case(app_id)) else { return 0.0 };
+        if end.is_some_and(|e| std::time::Instant::now() >= e) {
+            return 0.0;
+        }
+        let f = (start.elapsed().as_secs_f32() / HOP).fract();
+        icon * 0.5 * 4.0 * f * (1.0 - f)
     }
 }
