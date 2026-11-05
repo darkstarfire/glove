@@ -227,7 +227,7 @@ impl App for Info {
             // Cabeçalho: ícone, nome e tamanho.
             let r = ui.alloc(w - 28.0, 52.0);
             let kind = super::kind_of(&self.path, is_dir);
-            let e = super::Entry { name: self.name.clone(), path: self.path.clone(), kind, size: 0, modified: None, link: meta.as_ref().is_some_and(|m| m.file_type().is_symlink()) };
+            let e = super::Entry { name: self.name.clone(), path: self.path.clone(), kind, size: 0, modified: None, link: meta.as_ref().is_some_and(|m| m.file_type().is_symlink()), app_icon: None };
             let icon = e.icon();
             icons::draw(ui.c, ui.fonts, icon, r.x, r.y, 48.0, None);
             if e.link {

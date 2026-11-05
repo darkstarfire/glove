@@ -6,4 +6,5 @@ license.workspace = true
 
 [dependencies]
 glove-kit = { path = "../kit" }
+glove-config = { path = "../config" }
 libc = "0.2"

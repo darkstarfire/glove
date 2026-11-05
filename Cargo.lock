@@ -754,6 +754,7 @@ dependencies = [
 name = "glove-files"
 version = "0.1.0"
 dependencies = [
+ "glove-config",
  "glove-kit",
  "libc",
 ]

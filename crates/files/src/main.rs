@@ -1,5 +1,6 @@
 //! Arquivos: navegador de pastas do Glove (colunas, lista e ícones).
 
+mod apps;
 mod info;
 mod ops;
 
@@ -43,6 +44,8 @@ enum Kind {
     Video,
     Archive,
     Pdf,
+    /// App da pasta Aplicativos.
+    App,
     Other,
 }
 
@@ -55,6 +58,8 @@ struct Entry {
     modified: Option<SystemTime>,
     /// Atalho (link simbólico): ganha a setinha no ícone.
     link: bool,
+    /// Ícone próprio (apps da pasta Aplicativos).
+    app_icon: Option<Icon>,
 }
 
 impl Entry {
@@ -68,6 +73,7 @@ impl Entry {
             Kind::Video => Icon::VideoFile,
             Kind::Archive => Icon::ArchiveFile,
             Kind::Pdf => Icon::PdfFile,
+            Kind::App => self.app_icon.unwrap_or(Icon::Window),
             Kind::Other => Icon::File,
         }
     }
@@ -81,6 +87,7 @@ impl Entry {
             Kind::Video => "Vídeo",
             Kind::Archive => "Arquivo compactado",
             Kind::Pdf => "Documento PDF",
+            Kind::App => "Aplicativo",
             Kind::Other => "Documento",
         }
     }
@@ -114,10 +121,6 @@ fn home() -> PathBuf {
     PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| "/".into()))
 }
 
-fn xdg_dir(names: &[&str]) -> PathBuf {
-    let h = home();
-    names.iter().map(|n| h.join(n)).find(|p| p.is_dir()).unwrap_or(h)
-}
 
 /// Pasta especial (Mesa, Documentos…) desta pasta, se for uma delas.
 /// As pastas do usuário são lidas uma vez só.
@@ -125,7 +128,7 @@ fn special_folder(p: &Path) -> Option<icons::FolderKind> {
     use icons::FolderKind as F;
     static MAP: std::sync::OnceLock<Vec<(PathBuf, F)>> = std::sync::OnceLock::new();
     let map = MAP.get_or_init(|| {
-        let mut v = vec![(home(), F::Home), (PathBuf::from("/usr/share/applications"), F::Applications)];
+        let mut v = vec![(home(), F::Home), (apps::apps_dir(), F::Applications), (apps::utils_dir(), F::Applications)];
         for (key, k) in [("DESKTOP", F::Desktop), ("DOCUMENTS", F::Documents), ("DOWNLOAD", F::Downloads), ("PICTURES", F::Pictures), ("MUSIC", F::Music), ("VIDEOS", F::Videos), ("PUBLICSHARE", F::Public), ("TEMPLATES", F::Templates)] {
             if let Some(d) = user_dir(key) {
                 v.push((d, k));
@@ -156,6 +159,9 @@ fn trash_dir() -> PathBuf {
 }
 
 fn display_name(p: &Path) -> String {
+    if let Some(n) = apps::display_name(p) {
+        return n.into();
+    }
     if p == Path::new("/") {
         return "Computador".into();
     }
@@ -220,6 +226,7 @@ fn read_dir(dir: &Path, hidden: bool) -> Result<Vec<Entry>, String> {
                 name,
                 path,
                 link,
+                app_icon: None,
             })
         })
         .collect();
@@ -279,6 +286,48 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// "~/Doc" → /home/x/Doc.
+fn expand_tilde(s: &str) -> PathBuf {
+    match s.strip_prefix('~') {
+        Some(rest) => home().join(rest.trim_start_matches('/')),
+        None => PathBuf::from(s),
+    }
+}
+
+/// Completa o caminho com Tab: o nome único que começa com o fim digitado, ou o
+/// pedaço em comum entre os candidatos (só pastas).
+fn complete_path(text: &str) -> String {
+    let full = expand_tilde(text);
+    let (dir, prefix) = if text.ends_with('/') {
+        (full.clone(), String::new())
+    } else {
+        (full.parent().map(Path::to_path_buf).unwrap_or_else(|| "/".into()), full.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+    };
+    let Ok(rd) = std::fs::read_dir(&dir) else { return text.to_string() };
+    let mut names: Vec<String> = rd
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with(&prefix) && (prefix.starts_with('.') || !n.starts_with('.')))
+        .collect();
+    names.sort();
+    let Some(first) = names.first().cloned() else { return text.to_string() };
+    let common: String = if names.len() == 1 {
+        format!("{first}/")
+    } else {
+        let mut c = first.clone();
+        for n in &names[1..] {
+            while !n.starts_with(&c) {
+                c.pop();
+            }
+        }
+        c
+    };
+    // Mantém o jeito que foi escrito (com ~ ou não).
+    let base = &text[..text.len() - prefix.len()];
+    format!("{base}{common}")
 }
 
 /// Caminho de um file:// (com %XX).
@@ -407,6 +456,10 @@ struct Files {
     rename_shown: bool,
     /// O nome está todo selecionado: a primeira tecla substitui (como no Mac).
     rename_pristine: bool,
+    /// Pastas visitadas por último.
+    recent: Vec<PathBuf>,
+    /// "Ir para a pasta…": o texto e se a folha acabou de abrir.
+    goto: Option<(String, bool)>,
 }
 
 impl Files {
@@ -436,6 +489,8 @@ impl Files {
             rename: None,
             rename_shown: false,
             rename_pristine: false,
+            recent: Vec::new(),
+            goto: None,
         }
     }
 
@@ -482,6 +537,43 @@ impl Files {
             }
             None => {}
         }
+    }
+
+    /// Folha "Ir para a pasta": campo com o caminho (Tab completa), Ir e Cancelar.
+    fn goto_sheet(&mut self, ui: &mut Ui) {
+        let Some((mut text, first)) = self.goto.clone() else { return };
+        // Tab: completa com o nome que começa com o que foi digitado (ou o pedaço comum).
+        if ui.keys().iter().any(|k| k.key == Key::Tab) {
+            text = complete_path(&text);
+        }
+        let w = ui.c.w;
+        let (pw, ph) = (420.0, 112.0);
+        let x = (w - pw) / 2.0;
+        let y = 0.0;
+        ui.c.fill(rrect(x + 3.0, y + 4.0, pw, ph, 6.0), &solid(rgba(0, 0, 0, 60)));
+        ui.c.fill(rrect4(x, y, pw, ph, [0.0, 0.0, 6.0, 6.0]), &solid(ui.theme.body_b));
+        ui.c.pinstripes(x, y, pw, ph - 6.0, ui.theme.body_a, ui.theme.body_b);
+        ui.c.stroke(rrect4(x + 0.5, y, pw - 1.0, ph - 0.5, [0.0, 0.0, 6.0, 6.0]), &solid(rgba(0, 0, 0, 90)), 1.0);
+        ui.fonts.draw(ui.c, "Ir para a pasta:", x + 18.0, y + 24.0, 13.0, true, rgba(20, 20, 20, 255));
+        let (_, enter) = ui.text_field_in(Rect::new(x + 18.0, y + 34.0, pw - 36.0, 22.0), &mut text, first || ui.keys().iter().any(|k| k.key == Key::Tab));
+        let mut go = enter;
+        let mut cancel = ui.keys().iter().any(|k| k.key == Key::Escape);
+        ui.area(Rect::new(x + pw - 210.0, y + 72.0, 90.0, 24.0), |ui| cancel |= ui.button("Cancelar"));
+        ui.area(Rect::new(x + pw - 110.0, y + 72.0, 90.0, 24.0), |ui| go |= ui.default_button("Ir"));
+        if cancel {
+            self.goto = None;
+            return;
+        }
+        if go {
+            let p = expand_tilde(text.trim());
+            if p.is_dir() {
+                self.goto = None;
+                self.go(p);
+                return;
+            }
+            self.message = Some(format!("A pasta “{}” não existe.", text.trim()));
+        }
+        self.goto = Some((text, false));
     }
 
     /// Painel de progresso da cópia, embaixo da janela, com Cancelar.
@@ -534,7 +626,7 @@ impl Files {
             let tw = ui.text_width(&name, 12.0, false);
             ui.c.fill(rrect(px + 10.0, py + 6.0, tw + 34.0, 22.0, 4.0), &solid(rgba(60, 110, 200, 150)));
             let kind = kind_of(&path, path.is_dir());
-            let e = Entry { name: name.clone(), path: path.clone(), kind, size: 0, modified: None, link: false };
+            let e = Entry { name: name.clone(), path: path.clone(), kind, size: 0, modified: None, link: false, app_icon: None };
             e.draw_icon(ui.c, ui.fonts, px + 13.0, py + 9.0, 16.0);
             ui.fonts.draw(ui.c, &name, px + 34.0, py + 21.0, 12.0, false, Color::WHITE);
             ui.wake_after(std::time::Duration::from_millis(30));
@@ -563,6 +655,16 @@ impl Files {
 
     /// Conteúdo de uma pasta, relido só se ela mudou (data de modificação).
     fn list(&mut self, dir: &Path) -> Result<Vec<Entry>, String> {
+        // Pasta Aplicativos: montada com os apps instalados (sem cache: é rápida).
+        if apps::is_virtual(dir) {
+            let utils = *dir == apps::utils_dir();
+            let mut v: Vec<Entry> = Vec::new();
+            if !utils {
+                v.push(Entry { name: "Utilitários".into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None });
+            }
+            v.extend(apps::all().into_iter().filter(|a| a.utility == utils).map(|a| Entry { name: a.name, path: a.path, kind: Kind::App, size: 0, modified: None, link: false, app_icon: Some(a.icon) }));
+            return Ok(v);
+        }
         let mtime = std::fs::metadata(dir).and_then(|m| m.modified()).ok();
         if let Some((t, h, v)) = self.cache.get(dir) {
             if *t == mtime && *h == self.hidden {
@@ -578,6 +680,10 @@ impl Files {
         if p == self.base && self.columns.len() == 1 {
             return;
         }
+        // Pastas recentes (Ir › Pastas Recentes).
+        self.recent.retain(|r| *r != p);
+        self.recent.insert(0, p.clone());
+        self.recent.truncate(8);
         self.back.push(self.base.clone());
         self.forward.clear();
         self.set_base(p);
@@ -623,6 +729,10 @@ impl Files {
         if e.kind == Kind::Folder {
             if self.view != View::Columns {
                 self.go(e.path.clone());
+            }
+        } else if e.kind == Kind::App {
+            if let Err(m) = apps::open(&e.path) {
+                self.message = Some(m);
             }
         } else {
             open_file(e);
@@ -874,7 +984,7 @@ impl Files {
         let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
         let mut v = vec![Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))), None];
         let mut add = |name: &str, icon: Icon, p: PathBuf| {
-            if p.is_dir() {
+            if p.is_dir() || apps::is_virtual(&p) {
                 v.push(Some((name.to_string(), icon, p)));
             }
         };
@@ -886,7 +996,7 @@ impl Files {
         };
         add_user("Mesa", "DESKTOP", &mut add);
         add(&user, Icon::Folder, home());
-        add("Aplicativos", Icon::Folder, PathBuf::from("/usr/share/applications"));
+        add("Aplicativos", Icon::SpecialFolder(icons::FolderKind::Applications), apps::apps_dir());
         add_user("Documentos", "DOCUMENTS", &mut add);
         add_user("Downloads", "DOWNLOAD", &mut add);
         add_user("Imagens", "PICTURES", &mut add);
@@ -1223,8 +1333,8 @@ impl Files {
     // -----------------------------------------------------------------------
 
     fn keyboard(&mut self, ui: &mut Ui) {
-        // Renomeando: as teclas são do campo.
-        if self.rename.is_some() {
+        // Renomeando ou no "Ir para a pasta": as teclas são do campo.
+        if self.rename.is_some() || self.goto.is_some() {
             return;
         }
         let mut act: Vec<&str> = Vec::new();
@@ -1252,6 +1362,12 @@ impl Files {
                 "Ctrl+Up" => act.push("up"),
                 "Ctrl+Shift+C" => act.push("go-computer"),
                 "Ctrl+Shift+H" => act.push("go-home"),
+                "Ctrl+Shift+D" => act.push("go-desktop"),
+                "Ctrl+Shift+A" => act.push("go-apps"),
+                "Ctrl+Shift+U" => act.push("go-utils"),
+                "Ctrl+Shift+O" => act.push("go-documents"),
+                "Ctrl+Shift+L" => act.push("go-downloads"),
+                "Ctrl+Shift+G" => act.push("go-folder"),
                 _ => match k.key {
                     Key::Up => act.push("sel-up"),
                     Key::Down => act.push("sel-down"),
@@ -1370,8 +1486,18 @@ impl Files {
             "up" => self.go_up(),
             "go-computer" => self.go("/".into()),
             "go-home" => self.go(home()),
-            "go-documents" => self.go(xdg_dir(&["Documentos", "Documents"])),
-            "go-pictures" => self.go(xdg_dir(&["Imagens", "Pictures"])),
+            "go-documents" => self.go(user_dir("DOCUMENTS").unwrap_or_else(home)),
+            "go-pictures" => self.go(user_dir("PICTURES").unwrap_or_else(home)),
+            "go-desktop" => self.go(user_dir("DESKTOP").unwrap_or_else(home)),
+            "go-downloads" => self.go(user_dir("DOWNLOAD").unwrap_or_else(home)),
+            "go-apps" => self.go(apps::apps_dir()),
+            "go-utils" => self.go(apps::utils_dir()),
+            "go-folder" => self.goto = Some((format!("{}/", self.current().display()).replace("//", "/"), true)),
+            a if a.starts_with("recent:") => {
+                if let Some(p) = a[7..].parse::<usize>().ok().and_then(|i| self.recent.get(i).cloned()) {
+                    self.go(p);
+                }
+            }
             "go-trash" => self.go(trash_dir().join("files")),
             "sel-up" | "sel-down" => {
                 let dir = match (self.view, &self.selected) {
@@ -1479,6 +1605,7 @@ impl App for Files {
         self.gear_menu(ui);
         self.context_menu(ui);
         self.job_panel(ui);
+        self.goto_sheet(ui);
         self.drag_frame(ui);
         ui.set_enabled(self.ask.is_none());
         self.ask_sheet(ui);
@@ -1533,9 +1660,21 @@ impl App for Files {
                     MenuItem::Separator,
                     MenuItem::new("go-computer", "Computador", "Ctrl+Shift+C"),
                     MenuItem::new("go-home", "Início", "Ctrl+Shift+H"),
-                    MenuItem::new("go-documents", "Documentos", ""),
+                    MenuItem::new("go-desktop", "Mesa", "Ctrl+Shift+D"),
+                    MenuItem::new("go-apps", "Aplicativos", "Ctrl+Shift+A"),
+                    MenuItem::new("go-utils", "Utilitários", "Ctrl+Shift+U"),
+                    MenuItem::new("go-documents", "Documentos", "Ctrl+Shift+O"),
+                    MenuItem::new("go-downloads", "Downloads", "Ctrl+Shift+L"),
                     MenuItem::new("go-pictures", "Imagens", ""),
                     MenuItem::new("go-trash", "Lixeira", ""),
+                    MenuItem::Separator,
+                    if self.recent.len() > 1 {
+                        MenuItem::submenu("Pastas Recentes", self.recent.iter().enumerate().skip(1).map(|(i, p)| MenuItem::new(&format!("recent:{i}"), &display_name(p), "")).collect())
+                    } else {
+                        MenuItem::submenu("Pastas Recentes", Vec::new()).enabled(false)
+                    },
+                    MenuItem::Separator,
+                    MenuItem::new("go-folder", "Ir para a Pasta…", "Ctrl+Shift+G"),
                 ],
             ),
         ]
