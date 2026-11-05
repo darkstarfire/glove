@@ -51,7 +51,7 @@ impl Glove {
                 continue;
             }
             let app_id = window_info(&w).1;
-            let icon = glove_config::known_app(&self.config.dock_apps, &app_id).map(|a| Icon::from_name(&a.icon)).unwrap_or(Icon::Window);
+            let icon = Icon::from_name(&glove_config::app_icon_name(&self.config.dock_apps, &app_id));
             apps.push((pid, icon, app_display_name(&w)));
         }
         let rank = |pid: u32| self.app_mru.iter().position(|p| *p == pid).unwrap_or(usize::MAX);

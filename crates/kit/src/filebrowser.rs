@@ -20,6 +20,8 @@ const SIDE_W: f32 = 120.0;
 pub enum Mode {
     Open,
     Save,
+    /// Escolher uma pasta (a que está aberta na última coluna).
+    Folder,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,6 +45,8 @@ pub struct FileBrowser {
     first: bool,
     /// Nova pasta: o nome sendo digitado.
     new_folder: Option<String>,
+    /// Ocupa a janela toda (janela própria de Abrir/Salvar), sem folha nem fundo escurecido.
+    pub whole_window: bool,
 }
 
 fn home() -> PathBuf {
@@ -98,6 +102,11 @@ impl FileBrowser {
         Self::new(Mode::Open, dir, String::new(), filter)
     }
 
+    /// Escolher uma pasta, começando em `dir` (ou na pasta pessoal).
+    pub fn folder(dir: Option<PathBuf>) -> Self {
+        Self::new(Mode::Folder, dir, String::new(), &[])
+    }
+
     /// Salvar como `name`, começando em `dir` (ou em Documentos).
     pub fn save(dir: Option<PathBuf>, name: &str) -> Self {
         Self::new(Mode::Save, dir.or_else(|| user_dir("DOCUMENTS")), name.to_string(), &[])
@@ -105,7 +114,7 @@ impl FileBrowser {
 
     fn new(mode: Mode, dir: Option<PathBuf>, name: String, filter: &[&str]) -> Self {
         let dir = dir.filter(|d| d.is_dir()).unwrap_or_else(home);
-        Self { mode, columns: vec![dir], selected: None, name, filter: filter.iter().map(|s| s.to_lowercase()).collect(), scroll: vec![0.0], error: None, first: true, new_folder: None }
+        Self { mode, columns: vec![dir], selected: None, name, filter: filter.iter().map(|s| s.to_lowercase()).collect(), scroll: vec![0.0], error: None, first: true, new_folder: None, whole_window: false }
     }
 
     /// Pasta em que se está (a última coluna).
@@ -143,6 +152,7 @@ impl FileBrowser {
     /// Confirma: no abrir, o arquivo escolhido; no salvar, a pasta + o nome.
     fn confirm(&mut self) -> Option<Choice> {
         match self.mode {
+            Mode::Folder => Some(Choice::Picked(self.dir())),
             Mode::Open => {
                 let p = self.selected.clone()?;
                 if !self.accepts(&p) {
@@ -173,17 +183,24 @@ impl Ui<'_> {
     pub fn file_sheet(&mut self, fb: &mut FileBrowser) -> Option<Choice> {
         self.set_enabled(true);
         let (w, h) = (self.c.w, self.c.h);
-        let sw = (w - 24.0).min(620.0).max(320.0);
-        let sh = (h - 8.0).min(if fb.mode == Mode::Save { 400.0 } else { 370.0 });
-        let sx = ((w - sw) / 2.0).round();
         let ink = rgba(20, 20, 20, 255);
-
-        // Fundo escurecido e a folha listrada encostada no topo.
-        self.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
-        let shape = || rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 6.0, 6.0]);
-        self.c.fill(shape(), &solid(self.theme.body_b));
-        self.c.pinstripes(sx, 0.0, sw, sh - 6.0, self.theme.body_a, self.theme.body_b);
-        self.c.stroke(shape(), &solid(rgba(0, 0, 0, 90)), 1.0 / self.c.scale);
+        let (sx, sw, sh) = if fb.whole_window {
+            // Janela própria: o conteúdo da folha é a janela inteira.
+            self.c.fill_rect(0.0, 0.0, w, h, &solid(self.theme.body_b));
+            self.c.pinstripes(0.0, 0.0, w, h, self.theme.body_a, self.theme.body_b);
+            (0.0, w, h)
+        } else {
+            let sw = (w - 24.0).min(620.0).max(320.0);
+            let sh = (h - 8.0).min(if fb.mode == Mode::Save { 400.0 } else { 370.0 });
+            let sx = ((w - sw) / 2.0).round();
+            // Fundo escurecido e a folha listrada encostada no topo.
+            self.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
+            let shape = || rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 6.0, 6.0]);
+            self.c.fill(shape(), &solid(self.theme.body_b));
+            self.c.pinstripes(sx, 0.0, sw, sh - 6.0, self.theme.body_a, self.theme.body_b);
+            self.c.stroke(shape(), &solid(rgba(0, 0, 0, 90)), 1.0 / self.c.scale);
+            (sx, sw, sh)
+        };
 
         let mut y = 14.0;
         if fb.mode == Mode::Save {
@@ -199,7 +216,7 @@ impl Ui<'_> {
             }
             y += 34.0;
         } else {
-            self.fonts.draw(self.c, "Abrir", sx + 18.0, y + 15.0, 13.0, true, ink);
+            self.fonts.draw(self.c, if fb.mode == Mode::Folder { "Escolher uma pasta" } else { "Abrir" }, sx + 18.0, y + 15.0, 13.0, true, ink);
             y += 26.0;
         }
 
@@ -251,7 +268,7 @@ impl Ui<'_> {
                     continue;
                 }
                 let row = Rect::new(inner.x, iy.max(inner.y), inner.w, (iy + ROW).min(inner.y + inner.h) - iy.max(inner.y));
-                let ok = *is_dir || fb.mode == Mode::Save || fb.accepts(p);
+                let ok = *is_dir || fb.mode == Mode::Save || (fb.mode == Mode::Open && fb.accepts(p));
                 let on = chosen.as_ref() == Some(p);
                 if on {
                     self.c.fill_rect(row.x, row.y, row.w, row.h, &solid(self.theme.menu_hot));
@@ -316,14 +333,18 @@ impl Ui<'_> {
             }
         }
         let (mut cancel, mut ok) = (false, false);
-        let ok_label = if fb.mode == Mode::Save { "Salvar" } else { "Abrir" };
+        let ok_label = match fb.mode {
+            Mode::Save => "Salvar",
+            Mode::Folder => "Escolher",
+            Mode::Open => "Abrir",
+        };
         self.area(Rect::new(sx + sw - 220.0, by, 95.0, 24.0), |ui| cancel = ui.button("Cancelar"));
         self.area(Rect::new(sx + sw - 115.0, by, 97.0, 24.0), |ui| ok = ui.default_button(ok_label));
         let keys: Vec<Key> = self.keys().iter().map(|k| k.key).collect();
         if keys.contains(&Key::Escape) && fb.new_folder.is_none() {
             cancel = true;
         }
-        if keys.contains(&Key::Enter) && fb.mode == Mode::Open {
+        if keys.contains(&Key::Enter) && fb.mode != Mode::Save {
             ok = true;
         }
         if cancel {

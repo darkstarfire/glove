@@ -61,6 +61,9 @@ impl Glove {
                         data.state.xwm = Some(wm);
                         data.state.xdisplay = Some(display_number);
                         tracing::info!("apps X11 no display :{display_number}");
+                        if !data.state.nested && !data.state.greeter {
+                            crate::state::export_session_env(&data.state.socket_name, Some(display_number));
+                        }
                     }
                     Err(e) => tracing::warn!("gerenciador de janelas X11 não iniciou: {e}"),
                 }

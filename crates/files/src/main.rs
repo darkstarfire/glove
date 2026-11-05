@@ -4,6 +4,7 @@ mod apps;
 mod info;
 mod ops;
 mod smart;
+mod thumb;
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -20,11 +21,17 @@ use glove_kit::{
 
 /// Barra de ferramentas em metal, emendada no título (como no Tiger).
 const TOOLBAR_H: f32 = 40.0;
+/// Menu da engrenagem: logo abaixo do botão.
+const GEAR_MENU_X: f32 = 12.0 + 5.0 * SEGMENT_W + 24.0;
 /// Faixa de baixo em metal, com o status.
 const BOTTOM_H: f32 = 22.0;
 /// Barra lateral com discos e lugares.
-const SIDEBAR_W: f32 = 158.0;
-const SIDE_ROW: f32 = 22.0;
+const SIDEBAR_W: f32 = 170.0;
+/// Linhas da barra lateral (ícones de 24, como no Tiger).
+const SIDE_ROW: f32 = 30.0;
+/// Margem de metal em volta dos painéis (lateral e conteúdo) e entre eles.
+const PANE_M: f32 = 6.0;
+const PANE_GAP: f32 = 6.0;
 const ROW_H: f32 = 18.0;
 const COL_W: f32 = 200.0;
 
@@ -355,10 +362,6 @@ fn complete_path(text: &str) -> String {
 }
 
 /// Caminho de um file:// (com %XX).
-fn ops_decode(s: &str) -> String {
-    percent_decode(s)
-}
-
 /// Devolver: põe um item da Lixeira de volta onde estava. Devolve o destino.
 fn put_back(item: &Path) -> Result<PathBuf, String> {
     put_back_in(&trash_dir(), item)
@@ -439,22 +442,42 @@ fn sibling(name: &str) -> PathBuf {
 
 fn open_file(e: &Entry) {
     use std::process::Command;
-    // Aplicativos Padrão: se o usuário escolheu outro app para o tipo, vale o dele.
-    let chosen_other = |mime: &str| {
-        Command::new("xdg-mime").args(["query", "default", mime]).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).is_some_and(|d| !d.is_empty() && !d.starts_with("glove-"))
-    };
-    let mut cmd = match e.kind {
-        Kind::Text if !chosen_other("text/plain") => Command::new(sibling("glove-edit")),
-        Kind::Picture if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["png", "jpg", "jpeg"].contains(&x.to_ascii_lowercase().as_str())) && !chosen_other("image/png") => Command::new(sibling("glove-view")),
-        _ if e.path.extension().and_then(|x| x.to_str()).is_some_and(|x| ["ttf", "otf", "ttc"].contains(&x.to_ascii_lowercase().as_str())) && !chosen_other("font/ttf") => Command::new(sibling("glove-fontes")),
-        Kind::Archive if expandable(&e.path) => {
-            let mut c = Command::new(sibling("glove-arquivo"));
-            c.arg("expandir");
-            c
+    let out = |args: &[&str]| Command::new("xdg-mime").args(args).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+    let ext = e.path.extension().and_then(|x| x.to_str()).map(|x| x.to_ascii_lowercase()).unwrap_or_default();
+    if e.kind == Kind::Archive && expandable(&e.path) {
+        let _ = launch(Command::new(sibling("glove-arquivo")).arg("expandir").arg(&e.path));
+        return;
+    }
+    // O app padrão do tipo deste arquivo (Obter Informações ▸ Abrir com ▸ Usar para todos).
+    let mime = out(&["query", "filetype", &e.path.to_string_lossy()]);
+    let def = if mime.is_empty() { String::new() } else { out(&["query", "default", &mime]) };
+    let mut cmd = if let Some(bin) = def.strip_suffix(".desktop").filter(|b| b.starts_with("glove-")) {
+        Command::new(sibling(bin))
+    } else if !def.is_empty() {
+        Command::new("xdg-open")
+    } else {
+        // Sem padrão: os apps do Glove para o que eles abrem.
+        match e.kind {
+            Kind::Text => Command::new(sibling("glove-edit")),
+            Kind::Picture if glove_kit::image::format_of(&e.path).is_some() => Command::new(sibling("glove-view")),
+            _ if ext == "pdf" => Command::new(sibling("glove-view")),
+            _ if ["ttf", "otf", "ttc"].contains(&ext.as_str()) => Command::new(sibling("glove-fontes")),
+            _ if ["mp4", "mkv", "webm", "mov", "avi", "m4v", "mpg", "mpeg", "ogv"].contains(&ext.as_str()) => Command::new(sibling("glove-video")),
+            _ => Command::new("xdg-open"),
         }
-        _ => Command::new("xdg-open"),
     };
     let _ = launch(cmd.arg(&e.path));
+}
+
+/// Nome encurtado no meio ("Captura de tela…07.55.png") para caber em menus.
+fn short_name(name: &str, max: usize) -> String {
+    let n = name.chars().count();
+    if n <= max {
+        return name.to_string();
+    }
+    let head: String = name.chars().take(max * 2 / 3).collect();
+    let tail: String = name.chars().skip(n - (max - max * 2 / 3 - 1)).collect();
+    format!("{head}…{tail}")
 }
 
 /// Arquivos que o Utilitário de Arquivo sabe expandir.
@@ -464,6 +487,12 @@ fn expandable(p: &Path) -> bool {
 }
 
 struct Files {
+    /// Prévia: arquivo, zoom (1 = ajustar), deslocamento e o último ponto do arrasto.
+    pv: (PathBuf, f32, (f32, f32), Option<(f32, f32)>),
+    /// Pasta Aplicativos já montada (e quando).
+    apps_cache: HashMap<PathBuf, (std::time::Instant, Vec<Entry>)>,
+    /// Prévia da imagem selecionada (coluna de detalhes).
+    thumbs: thumb::Thumbs,
     view: View,
     /// Pasta da janela (raiz das colunas).
     base: PathBuf,
@@ -496,6 +525,10 @@ struct Files {
     drag: Option<(PathBuf, (f32, f32), bool)>,
     /// Pasta sob o mouse durante o arraste (neste quadro).
     drop_target: Option<PathBuf>,
+    /// Arquivos sendo arrastados por cima desta janela (daqui ou de outro app).
+    dnd_hover: bool,
+    /// Clique num dos vários escolhidos: só vira seleção única ao soltar sem arrastar.
+    defer_select: Option<(usize, Entry)>,
     /// Menu de contexto: posição e o item (None = clique no vazio).
     ctx: Option<((f32, f32), Option<PathBuf>)>,
     /// Renomeando no lugar: item, texto e se o campo acabou de abrir.
@@ -533,6 +566,9 @@ impl Files {
             back: Vec::new(),
             forward: Vec::new(),
             search: String::new(),
+            thumbs: thumb::Thumbs::default(),
+            pv: (PathBuf::new(), 1.0, (0.0, 0.0), None),
+            apps_cache: HashMap::new(),
             hidden: false,
             cache: HashMap::new(),
             scroll: HashMap::new(),
@@ -546,6 +582,8 @@ impl Files {
             job: None,
             drag: None,
             drop_target: None,
+            dnd_hover: false,
+            defer_select: None,
             ctx: None,
             rename: None,
             rename_shown: false,
@@ -711,43 +749,58 @@ impl Files {
         });
     }
 
-    /// Arrastar: começa depois de 5 pontos; mostra o item seguindo o mouse; soltar
-    /// numa pasta move (com Ctrl, copia).
+    /// Arrastar: depois de 5 pontos vira um arrastar do sistema (o ícone segue o
+    /// mouse e dá para soltar em outra janela do Arquivos, numa pasta desta ou em
+    /// outro app). Soltar sem arrastar num dos vários escolhidos o deixa sozinho.
     fn drag_frame(&mut self, ui: &mut Ui) {
-        let Some((path, start, active)) = self.drag.clone() else { return };
+        let Some((path, start, _)) = self.drag.clone() else { return };
         let (px, py) = ui.pointer();
-        if ui.mouse_down() && !active && ((px - start.0).powi(2) + (py - start.1).powi(2)) > 25.0 {
-            self.drag = Some((path.clone(), start, true));
-        }
-        if active {
-            // O item "fantasma" seguindo o mouse.
-            let name = display_name(&path);
-            let tw = ui.text_width(&name, 12.0, false);
-            ui.c.fill(rrect(px + 10.0, py + 6.0, tw + 34.0, 22.0, 4.0), &solid(rgba(60, 110, 200, 150)));
-            let kind = kind_of(&path, path.is_dir());
-            let e = Entry { name: name.clone(), path: path.clone(), kind, size: 0, modified: None, link: false, app_icon: None };
-            e.draw_icon(ui.c, ui.fonts, px + 13.0, py + 9.0, 16.0);
-            ui.fonts.draw(ui.c, &name, px + 34.0, py + 21.0, 12.0, false, Color::WHITE);
-            ui.wake_after(std::time::Duration::from_millis(30));
-        }
-        if ui.mouse_released() {
+        if ui.mouse_down() && ((px - start.0).powi(2) + (py - start.1).powi(2)) > 25.0 {
             self.drag = None;
-            if let (true, Some(target)) = (active, self.drop_target.clone()) {
-                if target != path {
-                    let copy = ui.mods().ctrl;
-                    // Arrastar um dos escolhidos leva todos eles.
-                    let items = if self.is_chosen(&path) { self.all_selected() } else { vec![path] };
-                    self.transfer(items, target, !copy);
+            self.defer_select = None;
+            // Arrastar um dos escolhidos leva todos eles.
+            let items = if self.is_chosen(&path) { self.all_selected() } else { vec![path] };
+            if !items.iter().any(|p| apps::is_virtual(p)) {
+                ui.start_drag_files(&items);
+            }
+            return;
+        }
+        if ui.mouse_released() || !ui.mouse_down() {
+            self.drag = None;
+            if let Some((ci, e)) = self.defer_select.take() {
+                self.extra.clear();
+                if ci != usize::MAX && self.view == View::Columns {
+                    self.select_in_column(ci, &e);
+                } else {
+                    self.selected = Some(e.path.clone());
                 }
+                ui.redraw = true;
             }
         }
+    }
+
+    /// Arquivos soltos nesta janela: na pasta sob o mouse ou na pasta à vista.
+    /// No mesmo disco movem; de outro disco, copiam (como no Mac).
+    fn handle_drop(&mut self, paths: Vec<PathBuf>) {
+        use std::os::unix::fs::MetadataExt;
+        let target = self.drop_target.clone().unwrap_or_else(|| self.current());
+        if apps::is_virtual(&target) || smart::is_smart(&target) || !target.is_dir() {
+            return;
+        }
+        let items: Vec<PathBuf> = paths.into_iter().filter(|p| p.exists() && p.parent() != Some(target.as_path()) && !target.starts_with(p)).collect();
+        if items.is_empty() {
+            return;
+        }
+        let dev = |p: &Path| std::fs::metadata(p).map(|m| m.dev()).ok();
+        let same = items.iter().all(|p| dev(p) == dev(&target));
+        self.transfer(items, target, same);
     }
 
     /// "Compactar “Fotos”" ou "Compactar 3 itens".
     fn compress_label(&self) -> String {
         match self.all_selected().as_slice() {
             [] => "Compactar".into(),
-            [one] => format!("Compactar “{}”", one.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            [one] => format!("Compactar “{}”", short_name(&one.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), 24)),
             v => format!("Compactar {} itens", v.len()),
         }
     }
@@ -860,14 +913,21 @@ impl Files {
             self.cache.insert(dir.to_path_buf(), (None, self.hidden, Ok(v.clone())));
             return Ok(v);
         }
-        // Pasta Aplicativos: montada com os apps instalados (sem cache: é rápida).
+        // Pasta Aplicativos: montada com os apps instalados. Ler todos os .desktop
+        // a cada consulta (várias por quadro) deixava a janela lenta: guarda por 5 s.
         if apps::is_virtual(dir) {
+            if let Some((at, v)) = self.apps_cache.get(dir) {
+                if at.elapsed() < std::time::Duration::from_secs(5) {
+                    return Ok(v.clone());
+                }
+            }
             let utils = *dir == apps::utils_dir();
             let mut v: Vec<Entry> = Vec::new();
             if !utils {
                 v.push(Entry { name: "Utilitários".into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None });
             }
             v.extend(apps::all().into_iter().filter(|a| a.utility == utils).map(|a| Entry { name: a.name, path: a.path, kind: Kind::App, size: 0, modified: None, link: false, app_icon: Some(a.icon) }));
+            self.apps_cache.insert(dir.to_path_buf(), (std::time::Instant::now(), v.clone()));
             return Ok(v);
         }
         let mtime = std::fs::metadata(dir).and_then(|m| m.modified()).ok();
@@ -940,7 +1000,9 @@ impl Files {
                 self.message = Some(m);
             }
         } else {
-            open_file(e);
+            // Achar o app padrão chama o xdg-mime (lento): fora da janela.
+            let e = e.clone();
+            std::thread::spawn(move || open_file(&e));
         }
     }
 
@@ -995,8 +1057,8 @@ impl Files {
         let w = ui.c.w;
         // Continua o degradê do título em metal (o Glove desenha o título deste app em metal).
         let metal = Theme::new(Variant::Metal);
-        ui.c.brushed_metal(0.0, 0.0, w, TOOLBAR_H, metal.metal_bottom, darken(metal.metal_bottom, 0.1));
-        ui.c.hline(0.0, TOOLBAR_H - 1.0, w, rgba(110, 110, 116, 255));
+        ui.c.brushed_metal(0.0, 0.0, w, TOOLBAR_H, metal.metal_bottom, darken(metal.metal_bottom, 0.03));
+        ui.c.metal_sheen(0.0, 0.0, w, TOOLBAR_H, w);
         let cy = (TOOLBAR_H - SEGMENT_H) / 2.0;
         // Voltar / Avançar: segmentado momentâneo, apagado quando não há para onde ir.
         let nav = [!self.back.is_empty(), !self.forward.is_empty()];
@@ -1034,12 +1096,9 @@ impl Files {
     }
 
     /// Menu da engrenagem, por cima de tudo, logo abaixo do botão.
-    fn gear_menu(&mut self, ui: &mut Ui) {
-        if !self.gear_open {
-            return;
-        }
+    fn gear_items(&self) -> Vec<(&'static str, String, bool)> {
         let sel = self.selected.is_some();
-        let items: Vec<(&str, String, bool)> = vec![
+        vec![
             ("new-folder", "Nova pasta".into(), true),
             ("open", "Abrir".into(), sel),
             ("rename", "Renomear".into(), sel),
@@ -1049,9 +1108,15 @@ impl Files {
             if self.in_trash() { ("put-back", "Devolver".into(), sel) } else { ("trash", "Mover para a Lixeira".into(), sel) },
             ("", String::new(), false),
             ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
-        ];
-        let x = 12.0 + 5.0 * SEGMENT_W + 24.0;
-        if let Some(id) = Self::popup_menu(ui, x, TOOLBAR_H - 4.0, &items) {
+        ]
+    }
+
+    fn gear_menu(&mut self, ui: &mut Ui) {
+        if !self.gear_open {
+            return;
+        }
+        let items = self.gear_items();
+        if let Some(id) = ui.unreserved(|ui| Self::popup_menu(ui, GEAR_MENU_X, TOOLBAR_H - 4.0, &items)) {
             self.gear_open = false;
             self.action(&id, ui);
         } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
@@ -1061,12 +1126,19 @@ impl Files {
 
     /// Menu suspenso desenhado no app (engrenagem e menu de contexto). Itens:
     /// (ação, rótulo, ativo); ação vazia = divisória. Devolve a ação escolhida.
-    fn popup_menu(ui: &mut Ui, x: f32, y0: f32, items: &[(&str, String, bool)]) -> Option<String> {
-        let (mw, row) = (220.0, 20.0);
-        let mh = items.iter().map(|i| if i.0.is_empty() { 9.0 } else { row }).sum::<f32>() + 8.0;
-        // Cabe na janela.
+    /// Onde o menu suspenso fica (cabe na janela).
+    fn menu_rect(ui: &Ui, x: f32, y0: f32, items: &[(&str, String, bool)]) -> Rect {
+        let mw = 220.0;
+        let mh = items.iter().map(|i| if i.0.is_empty() { 9.0 } else { 20.0 }).sum::<f32>() + 8.0;
         let x = x.min(ui.c.w - mw - 4.0).max(0.0);
         let y0 = if y0 + mh > ui.c.h - 4.0 { (y0 - mh).max(0.0) } else { y0 };
+        Rect::new(x, y0, mw, mh)
+    }
+
+    fn popup_menu(ui: &mut Ui, x: f32, y0: f32, items: &[(&str, String, bool)]) -> Option<String> {
+        let row = 20.0;
+        let mr = Self::menu_rect(ui, x, y0, items);
+        let (x, y0, mw, mh) = (mr.x, mr.y, mr.w, mr.h);
         ui.c.fill_rect(x + 3.0, y0 + 4.0, mw, mh, &solid(rgba(0, 0, 0, 50)));
         ui.c.fill_rect(x, y0, mw, mh, &solid(rgba(246, 247, 249, 252)));
         ui.c.stroke(rrect(x + 0.5, y0 + 0.5, mw - 1.0, mh - 1.0, 0.0), &solid(rgba(0, 0, 0, 80)), 1.0);
@@ -1084,7 +1156,9 @@ impl Files {
                 ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(ui.theme.menu_hot));
             }
             let col = if !on { rgba(160, 160, 160, 255) } else if h.hover { Color::WHITE } else { rgba(20, 20, 20, 255) };
-            ui.fonts.draw(ui.c, label, x + 16.0, y + 14.5, 13.0, false, col);
+            // Nomes compridos não passam da borda do menu.
+            let label = ui.fonts.ellipsize(label, 13.0, false, mw - 28.0);
+            ui.fonts.draw(ui.c, &label, x + 16.0, y + 14.5, 13.0, false, col);
             if h.clicked && *on {
                 chosen = Some(id.to_string());
             }
@@ -1093,39 +1167,69 @@ impl Files {
         chosen
     }
 
-    fn context_menu(&mut self, ui: &mut Ui) {
-        let Some(((x, y), item)) = self.ctx.clone() else { return };
-        let items: Vec<(&str, String, bool)> = match &item {
-            Some(_) => vec![
-                ("open", "Abrir".into(), true),
-                ("", String::new(), false),
-                ("info", "Obter Informações".into(), true),
-                ("rename", "Renomear".into(), true),
-                ("duplicate", "Duplicar".into(), !self.in_trash()),
-                ("alias", "Criar Atalho".into(), !self.in_trash()),
-                ("compress", self.compress_label(), !self.in_trash()),
-                ("", String::new(), false),
-                ("copy", "Copiar".into(), true),
-                ("cut", "Recortar".into(), true),
-                ("", String::new(), false),
-                if self.in_trash() { ("put-back", "Devolver".into(), true) } else { ("trash", "Mover para a Lixeira".into(), true) },
-            ],
+    fn ctx_items(&self, item: &Option<PathBuf>) -> Vec<(&'static str, String, bool)> {
+        match item {
+            Some(_) => {
+                // Vários escolhidos: o menu vale para todos (o que só faz sentido
+                // para um fica apagado).
+                let n = self.all_selected().len();
+                let one = n <= 1;
+                let many = |t: &str| if one { t.to_string() } else { format!("{t} {n} itens") };
+                vec![
+                    ("open", many("Abrir"), true),
+                    ("", String::new(), false),
+                    ("info", "Obter Informações".into(), one),
+                    ("rename", "Renomear".into(), one),
+                    ("duplicate", "Duplicar".into(), one && !self.in_trash()),
+                    ("alias", "Criar Atalho".into(), one && !self.in_trash()),
+                    ("compress", self.compress_label(), !self.in_trash()),
+                    ("", String::new(), false),
+                    ("copy", many("Copiar"), true),
+                    ("cut", many("Recortar"), true),
+                    ("", String::new(), false),
+                    if self.in_trash() { ("put-back", many("Devolver"), true) } else { ("trash", if one { "Mover para a Lixeira".into() } else { format!("Mover {n} itens para a Lixeira") }, true) },
+                ]
+            }
             None => vec![
                 ("new-folder", "Nova pasta".into(), true),
                 ("paste", "Colar".into(), self.clip.is_some()),
                 ("", String::new(), false),
                 ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
             ],
-        };
-        if let Some(a) = Self::popup_menu(ui, x, y, &items) {
+        }
+    }
+
+    fn context_menu(&mut self, ui: &mut Ui) {
+        let Some(((x, y), item)) = self.ctx.clone() else { return };
+        let items = self.ctx_items(&item);
+        if let Some(a) = ui.unreserved(|ui| Self::popup_menu(ui, x, y, &items)) {
             self.ctx = None;
             self.action(&a, ui);
-        } else if ui.keys().iter().any(|k| k.key == Key::Escape) || (ui.mouse_pressed() && !ui.right_clicked(Rect::new(0.0, 0.0, ui.c.w, ui.c.h))) {
-            // Clique fora fecha (o clique dentro escolhe no quadro em que solta).
-            let (px, py) = ui.pointer();
-            let inside = px >= x.min(ui.c.w - 224.0) && px < x.min(ui.c.w - 224.0) + 220.0 && (py - y).abs() < 260.0;
-            if !inside || ui.keys().iter().any(|k| k.key == Key::Escape) {
+        } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
+            self.ctx = None;
+        }
+    }
+
+    /// Menus suspensos abertos: o clique sobre eles não atravessa para a janela, e
+    /// um clique fora só fecha o menu (como no sistema).
+    fn guard_menus(&mut self, ui: &mut Ui) {
+        let full = Rect::new(0.0, 0.0, ui.c.w, ui.c.h);
+        let p = ui.pointer();
+        if self.gear_open {
+            let r = Self::menu_rect(ui, GEAR_MENU_X, TOOLBAR_H - 4.0, &self.gear_items());
+            ui.reserve(r);
+            // Na barra de ferramentas o clique vale (a própria engrenagem fecha o menu).
+            if ui.mouse_pressed() && !r.contains(p) && p.1 > TOOLBAR_H {
+                self.gear_open = false;
+                ui.reserve(full);
+            }
+        }
+        if let Some(((x, y), item)) = self.ctx.clone() {
+            let r = Self::menu_rect(ui, x, y, &self.ctx_items(&item));
+            ui.reserve(r);
+            if ui.mouse_pressed() && !r.contains(p) {
                 self.ctx = None;
+                ui.reserve(full);
             }
         }
     }
@@ -1201,6 +1305,15 @@ impl Files {
     fn places() -> Vec<Option<(String, Icon, PathBuf)>> {
         let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
         let mut v = vec![Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))), None];
+        // Cada lugar com um desenho próprio (como na lateral do Tiger), não a pasta.
+        let icon_of = |key: &str| match key {
+            "DESKTOP" => Icon::Display,
+            "DOCUMENTS" => Icon::Document,
+            "PICTURES" => Icon::Picture,
+            "MUSIC" => Icon::Music,
+            "VIDEOS" => Icon::Video,
+            _ => Icon::Folder,
+        };
         let mut add = |name: &str, icon: Icon, p: PathBuf| {
             if p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p) {
                 v.push(Some((name.to_string(), icon, p)));
@@ -1209,11 +1322,11 @@ impl Files {
         // Pastas do usuário como o sistema as define (nomes e caminhos variam por idioma).
         let add_user = |name: &str, key: &str, add: &mut dyn FnMut(&str, Icon, PathBuf)| {
             if let Some(p) = user_dir(key) {
-                add(name, Icon::Folder, p);
+                add(name, icon_of(key), p);
             }
         };
         add_user("Mesa", "DESKTOP", &mut add);
-        add(&user, Icon::Folder, home());
+        add(&user, Icon::SpecialFolder(icons::FolderKind::Home), home());
         add("Aplicativos", Icon::SpecialFolder(icons::FolderKind::Applications), apps::apps_dir());
         add_user("Documentos", "DOCUMENTS", &mut add);
         add_user("Downloads", "DOWNLOAD", &mut add);
@@ -1232,29 +1345,34 @@ impl Files {
     }
 
     fn sidebar(&mut self, ui: &mut Ui, r: Rect) {
-        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(231, 235, 241, 255)));
-        ui.c.vline(r.x + r.w - 1.0, r.y, r.h, rgba(160, 162, 168, 255));
-        let mut y = r.y + 6.0;
+        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
+        let mut y = r.y + 4.0;
         for place in Self::places() {
+            if y + SIDE_ROW > r.y + r.h {
+                break;
+            }
             let Some((name, icon, path)) = place else {
-                ui.c.hline(r.x + 10.0, y + 4.0, r.w - 20.0, rgba(196, 198, 204, 255));
+                ui.c.hline(r.x + 8.0, y + 4.0, r.w - 16.0, rgba(186, 188, 194, 255));
                 y += 10.0;
                 continue;
             };
-            let row = Rect::new(r.x, y, r.w - 1.0, SIDE_ROW);
+            let row = Rect::new(r.x, y, r.w, SIDE_ROW);
             let here = self.base == path;
             let h = ui.hit(row);
-            if h.hover && self.drag.as_ref().is_some_and(|d| d.2) {
+            if h.hover && self.dnd_hover {
                 self.drop_target = Some(path.clone());
                 ui.c.stroke(rrect(row.x + 2.0, row.y + 1.0, row.w - 4.0, row.h - 2.0, 4.0), &solid(ui.theme.accent), 2.0);
             }
             if here {
-                ui.c.fill_rect(row.x, row.y, row.w, row.h, &vgrad(row.y, row.y + row.h, &[(0.0, lighten(ui.theme.accent, 0.25)), (1.0, ui.theme.accent)]));
+                // Destaque do Tiger: degradê azul com uma linha mais clara em cima.
+                ui.c.fill_rect(row.x, row.y, row.w, row.h, &vgrad(row.y, row.y + row.h, &[(0.0, lighten(ui.theme.accent, 0.3)), (1.0, darken(ui.theme.accent, 0.08))]));
+                ui.c.hline(row.x, row.y, row.w, lighten(ui.theme.accent, 0.15));
             }
             let icon = if icon == Icon::Folder { special_folder(&path).map(Icon::SpecialFolder).unwrap_or(icon) } else { icon };
-            icons::draw_bare(ui.c, ui.fonts, icon, r.x + 12.0, y + 3.0, 16.0, None);
-            let col = if here { Color::WHITE } else { rgba(30, 30, 34, 255) };
-            ui.fonts.draw(ui.c, &name, r.x + 34.0, y + 15.5, 12.0, here, col);
+            icons::draw_bare(ui.c, ui.fonts, icon, r.x + 6.0, y + 3.0, 24.0, None);
+            let col = if here { Color::WHITE } else { rgba(20, 20, 24, 255) };
+            let name = ui.fonts.ellipsize(&name, 12.0, true, r.w - 42.0);
+            ui.fonts.draw(ui.c, &name, r.x + 36.0, y + 19.5, 12.0, here, col);
             if h.clicked {
                 self.go(path);
             }
@@ -1265,11 +1383,14 @@ impl Files {
     fn status(&mut self, ui: &mut Ui, y: f32) {
         let w = ui.c.w;
         let metal = Theme::new(Variant::Metal);
-        ui.c.brushed_metal(0.0, y, w, BOTTOM_H, metal.metal_top, metal.metal_bottom);
-        ui.c.hline(0.0, y, w, rgba(110, 110, 116, 255));
+        ui.c.brushed_metal(0.0, y, w, BOTTOM_H, darken(metal.metal_bottom, 0.04), darken(metal.metal_bottom, 0.07));
+        ui.c.metal_sheen(0.0, y, w, BOTTOM_H, w);
         let cur = self.current();
         let n = self.list(&cur).map(|v| v.len()).unwrap_or(0);
-        let mut text = if self.selected.as_ref().is_some_and(|s| s.parent() == Some(cur.as_path())) {
+        let chosen = self.all_selected().iter().filter(|s| s.parent() == Some(cur.as_path())).count();
+        let mut text = if chosen > 1 {
+            format!("{chosen} de {n} selecionados")
+        } else if chosen == 1 {
             format!("1 de {n} selecionado")
         } else {
             format!("{n} {}", if n == 1 { "item" } else { "itens" })
@@ -1343,19 +1464,30 @@ impl Files {
             }
             let resp = ui.hit(Rect::new(r.x, top, r.w - 1.0, bot - top));
             if resp.pressed {
-                action = Some((e.clone(), resp.double));
+                // Apertar num dos vários escolhidos não desfaz a seleção (pode ser
+                // o começo de arrastar todos); sem arrastar, vira seleção única ao soltar.
+                let m = ui.mods();
+                if !resp.double && !(m.ctrl || m.shift) && !self.extra.is_empty() && self.is_chosen(&e.path) {
+                    self.defer_select = Some((ci, e.clone()));
+                } else {
+                    action = Some((e.clone(), resp.double));
+                }
                 self.drag = Some((e.path.clone(), ui.pointer(), false));
             }
-            if resp.hover && e.kind == Kind::Folder && self.drag.as_ref().is_some_and(|d| d.2) {
+            if resp.hover && e.kind == Kind::Folder && self.dnd_hover {
                 self.drop_target = Some(e.path.clone());
             }
             if ui.right_clicked(Rect::new(r.x, top, r.w - 1.0, bot - top)) {
-                action = Some((e.clone(), false));
+                // Botão direito num dos escolhidos: o menu vale para todos eles.
+                if !self.is_chosen(&e.path) {
+                    action = Some((e.clone(), false));
+                }
                 self.ctx = Some((ui.pointer(), Some(e.path.clone())));
             }
         }
         let accent = ui.theme.accent;
         let extra = self.extra.clone();
+        let target = self.drop_target.clone();
         ui.clipped(ci as u64 * 7919 + 1, Rect::new(r.x, r.y, r.w - 1.0, r.h), |c, fonts| {
             c.clear(Color::WHITE);
             for (i, e) in entries.iter().enumerate().skip(first).take(count) {
@@ -1364,6 +1496,10 @@ impl Files {
                 if on {
                     let col = if last { accent } else { rgba(200, 204, 212, 255) };
                     c.fill_rect(0.0, y, r.w, ROW_H, &vgrad(y, y + ROW_H, &[(0.0, lighten(col, 0.15)), (1.0, col)]));
+                }
+                // Pasta que vai receber o que está sendo arrastado.
+                if target.as_ref() == Some(&e.path) {
+                    c.stroke(rrect(1.5, y + 0.5, r.w - 4.0, ROW_H - 1.0, 4.0), &solid(accent), 2.0);
                 }
                 e.draw_icon(c, fonts, 6.0, y + 1.5, 16.0);
                 let ink = if on && last { Color::WHITE } else { rgba(20, 20, 20, 255) };
@@ -1404,13 +1540,111 @@ impl Files {
     fn preview(&mut self, ui: &mut Ui, e: &Entry, r: Rect) {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         let cx = r.x + r.w / 2.0;
-        e.draw_icon(ui.c, ui.fonts, cx - 48.0, r.y + 24.0, 96.0);
-        let mut y = r.y + 140.0;
+        let pic = e.kind == Kind::Picture && thumb::supported(&e.path);
+        // Outro arquivo: o zoom volta a "ajustar".
+        if self.pv.0 != e.path {
+            self.pv = (e.path.clone(), 1.0, (0.0, 0.0), None);
+        }
+        let mut dims = None;
+        let mut y;
+        if pic {
+            // Imagens: a foto no espaço todo que sobra (sem distorcer), com zoom.
+            const INFO_H: f32 = 140.0;
+            let bx = Rect::new(r.x + 14.0, r.y + 14.0, r.w - 28.0, (r.h - 14.0 - INFO_H - 34.0).max(100.0));
+            y = bx.y + bx.h + 52.0;
+            let s = ui.c.scale;
+            let (img, busy) = self.thumbs.get(&e.path);
+            match img {
+                Some((src, orig)) => {
+                    dims = Some(*orig);
+                    let (ow, oh) = (orig.0 as f32 / s, orig.1 as f32 / s);
+                    // Ajustar: enche a caixa (no máximo o dobro do tamanho real).
+                    let fit = (bx.w / ow).min(bx.h / oh).min(2.0);
+                    let zoom = self.pv.1;
+                    let (dw, dh) = (ow * fit * zoom, oh * fit * zoom);
+                    // Arrastar move a foto ampliada; a rodinha aproxima e afasta.
+                    let h = ui.hit(bx);
+                    let p = ui.pointer();
+                    if h.down && (dw > bx.w || dh > bx.h) {
+                        if let Some(last) = self.pv.3 {
+                            self.pv.2 .0 += p.0 - last.0;
+                            self.pv.2 .1 += p.1 - last.1;
+                        }
+                        self.pv.3 = Some(p);
+                    } else {
+                        self.pv.3 = None;
+                    }
+                    let wheel = ui.scroll_in(bx);
+                    if wheel != 0.0 {
+                        self.pv.1 = (zoom * if wheel < 0.0 { 1.25 } else { 0.8 }).clamp(1.0, 16.0);
+                    }
+                    let lim = |d: f32, a: f32| ((d - a) / 2.0).max(0.0);
+                    self.pv.2 .0 = self.pv.2 .0.clamp(-lim(dw, bx.w), lim(dw, bx.w));
+                    self.pv.2 .1 = self.pv.2 .1.clamp(-lim(dh, bx.h), lim(dh, bx.h));
+                    let dx = (bx.x + (bx.w - dw) / 2.0 + self.pv.2 .0).round();
+                    let dy = (bx.y + (bx.h - dh) / 2.0 + self.pv.2 .1).round();
+                    // Só dentro da caixa.
+                    let old = ui.c.clip();
+                    let mut clip = [(bx.x * s).floor() as i32, (bx.y * s).floor() as i32, ((bx.x + bx.w) * s).ceil() as i32, ((bx.y + bx.h) * s).ceil() as i32];
+                    if let Some(o) = old {
+                        clip = [clip[0].max(o[0]), clip[1].max(o[1]), clip[2].min(o[2]), clip[3].min(o[3])];
+                    }
+                    ui.c.set_clip(Some(clip));
+                    if dw <= bx.w && dh <= bx.h {
+                        ui.c.fill_rect(dx + 1.0, dy + 2.0, dw, dh, &solid(rgba(0, 0, 0, 40)));
+                    }
+                    let k = dw * s / src.width() as f32;
+                    let paint = glove_kit::paint::tiny_skia::PixmapPaint { quality: glove_kit::paint::tiny_skia::FilterQuality::Bilinear, ..Default::default() };
+                    ui.c.draw_pixmap_t(src.as_ref(), &paint, glove_kit::paint::tiny_skia::Transform::from_row(k, 0.0, 0.0, k, (dx * s).round(), (dy * s).round()));
+                    ui.c.set_clip(old);
+                    if dw <= bx.w && dh <= bx.h {
+                        ui.c.stroke(rrect(dx - 0.5, dy - 0.5, dw + 1.0, dh + 1.0, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / s);
+                    } else {
+                        ui.c.stroke(rrect(bx.x - 0.5, bx.y - 0.5, bx.w + 1.0, bx.h + 1.0, 0.0), &solid(rgba(0, 0, 0, 50)), 1.0 / s);
+                    }
+                    // Zoom: −, +, ajustar (e a porcentagem do tamanho real).
+                    let pct = format!("{:.0}%", fit * self.pv.1 * 100.0);
+                    let (mut minus, mut plus, mut fitb) = (false, false, false);
+                    ui.area(Rect::new(cx - 104.0, bx.y + bx.h + 8.0, 208.0, 22.0), |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing(4.0);
+                            minus = ui.small_button("−");
+                            plus = ui.small_button("+");
+                            fitb = ui.small_button("Ajustar");
+                            ui.small(&pct);
+                        });
+                    });
+                    if minus {
+                        self.pv.1 = (self.pv.1 / 1.5).max(1.0);
+                    }
+                    if plus {
+                        self.pv.1 = (self.pv.1 * 1.5).min(16.0);
+                    }
+                    if fitb {
+                        self.pv.1 = 1.0;
+                        self.pv.2 = (0.0, 0.0);
+                    }
+                }
+                None => {
+                    if busy {
+                        ui.wake_after(std::time::Duration::from_millis(40));
+                    }
+                    e.draw_icon(ui.c, ui.fonts, cx - 48.0, bx.y + (bx.h - 96.0) / 2.0, 96.0);
+                }
+            }
+        } else {
+            e.draw_icon(ui.c, ui.fonts, cx - 48.0, r.y + 24.0, 96.0);
+            y = r.y + 140.0;
+        }
         let name = ui.fonts.ellipsize(&e.name, 13.0, true, r.w - 20.0);
         let tw = ui.text_width(&name, 13.0, true);
         ui.fonts.draw(ui.c, &name, cx - tw / 2.0, y, 13.0, true, rgba(20, 20, 20, 255));
         y += 26.0;
-        for (k, v) in [("Tipo:", e.type_name().to_string()), ("Tamanho:", human_size(e.size)), ("Modificado:", human_date(e.modified))] {
+        let mut rows = vec![("Tipo:", e.type_name().to_string()), ("Tamanho:", human_size(e.size)), ("Modificado:", human_date(e.modified))];
+        if let Some((w, h)) = dims {
+            rows.push(("Dimensões:", format!("{w} × {h}")));
+        }
+        for (k, v) in rows {
             let kw = ui.text_width(k, 11.0, false);
             ui.fonts.draw(ui.c, k, cx - 6.0 - kw, y, 11.0, false, rgba(110, 110, 110, 255));
             ui.fonts.draw(ui.c, &v, cx, y, 11.0, false, rgba(20, 20, 20, 255));
@@ -1493,7 +1727,10 @@ impl Files {
             let i = ((py - area.y - glove_kit::TABLE_HEADER_H + state.scroll) / ROW_H).floor();
             if i >= 0.0 && (i as usize) < entries.len() && py > area.y + glove_kit::TABLE_HEADER_H {
                 let e = &entries[i as usize];
-                self.selected = Some(e.path.clone());
+                if !self.is_chosen(&e.path) {
+                    self.selected = Some(e.path.clone());
+                    self.extra.clear();
+                }
                 self.ctx = Some((ui.pointer(), Some(e.path.clone())));
             }
         }
@@ -1545,7 +1782,8 @@ impl Files {
                 return;
             }
         };
-        let (cw, ch) = (104.0, 92.0);
+        // Ícones de 64 em células largas, como a visão de ícones do Tiger.
+        let (cw, ch) = (118.0, 104.0);
         let per_row = ((area.w - SCROLLBAR_W - 16.0) / cw).floor().max(1.0) as usize;
         let rows = entries.len().div_ceil(per_row);
         let content = rows as f32 * ch + 16.0;
@@ -1563,20 +1801,27 @@ impl Files {
             if r.h > 0.0 {
                 let resp = ui.hit(r);
                 if resp.pressed {
-                    action = Some((e.clone(), resp.double));
+                    let m = ui.mods();
+                    if !resp.double && !(m.ctrl || m.shift) && !self.extra.is_empty() && self.is_chosen(&e.path) {
+                        self.defer_select = Some((usize::MAX, e.clone()));
+                    } else {
+                        action = Some((e.clone(), resp.double));
+                    }
                     self.drag = Some((e.path.clone(), ui.pointer(), false));
                 }
-                if resp.hover && e.kind == Kind::Folder && self.drag.as_ref().is_some_and(|d| d.2) {
+                if resp.hover && e.kind == Kind::Folder && self.dnd_hover {
                     self.drop_target = Some(e.path.clone());
                 }
                 if ui.right_clicked(r) {
-                    action = Some((e.clone(), false));
+                    if !self.is_chosen(&e.path) {
+                        action = Some((e.clone(), false));
+                    }
                     self.ctx = Some((ui.pointer(), Some(e.path.clone())));
                 }
             }
         }
         // Retângulo elástico: arrastar no vazio escolhe os ícones que ele toca.
-        let any_item = action.is_some();
+        let any_item = action.is_some() || self.defer_select.is_some();
         if ui.mouse_pressed() && !any_item {
             let (px, py) = ui.pointer();
             if px >= area.x && px < area.x + area.w && py >= area.y && py < area.y + area.h && self.ctx.is_none() {
@@ -1594,7 +1839,7 @@ impl Files {
                 .enumerate()
                 .filter(|(i, _)| {
                     let (x, y) = cell(*i);
-                    let c = Rect::new(area.x + x + cw / 2.0 - 30.0, area.y + y, 60.0, 80.0);
+                    let c = Rect::new(area.x + x + cw / 2.0 - 36.0, area.y + y, 72.0, 92.0);
                     c.x < r.x + r.w && c.x + c.w > r.x && c.y < r.y + r.h && c.y + c.h > r.y
                 })
                 .map(|(_, e)| e.path.clone())
@@ -1610,6 +1855,7 @@ impl Files {
         let sel = self.selected.clone();
         let extra = self.extra.clone();
         let accent = ui.theme.accent;
+        let target = self.drop_target.clone();
         ui.clipped(92, area, |c, fonts| {
             c.clear(Color::WHITE);
             for (i, e) in entries.iter().enumerate() {
@@ -1617,14 +1863,17 @@ impl Files {
                 if y + ch < 0.0 || y > area.h {
                     continue;
                 }
+                if target.as_ref() == Some(&e.path) {
+                    c.stroke(rrect(x + cw / 2.0 - 37.0, y - 1.0, 74.0, 72.0, 7.0), &solid(accent), 2.0);
+                }
                 let on = sel.as_ref() == Some(&e.path) || extra.contains(&e.path);
                 if on {
-                    c.fill(rrect(x + cw / 2.0 - 30.0, y, 60.0, 56.0, 6.0), &solid(rgba(0, 0, 0, 40)));
+                    c.fill(rrect(x + cw / 2.0 - 36.0, y, 72.0, 70.0, 6.0), &solid(rgba(0, 0, 0, 40)));
                 }
-                e.draw_icon(c, fonts, x + cw / 2.0 - 26.0, y + 2.0, 52.0);
+                e.draw_icon(c, fonts, x + cw / 2.0 - 32.0, y + 3.0, 64.0);
                 let name = fonts.ellipsize(&e.name, 12.0, false, cw - 8.0);
                 let tw = fonts.measure(&name, 12.0, false);
-                let (lx, ly) = (x + (cw - tw) / 2.0, y + 72.0);
+                let (lx, ly) = (x + (cw - tw) / 2.0, y + 86.0);
                 if on {
                     c.fill(rrect(lx - 5.0, ly - 12.0, tw + 10.0, 16.0, 8.0), &solid(accent));
                 }
@@ -1634,7 +1883,7 @@ impl Files {
         if let Some(i) = self.rename.as_ref().and_then(|(p, _, _)| entries.iter().position(|e| &e.path == p)) {
             let (x, y) = cell(i);
             let path = entries[i].path.clone();
-            self.rename_field(ui, &path, Rect::new(area.x + x + 2.0, area.y + y + 60.0, cw - 4.0, 18.0));
+            self.rename_field(ui, &path, Rect::new(area.x + x + 2.0, area.y + y + 74.0, cw - 4.0, 18.0));
         }
         if let Some(r) = band_rect {
             ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(with_alpha(ui.theme.accent, 0.18)));
@@ -1714,11 +1963,21 @@ impl Files {
             }
             "new-folder" => self.new_folder(),
             "open" => {
-                if let Some(e) = self.selected_entry() {
+                let all = self.all_selected();
+                if all.len() > 1 {
+                    for p in all {
+                        let dir = p.parent().map(Path::to_path_buf).unwrap_or_default();
+                        if let Some(e) = self.list(&dir).ok().and_then(|v| v.into_iter().find(|e| e.path == p)) {
+                            if e.kind != Kind::Folder {
+                                self.open(&e);
+                            }
+                        }
+                    }
+                } else if let Some(e) = self.selected_entry() {
                     if e.kind == Kind::Folder {
                         self.go(e.path);
                     } else {
-                        open_file(&e);
+                        self.open(&e);
                     }
                 }
             }
@@ -1726,8 +1985,9 @@ impl Files {
             "copy" | "cut" => {
                 let all = self.all_selected();
                 if !all.is_empty() {
-                    // Para outros apps, os caminhos vão também como texto (file://, um por linha).
-                    ui.copy(&all.iter().map(|p| format!("file://{}", p.display())).collect::<Vec<_>>().join("\n"));
+                    // Os arquivos de verdade (lista de arquivos, formato dos gerenciadores e,
+                    // para uma imagem, a imagem): colar em outro app cola o arquivo.
+                    ui.copy_files(&all, a == "cut");
                     self.clip = Some((all, a == "cut"));
                     self.message = Some(if a == "cut" { "Recortado: cole (Ctrl+V) na pasta de destino.".into() } else { "Copiado.".into() });
                 }
@@ -1786,7 +2046,7 @@ impl Files {
                     self.transfer(srcs, dir, mv);
                 }
                 None => {
-                    ui.request_paste();
+                    ui.request_paste_files();
                     self.paste_wait = true;
                 }
             },
@@ -1891,35 +2151,36 @@ impl App for Files {
         }
         let (w, h) = (ui.c.w, ui.c.h);
         self.drop_target = None;
+        let dropped = ui.take_drop();
+        self.dnd_hover = ui.drag_hovering() || dropped.is_some();
         self.sync_watches();
         // Colar vindo de outro app: o texto chega num quadro seguinte.
         if self.paste_wait {
             if let Some(t) = ui.take_paste() {
                 self.paste_wait = false;
-                let srcs: Vec<PathBuf> = t
-                    .lines()
-                    .map(|l| l.trim())
-                    .filter_map(|l| l.strip_prefix("file://").map(|p| PathBuf::from(ops_decode(p))).or_else(|| l.starts_with('/').then(|| PathBuf::from(l))))
-                    .filter(|p| p.exists())
-                    .collect();
+                let srcs: Vec<PathBuf> = glove_kit::clipfiles::parse(&t).into_iter().filter(|p| p.exists()).collect();
                 let dir = self.current();
                 self.transfer(srcs, dir, false);
             }
         }
-        // Com o menu da engrenagem aberto, um clique fora só o fecha.
-        // (O menu fica embaixo da engrenagem; fora dele e da barra, fecha.)
-        if self.gear_open && ui.mouse_pressed() {
-            let (px, py) = ui.pointer();
-            let mx = 12.0 + 5.0 * SEGMENT_W + 24.0;
-            let inside_menu = px >= mx && px < mx + 210.0 && py >= TOOLBAR_H - 4.0 && py < TOOLBAR_H + 120.0;
-            if !inside_menu && py > TOOLBAR_H {
-                self.gear_open = false;
-            }
-        }
+        self.guard_menus(ui);
         self.toolbar(ui);
         let body_h = h - TOOLBAR_H - BOTTOM_H;
-        self.sidebar(ui, Rect::new(0.0, TOOLBAR_H, SIDEBAR_W, body_h));
-        let mut area = Rect::new(SIDEBAR_W, TOOLBAR_H, w - SIDEBAR_W, body_h);
+        // Metal em volta: a lateral e o conteúdo são painéis brancos encaixados (Tiger).
+        // Só as faixas que aparecem (o metal é calculado pixel a pixel; o resto
+        // fica embaixo dos painéis brancos).
+        let metal = Theme::new(Variant::Metal);
+        let (mt, mb) = (darken(metal.metal_bottom, 0.03), darken(metal.metal_bottom, 0.04));
+        let x0 = SIDEBAR_W + PANE_GAP / 2.0;
+        for (sx, sw) in [(0.0, PANE_M), (SIDEBAR_W - PANE_GAP / 2.0, PANE_GAP), (w - PANE_M, PANE_M)] {
+            ui.c.brushed_metal(sx, TOOLBAR_H, sw, body_h, mt, mb);
+            ui.c.metal_sheen(sx, TOOLBAR_H, sw, body_h, w);
+        }
+        ui.c.brushed_metal(0.0, TOOLBAR_H + body_h - 1.0, w, 1.0, mb, mb);
+        let side_r = Rect::new(PANE_M, TOOLBAR_H, SIDEBAR_W - PANE_M - PANE_GAP / 2.0, body_h - 1.0);
+        self.sidebar(ui, side_r);
+        let mut area = Rect::new(x0, TOOLBAR_H, w - x0 - PANE_M, body_h - 1.0);
+        let pane_r = area;
         // Pasta de busca: faixa com o que se procura e Salvar (ou Apagar a busca salva).
         if smart::is_smart(&self.base) {
             area = self.search_bar(ui, area);
@@ -1928,6 +2189,10 @@ impl App for Files {
             View::Columns => self.columns_view(ui, area),
             View::List => self.list_view(ui, area),
             View::Icons => self.icons_view(ui, area),
+        }
+        // Contorno dos dois painéis.
+        for r in [side_r, pane_r] {
+            ui.c.stroke(rrect(r.x - 0.5, r.y - 0.5, r.w + 1.0, r.h + 1.0, 0.0), &solid(rgba(120, 120, 126, 255)), 1.0);
         }
         // Faixa de baixo em metal com o status (e o puxador de redimensionar).
         self.status(ui, h - BOTTOM_H);
@@ -1944,8 +2209,13 @@ impl App for Files {
         self.job_panel(ui);
         self.goto_sheet(ui);
         self.drag_frame(ui);
+        if let Some((paths, _)) = dropped {
+            self.handle_drop(paths);
+        }
         ui.set_enabled(self.ask.is_none());
         self.ask_sheet(ui);
+        // Janela de metal do Tiger: cantos de baixo arredondados também.
+        ui.c.clip_bottom_corners(6.0);
     }
 
     fn watch_fd(&self) -> Option<std::os::fd::RawFd> {
@@ -2035,7 +2305,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(i) = args.iter().position(|a| a == "--info") {
         let Some(p) = args.get(i + 1).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok()) else { return };
-        let opts = WindowOptions { title: "Informações".into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true };
+        let opts = WindowOptions { title: "Informações".into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true, min_size: None };
         if let Err(e) = run(opts, info::Info::new(p)) {
             eprintln!("glove-files: {e}");
         }
@@ -2046,14 +2316,14 @@ fn main() {
         if count == 0 {
             return;
         }
-        let opts = WindowOptions { title: "Esvaziar Lixeira".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true };
+        let opts = WindowOptions { title: "Esvaziar Lixeira".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
         if let Err(e) = run(opts, EmptyTrash { count, error: None }) {
             eprintln!("glove-files: {e}");
         }
         return;
     }
     let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(home);
-    let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false };
+    let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Files::new(start)) {
         eprintln!("glove-files: {e}");
     }

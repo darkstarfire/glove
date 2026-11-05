@@ -279,7 +279,7 @@ fn main() {
     let layout = LAYOUTS.iter().position(|(l, v, _)| *l == config.keyboard.layout && *v == config.keyboard.variant).unwrap_or(0);
     let theme = Variant::ALL.iter().position(|v| v.id() == config.theme).unwrap_or(0);
     let app = Welcome { step: 0, config, layout, zone: 0, zone_now: current_zone(), theme, avatar: None, note: None, test: std::env::var_os("GLOVE_TESTE").is_some() };
-    let opts = WindowOptions { title: "Bem-vindo".into(), app_id: "glove.Boasvindas".into(), size: (W as u32, H as u32), fixed: true };
+    let opts = WindowOptions { title: "Bem-vindo".into(), app_id: "glove.Boasvindas".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-boasvindas: {e}");
     }

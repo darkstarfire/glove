@@ -501,7 +501,7 @@ fn main() {
         pending,
     };
     app.reload();
-    let opts = WindowOptions { title: "Livro de Fontes".into(), app_id: "glove.Fontes".into(), size: (860, 520), fixed: false };
+    let opts = WindowOptions { title: "Livro de Fontes".into(), app_id: "glove.Fontes".into(), size: (860, 520), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-fontes: {e}");
     }

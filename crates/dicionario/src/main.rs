@@ -331,7 +331,7 @@ fn main() {
         error: None,
     };
     app.reload();
-    let opts = WindowOptions { title: "Dicionário".into(), app_id: "glove.Dicionario".into(), size: (720, 480), fixed: false };
+    let opts = WindowOptions { title: "Dicionário".into(), app_id: "glove.Dicionario".into(), size: (720, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-dicionario: {e}");
     }

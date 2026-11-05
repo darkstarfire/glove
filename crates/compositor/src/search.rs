@@ -161,7 +161,9 @@ pub fn parse_desktop(text: &str) -> Option<App> {
         return None;
     }
     let keywords = normalize(&format!("{} {}", localized("GenericName").unwrap_or(""), localized("Keywords").unwrap_or("").replace(';', " ")));
-    Some(App { name, keywords, exec, icon: Icon::Window, glove_id: None })
+    // O ícone do app no tema do sistema (o Icon= do .desktop).
+    let icon = val("Icon").map(Icon::from_name).unwrap_or(Icon::Window);
+    Some(App { name, keywords, exec, icon, glove_id: None })
 }
 
 /// Pastas de apps do XDG, na ordem de prioridade.

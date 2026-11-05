@@ -6,4 +6,3 @@ license.workspace = true
 
 [dependencies]
 glove-kit = { path = "../kit" }
-zune-jpeg = "0.5.15"

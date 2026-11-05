@@ -351,7 +351,7 @@ fn main() {
     let devs = read_devs();
     // Começa no disco do sistema.
     let selected = devs.iter().position(|d| d.mount == "/");
-    let opts = WindowOptions { title: "Discos".into(), app_id: "glove.Disks".into(), size: (640, 440), fixed: false };
+    let opts = WindowOptions { title: "Discos".into(), app_id: "glove.Disks".into(), size: (640, 440), fixed: false, min_size: None };
     if let Err(e) = run(opts, Disks { devs, selected, message: None }) {
         eprintln!("glove-disks: {e}");
     }

@@ -13,11 +13,13 @@ export XDG_SESSION_DESKTOP=glove
 export GLOVE_BACKEND=drm
 # Apps de fora que sabem usar Wayland passam a usá-lo.
 export MOZ_ENABLE_WAYLAND=1
-export QT_QPA_PLATFORM=wayland
-export GDK_BACKEND=wayland
-export SDL_VIDEODRIVER=wayland
+export QT_QPA_PLATFORM='wayland;xcb'
+export GDK_BACKEND=wayland,x11
+export SDL_VIDEODRIVER=wayland,x11
 export ELECTRON_OZONE_PLATFORM_HINT=auto
 export _JAVA_AWT_WM_NONREPARENTING=1
+# Janelas de Abrir/Salvar dos apps GTK (Firefox…) pelo portal: viram a do Glove.
+export GTK_USE_PORTAL=1
 
 # Idioma e formatos escolhidos no painel Internacional (LANG e LC_*).
 amb="${XDG_CONFIG_HOME:-$HOME/.config}/glove/ambiente.conf"

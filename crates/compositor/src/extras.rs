@@ -471,27 +471,44 @@ impl Glove {
             let quoted = format!("'{}'", ssid.replace('\'', "'\\''"));
             self.spawn(&format!("glove-prefs rede --entrar {quoted}"));
         } else {
+            // Rede salva que agora pede a senha (trocou, ou não ficou guardada): sem o
+            // ícone de rede do GNOME, quem pergunta é a folha de senha das Preferências.
             let ssid = ssid.to_string();
-            std::thread::spawn(move || glove_config::rede::connect(&ssid, None));
+            let prefs = crate::shell::sibling_binary("glove-prefs");
+            std::thread::spawn(move || {
+                if glove_config::rede::connect(&ssid, None).is_err() && secure {
+                    let _ = std::process::Command::new(prefs).args(["rede", "--entrar", &ssid]).spawn().map(|mut c| c.wait());
+                }
+            });
         }
     }
 
     fn display_menu(&self) -> Vec<MenuNode> {
         let info = glove_config::OutputsInfo::load().unwrap_or_default();
         let mut v = Vec::new();
-        let out = info.outputs.iter().find(|o| o.active).or(info.outputs.first());
-        match out {
-            Some(o) => {
-                let name = if info.nested { "Janela do Glove".to_string() } else if o.description.is_empty() { o.name.clone() } else { o.description.clone() };
-                v.push(MenuNode::new(MenuItem::item(name).disabled(), None));
-                let current = glove_config::parse_mode(&o.current).map(|(w, h, _)| (w, h));
-                for (w, h, hz, mode) in distinct_modes(&o.modes).into_iter().take(12) {
-                    let label = if hz > 0 { format!("{w} × {h}, {hz} Hz") } else { format!("{w} × {h}") };
-                    let mut it = MenuItem::check(format!("  {label}"), current == Some((w, h)));
-                    if info.nested {
-                        it = it.disabled();
+        // Cada monitor ligado com as resoluções dele (o principal primeiro).
+        let mut outs: Vec<&glove_config::OutputInfo> = info.outputs.iter().filter(|o| o.active).collect();
+        outs.sort_by_key(|o| !o.primary);
+        if outs.is_empty() {
+            outs.extend(info.outputs.first());
+        }
+        match outs.first() {
+            Some(_) => {
+                for (k, o) in outs.iter().enumerate() {
+                    if k > 0 {
+                        v.push(MenuNode::sep());
                     }
-                    v.push(MenuNode::new(it, Some(MenuAction::SetMode(o.name.clone(), mode))));
+                    let name = if info.nested { "Janela do Glove".to_string() } else if o.description.is_empty() { o.name.clone() } else { o.description.clone() };
+                    v.push(MenuNode::new(MenuItem::item(name).disabled(), None));
+                    let current = glove_config::parse_mode(&o.current).map(|(w, h, _)| (w, h));
+                    for (w, h, hz, mode) in distinct_modes(&o.modes).into_iter().take(if outs.len() > 1 { 8 } else { 12 }) {
+                        let label = if hz > 0 { format!("{w} × {h}, {hz} Hz") } else { format!("{w} × {h}") };
+                        let mut it = MenuItem::check(format!("  {label}"), current == Some((w, h)));
+                        if info.nested {
+                            it = it.disabled();
+                        }
+                        v.push(MenuNode::new(it, Some(MenuAction::SetMode(o.name.clone(), mode))));
+                    }
                 }
             }
             None => v.push(MenuNode::new(MenuItem::item("Nenhum monitor").disabled(), None)),

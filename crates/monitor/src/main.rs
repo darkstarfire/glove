@@ -652,7 +652,7 @@ impl App for Monitor {
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Monitor".into(), app_id: "glove.Monitor".into(), size: (720, 600), fixed: false };
+    let opts = WindowOptions { title: "Monitor".into(), app_id: "glove.Monitor".into(), size: (720, 600), fixed: false, min_size: None };
     if let Err(e) = run(opts, Monitor::new()) {
         eprintln!("glove-monitor: {e}");
     }

@@ -6,45 +6,56 @@ suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imag
 
 ## Estado atual
 
-- Compositor Wayland próprio (Smithay), em **sessão própria** (escolhida na tela de login, desenha
-  direto na placa de vídeo) ou **dentro de uma janela** do seu desktop
-- Nítido em telas HiDPI, inclusive escala fracionada (1.5×), para o Glove e para os apps
-- Barra de menu global: menu principal, menu do app (Ocultar/Encerrar) e os **menus de cada app**
-  (Arquivo, Editar…), enviados pelo app ao compositor por um socket local leve
-- Dock em prateleira de vidro com ampliação, nome do app, indicador de app aberto, janelas
-  minimizadas e lixeira
-- Barras de título com fechar / minimizar / zoom, sombra, arrastar e redimensionar pela borda
-- 4 temas trocados na hora: **Claro** (padrão, sóbrio como o fim da era), **Listras**, **Metal** e **Grafite**
-- **glove-kit**: toolkit dos apps (botões em gel, caixas, rádio, slider, pop-up, campo de texto, abas, listas)
-- **Preferências**: tema, papel de parede (Ondas, Aurora, Liso ou PNG de ~/Imagens), **Monitor**
-  (qual tela, resolução com confirmação de 15 s, tamanho da interface), Dock (tamanho e ampliação),
-  teclado (layout e repetição), **Mouse** (velocidade, aceleração, rolagem natural, canhoto),
-  **Trackpad** (tocar para clicar, clique secundário, velocidade, rolagem natural, ignorar ao digitar)
-  e atalhos editáveis. Tudo aplicado na hora.
-- **Sobre o Glove**: versão, memória instalada e processador; "Mais informações…" abre o Monitor
-- **Calculadora** (teclado ou mouse, formato brasileiro com vírgula) e **Relógio** (analógico + data
-  por extenso; o ícone do Dock mostra a hora atual)
-- **Editor de Texto**: janela só com o documento (comandos nos menus da barra), puxador de
-  redimensionar, tamanho da fonte, abrir/salvar (gravação segura), seleção com mouse e teclado, clique duplo/triplo,
-  desfazer/refazer por palavra, copiar/colar entre apps, aviso de alterações não salvas ao fechar
-- **Arquivos**: visualização em colunas (com painel de detalhes), lista e ícones; voltar/avançar,
-  lugares, nova pasta, mover para a Lixeira (padrão freedesktop), espaço livre, abrir no Editor
-- **Visualizador** de imagens (PNG e JPEG): ajustar à janela, tamanho real, zoom, girar, arrastar,
-  próxima/anterior da pasta; abre pelo clique duplo no Arquivos
-- **Terminal**: núcleo de terminal do Alacritty (xterm-256color, truecolor, tela cheia como `top`/`nvim`),
-  histórico de 5000 linhas, seleção, copiar/colar (Ctrl+Shift+C/V), mouse repassado aos programas,
-  cursor em bloco/barra/sublinhado, sublinhado ondulado e colorido (LSP), teclas com modificadores
-  no padrão xterm, OSC 52, fonte configurável e ícones de Nerd Font por fonte reserva
-- **Lembretes**: notas adesivas coloridas, salvas sozinhas, reabertas ao abrir o app
-- **Monitor**: gráfico de CPU, uso de memória, processos (encerrar/forçar)
-- **Captura**: tela inteira na hora ou com atraso; salva em ~/Imagens e abre no Visualizador
-- **Caracteres**: mapa por categoria (acentos, grego, setas, matemática, símbolos, ícones), copiar
-- **Busca**: arquivos por nome em segundo plano, abrir ou mostrar no Arquivos
-- **Discos**: discos montados, espaço livre, abrir, ejetar pendrives
-- **Xadrez**: regras completas (testadas com contagem de lances de referência), 3 níveis, desfazer,
-  jogar de pretas; o computador pensa em segundo plano
-- Ícone do disco na mesa (clique duplo abre o Arquivos)
+Base visual e de comportamento: **Mac OS X 10.4 Tiger** (com o tema Listras para o visual 10.0–10.2).
+Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger) é a próxima.
+
+**Sistema (compositor `glove`)**
+
+- Compositor Wayland próprio (Smithay), em **sessão própria** (DRM/KMS + libinput) ou **dentro de uma janela**
+- **Vários monitores**: estender, espelhar ou só um; resolução e escala por tela; nítido em HiDPI e escala fracionada
+- **Apps X11** pelo Xwayland, com barra de título do Glove
+- Barra de menu global: menu principal (Itens Recentes, Forçar Encerrar, Repouso, Desligar…),
+  menu do app, os **menus de cada app**, submenus e navegação pelo teclado; extras de Wi-Fi,
+  volume, bateria e monitor, relógio e nome do usuário (troca rápida de usuário)
+- **Dock** de vidro com ampliação, ícones que pulam ao abrir, menu de contexto com bico, ocultar
+  sozinho, posição embaixo/esquerda/direita, efeitos de minimizar **Escala** e **Lâmpada Mágica**
+  (deformação feita na placa de vídeo), miniaturas vivas e Lixo cheio/vazio
+- Janelas com sombra, fechar/minimizar/zoom, arrastar (inclusive entre monitores, encolhendo para
+  caber) e redimensionar; **Super+Tab** com a faixa de ícones do Tiger; **Exposé** e cantos ativos
+- **Busca Rápida** (Super+Espaço): apps instalados, Preferências e arquivos
+- **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
+- Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
+  tampa do notebook, teclas de volume e brilho; troca rápida de usuário
+- Acesso Universal: zoom, cores invertidas, cursor grande
+- Arrastar e soltar entre apps, área de transferência de texto e de arquivos
+- Janela Abrir/Salvar do Glove também para outros apps (portal FileChooser: Firefox, Chromium…)
+- Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**; tema de ícones do sistema escolhível
 - Redesenha só o que mudou: 0% de CPU parado
+
+**Sessão e login**
+
+- Tela de login própria pelo greetd (`glove-login`), com escolha da sessão; splash do Plymouth
+  desenhado por código; assistente de primeiro uso; Desligar/Reiniciar com contagem
+
+**Apps (todos com o glove-kit e arte própria)**
+
+| App | O que faz |
+|---|---|
+| Arquivos | Finder do Tiger: metal, barra lateral, colunas/lista/ícones, prévia com zoom, copiar/mover com progresso, Lixo, Obter Informações, pastas inteligentes, compactar |
+| Preferências | Grade "Mostrar Todos" com os painéis da era (Aparência, Mesa e Protetor, Dock, Monitores, Som, Rede, Energia, Teclado, Mouse, Trackpad, Data e Hora, Contas, Internacional, Itens de Início, Acesso Universal, Terminal…) |
+| Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font |
+| Editor de Texto | Régua, alinhamento, Localizar/Substituir, desfazer, aviso de não salvo |
+| Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar |
+| Navegador | Abre o navegador que cabe na máquina (NetSurf com pouca RAM, Firefox acima) |
+| Correio | IMAP e SMTP com TLS, caixas, escrever, responder e encaminhar |
+| Agenda e Contatos | Mês em grade com eventos (.ics) e fichas (vCard) |
+| Música e Vídeo | Biblioteca e tocador leve (Rust puro); vídeo pelo mpv com controles próprios |
+| Lembretes | Notas adesivas coloridas, todas num processo só |
+| Dicionário | Dicionários livres StarDict e DICT |
+| Livro de Fontes e Caracteres | Ver, instalar e desativar fontes; mapa de caracteres |
+| Monitor, Registros, Informações do Sistema, Discos | Processos e gráficos, logs do journal, hardware, discos e pendrives |
+| Busca, Captura, Utilitário de Arquivo | Achar arquivos, capturar a tela, compactar/expandir |
+| Calculadora, Relógio, Xadrez, Ajuda, Sobre o Glove | Calculadora científica, relógio no Dock, xadrez com 3 níveis, ajuda com busca |
 
 ## Leveza
 
@@ -80,13 +91,14 @@ cargo build --release
 ./target/release/glove -c foot    # já abrindo um programa
 ```
 
-Todos os apps do Dock são do próprio Glove. Apps GNOME abertos dentro dele desenham
-a própria barra de título.
+Todos os apps do Dock são do próprio Glove. Apps GTK/Qt abertos dentro dele podem desenhar
+a própria barra de título; apps X11 usam a do Glove.
 
 ## Sessão própria (escolher "Glove" na tela de login)
 
 ```sh
 cargo build --release
+./instalar.sh                         # pergunta passo a passo: sessão, tela de login, Plymouth
 sudo ./data/instalar-sessao.sh        # põe "Glove" na lista de sessões (usa os arquivos do projeto)
 ./target/release/glove --monitores    # mostra qual tela, resolução e escala a sessão vai usar
 ```
@@ -96,22 +108,15 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 
 - Sair: menu principal → **Encerrar Sessão…** ou Ctrl+Alt+Backspace
 - Ctrl+Alt+F1…F12 trocam de console (e voltam ao Glove)
-- Uma tela por vez: a escolhida em Preferências → Monitor, ou a externa se houver, ou a do notebook.
-  Conectar ou desconectar o cabo troca na hora
+- Monitores em Preferências → Monitores (estender, espelhar ou só um); conectar ou desconectar
+  o cabo ajusta na hora
 - Teclado, mouse e touchpad pelo libinput, com as preferências aplicadas na hora
 - O cursor é desenhado pelo Glove; os apps podem trocar o desenho dele (ex.: barra de texto)
 - Log da sessão: `~/.local/state/glove/sessao.log`
 - Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
 
-Limitações atuais da sessão própria:
-
-- Uma tela por vez (sem estender ou espelhar em dois monitores)
-- A tela não apaga sozinha quando o computador fica parado
-- Fechar a tampa do notebook não faz nada (a suspensão fica por conta do sistema)
-- Teclas de brilho e volume não funcionam
-- Apps só-X11 não abrem (falta o XWayland); apps Wayland abrem normalmente
-- Ainda não há como abrir os apps instalados no sistema fora do Dock (a pasta Aplicativos
-  está no plano, etapa 6.7)
+Ainda não há (está na [Fase 9.10](docs/PLANO.md) do plano): arquivos e menus na mesa, Painel de
+Widgets (F12), Imprimir, Conectar ao Servidor e Ejetar pela barra lateral do Arquivos.
 
 ## Atalhos (padrão, editáveis nas Preferências)
 
@@ -128,13 +133,15 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+Tab | Trocar de app: faixa de ícones no meio da tela (Tab/← → andam, Q encerra, H oculta, Esc cancela; soltar o Super troca) |
 | F9 / F10 / F11 | Exposé: todas as janelas / só as do app / mostrar a mesa (de novo, ou Esc, volta) |
 | Super+, | Preferências |
-| Print | Captura de tela em ~/Imagens |
+| Print / Shift+Print | Captura da tela inteira / de uma área (ou de uma janela, pelo app Captura) |
 | Ctrl+Alt+Esc | Forçar Encerrar (lista os apps; marca os que não respondem) |
 | Ctrl+Alt+Backspace | Sair do Glove (encerra a sessão) |
 | Ctrl+Alt+F1…F12 | Trocar de console (só na sessão própria) |
 | Teclas de volume e brilho | Mudam o volume (PipeWire) e o brilho (pelo logind, sem root), com aviso na tela |
 | Super+Espaço | Busca Rápida (também na lupa do canto da barra): apps instalados, Preferências e arquivos; Enter abre o primeiro |
 | Super+L | Bloquear a tela (também no menu principal; desbloqueia com a senha do usuário) |
+| Super+Alt+Espaço | Próximo layout de teclado |
+| Super+Alt+8 / = / − | Zoom da tela: ligar, aproximar, afastar (Ctrl+Super+Alt+8 inverte as cores) |
 | Ctrl+F2 | Abrir a barra de menu pelo teclado (setas navegam, → abre submenus, Enter escolhe, Esc fecha) |
 
 ## Tela de login (opcional, greetd)
@@ -167,21 +174,14 @@ sudo ./data/instalar-plymouth.sh --remover   # volta ao tema anterior
 `~/.config/glove/config.toml` (criado na primeira execução). As Preferências editam esse arquivo e o
 Glove recarrega sozinho quando ele muda.
 
-Tela apagada e bloqueio (até o painel Economizador de Energia, etapa 7.4, só pelo arquivo):
+Tudo que existe no arquivo também se ajusta nas Preferências. Exemplos:
 
 ```toml
 [energy]
 screen_off_minutes = 10   # parado por N minutos apaga a tela (0 = nunca)
 require_password = true   # pede a senha ao voltar (tela apagada, Repouso, tampa fechada)
-```
 
-Cantos ativos do Exposé (vazio = nada; "todas", "app" ou "mesa"):
-
-```toml
-[hot_corners]
-top_left = ""
-top_right = ""
-bottom_left = ""
+[hot_corners]             # Exposé nos cantos: "", "todas", "app" ou "mesa"
 bottom_right = "mesa"
 ```
 
@@ -191,30 +191,30 @@ O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serv
 ## Estrutura
 
 ```
-crates/paint       desenho: Canvas com escala, gel, listras, metal, sombras, ícones, texto, temas
+crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones (próprios e do sistema), texto, temas
 crates/config      configuração compartilhada (config.toml + aviso de mudança via inotify)
-crates/kit         toolkit dos apps (widgets + janela Wayland)
-crates/compositor  o compositor (binário `glove`; udev.rs = sessão própria, winit.rs = janela)
-crates/about       app "Sobre o Glove"
-crates/prefs       app Preferências (binário `glove-prefs`)
-crates/calc        Calculadora (`glove-calc`)
-crates/clock       Relógio (`glove-clock`)
-crates/editor      Editor de Texto (`glove-edit`)
-crates/files       Arquivos (`glove-files`)
-crates/viewer      Visualizador (`glove-view`)
-crates/term        Terminal (`glove-term`)
-crates/notes       Lembretes (`glove-notes`)
-crates/monitor     Monitor (`glove-monitor`)
-crates/shot        Captura (`glove-shot`)
-crates/chars       Caracteres (`glove-chars`)
-crates/find        Busca (`glove-find`)
-crates/disks       Discos (`glove-disks`)
-crates/chess       Xadrez (`glove-chess`)
+crates/kit         toolkit dos apps (widgets, janela Wayland, Abrir/Salvar, arrastar e soltar)
+crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)
+crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`
+crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
+crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
-crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`: teclado, fuso, aparência, foto)
-crates/arte        `glove-arte`: gera a arte usada fora do Glove (tema do Plymouth)
-crates/login       tela de login (`glove-login`, roda em `glove --greeter` pelo greetd; `--fake` para testar)
-data/              sessão: glove-session, glove.desktop, instalar-sessao.sh
+crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth)
+crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
+crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
+crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)
+crates/correio     Correio (`glove-correio`)         crates/agenda     Agenda (`glove-agenda`)
+crates/contatos    Contatos (`glove-contatos`)       crates/musica     Música (`glove-musica`)
+crates/video       Vídeo (`glove-video`)             crates/notes      Lembretes (`glove-notes`)
+crates/dicionario  Dicionário (`glove-dicionario`)   crates/fontes     Livro de Fontes (`glove-fontes`)
+crates/chars       Caracteres (`glove-chars`)        crates/monitor    Monitor (`glove-monitor`)
+crates/registros   Registros (`glove-registros`)     crates/info       Informações do Sistema (`glove-info`)
+crates/disks       Discos (`glove-disks`)            crates/find       Busca (`glove-find`)
+crates/shot        Captura (`glove-shot`)            crates/arquivo    Utilitário de Arquivo (`glove-arquivo`)
+crates/calc        Calculadora (`glove-calc`)        crates/clock      Relógio (`glove-clock`)
+crates/chess       Xadrez (`glove-chess`)            crates/ajuda      Ajuda (`glove-ajuda`)
+crates/about       Sobre o Glove (`glove-about`)
+data/              sessão, greetd, Plymouth, portais e instaladores
 ```
 
 ## Próximas etapas

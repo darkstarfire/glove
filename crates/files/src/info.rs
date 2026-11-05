@@ -66,7 +66,8 @@ fn apps_for(mime: &str) -> Vec<(String, String)> {
                 if let Some(v) = l.strip_prefix("Name=") { name.get_or_insert(v); }
                 if let Some(v) = l.strip_prefix("Name[pt_BR]=") { name_pt = Some(v); }
                 if let Some(v) = l.strip_prefix("MimeType=") { mimes = v; }
-                if l == "NoDisplay=true" || l == "Hidden=true" { hidden = true; }
+                // NoDisplay só tira dos menus: o app ainda abre arquivos (ex.: os do Glove).
+                if l == "Hidden=true" { hidden = true; }
             }
             if !hidden && mimes.split(';').any(|m| m == mime) {
                 if let Some(n) = name_pt.or(name) {

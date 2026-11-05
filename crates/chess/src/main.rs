@@ -328,7 +328,7 @@ impl App for Chess {
 
 fn main() {
     let side = (MARGIN * 2.0 + SQ * 8.0) as u32;
-    let opts = WindowOptions { title: "Xadrez".into(), app_id: "glove.Chess".into(), size: (side, side + STATUS_H as u32 + 4), fixed: true };
+    let opts = WindowOptions { title: "Xadrez".into(), app_id: "glove.Chess".into(), size: (side, side + STATUS_H as u32 + 4), fixed: true, min_size: None };
     if let Err(e) = run(opts, Chess::new(1, 1, pipe(), 0)) {
         eprintln!("glove-chess: {e}");
     }

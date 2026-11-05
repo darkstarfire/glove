@@ -155,14 +155,14 @@ fn main() {
         let id = args.next().unwrap_or_default();
         let name = args.next().unwrap_or_else(|| "Aplicativo".into());
         // Painéis "Sobre" da época não têm título.
-        let opts = WindowOptions { title: String::new(), app_id: "glove.About".into(), size: (260, 200), fixed: true };
+        let opts = WindowOptions { title: String::new(), app_id: "glove.About".into(), size: (260, 200), fixed: true, min_size: None };
         if let Err(e) = run(opts, AppAbout { icon: glove_kit::app_icon(&id), name }) {
             eprintln!("glove-about: {e}");
         }
         return;
     }
     let about = About { memory: memory_mib().map(format_memory).unwrap_or_else(|| "—".into()), processor: processor() };
-    let opts = WindowOptions { title: "Sobre o Glove".into(), app_id: "glove.About".into(), size: (W as u32, 310), fixed: true };
+    let opts = WindowOptions { title: "Sobre o Glove".into(), app_id: "glove.About".into(), size: (W as u32, 310), fixed: true, min_size: None };
     if let Err(e) = run(opts, about) {
         eprintln!("glove-about: {e}");
     }

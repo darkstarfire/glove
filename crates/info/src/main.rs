@@ -172,7 +172,7 @@ impl App for Info {
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Informações do Sistema".into(), app_id: "glove.Info".into(), size: (680, 440), fixed: false };
+    let opts = WindowOptions { title: "Informações do Sistema".into(), app_id: "glove.Info".into(), size: (680, 440), fixed: false, min_size: None };
     if let Err(e) = run(opts, Info { sel: Some(0), cache: vec![None; SECTIONS.len()] }) {
         eprintln!("glove-info: {e}");
     }

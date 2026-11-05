@@ -131,7 +131,7 @@ impl App for Clock {
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Relógio".into(), app_id: "glove.Clock".into(), size: (W, H), fixed: true };
+    let opts = WindowOptions { title: "Relógio".into(), app_id: "glove.Clock".into(), size: (W, H), fixed: true, min_size: None };
     if let Err(e) = run(opts, Clock::default()) {
         eprintln!("glove-clock: {e}");
     }

@@ -29,6 +29,8 @@ use glove_kit::{
 const W: u32 = 660;
 const H: u32 = 480;
 const TOOLBAR_H: f32 = 78.0;
+/// Intervalo mínimo entre gravações da configuração enquanto se arrasta um slider.
+const SAVE_EVERY: Duration = Duration::from_millis(150);
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Pane {
@@ -197,12 +199,25 @@ struct Prefs {
     confirm: Option<(String, String, Instant)>,
     /// Organização dos monitores antes da mudança (volta junto com a resolução).
     confirm_arrangement: Option<String>,
+    /// Ajustes dos outros monitores antes da mudança.
+    confirm_others: Option<std::collections::BTreeMap<String, glove_config::OtherMonitor>>,
+    /// Monitor escolhido em "Ajustar o monitor" (vazio = o principal).
+    mon_target: String,
+    /// Fontes de largura fixa instaladas (lidas ao abrir o painel Terminal).
+    mono_fonts: Option<Vec<String>>,
+    /// Temas de ícones instalados: (pasta, nome).
+    icon_themes: Option<Vec<(String, String)>>,
     /// Aba aberta no painel Teclado.
     kbd_tab: usize,
     /// Grupos abertos no painel Atalhos.
     open_groups: [bool; 3],
     /// Aba do painel Som e os dispositivos (None = sem PipeWire).
     sound_tab: usize,
+    /// Leitura dos dispositivos de som em andamento (numa thread).
+    audio_rx: Option<std::sync::mpsc::Receiver<Option<(Vec<som::Device>, Vec<som::Device>)>>>,
+    /// Gravação da configuração adiada (arrastando um slider) e a hora da última.
+    save_pending: std::cell::Cell<bool>,
+    last_save: std::cell::Cell<Instant>,
     /// Painel de energia: aba e "configurações para" (0 tomada, 1 bateria).
     energy_tab: usize,
     energy_source: usize,
@@ -307,6 +322,10 @@ impl Prefs {
             outputs: OutputsInfo::load(),
             confirm: None,
             confirm_arrangement: None,
+            confirm_others: None,
+            mon_target: String::new(),
+            mono_fonts: None,
+            icon_themes: None,
             kbd_tab,
             open_groups: [true, false, false],
             desk_source: 0,
@@ -314,6 +333,9 @@ impl Prefs {
             started: Instant::now(),
             access_tab: 0,
             sound_tab: 0,
+            audio_rx: (pane == Pane::Som).then(som::status_async),
+            save_pending: std::cell::Cell::new(false),
+            last_save: std::cell::Cell::new(Instant::now() - Duration::from_secs(1)),
             energy_tab: 0,
             energy_source: usize::from(on_battery()),
             rede: rede::Rede::default(),
@@ -328,7 +350,7 @@ impl Prefs {
             inicializacao: Default::default(),
             fala: Default::default(),
             impressao: Default::default(),
-            audio: if pane == Pane::Som { som::status() } else { None },
+            audio: None,
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
             forward: Vec::new(),
@@ -345,7 +367,7 @@ impl Prefs {
             self.pane = p;
             self.ctx = None;
             if p == Pane::Som {
-                self.audio = som::status();
+                self.audio_rx = Some(som::status_async());
             }
             if p == Pane::Rede {
                 self.rede.refresh();
@@ -387,9 +409,33 @@ impl Prefs {
         self.save();
     }
 
+    /// Grava a configuração (os outros apps e o Glove aplicam na hora). Arrastando
+    /// um slider, grava no máximo a cada 150 ms; o resto fica para `flush_save`.
     fn save(&self) {
+        if self.last_save.get().elapsed() < SAVE_EVERY {
+            self.save_pending.set(true);
+            return;
+        }
+        self.save_now();
+    }
+
+    fn save_now(&self) {
+        self.save_pending.set(false);
+        self.last_save.set(Instant::now());
         if let Err(e) = self.config.save() {
             eprintln!("glove-prefs: não consegui salvar: {e}");
+        }
+    }
+
+    /// Grava o que ficou adiado (ao soltar o mouse ou passado o intervalo).
+    fn flush_save(&self, ui: &mut Ui) {
+        if !self.save_pending.get() {
+            return;
+        }
+        if !ui.mouse_down() || self.last_save.get().elapsed() >= SAVE_EVERY {
+            self.save_now();
+        } else {
+            ui.wake_after(SAVE_EVERY);
         }
     }
 
@@ -599,6 +645,33 @@ impl Prefs {
                 }
                 ui.small("Para texto selecionado");
             });
+        });
+        ui.space(4.0);
+        // Ícones: os desenhados pelo Glove ou um tema do sistema (os apps de fora
+        // usam sempre o ícone deles).
+        if self.icon_themes.is_none() {
+            self.icon_themes = Some(glove_kit::paint::sysicons::installed_themes());
+        }
+        let themes = self.icon_themes.clone().unwrap_or_default();
+        let mut names: Vec<String> = vec!["Glove (desenhados)".into()];
+        names.extend(themes.iter().map(|t| t.1.clone()));
+        let mut cur = themes.iter().position(|t| t.0 == self.config.appearance.icon_theme).map(|i| i + 1).unwrap_or(0);
+        ui.form_row("Ícones", LW, |ui| {
+            if ui.popup(&mut cur, &names, 200.0) {
+                self.config.appearance.icon_theme = if cur == 0 { String::new() } else { themes[cur - 1].0.clone() };
+                glove_kit::paint::icons::set_theme(&self.config.appearance.icon_theme);
+                self.save();
+            }
+        });
+        // Prévia com alguns ícones no tema escolhido.
+        ui.form_row("", LW, |ui| {
+            use glove_kit::paint::icons::{FolderKind, Icon};
+            let sample = [Icon::Folder, Icon::SpecialFolder(FolderKind::Documents), Icon::Terminal, Icon::TextEditor, Icon::Calculator, Icon::Settings, Icon::Trash];
+            let (x, y) = ui.cursor();
+            ui.alloc(7.0 * 40.0, 36.0);
+            for (k, ic) in sample.iter().enumerate() {
+                glove_kit::paint::icons::draw_bare(ui.c, ui.fonts, *ic, x + k as f32 * 40.0, y, 32.0, None);
+            }
         });
         ui.space(10.0);
         ui.separator();
@@ -846,9 +919,13 @@ impl Prefs {
             });
         });
         ui.space(6.0);
-        let mut effect = 0;
+        const EFFECTS: [(&str, &str); 2] = [("escala", "Efeito Escala"), ("genio", "Efeito Lâmpada Mágica")];
+        let mut effect = EFFECTS.iter().position(|e| e.0 == self.config.dock.minimize_effect).unwrap_or(0);
         ui.form_row("Minimizar usando", LW, |ui| {
-            ui.popup(&mut effect, &["Efeito Escala".to_string()], 160.0);
+            if ui.popup(&mut effect, &EFFECTS.iter().map(|e| e.1.to_string()).collect::<Vec<_>>(), 200.0) {
+                self.config.dock.minimize_effect = EFFECTS[effect].0.into();
+                self.save();
+            }
         });
         ui.space(6.0);
         let mut anim = self.config.dock.animate_launch;
@@ -937,13 +1014,30 @@ impl Prefs {
         const LW: f32 = 150.0;
         let nested = self.nested();
         let outputs = self.outputs.clone().unwrap_or_default();
-        // As resoluções mostradas são as do monitor principal (barra de menu).
-        let active = outputs.outputs.iter().find(|o| o.primary).or_else(|| outputs.outputs.iter().find(|o| o.active)).cloned().unwrap_or_default();
+        // O monitor sendo ajustado: o principal (barra de menu) ou, estendendo a
+        // mesa, outro escolhido em "Ajustar".
+        let primary = outputs.outputs.iter().find(|o| o.primary).or_else(|| outputs.outputs.iter().find(|o| o.active)).cloned().unwrap_or_default();
+        let extend = outputs.outputs.len() > 1 && self.config.monitor.arrangement == "estender";
+        let active = outputs.outputs.iter().find(|o| extend && o.name == self.mon_target && o.active).cloned().unwrap_or_else(|| primary.clone());
+        let is_primary = active.name == primary.name;
+        let mut mode_cfg = if is_primary { self.config.monitor.mode.clone() } else { self.config.monitor.others.get(&active.name).map(|o| o.mode.clone()).unwrap_or_default() };
+        let mut mode_changed = false;
         if nested {
             ui.small("O Glove está numa janela dentro de outro desktop: a resolução é a da janela.");
             ui.small("O que for escolhido aqui vale quando você entrar na sessão Glove.");
             ui.space(10.0);
         } else {
+            if extend {
+                let names: Vec<String> = outputs.outputs.iter().filter(|o| o.active).map(|o| if o.name == primary.name { format!("{} (principal)", o.description) } else { o.description.clone() }).collect();
+                let ids: Vec<String> = outputs.outputs.iter().filter(|o| o.active).map(|o| o.name.clone()).collect();
+                let mut cur = ids.iter().position(|i| *i == active.name).unwrap_or(0);
+                ui.form_row("Ajustar o monitor", LW, |ui| {
+                    if ui.popup(&mut cur, &names, 260.0) {
+                        self.mon_target = ids[cur].clone();
+                    }
+                });
+                ui.space(6.0);
+            }
             // Resoluções (sem repetir as frequências) à esquerda; o resto à direita.
             let mut sizes: Vec<(u32, u32)> = Vec::new();
             for m in &active.modes {
@@ -953,17 +1047,18 @@ impl Prefs {
                     }
                 }
             }
-            let current = glove_config::parse_mode(if self.config.monitor.mode.is_empty() { &active.current } else { &self.config.monitor.mode });
+            let current = glove_config::parse_mode(if mode_cfg.is_empty() { &active.current } else { &mode_cfg });
             let mut rows = vec![format!("Recomendada ({})", mode_label(&active.preferred).split(',').next().unwrap_or(""))];
             rows.extend(sizes.iter().map(|(w, h)| format!("{w} × {h}")));
-            let mut sel = if self.config.monitor.mode.is_empty() { Some(0) } else { current.and_then(|(w, h, _)| sizes.iter().position(|s| *s == (w, h))).map(|i| i + 1) };
+            let mut sel = if mode_cfg.is_empty() { Some(0) } else { current.and_then(|(w, h, _)| sizes.iter().position(|s| *s == (w, h))).map(|i| i + 1) };
             ui.horizontal(|ui| {
                 ui.spacing(18.0);
                 ui.column(220.0, |ui| {
                     ui.label("Resoluções:");
                     if ui.list(&mut sel, &rows, 220.0, 180.0) {
                         self.ask_confirm();
-                        self.config.monitor.mode = match sel {
+                        mode_changed = true;
+                        mode_cfg = match sel {
                             Some(i) if i > 0 => {
                                 // A frequência mais alta da resolução escolhida.
                                 let (w, h) = sizes[i - 1];
@@ -971,12 +1066,11 @@ impl Prefs {
                             }
                             _ => String::new(),
                         };
-                        self.save();
                     }
                 });
                 ui.column(ui.available_width(), |ui| {
                     ui.space(20.0);
-                    if outputs.outputs.len() > 1 {
+                    if outputs.outputs.len() > 1 && is_primary {
                         let mut names = vec!["Automático".to_string()];
                         let mut ids = vec![String::new()];
                         for o in &outputs.outputs {
@@ -989,20 +1083,22 @@ impl Prefs {
                             self.ask_confirm();
                             self.config.monitor.output = ids[cur].clone();
                             self.config.monitor.mode.clear();
+                            mode_cfg.clear();
+                            self.mon_target.clear();
                             self.save();
                         }
                         ui.space(6.0);
                     }
                     // Frequências da resolução em uso.
-                    if let (Some((w, h, _)), false) = (current, self.config.monitor.mode.is_empty()) {
+                    if let (Some((w, h, _)), false) = (current, mode_cfg.is_empty()) {
                         let modes: Vec<&String> = active.modes.iter().filter(|m| glove_config::parse_mode(m).is_some_and(|(a, b, _)| (a, b) == (w, h))).collect();
                         let names: Vec<String> = modes.iter().map(|m| glove_config::parse_mode(m).map(|x| format!("{} Hz", x.2)).unwrap_or_default()).collect();
-                        let mut cur = modes.iter().position(|m| **m == self.config.monitor.mode).unwrap_or(0);
+                        let mut cur = modes.iter().position(|m| **m == mode_cfg).unwrap_or(0);
                         ui.label("Taxa de atualização:");
                         if ui.popup(&mut cur, &names, 120.0) {
                             self.ask_confirm();
-                            self.config.monitor.mode = modes[cur].clone();
-                            self.save();
+                            mode_cfg = modes[cur].clone();
+                            mode_changed = true;
                         }
                         ui.space(6.0);
                     }
@@ -1012,6 +1108,14 @@ impl Prefs {
                     }
                 });
             });
+            if mode_changed {
+                if is_primary {
+                    self.config.monitor.mode = mode_cfg.clone();
+                } else {
+                    self.config.monitor.others.entry(active.name.clone()).or_default().mode = mode_cfg.clone();
+                }
+                self.save();
+            }
             ui.space(10.0);
             // Organização: mais de um monitor ligado ao computador.
             if outputs.outputs.len() > 1 {
@@ -1044,10 +1148,15 @@ impl Prefs {
         }
         let auto = active.auto_scale.max(1.0);
         let names: Vec<String> = SCALES.iter().map(|v| if *v == 0.0 { format!("Automático ({})", scale_label(auto)) } else { scale_label(*v) }).collect();
-        let mut cur = SCALES.iter().position(|v| *v == self.config.monitor.scale).unwrap_or(0);
+        let scale_now = if is_primary { self.config.monitor.scale } else { self.config.monitor.others.get(&active.name).map_or(0.0, |o| o.scale) };
+        let mut cur = SCALES.iter().position(|v| *v == scale_now).unwrap_or(0);
         ui.form_row("Tamanho da interface", LW, |ui| {
             if ui.popup(&mut cur, &names, 180.0) {
-                self.config.monitor.scale = SCALES[cur];
+                if is_primary {
+                    self.config.monitor.scale = SCALES[cur];
+                } else {
+                    self.config.monitor.others.entry(active.name.clone()).or_default().scale = SCALES[cur];
+                }
                 self.save();
             }
         });
@@ -1075,6 +1184,8 @@ impl Prefs {
             });
             if keep {
                 self.confirm = None;
+                self.confirm_arrangement = None;
+                self.confirm_others = None;
             } else if back {
                 self.revert();
             }
@@ -1085,6 +1196,7 @@ impl Prefs {
     fn ask_confirm(&mut self) {
         if self.confirm.is_none() {
             self.confirm_arrangement = Some(self.config.monitor.arrangement.clone());
+            self.confirm_others = Some(self.config.monitor.others.clone());
             let m = &self.config.monitor;
             self.confirm = Some((m.output.clone(), m.mode.clone(), Instant::now() + Duration::from_secs(CONFIRM_SECS)));
         } else if let Some(c) = self.confirm.as_mut() {
@@ -1098,6 +1210,9 @@ impl Prefs {
             self.config.monitor.mode = mode;
             if let Some(a) = self.confirm_arrangement.take() {
                 self.config.monitor.arrangement = a;
+            }
+            if let Some(o) = self.confirm_others.take() {
+                self.config.monitor.others = o;
             }
             self.save();
         }
@@ -1536,12 +1651,18 @@ impl Prefs {
                 ui.label("Escolher um alerta sonoro:");
                 let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| a.to_string()).collect();
                 let mut sel = glove_config::sons::ALERTS.iter().position(|a| *a == self.config.sound.alert);
+                let (lx, ly) = ui.cursor();
+                let list_r = Rect::new(lx, ly, ui.available_width(), 118.0);
+                let again = ui.mouse_pressed() && list_r.contains(ui.pointer());
                 if ui.list(&mut sel, &rows, ui.available_width(), 118.0) {
                     if let Some(i) = sel {
                         self.config.sound.alert = rows[i].clone();
                         self.save();
                         glove_config::sons::play(&rows[i], self.config.sound.alert_volume.max(0.3));
                     }
+                } else if again {
+                    // Clicar no alerta já escolhido toca de novo.
+                    glove_config::sons::play(&self.config.sound.alert, self.config.sound.alert_volume.max(0.3));
                 }
                 ui.space(6.0);
                 let mut v = self.config.sound.alert_volume;
@@ -1636,33 +1757,141 @@ impl Prefs {
         });
     }
 
+    /// Programas que o próprio Glove abre: o Terminal do atalho, o navegador do
+    /// app Navegador, onde a Lixeira abre e os apps X11.
+    fn padrao_glove(&mut self, ui: &mut Ui) {
+        const LW: f32 = 120.0;
+        let in_path = |p: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|d| d.join(p).is_file()));
+        ui.space(10.0);
+        ui.separator();
+        ui.space(6.0);
+        ui.label("Programas que o Glove abre:");
+        ui.space(4.0);
+        // Terminal (atalho Abrir Terminal e Super+Enter).
+        let mut terms: Vec<(String, String)> = vec![("glove-term".into(), "Terminal (Glove)".into())];
+        for (cmd, name) in [("gnome-terminal", "Terminal do GNOME"), ("kitty", "kitty"), ("alacritty", "Alacritty"), ("foot", "foot"), ("wezterm", "WezTerm"), ("konsole", "Konsole"), ("xfce4-terminal", "Terminal do Xfce"), ("tilix", "Tilix"), ("xterm", "XTerm")] {
+            if in_path(cmd) {
+                terms.push((cmd.into(), name.into()));
+            }
+        }
+        if !terms.iter().any(|t| t.0 == self.config.terminal) && !self.config.terminal.is_empty() {
+            terms.push((self.config.terminal.clone(), self.config.terminal.clone()));
+        }
+        let names: Vec<String> = terms.iter().map(|t| t.1.clone()).collect();
+        let mut cur = terms.iter().position(|t| t.0 == self.config.terminal).unwrap_or(0);
+        ui.form_row("Terminal", LW, |ui| {
+            if ui.popup(&mut cur, &names, 260.0) {
+                self.config.terminal = terms[cur].0.clone();
+                self.save();
+            }
+        });
+        // Navegador do app Navegador (Automático = pela memória do computador).
+        let mut browsers: Vec<(String, String)> = vec![(String::new(), "Automático (pela memória)".into())];
+        for (cmd, name) in [("firefox", "Firefox"), ("netsurf-gtk3", "NetSurf"), ("chromium", "Chromium"), ("chromium-browser", "Chromium"), ("google-chrome", "Google Chrome"), ("brave-browser", "Brave"), ("epiphany", "Web (GNOME)"), ("falkon", "Falkon")] {
+            if in_path(cmd) {
+                browsers.push((cmd.into(), name.into()));
+            }
+        }
+        let names: Vec<String> = browsers.iter().map(|t| t.1.clone()).collect();
+        let mut cur = browsers.iter().position(|t| t.0 == self.config.navegador).unwrap_or(0);
+        ui.form_row("Navegador", LW, |ui| {
+            if ui.popup(&mut cur, &names, 260.0) {
+                self.config.navegador = browsers[cur].0.clone();
+                self.save();
+            }
+        });
+        // Lixeira do Dock: no Arquivos do Glove ou em outro gerenciador.
+        let mut trash: Vec<(String, String)> = vec![("glove-files ~/.local/share/Trash/files".into(), "Arquivos (Glove)".into())];
+        for (cmd, name) in [("nautilus trash:///", "Nautilus"), ("thunar trash:///", "Thunar"), ("dolphin trash:/", "Dolphin"), ("nemo trash:///", "Nemo")] {
+            if in_path(cmd.split_whitespace().next().unwrap_or("")) {
+                trash.push((cmd.into(), name.into()));
+            }
+        }
+        let names: Vec<String> = trash.iter().map(|t| t.1.clone()).collect();
+        let mut cur = trash.iter().position(|t| t.0 == self.config.trash_command).unwrap_or(0);
+        ui.form_row("Lixeira abre no", LW, |ui| {
+            if ui.popup(&mut cur, &names, 260.0) {
+                self.config.trash_command = trash[cur].0.clone();
+                self.save();
+            }
+        });
+        let mut x11 = self.config.x11_apps;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut x11, "Abrir apps X11 (Xwayland, uns 20 MB a mais)") {
+                self.config.x11_apps = x11;
+                self.save();
+            }
+        });
+        ui.form_note(LW, "Os apps X11 ligam ou desligam na próxima sessão.");
+    }
+
     fn terminal(&mut self, ui: &mut Ui) {
-        ui.heading("Fonte do Terminal");
-        ui.indent(16.0, |ui| {
+        const LW: f32 = 120.0;
+        // Temas: amostras clicáveis com o fundo, o texto e algumas cores do tema.
+        ui.label("Tema de cores:");
+        ui.space(4.0);
+        let themes = glove_config::term_themes();
+        let (sw, sh, gap) = (112.0, 62.0, 10.0);
+        let per_row = ((ui.available_width() + gap) / (sw + gap)).floor().max(1.0) as usize;
+        let rows = themes.len().div_ceil(per_row);
+        let (x0, y0) = ui.cursor();
+        let r = ui.alloc(ui.available_width(), rows as f32 * (sh + 20.0 + gap));
+        for (i, t) in themes.iter().enumerate() {
+            let (col, row) = (i % per_row, i / per_row);
+            let bx = Rect::new(x0 + col as f32 * (sw + gap), y0 + row as f32 * (sh + 20.0 + gap), sw, sh);
+            let on = self.config.terminal_theme == t.id || (i == 0 && !themes.iter().any(|x| x.id == self.config.terminal_theme));
+            let c = |v: (u8, u8, u8)| rgba(v.0, v.1, v.2, 255);
+            ui.c.fill(rrect(bx.x, bx.y, bx.w, bx.h, 4.0), &solid(c(t.bg)));
+            let ink = c(t.fg);
+            ui.fonts.draw(ui.c, "$ ls -la", bx.x + 8.0, bx.y + 18.0, 11.0, false, ink);
+            ui.fonts.draw(ui.c, "drwxr-x  glove", bx.x + 8.0, bx.y + 33.0, 11.0, false, c(t.palette[4]));
+            for k in 0..6 {
+                ui.c.fill_rect(bx.x + 8.0 + k as f32 * 15.0, bx.y + 42.0, 12.0, 10.0, &solid(c(t.palette[k + 1])));
+            }
+            ui.c.fill_rect(bx.x + 8.0 + 92.0, bx.y + 42.0, 7.0, 10.0, &solid(c(t.cursor)));
+            let stroke = if on { ui.theme.accent } else { rgba(120, 120, 126, 255) };
+            ui.c.stroke(rrect(bx.x + 0.5, bx.y + 0.5, bx.w - 1.0, bx.h - 1.0, 4.0), &solid(stroke), if on { 3.0 } else { 1.0 });
+            let nw = ui.text_width(t.name, 11.0, on);
+            let name = ui.fonts.ellipsize(t.name, 11.0, on, sw + 6.0);
+            ui.fonts.draw(ui.c, &name, bx.x + (sw - nw.min(sw)) / 2.0, bx.y + sh + 15.0, 11.0, on, rgba(20, 20, 20, 255));
+            if ui.hit(Rect::new(bx.x, bx.y, bx.w, bx.h + 20.0)).clicked {
+                self.config.terminal_theme = t.id.to_string();
+                self.save();
+            }
+        }
+        let _ = r;
+        ui.form_note(0.0, "As janelas do Terminal abertas mudam na hora.");
+        ui.space(10.0);
+        // Fonte: as famílias de largura fixa instaladas.
+        if self.mono_fonts.is_none() {
+            let out = std::process::Command::new("fc-list").args([":spacing=mono", "family"]).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+            let mut v: Vec<String> = out.lines().filter_map(|l| l.split(',').next()).map(|f| f.trim().to_string()).filter(|f| !f.is_empty()).collect();
+            v.sort_by_key(|f| f.to_lowercase());
+            v.dedup();
+            v.insert(0, "Padrão (DejaVu Sans Mono)".into());
+            self.mono_fonts = Some(v);
+        }
+        let fonts = self.mono_fonts.clone().unwrap_or_default();
+        let mut cur = fonts.iter().position(|f| *f == self.config.terminal_font).unwrap_or(0);
+        ui.form_row("Fonte", LW, |ui| {
+            if ui.popup(&mut cur, &fonts, 280.0) {
+                self.config.terminal_font = if cur == 0 { String::new() } else { fonts[cur].clone() };
+                self.save();
+            }
+        });
+        ui.form_note(LW, "Ícones de Nerd Font aparecem mesmo com outra fonte, se houver uma instalada.");
+        let mut px = self.config.terminal_font_size.clamp(8.0, 24.0);
+        ui.form_row("Tamanho", LW, |ui| {
             ui.horizontal(|ui| {
-                ui.label_right("Família:", 80.0);
-                let mut fam = self.config.terminal_font.clone();
-                if ui.text_field(&mut fam, 300.0) {
-                    self.config.terminal_font = fam;
-                    self.save();
-                }
-            });
-            ui.small("Ex.: JetBrainsMono Nerd Font. Vazio = DejaVu Sans Mono.");
-            ui.small("Ícones de Nerd Font aparecem mesmo com outra fonte, se houver uma instalada.");
-            ui.space(8.0);
-            ui.horizontal(|ui| {
-                ui.label_right("Tamanho:", 80.0);
-                let mut px = self.config.terminal_font_size.clamp(8.0, 24.0);
-                if ui.slider(&mut px, 8.0, 24.0, 260.0) {
+                if ui.slider(&mut px, 8.0, 24.0, 220.0) {
                     self.config.terminal_font_size = px.round();
                     self.save();
                 }
                 let t = format!("{} pt", self.config.terminal_font_size.round());
                 ui.small(&t);
             });
-            ui.space(6.0);
-            ui.small("Vale para as próximas janelas do Terminal.");
         });
+        ui.form_note(LW, "Fonte e tamanho valem para as próximas janelas do Terminal.");
     }
 }
 
@@ -1673,6 +1902,17 @@ thread_local! {
 
 impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
+        // Dispositivos de som lidos na thread. Arrastando um slider, a leitura
+        // (que pode ser de antes do arraste) espera, para o polegar não pular.
+        if !ui.mouse_down() {
+            if let Some(Ok(a)) = self.audio_rx.as_ref().map(|rx| rx.try_recv()) {
+                self.audio = a;
+                self.audio_rx = None;
+            }
+        }
+        if self.audio_rx.is_some() {
+            ui.wake_after(Duration::from_millis(80));
+        }
         // Com a folha da senha aberta, só ela responde.
         let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some())
             || (matches!(self.pane, Pane::Inicio | Pane::Contas) && self.inicio.sheet_open())
@@ -1709,7 +1949,10 @@ impl App for Prefs {
                 }
             }
             Pane::Compart => self.compart.ui(ui),
-            Pane::Padrao => self.padrao.ui(ui),
+            Pane::Padrao => {
+                self.padrao.ui(ui);
+                self.padrao_glove(ui);
+            }
             Pane::Bluetooth => self.bluetooth.ui(ui),
             Pane::Midia => self.midia(ui),
             Pane::Atualizacao => self.atualizacao.ui(ui),
@@ -1754,6 +1997,7 @@ impl App for Prefs {
         }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
         ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, 720.0), true);
+        self.flush_save(ui);
     }
 
     fn menus(&self) -> Vec<Menu> {
@@ -1765,6 +2009,10 @@ impl App for Prefs {
     }
 
     fn config_changed(&mut self) {
+        // Com uma gravação adiada, a memória está mais nova que o arquivo.
+        if self.save_pending.get() {
+            return;
+        }
         self.config = Config::load();
         self.outputs = OutputsInfo::load();
     }
@@ -1785,8 +2033,8 @@ impl App for Prefs {
             self.revert();
         }
         self.outputs = OutputsInfo::load();
-        if self.pane == Pane::Som {
-            self.audio = som::status();
+        if self.pane == Pane::Som && self.audio_rx.is_none() {
+            self.audio_rx = Some(som::status_async());
         }
         if self.pane == Pane::Rede {
             self.rede.refresh();
@@ -1851,7 +2099,7 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Preferências".into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true };
+    let opts = WindowOptions { title: "Preferências".into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true, min_size: None };
     if let Err(e) = run(opts, Prefs::new()) {
         eprintln!("glove-prefs: {e}");
     }

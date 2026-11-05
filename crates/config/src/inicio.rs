@@ -47,9 +47,15 @@ fn get<'a>(f: &'a [(String, String)], k: &str) -> Option<&'a str> {
 }
 
 /// Vale no Glove? (OnlyShowIn precisa citar o Glove; NotShowIn não pode.)
+/// Programas de fundo que fazem o que o Glove já faz (e abririam as janelas
+/// deles por cima das do Glove): o ícone de rede do GNOME pede a senha do Wi-Fi
+/// na janela dele; o Glove pede nas Preferências.
+const REPLACED_BY_GLOVE: &[&str] = &["nm-applet", "nm-tray", "blueman-applet"];
+
 fn for_glove(f: &[(String, String)]) -> bool {
     let has = |k: &str| get(f, k).map(|v| v.split(';').any(|d| d.eq_ignore_ascii_case("glove")));
-    has("OnlyShowIn").unwrap_or(true) && !has("NotShowIn").unwrap_or(false)
+    let prog = get(f, "Exec").and_then(|e| e.split_whitespace().next()).map(|p| p.rsplit('/').next().unwrap_or(p).to_string()).unwrap_or_default();
+    has("OnlyShowIn").unwrap_or(true) && !has("NotShowIn").unwrap_or(false) && !REPLACED_BY_GLOVE.contains(&prog.as_str())
 }
 
 /// Comando sem os códigos de campo (%f, %u…).
@@ -227,13 +233,15 @@ mod tests {
         let root = std::env::temp_dir().join(format!("glove-inicio-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("sys/autostart")).unwrap();
-        std::fs::write(root.join("sys/autostart/rede.desktop"), "[Desktop Entry]\nType=Application\nName=Rede\nExec=nm-applet\n").unwrap();
+        std::fs::write(root.join("sys/autostart/rede.desktop"), "[Desktop Entry]\nType=Application\nName=Rede\nExec=syncthing\n").unwrap();
         std::fs::write(root.join("sys/autostart/gnome.desktop"), "[Desktop Entry]\nType=Application\nName=G\nExec=g\nOnlyShowIn=GNOME;\n").unwrap();
+        // O ícone de rede do GNOME fica de fora: o Glove tem a rede dele.
+        std::fs::write(root.join("sys/autostart/nm-applet.desktop"), "[Desktop Entry]\nType=Application\nName=Rede\nExec=nm-applet\nNotShowIn=KDE;GNOME;\n").unwrap();
         let (user, sys) = (root.join("user/autostart"), vec![root.join("sys/autostart")]);
-        assert_eq!(commands_in(&user, &sys), ["nm-applet"]);
+        assert_eq!(commands_in(&user, &sys), ["syncthing"]);
         let id = add_in(&user, "Meu App", "meu-app --x").unwrap();
         assert_eq!(id, "glove-meu-app.desktop");
-        assert_eq!(commands_in(&user, &sys), ["nm-applet", "meu-app --x"]);
+        assert_eq!(commands_in(&user, &sys), ["syncthing", "meu-app --x"]);
         set_enabled_in(&user, &sys, "rede.desktop", false).unwrap();
         assert_eq!(commands_in(&user, &sys), ["meu-app --x"]);
         let it = items_in(&user, &sys);
@@ -241,7 +249,7 @@ mod tests {
         remove_in(&user, &sys, it.iter().find(|i| i.id == id).unwrap()).unwrap();
         assert!(commands_in(&user, &sys).is_empty());
         set_enabled_in(&user, &sys, "rede.desktop", true).unwrap();
-        assert_eq!(commands_in(&user, &sys), ["nm-applet"]);
+        assert_eq!(commands_in(&user, &sys), ["syncthing"]);
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

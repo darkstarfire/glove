@@ -60,7 +60,17 @@ impl DataDeviceHandler for Glove {
         &self.data_device_state
     }
 }
-impl ClientDndGrabHandler for Glove {}
+impl ClientDndGrabHandler for Glove {
+    /// Um app começou a arrastar: o ícone dele (se houver) segue o mouse.
+    fn started(&mut self, _source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>, icon: Option<smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>, _seat: smithay::input::Seat<Self>) {
+        self.dnd_icon = icon;
+        self.dirty = true;
+    }
+    fn dropped(&mut self, _target: Option<smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>, _validated: bool, _seat: smithay::input::Seat<Self>) {
+        self.dnd_icon = None;
+        self.dirty = true;
+    }
+}
 impl ServerDndGrabHandler for Glove {}
 delegate_data_device!(Glove);
 

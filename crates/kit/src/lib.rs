@@ -3,7 +3,9 @@
 //! Interface em modo imediato, desenhada por software com o visual do Glove,
 //! nítida em qualquer escala e sem gastar CPU quando nada acontece.
 
+pub mod clipfiles;
 pub mod filebrowser;
+pub mod image;
 pub mod menu;
 mod panels;
 mod platform;

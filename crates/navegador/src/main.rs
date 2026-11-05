@@ -81,7 +81,7 @@ fn main() {
     let mem = mem_total_mb(&std::fs::read_to_string("/proc/meminfo").unwrap_or_default());
     let preferred = glove_config::Config::load().navegador;
     let Some((prog, glove_firefox)) = choose(mem, &preferred, &|p| which(p).is_some()) else {
-        let opts = WindowOptions { title: "Navegador".into(), app_id: "glove.Navegador".into(), size: (440, 130), fixed: true };
+        let opts = WindowOptions { title: "Navegador".into(), app_id: "glove.Navegador".into(), size: (440, 130), fixed: true, min_size: None };
         let _ = run(opts, NoBrowser);
         return;
     };

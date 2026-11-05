@@ -122,7 +122,7 @@ impl Note {
     }
 
     fn options(&self) -> WindowOptions {
-        WindowOptions { title: self.title(), app_id: "glove.Notes".into(), size: SIZE, fixed: false }
+        WindowOptions { title: self.title(), app_id: "glove.Notes".into(), size: SIZE, fixed: false, min_size: Some((140, STRIP as u32)) }
     }
 }
 
@@ -206,17 +206,33 @@ impl Notes {
         let top = if active { darken(paper, 0.1) } else { darken(paper, 0.04) };
         ui.c.fill_rect(0.0, 0.0, w, STRIP, &vgrad(0.0, STRIP, &[(0.0, lighten(top, 0.15)), (1.0, top)]));
         ui.c.hline(0.0, STRIP - 1.0, w, darken(paper, 0.25));
-        let ink = darken(paper, 0.55);
+        // Fechar (×, à esquerda) e recolher/abrir (– / +, à direita). Sempre à vista
+        // (mais claros com a nota inativa), para dar para abrir uma nota recolhida.
+        let ink = if active { darken(paper, 0.55) } else { darken(paper, 0.35) };
         let close_r = Rect::new(4.0, 3.0, 10.0, 10.0);
         let fold_r = Rect::new(w - 14.0, 3.0, 10.0, 10.0);
-        let (mut close, mut fold) = (false, false);
-        if active {
-            ui.c.stroke(rrect(close_r.x + 0.5, close_r.y + 0.5, 9.0, 9.0, 1.0), &solid(ink), 1.0);
-            ui.c.stroke(rrect(fold_r.x + 0.5, fold_r.y + 0.5, 9.0, 9.0, 1.0), &solid(ink), 1.0);
-            ui.c.hline(fold_r.x + 2.0, fold_r.y + 5.0, 6.0, ink);
-            close = ui.hit(close_r).clicked;
-            fold = ui.hit(fold_r).clicked;
+        let hc = ui.hit(close_r);
+        let hf = ui.hit(fold_r);
+        for (r, hot) in [(close_r, hc.hover), (fold_r, hf.hover)] {
+            if hot {
+                ui.c.fill(rrect(r.x + 0.5, r.y + 0.5, 9.0, 9.0, 1.0), &solid(with_alpha(ink, 0.18)));
+            }
+            ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, 9.0, 9.0, 1.0), &solid(ink), 1.0);
         }
+        // ×
+        for (x0, y0, x1, y1) in [(2.5, 2.5, 7.5, 7.5), (7.5, 2.5, 2.5, 7.5)] {
+            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+            pb.move_to(close_r.x + x0, close_r.y + y0);
+            pb.line_to(close_r.x + x1, close_r.y + y1);
+            ui.c.stroke(pb.finish(), &solid(ink), 1.0);
+        }
+        // – (recolher) ou + (abrir de novo)
+        ui.c.hline(fold_r.x + 2.0, fold_r.y + 5.0, 6.0, ink);
+        if note.collapsed.is_some() {
+            ui.c.vline(fold_r.x + 5.0, fold_r.y + 2.0, 6.0, ink);
+        }
+        let close = hc.clicked;
+        let mut fold = hf.clicked;
         // O resto da faixa arrasta a janela; clique duplo recolhe.
         let drag = Rect::new(18.0, 0.0, w - 36.0, STRIP);
         let hd = ui.hit(drag);
@@ -332,6 +348,10 @@ impl App for Notes {
         if note.collapsed.is_none() && ui.text_area(&mut note.buf, Rect::new(0.0, STRIP, w, h - STRIP)) {
             // Salva a cada mudança: arquivos minúsculos, nada se perde.
             note.save();
+        }
+        if note.collapsed.is_some() {
+            // Recolhida, a faixa toda é a nota: sem o puxador por cima do botão de abrir.
+            ui.hide_resize_grip();
         }
         let (close, fold) = Self::frame(ui, note);
         // Painel de Cores desta nota.

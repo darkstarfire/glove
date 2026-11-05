@@ -568,7 +568,7 @@ fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);
     let ed = Editor::new(path);
     let title = ed.name();
-    let opts = WindowOptions { title, app_id: "glove.TextEditor".into(), size: (640, 480), fixed: false };
+    let opts = WindowOptions { title, app_id: "glove.TextEditor".into(), size: (640, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, ed) {
         eprintln!("glove-edit: {e}");
     }

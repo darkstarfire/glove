@@ -184,6 +184,17 @@ impl Glove {
                     self.spawn(cmd);
                 }
             }
+            // "shrink": a janela ativa vai para o tamanho mínimo que o app pediu.
+            Some("shrink") => {
+                if let Some(t) = self.focused_window().and_then(|w| w.toplevel().cloned()) {
+                    let min = smithay::wayland::compositor::with_states(t.wl_surface(), |st| {
+                        st.cached_state.get::<smithay::wayland::shell::xdg::SurfaceCachedState>().current().min_size
+                    });
+                    t.with_pending_state(|s| s.size = Some(min));
+                    t.send_pending_configure();
+                    self.dirty = true;
+                }
+            }
             Some("down") => self.on_button(BTN_LEFT, ButtonState::Pressed, t),
             Some("up") => self.on_button(BTN_LEFT, ButtonState::Released, t),
             Some("type") => {
@@ -506,7 +517,7 @@ impl Glove {
             }
             Some(KeyAction::Preferences) => self.open_preferences(),
             Some(KeyAction::Screenshot) => self.request_screenshot(),
-            Some(KeyAction::ScreenshotArea) => self.start_region_shot(false),
+            Some(KeyAction::ScreenshotArea) => self.start_region_shot(false, false),
             Some(KeyAction::RegionEsc) => self.cancel_region(),
             Some(KeyAction::Hide) => {
                 if let Some(pid) = self.focused_pid() {
@@ -962,7 +973,7 @@ impl Glove {
             Then::Move(window) => {
                 let Some(loc) = self.space.element_location(&window) else { return };
                 let min_y = glove_paint::theme::MENUBAR_H + deco_top(&window);
-                let grab = MoveSurfaceGrab { start_data: start(pos), window, initial_window_location: loc, min_y };
+                let grab = MoveSurfaceGrab::new(start(pos), window, loc, min_y);
                 pointer.set_grab(self, grab, serial, Focus::Clear);
             }
             Then::Resize(window, edges) => {
@@ -990,7 +1001,7 @@ impl Glove {
         let pos = pointer.current_location();
         let min_y = glove_paint::theme::MENUBAR_H + deco_top(&window);
         let start_data = GrabStartData { focus: None, button: 0x110, location: pos };
-        let grab = MoveSurfaceGrab { start_data, window, initial_window_location: loc, min_y };
+        let grab = MoveSurfaceGrab::new(start_data, window, loc, min_y);
         pointer.set_grab(self, grab, serial, Focus::Clear);
     }
 

@@ -116,7 +116,7 @@ fn main() {
     // "glove-ajuda tópico" abre direto num tópico (pela primeira palavra do título).
     let want = std::env::args().nth(1).map(|a| a.to_lowercase());
     let page = want.and_then(|w| PAGES.iter().position(|(t, _)| t.to_lowercase().contains(&w))).or(Some(0));
-    let opts = WindowOptions { title: "Ajuda".into(), app_id: "glove.Ajuda".into(), size: (760, 500), fixed: false };
+    let opts = WindowOptions { title: "Ajuda".into(), app_id: "glove.Ajuda".into(), size: (760, 500), fixed: false, min_size: None };
     if let Err(e) = run(opts, Ajuda { page, query: String::new(), scroll: 0.0 }) {
         eprintln!("glove-ajuda: {e}");
     }

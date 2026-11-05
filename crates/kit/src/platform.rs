@@ -10,7 +10,7 @@ use smithay_client_toolkit::{
     data_device_manager::{
         data_device::{DataDevice, DataDeviceHandler},
         data_offer::{DataOfferHandler, DragOffer},
-        data_source::{CopyPasteSource, DataSourceHandler},
+        data_source::{CopyPasteSource, DataSourceHandler, DragSource},
         DataDeviceManagerState, WritePipe,
     },
     delegate_registry,
@@ -115,17 +115,19 @@ pub struct WindowOptions {
     pub size: (u32, u32),
     /// Tamanho fixo (sem zoom nem redimensionar).
     pub fixed: bool,
+    /// Menor tamanho ao redimensionar (o que cabe a barra de ferramentas sem sobrepor).
+    /// Sem ele, a janela não fica menor que 3/4 do tamanho inicial.
+    pub min_size: Option<(u32, u32)>,
 }
 
 /// Ícone do app pelo app_id (a mesma lista do Dock).
 pub fn app_icon(app_id: &str) -> glove_paint::icons::Icon {
-    glove_config::known_app(&[], app_id)
-        .map(|a| glove_paint::icons::Icon::from_name(&a.icon))
-        .unwrap_or(glove_paint::icons::Icon::Window)
+    glove_paint::icons::Icon::from_name(&glove_config::app_icon_name(&[], app_id))
 }
 
 pub fn theme_from_config() -> Theme {
     let c = glove_config::Config::load();
+    glove_paint::icons::set_theme(&c.appearance.icon_theme);
     let mut t = Theme::new(Variant::from_config(&c.theme));
     let (r, g, b) = glove_config::highlight_rgb(&c.appearance.highlight);
     t.highlight = glove_paint::draw::rgba(r, g, b, 255);
@@ -219,7 +221,8 @@ impl Shells {
             window.set_min_size(Some(opts.size));
             window.set_max_size(Some(opts.size));
         } else {
-            window.set_min_size(Some((opts.size.0 / 2, opts.size.1 / 2)));
+            let min = opts.min_size.unwrap_or((opts.size.0 * 3 / 4, opts.size.1 * 3 / 4));
+            window.set_min_size(Some((min.0.min(opts.size.0), min.1.min(opts.size.1))));
         }
         window.commit();
         let mut mem = Memory::with_app_icon(app_icon(&opts.app_id));
@@ -281,8 +284,19 @@ struct Runner<A: App> {
     data_device: Option<DataDevice>,
     clip_source: Option<CopyPasteSource>,
     clip_text: String,
+    /// Arquivos copiados (e se foi "recortar"): a seleção é de arquivos.
+    clip_files: Option<(Vec<std::path::PathBuf>, bool)>,
+    /// Arrastando arquivos para fora: a fonte (viva até o fim) e os arquivos.
+    drag_source: Option<DragSource>,
+    drag_files: Vec<std::path::PathBuf>,
+    drag_icon: Option<wl_surface::WlSurface>,
+    /// Janela por onde algo está sendo arrastado.
+    dnd_win: Option<u32>,
     /// Último "serial" de clique/tecla (o compositor exige para copiar).
     last_serial: u32,
+    /// Serial do último botão do mouse apertado: arrastar exige o do clique
+    /// (o de uma tecla apertada no meio faria o compositor recusar).
+    press_serial: u32,
     seat: Option<wl_seat::WlSeat>,
     // Menus na barra global
     menu_stream: Option<std::os::unix::net::UnixStream>,
@@ -399,7 +413,13 @@ pub fn run<A: App>(opts: WindowOptions, app: A) -> Result<(), Box<dyn std::error
         data_device: None,
         clip_source: None,
         clip_text: String::new(),
+        clip_files: None,
+        drag_source: None,
+        drag_files: Vec::new(),
+        drag_icon: None,
+        dnd_win: None,
         last_serial: 0,
+        press_serial: 0,
         seat: None,
         menu_stream: None,
         menu_sent: String::new(),
@@ -773,7 +793,7 @@ impl<A: App> Runner<A> {
         }
         if std::mem::take(&mut self.w.mem.resize_req) {
             if let Some(seat) = &self.seat {
-                self.w.window.resize(seat, self.last_serial, smithay_client_toolkit::reexports::protocols::xdg::shell::client::xdg_toplevel::ResizeEdge::BottomRight);
+                self.w.window.resize(seat, self.press_serial, smithay_client_toolkit::reexports::protocols::xdg::shell::client::xdg_toplevel::ResizeEdge::BottomRight);
             }
         }
         for (id, opts) in std::mem::take(&mut self.w.mem.open_windows) {
@@ -810,7 +830,7 @@ impl<A: App> Runner<A> {
         }
         if std::mem::take(&mut self.w.mem.move_req) {
             if let Some(seat) = &self.seat {
-                self.w.window.move_(seat, self.last_serial);
+                self.w.window.move_(seat, self.press_serial);
             }
         }
         if std::mem::take(&mut self.w.mem.minimize_req) {
@@ -821,20 +841,100 @@ impl<A: App> Runner<A> {
         }
         if let Some(text) = self.w.mem.clip_out.take() {
             self.clip_text = text;
+            self.clip_files = None;
             if let (Some(m), Some(d)) = (&self.data_manager, &self.data_device) {
                 let src = m.create_copy_paste_source(&self.qh, TEXT_MIMES);
                 src.set_selection(d, self.last_serial);
                 self.clip_source = Some(src);
             }
         }
+        if let Some((paths, cut)) = self.w.mem.clip_files.take() {
+            // Colar neste mesmo app recebe a lista de URIs.
+            self.clip_text = String::from_utf8_lossy(&crate::clipfiles::payload(&paths, cut, crate::clipfiles::URI_LIST)).into_owned();
+            if let (Some(m), Some(d)) = (&self.data_manager, &self.data_device) {
+                let src = m.create_copy_paste_source(&self.qh, crate::clipfiles::mimes(&paths));
+                src.set_selection(d, self.last_serial);
+                self.clip_source = Some(src);
+            }
+            self.clip_files = Some((paths, cut));
+        }
+        if let Some(paths) = self.w.mem.drag_out.take() {
+            self.start_drag(paths);
+        }
         if let Some(id) = self.w.mem.paste_req.take() {
-            self.request_paste(id);
+            let files = std::mem::take(&mut self.w.mem.paste_files);
+            self.request_paste(id, files);
         }
         resized
     }
 
+    /// Começa a arrastar arquivos (para outra janela, outro app, a mesa), com um
+    /// ícone do arquivo seguindo o mouse.
+    fn start_drag(&mut self, paths: Vec<std::path::PathBuf>) {
+        if paths.is_empty() || self.data_manager.is_none() || self.data_device.is_none() {
+            return;
+        }
+        let icon = self.drag_icon_surface(&paths);
+        let (Some(m), Some(d)) = (&self.data_manager, &self.data_device) else { return };
+        let src = m.create_drag_and_drop_source(&self.qh, crate::clipfiles::mimes(&paths), DndAction::Copy | DndAction::Move);
+        src.start_drag(d, self.w.window.wl_surface(), icon.as_ref(), self.press_serial);
+        self.drag_source = Some(src);
+        self.drag_icon = icon;
+        self.drag_files = paths;
+        // O compositor fica com o mouse até soltar: o botão não volta para esta janela.
+        self.w.input.down = false;
+    }
+
+    /// Ícone do arrasto: o desenho do tipo do arquivo (e quantos são, se mais de um).
+    fn drag_icon_surface(&mut self, paths: &[std::path::PathBuf]) -> Option<wl_surface::WlSurface> {
+        use glove_paint::icons::Icon;
+        let k = self.w.int_scale.max(1);
+        let size = 40.0;
+        let mut c = Canvas::new(size, size, k as f32)?;
+        let p = &paths[0];
+        let icon = if p.is_dir() {
+            Icon::Folder
+        } else if crate::image::format_of(p).is_some() {
+            Icon::Picture
+        } else {
+            Icon::Document
+        };
+        glove_paint::icons::draw_bare(&mut c, &self.fonts, icon, 2.0, 2.0, 34.0, None);
+        if paths.len() > 1 {
+            let t = paths.len().to_string();
+            let tw = self.fonts.measure(&t, 11.0, true);
+            let bw = (tw + 10.0).max(18.0);
+            c.fill(glove_paint::draw::rrect(size - bw, 0.0, bw, 16.0, 8.0), &glove_paint::draw::solid(glove_paint::draw::rgba(220, 40, 40, 240)));
+            self.fonts.draw(&mut c, &t, size - bw / 2.0 - tw / 2.0, 12.0, 11.0, true, glove_paint::Color::WHITE);
+        }
+        let (pw, ph) = (c.px_width() as i32, c.px_height() as i32);
+        let (buffer, dst) = self.pool.create_buffer(pw, ph, pw * 4, wl_shm::Format::Argb8888).ok()?;
+        for (d, s) in dst.chunks_exact_mut(4).zip(c.data().chunks_exact(4)) {
+            d[0] = s[2];
+            d[1] = s[1];
+            d[2] = s[0];
+            // Um pouco transparente, como o ícone arrastado na era.
+            d[3] = s[3];
+        }
+        let surface = self.shells.compositor.create_surface(&self.qh);
+        surface.set_buffer_scale(k);
+        buffer.attach_to(&surface).ok()?;
+        surface.damage_buffer(0, 0, pw, ph);
+        surface.commit();
+        Some(surface)
+    }
+
+    fn end_drag(&mut self) {
+        self.drag_source = None;
+        self.drag_files.clear();
+        if let Some(s) = self.drag_icon.take() {
+            s.destroy();
+        }
+    }
+
     /// Lê a área de transferência sem travar (o texto chega por um pipe).
-    fn request_paste(&mut self, id: crate::ui::Id) {
+    /// `files`: prefere a lista de arquivos (text/uri-list) ao texto.
+    fn request_paste(&mut self, id: crate::ui::Id, files: bool) {
         // Se a seleção é nossa, nem precisa ir ao compositor.
         if self.clip_source.is_some() || self.data_device.is_none() {
             if !self.clip_text.is_empty() {
@@ -844,7 +944,9 @@ impl<A: App> Runner<A> {
             return;
         }
         let Some(offer) = self.data_device.as_ref().and_then(|d| d.data().selection_offer()) else { return };
-        let Some(mime) = offer.with_mime_types(|m| TEXT_MIMES.iter().find(|t| m.iter().any(|x| x == *t)).map(|t| t.to_string())) else { return };
+        let file_mimes = [crate::clipfiles::URI_LIST, crate::clipfiles::GNOME_FILES];
+        let order: Vec<&str> = if files { file_mimes.iter().chain(TEXT_MIMES.iter()).copied().collect() } else { TEXT_MIMES.to_vec() };
+        let Some(mime) = offer.with_mime_types(|m| order.iter().find(|t| m.iter().any(|x| x == *t)).map(|t| t.to_string())) else { return };
         let Ok(pipe) = offer.receive(mime) else { return };
         let mut data = Vec::new();
         let win = self.w.id;
@@ -1161,6 +1263,7 @@ impl<A: App> PointerHandler for Runner<A> {
                 PointerEventKind::Release { button: 0x111, .. } => {}
                 PointerEventKind::Press { serial, time, .. } => {
                     self.last_serial = serial;
+                    self.press_serial = serial;
                     self.w.input.down = true;
                     self.w.input.pressed = true;
                     // Clique duplo/triplo: dentro do tempo das Preferências e perto do anterior.
@@ -1186,11 +1289,84 @@ impl<A: App> PointerHandler for Runner<A> {
 }
 
 impl<A: App> DataDeviceHandler for Runner<A> {
-    fn enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice, _: f64, _: f64, _: &wl_surface::WlSurface) {}
-    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {}
-    fn motion(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice, _: f64, _: f64) {}
+    /// Algo arrastado entrou numa janela: aceita se forem arquivos; o ponto vira a
+    /// posição do mouse para o app (que acende a pasta de destino).
+    fn enter(&mut self, _: &Connection, _: &QueueHandle<Self>, dev: &WlDataDevice, x: f64, y: f64, surface: &wl_surface::WlSurface) {
+        if !self.focus_surface(surface) {
+            return;
+        }
+        self.dnd_win = Some(self.w.id);
+        let offer = self.data_device.as_ref().filter(|d| d.inner() == dev).and_then(|d| d.data().drag_offer());
+        if let Some(o) = &offer {
+            let files = o.with_mime_types(|m| m.iter().any(|t| t == crate::clipfiles::URI_LIST));
+            o.accept_mime_type(o.serial, files.then(|| crate::clipfiles::URI_LIST.to_string()));
+            o.set_actions(if files { DndAction::Copy | DndAction::Move } else { DndAction::empty() }, if files { DndAction::Move } else { DndAction::empty() });
+            self.w.mem.dnd_hover = files;
+        }
+        self.w.input.pos = (x as f32, y as f32);
+        self.w.input.inside = true;
+        self.w.input.moved = true;
+        self.w.dirty = true;
+        self.draw_now();
+    }
+    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {
+        if let Some(id) = self.dnd_win.take() {
+            if self.focus_id(id) {
+                self.w.mem.dnd_hover = false;
+                self.w.input.inside = false;
+                self.w.dirty = true;
+                self.draw_now();
+            }
+        }
+    }
+    fn motion(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice, x: f64, y: f64) {
+        let Some(id) = self.dnd_win else { return };
+        if self.focus_id(id) {
+            self.w.input.pos = (x as f32, y as f32);
+            self.w.input.moved = true;
+            self.w.dirty = true;
+            self.draw_now();
+        }
+    }
     fn selection(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {}
-    fn drop_performed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {}
+    /// Soltou aqui: lê a lista de arquivos sem travar (a fonte pode ser este app).
+    fn drop_performed(&mut self, _: &Connection, _: &QueueHandle<Self>, dev: &WlDataDevice) {
+        let Some(id) = self.dnd_win.take() else { return };
+        let Some(offer) = self.data_device.as_ref().filter(|d| d.inner() == dev).and_then(|d| d.data().drag_offer()) else { return };
+        if !self.focus_id(id) || !offer.with_mime_types(|m| m.iter().any(|t| t == crate::clipfiles::URI_LIST)) {
+            return;
+        }
+        self.w.mem.dnd_hover = false;
+        let pos = self.w.input.pos;
+        let Ok(pipe) = offer.receive(crate::clipfiles::URI_LIST.to_string()) else { return };
+        let mut data = Vec::new();
+        let _ = self.loop_handle.insert_source(pipe, move |_, f, st: &mut Runner<A>| {
+            use std::io::Read;
+            let f: &mut std::fs::File = unsafe { f.get_mut() };
+            let mut buf = [0u8; 8192];
+            loop {
+                match f.read(&mut buf) {
+                    Ok(0) => {
+                        offer.finish();
+                        offer.destroy();
+                        if st.focus_id(id) {
+                            let paths = crate::clipfiles::parse(&String::from_utf8_lossy(&data));
+                            if !paths.is_empty() {
+                                st.w.mem.dropped = Some((paths, pos));
+                            }
+                            st.w.dirty = true;
+                            st.draw_now();
+                        }
+                        return PostAction::Remove;
+                    }
+                    Ok(n) => data.extend_from_slice(&buf[..n]),
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return PostAction::Continue,
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(_) => return PostAction::Remove,
+                }
+            }
+        });
+    }
 }
 
 impl<A: App> DataOfferHandler for Runner<A> {
@@ -1200,20 +1376,47 @@ impl<A: App> DataOfferHandler for Runner<A> {
 
 impl<A: App> DataSourceHandler for Runner<A> {
     fn accept_mime(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource, _: Option<String>) {}
-    fn send_request(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource, _: String, fd: WritePipe) {
+    fn send_request(&mut self, _: &Connection, _: &QueueHandle<Self>, source: &WlDataSource, mime: String, fd: WritePipe) {
         use std::io::Write;
         let mut f = std::fs::File::from(std::os::fd::OwnedFd::from(fd));
-        let _ = f.write_all(self.clip_text.as_bytes());
+        // Arquivos (do arrasto ou copiados): o conteúdo é montado e escrito numa
+        // thread (uma imagem pode ser grande e quem lê pode ser este mesmo app).
+        let files = if self.drag_source.as_ref().is_some_and(|d| d.inner() == source) {
+            Some((self.drag_files.clone(), false))
+        } else {
+            self.clip_files.clone()
+        };
+        match files {
+            Some((paths, cut)) => {
+                std::thread::spawn(move || {
+                    let _ = f.write_all(&crate::clipfiles::payload(&paths, cut, &mime));
+                });
+            }
+            None => {
+                let text = self.clip_text.clone();
+                std::thread::spawn(move || {
+                    let _ = f.write_all(text.as_bytes());
+                });
+            }
+        }
     }
     fn cancelled(&mut self, _: &Connection, _: &QueueHandle<Self>, source: &WlDataSource) {
         // Outro app copiou algo: a seleção deixou de ser nossa.
         if self.clip_source.as_ref().is_some_and(|s| s.inner() == source) {
             self.clip_source = None;
+            self.clip_files = None;
+        }
+        if self.drag_source.as_ref().is_some_and(|d| d.inner() == source) {
+            self.end_drag();
         }
         source.destroy();
     }
     fn dnd_dropped(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource) {}
-    fn dnd_finished(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource) {}
+    fn dnd_finished(&mut self, _: &Connection, _: &QueueHandle<Self>, source: &WlDataSource) {
+        if self.drag_source.as_ref().is_some_and(|d| d.inner() == source) {
+            self.end_drag();
+        }
+    }
     fn action(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource, _: DndAction) {}
 }
 

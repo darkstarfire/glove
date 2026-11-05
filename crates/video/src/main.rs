@@ -293,7 +293,7 @@ impl App for Video {
             ui.wake_after(Duration::from_millis(250));
         }
         if !self.mpv {
-            if ui.alert(AlertKind::Caution, "O Vídeo precisa do mpv.", "Instale o pacote mpv (por exemplo: sudo apt install mpv) e abra o Vídeo de novo.", &["OK"]).is_some() {
+            if ui.alert_window(AlertKind::Caution, "O Vídeo precisa do mpv.", "Instale o pacote mpv (por exemplo: sudo apt install mpv) e abra o Vídeo de novo.", &["OK"]).is_some() {
                 ui.close = true;
             }
             return;
@@ -336,7 +336,7 @@ fn main() {
     if let Some(p) = std::env::args().nth(1).map(PathBuf::from) {
         app.load(p);
     }
-    let opts = WindowOptions { title: "Vídeo".into(), app_id: "glove.Video".into(), size: (440, 120), fixed: true };
+    let opts = WindowOptions { title: "Vídeo".into(), app_id: "glove.Video".into(), size: (440, 120), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-video: {e}");
     }

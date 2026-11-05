@@ -7,3 +7,4 @@ edition.workspace = true
 ab_glyph = "0.2.32"
 tiny-skia = "0.12"
 libc = "0.2"
+resvg = { version = "0.45", default-features = false }

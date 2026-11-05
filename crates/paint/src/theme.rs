@@ -106,8 +106,9 @@ impl Theme {
             title_text_inactive: rgba(130, 130, 130, 255),
             stripe_a: rgba(236, 236, 236, 255),
             stripe_b: rgba(246, 246, 246, 255),
-            metal_top: rgba(222, 222, 222, 255),
-            metal_bottom: rgba(170, 170, 172, 255),
+            // Metal do Tiger: claro e suave (de ~230 a ~200), riscos quase invisíveis.
+            metal_top: rgba(232, 232, 232, 255),
+            metal_bottom: rgba(203, 203, 205, 255),
             menu_bg_a: rgba(246, 246, 246, 238),
             menu_bg_b: rgba(255, 255, 255, 238),
             menu_text: rgba(0, 0, 0, 255),

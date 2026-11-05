@@ -64,6 +64,10 @@ pub fn radial(cx: f32, cy: f32, r: f32, s: &[(f32, Color)]) -> Paint<'static> {
 
 /// Retângulo com cantos arredondados independentes (tl, tr, br, bl).
 pub fn rrect4(x: f32, y: f32, w: f32, h: f32, r: [f32; 4]) -> Option<Path> {
+    // Área vazia (ex.: janela encolhendo numa animação): nada a desenhar.
+    if !(w > 0.0 && h > 0.0) {
+        return None;
+    }
     let max = w.min(h) / 2.0;
     let [tl, tr, br, bl] = r.map(|v| v.clamp(0.0, max));
     const K: f32 = 1.0 - 0.552_284_8;
@@ -182,6 +186,13 @@ fn copy_px(src: &Pixmap, sx: i32, sy: i32, dst: &mut Pixmap, dx: i32, dy: i32, w
     }
 }
 
+type MetalKey = (i32, i32, i32, i32, i32, u32, u32, [(u32, u32, u32, u32); 2]);
+
+thread_local! {
+    /// Faixas de metal escovado já calculadas (ver `brushed_metal`).
+    static METAL: std::cell::RefCell<Vec<(MetalKey, Vec<u8>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 impl Canvas {
     pub fn new(w: f32, h: f32, scale: f32) -> Option<Self> {
         let pw = (w * scale).ceil().max(1.0) as u32;
@@ -297,6 +308,27 @@ impl Canvas {
         }
     }
 
+    /// Retângulo de cor lisa alinhado aos pixels da tela, sem antisserrilhado: blocos
+    /// vizinhos (células do terminal) se encostam sem fresta entre eles.
+    pub fn fill_cell(&mut self, x: f32, y: f32, w: f32, h: f32, color: Color) {
+        let s = self.scale;
+        let (x0, y0) = ((x * s).round(), (y * s).round());
+        let (x1, y1) = (((x + w) * s).round(), ((y + h) * s).round());
+        if x1 <= x0 || y1 <= y0 {
+            return;
+        }
+        let (x, y, w, h) = (x0 / s, y0 / s, (x1 - x0) / s, (y1 - y0) / s);
+        if !self.visible(x, y, w, h) {
+            return;
+        }
+        let mut paint = solid(color);
+        paint.anti_alias = false;
+        if let Some(r) = Rect::from_xywh(x, y, w, h) {
+            let t = self.t();
+            self.pm.fill_rect(r, &paint, t, None);
+        }
+    }
+
     pub fn fill_rect(&mut self, x: f32, y: f32, w: f32, h: f32, paint: &Paint) {
         if !self.visible(x, y, w, h) {
             return;
@@ -364,26 +396,103 @@ impl Canvas {
     }
 
     /// Metal escovado: gradiente vertical + riscos horizontais aleatórios.
+    /// O resultado de cada faixa fica guardado (é o mesmo a cada quadro): só a
+    /// primeira vez faz a conta pixel a pixel.
     pub fn brushed_metal(&mut self, x: f32, y: f32, w: f32, h: f32, top: Color, bottom: Color) {
         let (x0, y0, x1, y1) = self.px_range(x, y, w, h);
+        if x1 <= x0 || y1 <= y0 {
+            return;
+        }
         let s = self.scale;
         // O gradiente usa a altura pedida, não só a parte visível.
         let ys = (y * s).round() as i32;
         let span = (((y + h) * s).round() as i32 - ys).max(1) as f32;
+        let opaque = top.alpha() >= 1.0 && bottom.alpha() >= 1.0;
+        let key = (x0, y0, x1, y1, ys, span.to_bits(), s.to_bits(), [top, bottom].map(|c| (c.red().to_bits(), c.green().to_bits(), c.blue().to_bits(), c.alpha().to_bits())));
+        if opaque {
+            let hit = METAL.with(|m| {
+                let m = m.borrow();
+                let Some((_, px)) = m.iter().find(|(k, _)| *k == key) else { return false };
+                let n = ((x1 - x0) * 4) as usize;
+                for (k, yy) in (y0..y1).enumerate() {
+                    let at = self.idx(x0, yy);
+                    self.pm.data_mut()[at..at + n].copy_from_slice(&px[k * n..(k + 1) * n]);
+                }
+                true
+            });
+            if hit {
+                return;
+            }
+        }
         for yy in y0..y1 {
             let base = mix(top, bottom, (yy - ys) as f32 / span);
             let row = hash(yy as u32 * 7919) as f32 / u32::MAX as f32;
             for xx in x0..x1 {
-                let seg = hash(((xx as f32 / (23.0 * s)) as u32) ^ (yy as u32).wrapping_mul(2_654_435_761));
-                let n = (row - 0.5) * 0.07 + ((seg & 0xff) as f32 / 255.0 - 0.5) * 0.035;
+                // Riscos longos e fracos (o escovado do Tiger mal se vê).
+                let seg = hash(((xx as f32 / (70.0 * s)) as u32) ^ (yy as u32).wrapping_mul(2_654_435_761));
+                let n = (row - 0.5) * 0.028 + ((seg & 0xff) as f32 / 255.0 - 0.5) * 0.012;
                 let c = |v: f32| (v + n).clamp(0.0, 1.0);
                 let i = self.idx(xx, yy);
                 blend_px(self.pm.data_mut(), i, c(base.red()), c(base.green()), c(base.blue()), base.alpha());
             }
         }
+        if opaque {
+            let n = ((x1 - x0) * 4) as usize;
+            let mut px = Vec::with_capacity(n * (y1 - y0) as usize);
+            for yy in y0..y1 {
+                let at = self.idx(x0, yy);
+                px.extend_from_slice(&self.pm.data()[at..at + n]);
+            }
+            METAL.with(|m| {
+                let mut m = m.borrow_mut();
+                // Poucas faixas por app (barra de cima, de baixo, margens).
+                if m.len() >= 12 {
+                    m.remove(0);
+                }
+                m.push((key, px));
+            });
+        }
     }
 
     /// Arredonda os cantos superiores apagando os pixels de fora.
+    /// Brilho do metal escovado do Tiger: um pouco mais claro no meio da janela
+    /// (`full_w` = largura dela, para as faixas separadas casarem).
+    pub fn metal_sheen(&mut self, x: f32, y: f32, w: f32, h: f32, full_w: f32) {
+        self.fill_rect(x, y, w, h, &linear(0.0, 0.0, full_w.max(1.0), 0.0, &[(0.0, rgba(255, 255, 255, 0)), (0.5, rgba(255, 255, 255, 34)), (1.0, rgba(255, 255, 255, 0))]));
+    }
+
+    /// Arredonda os cantos de baixo (janelas de metal do Tiger), apagando os pixels de fora.
+    pub fn clip_bottom_corners(&mut self, r: f32) {
+        let r = r * self.scale;
+        let (w, h) = (self.px_width() as i32, self.px_height() as i32);
+        let ri = r.ceil() as i32;
+        let [bx0, by0, bx1, by1] = self.bounds();
+        for dy in 0..ri {
+            for dx in 0..ri {
+                let (px, py) = (dx as f32 + 0.5, dy as f32 + 0.5);
+                if px >= r || py >= r {
+                    continue;
+                }
+                let d = ((r - px).powi(2) + (r - py).powi(2)).sqrt();
+                let cov = (r - d + 0.5).clamp(0.0, 1.0);
+                if cov >= 1.0 {
+                    continue;
+                }
+                let y = h - 1 - dy;
+                for x in [dx, w - 1 - dx] {
+                    if x < bx0 || x >= bx1 || y < by0 || y >= by1 {
+                        continue;
+                    }
+                    let i = self.idx(x, y);
+                    let data = self.pm.data_mut();
+                    for k in 0..4 {
+                        data[i + k] = (data[i + k] as f32 * cov) as u8;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn clip_top_corners(&mut self, r: f32) {
         let r = r * self.scale;
         let w = self.px_width() as i32;
@@ -515,21 +624,40 @@ pub fn gel_circle(c: &mut Canvas, cx: f32, cy: f32, r: f32, base: Color) {
 
 /// Pílula/retângulo de gel (botões, destaque de menu, barras).
 pub fn gel_rect(c: &mut Canvas, x: f32, y: f32, w: f32, h: f32, r: f32, base: Color) {
-    c.fill(rrect(x, y, w, h, r), &solid(darken(base, 0.4)));
+    // Vidro polido da era Aqua, em camadas: sombrinha embaixo, borda escura fina,
+    // corpo com a cor mais funda logo abaixo do reflexo e acesa embaixo (a luz que
+    // atravessa o vidro), um brilho difuso no fundo e o reflexo forte em cima, com
+    // a borda de baixo bem definida.
+    let colored = (base.red() - base.blue()).abs() + (base.green() - base.blue()).abs() + (base.red() - base.green()).abs() > 0.15;
+    c.fill(rrect(x, y + 1.0, w, h, r), &solid(rgba(0, 0, 0, if colored { 45 } else { 28 })));
+    c.fill(rrect(x, y, w, h, r), &solid(darken(base, if colored { 0.22 } else { 0.4 })));
     let (ix, iy, iw, ih) = (x + 1.0, y + 1.0, w - 2.0, h - 2.0);
-    c.fill(
-        rrect(ix, iy, iw, ih, (r - 1.0).max(0.0)),
-        &vgrad(iy, iy + ih, &[(0.0, darken(base, 0.05)), (0.5, base), (1.0, lighten(base, 0.6))]),
-    );
-    let hh = ih * 0.5;
-    let rr = (r - 2.0).max(0.0);
-    // Muito estreito ou baixo para o brilho de cima.
+    let ir = (r - 1.0).max(0.0);
+    let body = || rrect(ix, iy, iw, ih, ir);
+    if colored {
+        c.fill(body(), &vgrad(iy, iy + ih, &[(0.0, lighten(base, 0.42)), (0.48, lighten(base, 0.28)), (0.56, lighten(base, 0.34)), (1.0, lighten(base, 0.88))]));
+        // Brilho que vem de dentro, no fundo do botão.
+        if iw > 8.0 && ih > 6.0 {
+            let (cx, cy) = (ix + iw / 2.0, iy + ih * 1.05);
+            let k = iw / ih.max(1.0);
+            let glow = radial(0.0, 0.0, ih * 0.8, &[(0.0, with_alpha(lighten(base, 0.9), 1.0)), (1.0, with_alpha(lighten(base, 0.6), 0.0))]);
+            let mut g = glow;
+            g.shader.transform(tiny_skia::Transform::from_row(k * 0.6, 0.0, 0.0, 1.0, cx, cy));
+            c.fill(body(), &g);
+        }
+    } else {
+        c.fill(body(), &vgrad(iy, iy + ih, &[(0.0, darken(base, 0.04)), (0.5, darken(base, 0.1)), (0.75, darken(base, 0.04)), (1.0, lighten(base, 0.85))]));
+    }
+    let hh = ih * 0.48;
+    let rr = (ir - 1.0).max(0.0);
+    // Muito estreito ou baixo para o reflexo de cima.
     if iw <= 4.0 || hh <= 0.0 {
         return;
     }
+    let inset = if colored { 1.5 } else { 2.0 };
     c.fill(
-        rrect4(ix + 2.0, iy + 1.0, iw - 4.0, hh, [rr, rr, 2.0, 2.0]),
-        &vgrad(iy, iy + hh, &[(0.0, rgba(255, 255, 255, 230)), (1.0, rgba(255, 255, 255, 40))]),
+        rrect4(ix + inset, iy + 0.5, iw - 2.0 * inset, hh, [rr, rr, (rr * 0.35).min(3.0), (rr * 0.35).min(3.0)]),
+        &vgrad(iy, iy + hh, &[(0.0, rgba(255, 255, 255, if colored { 250 } else { 230 })), (0.6, rgba(255, 255, 255, if colored { 150 } else { 70 })), (1.0, rgba(255, 255, 255, if colored { 95 } else { 40 }))]),
     );
 }
 

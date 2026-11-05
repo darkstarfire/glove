@@ -57,6 +57,7 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
                 (lighten(theme.metal_top, 0.3), lighten(theme.metal_bottom, 0.4))
             };
             c.brushed_metal(0.0, 0.0, w, h, top, bot);
+            c.metal_sheen(0.0, 0.0, w, h, w);
         }
         Variant::Claro => {
             // Degradê cinza claro e liso, sem listras (10.4). A inativa fica mais clara.
@@ -91,7 +92,10 @@ pub fn titlebar(fonts: &Fonts, theme: &Theme, w: f32, title: &str, st: &TitleBar
     }
     c.hline(0.0, 0.0, w, rgba(255, 255, 255, 200));
     let edge = if theme.variant == Variant::Claro { rgba(150, 150, 152, 255) } else { rgba(120, 120, 124, 255) };
-    c.hline(0.0, h - 1.0 / scale, w, edge);
+    // Metal: título e barra de ferramentas são uma peça só (sem a linha entre eles).
+    if theme.variant != Variant::Metal {
+        c.hline(0.0, h - 1.0 / scale, w, edge);
+    }
     c.clip_top_corners(6.0);
 
     let cy = h / 2.0;
@@ -175,7 +179,12 @@ pub fn shadow_spec(active: bool) -> ShadowSpec {
 pub fn window_shadow(w: i32, h: i32, active: bool, scale: f32) -> Vec<(i32, i32, Canvas)> {
     let m = SHADOW_M;
     let s = shadow_spec(active);
-    let parts = [(-m, -m, w + 2 * m, m), (-m, h, w + 2 * m, m), (-m, 0, m, h), (w, 0, m, h)];
+    // A faixa de cima entra um pouco na janela: os cantos de cima são arredondados
+    // e, sem sombra no pedaço recortado, o fundo aparecia ali e o canto parecia vivo.
+    // (Fica atrás da barra de título, então só aparece nesses cantos.)
+    let r = 7;
+    // A de baixo também entra na janela: as de metal têm os cantos de baixo arredondados.
+    let parts = [(-m, -m, w + 2 * m, m + r), (-m, h - r, w + 2 * m, m + r), (-m, r, m, h - 2 * r), (w, r, m, h - 2 * r)];
     parts
         .into_iter()
         .filter(|p| p.2 > 0 && p.3 > 0)
@@ -487,8 +496,8 @@ pub struct DockItem {
 
 pub const DOCK_BASE: f32 = 56.0;
 pub const DOCK_MAX: f32 = 80.0;
-const DOCK_GAP: f32 = 6.0;
-const DOCK_PAD_X: f32 = 10.0;
+const DOCK_GAP: f32 = 2.0;
+const DOCK_PAD_X: f32 = 8.0;
 const DOCK_PAD_Y: f32 = 4.0;
 const DOCK_SEP: f32 = 14.0;
 const DOCK_LABEL_H: f32 = 26.0;
@@ -580,7 +589,7 @@ fn dock_layout_room(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f
     let base_w = n * (base + DOCK_GAP) - DOCK_GAP + seps * DOCK_SEP;
     let extra = (max - base).max(0.0) * 3.2;
     let width = (base_w + extra + 2.0 * DOCK_PAD_X).ceil() as u32 + 4;
-    let height = (label_room + max.max(base) + 2.0 * DOCK_PAD_Y + 6.0).ceil() as u32;
+    let height = (label_room + max.max(base + 6.0) + 2.0 * DOCK_PAD_Y + 6.0).ceil() as u32;
     let center = width as f32 / 2.0;
 
     let mut base_centers = Vec::with_capacity(items.len());
@@ -617,7 +626,8 @@ fn dock_layout_room(items: &[DockItem], hover_x: Option<f32>, zoom: f32, base: f
         x += s + DOCK_GAP;
     }
     // A prateleira envolve os ícones no tamanho normal; ampliados, eles saem por cima.
-    let shelf_h = base + DOCK_PAD_Y + 6.0;
+    // Folga em cima: o ícone não encosta na borda da prateleira (como no Tiger).
+    let shelf_h = base + DOCK_PAD_Y + 11.0;
     let shelf = (center - total / 2.0 - DOCK_PAD_X, height as f32 - shelf_h, total + 2.0 * DOCK_PAD_X, shelf_h);
     DockLayout { width, height, items: out, shelf, side: DockSide::Bottom }
 }
@@ -664,6 +674,58 @@ fn outlined_label(fonts: &Fonts, c: &mut Canvas, text: &str, x: f32, y: f32, px:
     fonts.draw(c, text, x, y, px, true, Color::WHITE);
 }
 
+thread_local! {
+    /// Sombras dos ícones do Dock já feitas: (ícone, letra, tamanho em pixels) → sombra.
+    static ICON_SHADOWS: std::cell::RefCell<Vec<((String, u32), std::rc::Rc<Canvas>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Sombra com a forma do ícone: o contorno dele, desfocado e escuro (como os
+/// ícones do Dock do Tiger). Devolve a sombra e a margem em volta do ícone.
+fn icon_shadow(fonts: &Fonts, icon: icons::Icon, letter: Option<char>, size: f32, scale: f32) -> Option<(std::rc::Rc<Canvas>, f32)> {
+    // Tamanhos de 2 em 2 pixels: a ampliação não refaz a sombra a cada quadro.
+    let px = ((size * scale / 2.0).round() * 2.0) as u32;
+    let key = (format!("{icon:?}{letter:?}"), px);
+    if let Some(c) = ICON_SHADOWS.with(|m| m.borrow().iter().find(|(k, _)| *k == key).map(|(_, c)| c.clone())) {
+        return Some((c, (size * 0.08).max(3.0)));
+    }
+    let pad = (size * 0.08).max(3.0);
+    let side = px as f32 / scale;
+    let mut c = Canvas::new(side + 2.0 * pad, side + 2.0 * pad, scale)?;
+    icons::draw_bare(&mut c, fonts, icon, pad, pad, side, letter);
+    let (w, h) = (c.pm.width() as usize, c.pm.height() as usize);
+    // Só o alfa, desfocado com duas passadas de caixa em cada direção.
+    let mut a: Vec<f32> = c.pm.data().chunks_exact(4).map(|p| p[3] as f32).collect();
+    let r = ((size * 0.035 * scale).round() as usize).max(1);
+    let mut tmp = vec![0f32; a.len()];
+    for _ in 0..2 {
+        for y in 0..h {
+            for x in 0..w {
+                let (lo, hi) = (x.saturating_sub(r), (x + r).min(w - 1));
+                tmp[y * w + x] = a[y * w + lo..=y * w + hi].iter().sum::<f32>() / (hi - lo + 1) as f32;
+            }
+        }
+        for x in 0..w {
+            for y in 0..h {
+                let (lo, hi) = (y.saturating_sub(r), (y + r).min(h - 1));
+                a[y * w + x] = (lo..=hi).map(|yy| tmp[yy * w + x]).sum::<f32>() / (hi - lo + 1) as f32;
+            }
+        }
+    }
+    for (p, v) in c.pm.data_mut().chunks_exact_mut(4).zip(&a) {
+        let al = (v * 0.45) as u8;
+        p.copy_from_slice(&[0, 0, 0, al]);
+    }
+    let c = std::rc::Rc::new(c);
+    ICON_SHADOWS.with(|m| {
+        let mut m = m.borrow_mut();
+        if m.len() >= 96 {
+            m.remove(0);
+        }
+        m.push((key, c.clone()));
+    });
+    Some((c, pad))
+}
+
 pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, scale: f32) -> Option<Canvas> {
     let mut c = Canvas::new(layout.width as f32, layout.height as f32, scale)?;
     let (sx, sy, sw, sh) = layout.shelf;
@@ -678,17 +740,22 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
         DockSide::Right => rrect4(sx, sy, sw + 2.0, sh, [2.0, 0.0, 0.0, 2.0]),
     };
     if theme.variant == Variant::Claro {
-        // 10.4: vidro branco liso, sem listras.
-        c.fill(shelf.clone(), &solid(rgba(255, 255, 255, 115)));
+        // 10.4: vidro fosco cinza-lilás, quase opaco (o tom não depende do papel
+        // de parede), liso e um pouco mais claro em cima.
+        c.fill(shelf.clone(), &vgrad(sy, sy + sh, &[(0.0, rgba(170, 178, 216, 222)), (1.0, rgba(146, 156, 202, 228))]));
     } else {
         c.fill(shelf.clone(), &vgrad(sy, sy + sh, &[(0.0, rgba(255, 255, 255, 120)), (0.5, rgba(240, 244, 250, 100)), (1.0, rgba(225, 232, 242, 112))]));
         c.pinstripes(sx + 1.0, sy + 1.0, sw - 2.0, sh - 1.0, rgba(255, 255, 255, 0), rgba(255, 255, 255, 34));
     }
-    c.stroke(shelf, &solid(rgba(255, 255, 255, 170)), 1.0);
+    // Borda clara fina e suave (no 10.4 é só um fio de luz em volta do vidro).
+    let claro = theme.variant == Variant::Claro;
+    c.stroke(shelf, &solid(rgba(255, 255, 255, if claro { 80 } else { 170 })), 1.0 / scale);
     match side {
         DockSide::Bottom => {
-            c.hline(sx, sy - 1.0, sw, rgba(0, 0, 0, 50));
-            c.hline(sx + 2.0, sy + 1.0, sw - 4.0, rgba(255, 255, 255, 210));
+            c.hline(sx, sy - 1.0, sw, rgba(0, 0, 0, if claro { 35 } else { 50 }));
+            if !claro {
+                c.hline(sx + 2.0, sy + 1.0, sw - 4.0, rgba(255, 255, 255, 210));
+            }
         }
         DockSide::Left => c.vline(sx + sw, sy, sh, rgba(0, 0, 0, 50)),
         DockSide::Right => c.vline(sx - 1.0, sy, sh, rgba(0, 0, 0, 50)),
@@ -713,7 +780,21 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
             DockSide::Right => (&(x - it.bounce.clamp(0.0, (x - 2.0).max(0.0))), y),
         };
         if !it.thumbnail {
-            icons::draw_bare(&mut c, fonts, it.icon, *x, *y, *s, it.letter);
+            // O desenho dos ícones tem margem dentro do quadro; no Dock ele cresce
+            // para encher a vaga (como os ícones do Tiger, quase encostados).
+            // Cresce para o lado da borda da tela (a margem de baixo do desenho fica
+            // sobre o espaço do indicador), para o ícone caber na prateleira.
+            let k = 1.14;
+            let (dx, dy) = match side {
+                DockSide::Bottom => (s * (k - 1.0) / 2.0, s * (k - 1.0) * 0.1),
+                DockSide::Left => (s * (k - 1.0) * 0.7, s * (k - 1.0) / 2.0),
+                DockSide::Right => (s * (k - 1.0) * 0.3, s * (k - 1.0) / 2.0),
+            };
+            let (ix, iy, is) = (*x - dx, *y - dy, *s * k);
+            if let Some((sh, pad)) = icon_shadow(fonts, it.icon, it.letter, is, scale) {
+                c.draw_canvas(&sh, ix - pad, iy - pad + is * 0.035);
+            }
+            icons::draw_bare(&mut c, fonts, it.icon, ix, iy, is, it.letter);
         }
         if it.running {
             // Indicador de app aberto: pequeno triângulo escuro junto à borda da tela.

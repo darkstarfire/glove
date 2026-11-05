@@ -200,7 +200,7 @@ impl Correio {
         self.next_win += 1;
         let title = if c.subject.is_empty() { "Nova Mensagem".to_string() } else { c.subject.clone() };
         self.composes.insert(id, c);
-        ui.open_window(id, WindowOptions { title, app_id: "glove.Correio".into(), size: (620, 480), fixed: false });
+        ui.open_window(id, WindowOptions { title, app_id: "glove.Correio".into(), size: (620, 480), fixed: false, min_size: None });
     }
 
     fn open_accounts(&mut self, ui: &mut Ui) {
@@ -212,7 +212,7 @@ impl Correio {
         }
         if !self.accounts_open {
             self.accounts_open = true;
-            ui.open_window(ACCOUNTS_WIN, WindowOptions { title: "Contas de Correio".into(), app_id: "glove.Correio".into(), size: (560, 400), fixed: true });
+            ui.open_window(ACCOUNTS_WIN, WindowOptions { title: "Contas de Correio".into(), app_id: "glove.Correio".into(), size: (560, 400), fixed: true, min_size: None });
         }
     }
 
@@ -1093,7 +1093,7 @@ fn main() {
         message_at: Instant::now(),
         confirm_remove: false,
     };
-    let opts = WindowOptions { title: "Correio".into(), app_id: "glove.Correio".into(), size: (900, 600), fixed: false };
+    let opts = WindowOptions { title: "Correio".into(), app_id: "glove.Correio".into(), size: (900, 600), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-correio: {e}");
     }

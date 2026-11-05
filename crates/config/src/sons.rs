@@ -106,13 +106,27 @@ fn wav(samples: &[f32]) -> Vec<u8> {
     v
 }
 
+/// Um instante de silêncio antes e um pouco depois: a placa de som em repouso leva
+/// ~0,2 s para acordar, e o PipeWire descarta o começo de sons curtíssimos.
+fn padded(s: Vec<f32>) -> Vec<f32> {
+    let lead = (RATE as f32 * 0.12) as usize;
+    let tail = (RATE as f32 * 0.35) as usize;
+    let mut v = vec![0.0; lead];
+    v.extend(s);
+    v.extend(std::iter::repeat_n(0.0, tail));
+    v
+}
+
 fn cache_file(name: &str) -> Option<PathBuf> {
     let base = std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?;
     let dir = base.join("glove/sons");
-    let file = dir.join(format!("{name}.wav"));
+    // "-2": com silêncio no fim (versão anterior sem ele ficava mais curta que o
+    // tempo de a saída de som acordar do repouso, e não se ouvia nada).
+    let file = dir.join(format!("{name}-2.wav"));
     if !file.is_file() {
         std::fs::create_dir_all(&dir).ok()?;
-        std::fs::write(&file, wav(&synth(name))).ok()?;
+        let _ = std::fs::remove_file(dir.join(format!("{name}.wav")));
+        std::fs::write(&file, wav(&padded(synth(name)))).ok()?;
     }
     Some(file)
 }
@@ -123,7 +137,10 @@ pub fn play(name: &str, volume: f32) {
         return;
     }
     let Some(file) = cache_file(name) else { return };
+    // LC_NUMERIC=C: em português o pw-play lê "0.50" com vírgula decimal e vira 0
+    // (mudo); só o volume máximo ("1.00") tocava.
     let spawned = std::process::Command::new("pw-play")
+        .env("LC_NUMERIC", "C")
         .arg(format!("--volume={:.2}", volume.clamp(0.0, 1.0)))
         .arg(&file)
         .stdout(std::process::Stdio::null())

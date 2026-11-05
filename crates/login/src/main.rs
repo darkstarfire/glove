@@ -6,6 +6,7 @@
 //! O comando da sessão vem de $GLOVE_SESSION (padrão: glove-session).
 
 mod greetd;
+mod sessoes;
 mod users;
 
 use std::sync::mpsc::{channel, Receiver};
@@ -22,7 +23,7 @@ use glove_kit::{
 use users::User;
 
 const W: f32 = 460.0;
-const H: f32 = 430.0;
+const H: f32 = 470.0;
 /// Balanço do painel na senha errada.
 const SHAKE: Duration = Duration::from_millis(450);
 
@@ -46,6 +47,9 @@ struct Login {
     focus_password: bool,
     fake: bool,
     session: Vec<String>,
+    /// Ambientes gráficos instalados e o escolhido.
+    sessions: Vec<sessoes::Session>,
+    session_idx: usize,
 }
 
 impl Login {
@@ -65,13 +69,22 @@ impl Login {
         let password = std::mem::take(&mut self.password);
         self.message = None;
         let (tx, rx) = channel();
-        let (fake, cmd) = (self.fake, self.session.clone());
+        let chosen = self.sessions.get(self.session_idx).cloned();
+        let (cmd, env) = match &chosen {
+            Some(s) if s.id != "glove" => s.command(),
+            _ => (self.session.clone(), Vec::new()),
+        };
+        if let Some(s) = &chosen {
+            sessoes::remember(s);
+        }
+        let fake = self.fake;
         std::thread::spawn(move || {
             let r = if fake {
                 std::thread::sleep(Duration::from_millis(700));
+                eprintln!("glove-login (--fake): sessão {cmd:?} {env:?}");
                 if password == "glove" { Ok(()) } else { Err("Senha incorreta.".into()) }
             } else {
-                greetd::log_in(&user, &password, &cmd)
+                greetd::log_in(&user, &password, &cmd, &env)
             };
             let mut bytes = password.into_bytes();
             bytes.iter_mut().for_each(|b| *b = 0);
@@ -208,7 +221,7 @@ impl App for Login {
                         y += 106.0;
                     }
                     None => {
-                        ui.fonts.draw(ui.c, "Nome:", cx - 150.0, y + 16.0, 13.0, false, ink);
+                        { let lw = ui.text_width("Nome:", 13.0, false); ui.fonts.draw(ui.c, "Nome:", cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
                         let mut name = std::mem::take(&mut self.other_name);
                         ui.area(Rect::new(cx - 100.0, y, 250.0, 24.0), |ui| {
                             ui.text_field(&mut name, 250.0);
@@ -217,7 +230,7 @@ impl App for Login {
                         y += 40.0;
                     }
                 }
-                ui.fonts.draw(ui.c, "Senha:", cx - 150.0, y + 16.0, 13.0, false, ink);
+                { let lw = ui.text_width("Senha:", 13.0, false); ui.fonts.draw(ui.c, "Senha:", cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
                 ui.set_enabled(!busy);
                 let focus = std::mem::take(&mut self.focus_password);
                 let mut pw = std::mem::take(&mut self.password);
@@ -227,6 +240,17 @@ impl App for Login {
                 }
                 self.password = pw;
                 y += 34.0;
+                // Ambiente gráfico (só aparece com mais de um instalado).
+                if self.sessions.len() > 1 {
+                    { let lw = ui.text_width("Sessão:", 13.0, false); ui.fonts.draw(ui.c, "Sessão:", cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
+                    let names: Vec<String> = self.sessions.iter().map(|s| s.name.clone()).collect();
+                    let mut i = self.session_idx;
+                    ui.area(Rect::new(cx - 100.0, y, 250.0, 24.0), |ui| {
+                        ui.popup(&mut i, &names, 250.0);
+                    });
+                    self.session_idx = i;
+                    y += 34.0;
+                }
                 if let Some(m) = self.message.clone() {
                     center_text(ui, &m, cx, y + 12.0, 12.0, true, rgba(200, 30, 30, 255));
                 }
@@ -331,9 +355,11 @@ fn main() {
     let users = users::list();
     let photos = users.iter().map(|u| u.photo.as_ref().and_then(|p| Pixmap::load_png(p).ok())).collect();
     let host = std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()).unwrap_or_default();
-    let session = std::env::var("GLOVE_SESSION").unwrap_or_else(|_| "glove-session".into()).split_whitespace().map(str::to_string).collect();
-    let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session };
-    let opts = WindowOptions { title: "Entrar".into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true };
+    let session: Vec<String> = std::env::var("GLOVE_SESSION").unwrap_or_else(|_| "glove-session".into()).split_whitespace().map(str::to_string).collect();
+    let sessions = sessoes::list(&session);
+    let session_idx = sessoes::last().and_then(|(id, x11)| sessions.iter().position(|s| s.id == id && s.x11 == x11)).unwrap_or(0);
+    let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session, sessions, session_idx };
+    let opts = WindowOptions { title: "Entrar".into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-login: {e}");
         std::process::exit(1);

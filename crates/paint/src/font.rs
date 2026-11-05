@@ -132,6 +132,24 @@ impl Fonts {
         Some(new_fonts(FontVec::try_from_vec_and_index(data, index).ok()?, None))
     }
 
+    /// Todos os caracteres que a fonte principal desenha, em ordem.
+    pub fn chars(&self) -> Vec<char> {
+        let mut v: Vec<char> = self.regular.codepoint_ids().filter(|(id, c)| id.0 != 0 && !c.is_control()).map(|(_, c)| c).collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    }
+
+    /// Medidas verticais da fonte principal em `px`: (subida acima da linha de
+    /// base, descida abaixo dela, altura do "x", altura das maiúsculas).
+    pub fn v_metrics(&self, px: f32) -> (f32, f32, f32, f32) {
+        let f = &self.regular;
+        let sf = f.as_scaled(self.scale(f, px));
+        // No ab_glyph, `bounds.min.y` guarda o topo do contorno (y para cima).
+        let h = |ch: char| f.outline(f.glyph_id(ch)).map(|o| o.bounds.min.y.max(o.bounds.max.y)).unwrap_or(0.0) * sf.scale().y / f.height_unscaled().max(1.0);
+        (sf.ascent(), -sf.descent(), h('x'), h('H'))
+    }
+
     /// Se a fonte principal tem o caractere (sem contar as reservas).
     pub fn has_char(&self, ch: char) -> bool {
         self.regular.glyph_id(ch).0 != 0

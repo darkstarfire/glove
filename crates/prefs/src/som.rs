@@ -75,11 +75,45 @@ pub fn status() -> Option<(Vec<Device>, Vec<Device>)> {
     out.status.success().then(|| parse_status(&String::from_utf8_lossy(&out.stdout)))
 }
 
-/// Roda o `wpctl` sem esperar (e recolhe o processo depois).
+/// `status` numa thread (o `wpctl status` demora e travaria a janela).
+pub fn status_async() -> std::sync::mpsc::Receiver<Option<(Vec<Device>, Vec<Device>)>> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(status());
+    });
+    rx
+}
+
+/// Pedidos ao `wpctl`, feitos um de cada vez numa thread. Enquanto um roda, os
+/// volumes pedidos se acumulam e só o último vale: arrastar o slider não abre
+/// dezenas de processos nem fica para trás.
+fn worker() -> &'static std::sync::mpsc::Sender<Vec<String>> {
+    static TX: std::sync::OnceLock<std::sync::mpsc::Sender<Vec<String>>> = std::sync::OnceLock::new();
+    TX.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<Vec<String>>();
+        std::thread::spawn(move || {
+            while let Ok(first) = rx.recv() {
+                let mut batch = vec![first];
+                batch.extend(rx.try_iter());
+                // Volumes: só o último de cada alvo.
+                let mut run: Vec<Vec<String>> = Vec::new();
+                for args in batch {
+                    if args.first().is_some_and(|a| a == "set-volume") {
+                        run.retain(|r| !(r.first() == args.first() && r.get(3) == args.get(3)));
+                    }
+                    run.push(args);
+                }
+                for args in run {
+                    let _ = Command::new("wpctl").args(&args).status();
+                }
+            }
+        });
+        tx
+    })
+}
+
 fn wpctl(args: &[&str]) {
-    if let Ok(mut c) = Command::new("wpctl").args(args).spawn() {
-        std::thread::spawn(move || c.wait());
-    }
+    let _ = worker().send(args.iter().map(|a| a.to_string()).collect());
 }
 
 pub fn set_default(id: u32) {

@@ -67,6 +67,8 @@ pub enum Icon {
     CodeFile,
     /// Painéis das Preferências.
     Pref(PrefKind),
+    /// Ícone de um tema do sistema, pelo nome (ex.: "firefox"); número da tabela de nomes.
+    System(u32),
 }
 
 /// Ícones dos painéis das Preferências (desenhos próprios).
@@ -170,9 +172,130 @@ impl Icon {
             "dictionary" => Icon::Dictionary,
             "fontbook" => Icon::FontBook,
             "mail" => Icon::Mail,
-            _ => Icon::Generic,
+            "" | "generic" => Icon::Generic,
+            // Qualquer outro nome: o ícone do tema do sistema (apps de fora).
+            other => Icon::System(intern(other)),
         }
     }
+
+    /// Nome do ícone equivalente nos temas do sistema (freedesktop), para usar o
+    /// tema escolhido nas Preferências também nos apps e pastas do Glove.
+    fn freedesktop_name(self) -> Option<&'static str> {
+        Some(match self {
+            Icon::Terminal => "utilities-terminal",
+            Icon::Folder => "folder",
+            Icon::Globe => "web-browser",
+            Icon::TextEditor => "accessories-text-editor",
+            Icon::Calculator => "accessories-calculator",
+            Icon::Settings => "preferences-system",
+            Icon::Trash => "user-trash",
+            Icon::TrashFull => "user-trash-full",
+            Icon::Disk => "drive-harddisk",
+            Icon::Document => "text-x-generic",
+            Icon::Picture => "image-x-generic",
+            Icon::File => "text-x-generic",
+            Icon::Notes => "accessories-notes",
+            Icon::Search => "system-search",
+            Icon::Chars => "accessories-character-map",
+            Icon::Camera => "applets-screenshooter",
+            Icon::Monitor => "utilities-system-monitor",
+            Icon::Chess => "gnome-chess",
+            Icon::Music => "multimedia-audio-player",
+            Icon::Contacts => "x-office-address-book",
+            Icon::Video => "multimedia-video-player",
+            Icon::Logs => "logviewer",
+            Icon::Info => "dialog-information",
+            Icon::Help => "help-browser",
+            Icon::Dictionary => "accessories-dictionary",
+            Icon::FontBook => "font-x-generic",
+            Icon::Mail => "mail-client",
+            Icon::Display => "video-display",
+            Icon::Mouse => "input-mouse",
+            Icon::Trackpad => "input-touchpad",
+            Icon::AudioFile => "audio-x-generic",
+            Icon::VideoFile => "video-x-generic",
+            Icon::ArchiveFile => "package-x-generic",
+            Icon::PdfFile => "application-pdf",
+            Icon::CodeFile => "text-x-script",
+            Icon::SpecialFolder(k) => match k {
+                FolderKind::Desktop => "user-desktop",
+                FolderKind::Documents => "folder-documents",
+                FolderKind::Downloads => "folder-download",
+                FolderKind::Pictures => "folder-pictures",
+                FolderKind::Music => "folder-music",
+                FolderKind::Videos => "folder-videos",
+                FolderKind::Applications => "folder",
+                FolderKind::Home => "user-home",
+                FolderKind::Public => "folder-publicshare",
+                FolderKind::Templates => "folder-templates",
+                FolderKind::Smart => "folder-saved-search",
+            },
+            _ => return None,
+        })
+    }
+}
+
+/// Nomes dos ícones do sistema já vistos (o `Icon` guarda só o número).
+fn names() -> &'static std::sync::Mutex<Vec<String>> {
+    static N: std::sync::OnceLock<std::sync::Mutex<Vec<String>>> = std::sync::OnceLock::new();
+    N.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+}
+
+fn intern(name: &str) -> u32 {
+    let mut v = names().lock().unwrap();
+    match v.iter().position(|n| n == name) {
+        Some(i) => i as u32,
+        None => {
+            v.push(name.to_string());
+            (v.len() - 1) as u32
+        }
+    }
+}
+
+/// Tema de ícones escolhido nas Preferências ("" = os desenhados pelo Glove).
+static THEME: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+/// Troca o tema de ícones (chamado ao ler a configuração).
+pub fn set_theme(name: &str) {
+    if let Ok(mut t) = THEME.lock() {
+        if *t != name {
+            *t = name.to_string();
+        }
+    }
+}
+
+/// Tema do sistema para os apps de fora quando o Glove usa os próprios ícones:
+/// o do GTK (o que o resto do sistema mostra), senão o Adwaita.
+fn system_theme() -> String {
+    static T: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    T.get_or_init(|| {
+        let home = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default();
+        for f in [home.join(".config/gtk-3.0/settings.ini"), home.join(".config/gtk-4.0/settings.ini"), "/etc/gtk-3.0/settings.ini".into()] {
+            if let Ok(t) = std::fs::read_to_string(f) {
+                if let Some(v) = t.lines().find_map(|l| l.trim().strip_prefix("gtk-icon-theme-name")).and_then(|v| v.split('=').nth(1)) {
+                    return v.trim().trim_matches('"').to_string();
+                }
+            }
+        }
+        std::process::Command::new("gsettings")
+            .args(["get", "org.gnome.desktop.interface", "icon-theme"])
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().trim_matches('\'').to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "Adwaita".into())
+    })
+    .clone()
+}
+
+/// Desenha a imagem de um tema do sistema; falso se o tema não tem o ícone.
+fn draw_themed(pm: &mut Canvas, theme: &str, name: &str, x: f32, y: f32, s: f32) -> bool {
+    let k = pm.scale;
+    let px = (s * k).round() as u32;
+    let Some(img) = crate::sysicons::image(theme, name, px) else { return false };
+    let paint = tiny_skia::PixmapPaint { quality: tiny_skia::FilterQuality::Bilinear, ..Default::default() };
+    pm.draw_pixmap_t(img.as_ref().as_ref(), &paint, tiny_skia::Transform::from_translate((x * k).round(), (y * k).round()));
+    true
 }
 
 /// Desenha o ícone ocupando o quadrado (x, y, s, s).
@@ -186,6 +309,24 @@ pub fn draw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
 
 /// O ícone sem a sombra de contato (no Dock os ícones ficam direto no vidro).
 pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, letter: Option<char>) {
+    let chosen = THEME.lock().map(|t| t.clone()).unwrap_or_default();
+    // Apps de fora: o ícone deles no tema (o escolhido ou o do sistema).
+    if let Icon::System(i) = icon {
+        let name = names().lock().ok().and_then(|v| v.get(i as usize).cloned()).unwrap_or_default();
+        let theme = if chosen.is_empty() { system_theme() } else { chosen };
+        if !draw_themed(pm, &theme, &name, x, y, s) {
+            window(pm, fonts, x, y, s, letter);
+        }
+        return;
+    }
+    // Tema escolhido: os do Glove também (se o tema tiver o equivalente).
+    if !chosen.is_empty() {
+        if let Some(name) = icon.freedesktop_name() {
+            if draw_themed(pm, &chosen, name, x, y, s) {
+                return;
+            }
+        }
+    }
     match icon {
         Icon::Terminal => terminal(pm, x, y, s),
         Icon::Folder => folder(pm, x, y, s),
@@ -193,7 +334,7 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::TextEditor => editor(pm, x, y, s),
         Icon::Calculator => calculator(pm, x, y, s),
         Icon::Settings => gear(pm, x, y, s),
-        Icon::Window => window(pm, fonts, x, y, s, letter),
+        Icon::Window | Icon::System(_) => window(pm, fonts, x, y, s, letter),
         Icon::Generic => generic(pm, fonts, x, y, s, letter),
         Icon::Clock(h, m) => clock(pm, x, y, s, h, m),
         Icon::Trash => trash(pm, x, y, s, false),
@@ -224,11 +365,11 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Trackpad => trackpad(pm, x, y, s),
         Icon::SpecialFolder(FolderKind::Smart) => {
             folder_colored(pm, x, y, s, rgba(150, 100, 210, 255));
-            folder_emblem(pm, FolderKind::Smart, x + s * 0.5, y + s * 0.6, s * 0.3);
+            folder_emblem(pm, FolderKind::Smart, x + s * 0.5, y + s * 0.585, s * 0.34);
         }
         Icon::SpecialFolder(k) => {
             folder(pm, x, y, s);
-            folder_emblem(pm, k, x + s * 0.5, y + s * 0.6, s * 0.3);
+            folder_emblem(pm, k, x + s * 0.5, y + s * 0.585, s * 0.34);
         }
         Icon::Pref(k) => pref_icon(pm, k, x, y, s),
         Icon::AudioFile => typed_page(pm, x, y, s, 1),
@@ -241,8 +382,8 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
 
 /// Desenho em relevo na frente da pasta: azul escuro com um brilho embaixo.
 fn folder_emblem(pm: &mut Canvas, k: FolderKind, cx: f32, cy: f32, s: f32) {
-    let dark = rgba(25, 75, 150, 200);
-    let light = rgba(200, 230, 255, 140);
+    let dark = rgba(38, 88, 162, 205);
+    let light = rgba(235, 245, 255, 190);
     for (dy, col) in [(s * 0.04, light), (0.0, dark)] {
         emblem(pm, k, cx, cy + dy, s, col);
     }
@@ -447,20 +588,37 @@ fn terminal(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 }
 
 fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    folder_colored(pm, x, y, s, rgba(70, 150, 240, 255));
+    folder_colored(pm, x, y, s, rgba(78, 140, 220, 255));
 }
 
+/// Pasta da era Aqua (desenho próprio): fundo com aba atrás e a frente clara e
+/// translúcida na frente, com listras finas e um brilho na borda de cima.
 fn folder_colored(pm: &mut Canvas, x: f32, y: f32, s: f32, base: Color) {
-    let (fx, fy, fw, fh) = (x + s * 0.08, y + s * 0.2, s * 0.84, s * 0.64);
-    // Aba
-    pm.fill(rrect4(fx, fy - s * 0.07, fw * 0.42, s * 0.16, [s * 0.05, s * 0.05, 0.0, 0.0]), &solid(darken(base, 0.2)));
-    // Fundo
-    pm.fill(rrect(fx, fy, fw, fh, s * 0.06), &solid(darken(base, 0.25)));
-    // Frente
-    let (ffy, ffh) = (fy + fh * 0.18, fh * 0.82);
-    pm.fill(rrect(fx, ffy, fw, ffh, s * 0.06), &vgrad(ffy, ffy + ffh, &[(0.0, lighten(base, 0.35)), (1.0, darken(base, 0.1))]));
-    pm.stroke(rrect(fx, ffy, fw, ffh, s * 0.06), &solid(darken(base, 0.5)), (s / 64.0).max(1.0));
-    gloss(pm, fx + 2.0, ffy + 1.5, fw - 4.0, ffh * 0.4, s * 0.05);
+    let lw = (s / 64.0).max(1.0);
+    let (fx, fw) = (x + s * 0.07, s * 0.86);
+    let (by, bh) = (y + s * 0.17, s * 0.65);
+    // Aba e fundo (a parte de trás da pasta).
+    let tab = rrect4(fx + s * 0.02, by - s * 0.06, fw * 0.38, s * 0.1, [s * 0.04, s * 0.04, 0.0, 0.0]);
+    pm.fill(tab.clone(), &vgrad(by - s * 0.06, by + s * 0.04, &[(0.0, lighten(base, 0.35)), (1.0, lighten(base, 0.1))]));
+    pm.stroke(tab, &solid(with_alpha(darken(base, 0.45), 0.8)), lw);
+    let back = rrect(fx, by, fw, bh, s * 0.05);
+    pm.fill(back.clone(), &vgrad(by, by + bh, &[(0.0, lighten(base, 0.3)), (1.0, darken(base, 0.08))]));
+    pm.stroke(back, &solid(with_alpha(darken(base, 0.45), 0.85)), lw);
+    // Frente, um pouco mais baixa: deixa ver o fundo em cima.
+    let fty = by + s * 0.12;
+    let fh = by + bh - fty;
+    let front = rrect(fx, fty, fw, fh, s * 0.05);
+    pm.fill(front.clone(), &vgrad(fty, fty + fh, &[(0.0, lighten(base, 0.55)), (0.45, lighten(base, 0.34)), (1.0, lighten(base, 0.08))]));
+    if s >= 30.0 {
+        let step = (s * 0.035).max(2.0);
+        let mut yy = fty + s * 0.05;
+        while yy < fty + fh - s * 0.03 {
+            pm.fill_rect(fx + lw, yy, fw - 2.0 * lw, lw * 0.6, &solid(rgba(255, 255, 255, 46)));
+            yy += step;
+        }
+    }
+    pm.stroke(front, &solid(with_alpha(darken(base, 0.35), 0.9)), lw);
+    pm.fill_rect(fx + s * 0.03, fty + lw, fw - s * 0.06, lw, &solid(rgba(255, 255, 255, 210)));
 }
 
 fn globe(pm: &mut Canvas, x: f32, y: f32, s: f32) {

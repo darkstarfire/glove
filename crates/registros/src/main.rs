@@ -153,7 +153,7 @@ impl App for Registros {
 
 fn main() {
     let app = Registros { source: Some(2), lines: load(2), filter: String::new(), scroll: f32::MAX, follow: true };
-    let opts = WindowOptions { title: "Registros".into(), app_id: "glove.Registros".into(), size: (820, 500), fixed: false };
+    let opts = WindowOptions { title: "Registros".into(), app_id: "glove.Registros".into(), size: (820, 500), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-registros: {e}");
     }

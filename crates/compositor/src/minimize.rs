@@ -19,7 +19,7 @@ use crate::{
     state::Glove,
 };
 
-const ANIM: Duration = Duration::from_millis(330);
+const ANIM: Duration = Duration::from_millis(420);
 /// Intervalo mínimo entre quadros para as janelas minimizadas.
 pub const MINIMIZED_FRAME: Duration = Duration::from_millis(500);
 
@@ -30,6 +30,8 @@ pub struct MinAnim {
     pub restoring: bool,
     /// Moldura na tela (com a barra de título).
     pub frame: Rectangle<f64, Logical>,
+    /// Foto da janela para a Lâmpada Mágica (tirada no primeiro quadro).
+    pub snapshot: std::cell::RefCell<Option<smithay::backend::renderer::gles::GlesTexture>>,
 }
 
 impl MinAnim {
@@ -84,7 +86,7 @@ impl Glove {
     pub fn animate_minimize(&mut self, w: &Window, loc: smithay::utils::Point<i32, Logical>) {
         let frame = self.frame_of(w, loc);
         self.min_anims.retain(|a| &a.window != w);
-        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: false, frame });
+        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: false, frame, snapshot: Default::default() });
         self.min_anim_timer();
     }
 
@@ -96,7 +98,7 @@ impl Glove {
             self.restore_slots.retain(|(x, _)| x != w);
             self.restore_slots.push((w.clone(), from_slot.unwrap()));
         }
-        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: true, frame });
+        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: true, frame, snapshot: Default::default() });
         self.min_anim_timer();
     }
 
@@ -135,6 +137,17 @@ impl Glove {
             self.thumbnail_rect(w)?
         };
         Some(lerp_rect(a.frame, slot, a.progress()))
+    }
+
+    /// Lâmpada Mágica (Dock embaixo): a moldura na tela, o lugar no Dock e o
+    /// andamento. None = efeito Escala (ou Dock nas laterais).
+    pub fn genie_params(&self, w: &Window) -> Option<(Rectangle<f64, Logical>, Rectangle<f64, Logical>, f64)> {
+        if self.config.dock.minimize_effect != "genio" || glove_paint::chrome::DockSide::from_config(&self.config.dock.position) != glove_paint::chrome::DockSide::Bottom {
+            return None;
+        }
+        let a = self.min_anims.iter().find(|a| &a.window == w)?;
+        let slot = if a.restoring { self.restore_slots.iter().find(|(x, _)| x == w).map(|(_, r)| *r)? } else { self.dock_slot(w)? };
+        Some((a.frame, slot, a.progress()))
     }
 
     pub fn min_animating(&self, w: &Window) -> bool {

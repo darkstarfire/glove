@@ -431,7 +431,7 @@ fn main() {
     let all = load_all();
     let selected = all.first().map(|c| c.uid.clone());
     let app = Contatos { all, group: None, selected, filter: String::new(), editing: None, file: None, message: None, name_scroll: 0.0 };
-    let opts = WindowOptions { title: "Contatos".into(), app_id: "glove.Contatos".into(), size: (760, 470), fixed: false };
+    let opts = WindowOptions { title: "Contatos".into(), app_id: "glove.Contatos".into(), size: (760, 470), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-contatos: {e}");
     }

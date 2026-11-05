@@ -302,7 +302,7 @@ fn main() {
             shared.lock().unwrap().result = Some(r);
         });
     }
-    let opts = WindowOptions { title: "Utilitário de Arquivo".into(), app_id: "glove.Arquivo".into(), size: (420, 84), fixed: true };
+    let opts = WindowOptions { title: "Utilitário de Arquivo".into(), app_id: "glove.Arquivo".into(), size: (420, 84), fixed: true, min_size: None };
     if let Err(e) = run(opts, Arquivo { op, what, shared }) {
         eprintln!("glove-arquivo: {e}");
     }

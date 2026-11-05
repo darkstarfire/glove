@@ -211,12 +211,56 @@ pub struct Appearance {
     /// Quantos itens em Itens Recentes (apps e documentos).
     pub recent_apps: u32,
     pub recent_docs: u32,
+    /// Tema de ícones (pasta em /usr/share/icons); vazio = os desenhados pelo Glove.
+    #[serde(default)]
+    pub icon_theme: String,
 }
 
 impl Default for Appearance {
     fn default() -> Self {
-        Self { highlight: "azul".into(), double_click_minimizes: false, scroll_jump: false, recent_apps: 10, recent_docs: 10 }
+        Self { highlight: "azul".into(), double_click_minimizes: false, scroll_jump: false, recent_apps: 10, recent_docs: 10, icon_theme: String::new() }
     }
+}
+
+/// Nome do ícone (Icon=) do app de fora com este app_id: o .desktop com o mesmo
+/// nome ou com StartupWMClass igual. Guardado depois da primeira busca.
+pub fn desktop_icon(app_id: &str) -> Option<String> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
+    let key = app_id.to_lowercase();
+    if key.is_empty() {
+        return None;
+    }
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(v) = cache.lock().ok()?.get(&key) {
+        return v.clone();
+    }
+    let mut dirs = vec![std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share/applications")).unwrap_or_default()];
+    let data = std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".into());
+    dirs.extend(data.split(':').filter(|d| !d.is_empty()).map(|d| PathBuf::from(d).join("applications")));
+    dirs.push(PathBuf::from("/var/lib/flatpak/exports/share/applications"));
+    let mut found = None;
+    'all: for d in dirs {
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        for e in rd.flatten() {
+            let stem = e.path().file_stem().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+            let Ok(text) = std::fs::read_to_string(e.path()) else { continue };
+            let field = |k: &str| text.lines().find_map(|l| l.strip_prefix(k)).map(|v| v.trim().to_string());
+            let wm = field("StartupWMClass=").map(|v| v.to_lowercase());
+            let last = stem.rsplit('.').next().unwrap_or(&stem).to_string();
+            if stem == key || wm.as_deref() == Some(key.as_str()) || last == key {
+                if let Some(i) = field("Icon=") {
+                    found = Some(i);
+                    break 'all;
+                }
+            }
+        }
+    }
+    if let Ok(mut c) = cache.lock() {
+        c.insert(key, found.clone());
+    }
+    found
 }
 
 /// Cores de destaque do texto selecionado: (id, nome, r, g, b).
@@ -376,6 +420,20 @@ pub struct Monitor {
     /// "esquerda" ou "abaixo".
     #[serde(default = "default_side")]
     pub side: String,
+    /// Resolução e escala dos outros monitores (os que não são o principal), pelo
+    /// nome do conector. Sem entrada, cada um usa a recomendada e a escala automática.
+    #[serde(default)]
+    pub others: std::collections::BTreeMap<String, OtherMonitor>,
+}
+
+/// Ajustes de um monitor que não é o principal.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OtherMonitor {
+    /// "LxA@Hz"; vazio = a recomendada.
+    pub mode: String,
+    /// 0 = automática.
+    pub scale: f64,
 }
 
 fn default_arrangement() -> String {
@@ -388,7 +446,7 @@ fn default_side() -> String {
 
 impl Default for Monitor {
     fn default() -> Self {
-        Self { output: String::new(), mode: String::new(), scale: 0.0, menu_extra: true, arrangement: default_arrangement(), side: default_side() }
+        Self { output: String::new(), mode: String::new(), scale: 0.0, menu_extra: true, arrangement: default_arrangement(), side: default_side(), others: Default::default() }
     }
 }
 
@@ -445,6 +503,11 @@ pub fn auto_scale(px: (u32, u32), mm: (u32, u32)) -> f64 {
         return 1.0;
     }
     let dpi = px.0 as f64 / (mm.0 as f64 / 25.4);
+    // Telas "minúsculas e densíssimas" (ex.: 160 × 90 mm numa 1920×1080) quase sempre
+    // são adaptadores e TVs que gravam a proporção (16:9) no lugar do tamanho.
+    if mm.0 < 200 && dpi > 200.0 {
+        return 1.0;
+    }
     ((dpi / 135.0) * 4.0).round().clamp(4.0, 12.0) / 4.0
 }
 
@@ -502,6 +565,8 @@ pub struct Config {
     /// Família da fonte do Terminal (ex.: "JetBrainsMono Nerd Font"); vazio = padrão.
     pub terminal_font: String,
     pub terminal_font_size: f32,
+    /// Tema de cores do Terminal (ver `term_themes`).
+    pub terminal_theme: String,
     pub dock: Dock,
     #[serde(default)]
     pub appearance: Appearance,
@@ -663,6 +728,7 @@ impl Default for Config {
             terminal: default_terminal(),
             terminal_font: String::new(),
             terminal_font_size: 12.0,
+            terminal_theme: "basico".into(),
             dock: Dock::default(),
             keyboard: Keyboard::default(),
             pointer: Pointer::default(),
@@ -945,5 +1011,112 @@ mod monitor_tests {
         assert_eq!(auto_scale((1920, 1080), (0, 0)), 1.0);
         assert_eq!(parse_mode("1920x1080@60"), Some((1920, 1080, 60)));
         assert_eq!(parse_mode("1280x800"), Some((1280, 800, 0)));
+    }
+}
+
+/// Apps do Glove que abrem arquivos: (programa, nome, ícone do sistema, tipos MIME).
+const FILE_APPS: &[(&str, &str, &str, &str)] = &[
+    ("glove-view", "Visualizador", "image-x-generic", "image/png;image/jpeg;image/pjpeg;image/webp;application/pdf;"),
+    ("glove-edit", "Editor de Texto", "accessories-text-editor", "text/plain;text/markdown;text/x-csrc;text/x-chdr;text/x-python;text/x-shellscript;application/x-shellscript;text/x-rust;application/json;application/toml;application/xml;text/xml;text/css;text/html;"),
+    ("glove-video", "Vídeo", "video-x-generic", "video/mp4;video/x-matroska;video/webm;video/quicktime;video/x-msvideo;video/mpeg;video/ogg;video/x-flv;video/3gpp;"),
+    ("glove-fontes", "Livro de Fontes", "font-x-generic", "font/ttf;font/otf;font/collection;application/x-font-ttf;application/x-font-otf;"),
+    ("glove-musica", "Música", "audio-x-generic", "audio/mpeg;audio/flac;audio/ogg;audio/x-wav;audio/wav;audio/x-vorbis+ogg;"),
+];
+
+/// Registra os apps do Glove que abrem arquivos em `~/.local/share/applications`
+/// (`glove-*.desktop`, fora dos menus): assim aparecem em "Abrir com" e podem ser o
+/// app padrão de um tipo. `bin_dir` é a pasta dos programas. Na primeira vez, cada
+/// app vira o padrão dos tipos que ainda não têm um. Só grava o que mudou.
+pub fn register_file_apps(bin_dir: &std::path::Path) {
+    let Some(home) = std::env::var_os("HOME") else { return };
+    let dir = std::path::PathBuf::from(home).join(".local/share/applications");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let mut changed = false;
+    let mut fresh = Vec::new();
+    for (bin, name, icon, mimes) in FILE_APPS {
+        let exe = bin_dir.join(bin);
+        if !exe.is_file() {
+            continue;
+        }
+        let path = dir.join(format!("{bin}.desktop"));
+        let text = format!(
+            "[Desktop Entry]\n# Gerado pelo Glove (apps que abrem arquivos).\nType=Application\nName={name}\nIcon={icon}\nExec=\"{}\" %f\nMimeType={mimes}\nNoDisplay=true\nTerminal=false\nOnlyShowIn=Glove;\n",
+            exe.display()
+        );
+        let old = std::fs::read_to_string(&path).ok();
+        if old.as_deref() != Some(text.as_str()) {
+            if old.is_none() {
+                fresh.push((*bin, *mimes));
+            }
+            changed = std::fs::write(&path, text).is_ok() || changed;
+        }
+    }
+    if !changed {
+        return;
+    }
+    std::thread::spawn(move || {
+        let _ = std::process::Command::new("update-desktop-database").arg(&dir).status();
+        for (bin, mimes) in fresh {
+            for m in mimes.split(';').filter(|m| !m.is_empty()) {
+                let def = std::process::Command::new("xdg-mime").args(["query", "default", m]).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+                if def.is_empty() {
+                    let _ = std::process::Command::new("xdg-mime").args(["default", &format!("{bin}.desktop"), m]).status();
+                }
+            }
+        }
+    });
+}
+
+/// Tema de cores do Terminal: fundo, texto, cursor, seleção e as 16 cores ANSI.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TermTheme {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub bg: (u8, u8, u8),
+    pub fg: (u8, u8, u8),
+    pub cursor: (u8, u8, u8),
+    pub palette: [(u8, u8, u8); 16],
+}
+
+/// Cores ANSI para fundo claro e para fundo escuro.
+const ANSI_LIGHT: [(u8, u8, u8); 16] = [
+    (0, 0, 0), (194, 54, 33), (37, 160, 38), (173, 140, 0), (40, 70, 200), (176, 50, 176), (20, 150, 170), (190, 190, 190),
+    (102, 102, 102), (235, 70, 50), (49, 200, 50), (210, 180, 0), (80, 110, 240), (225, 70, 225), (40, 200, 220), (255, 255, 255),
+];
+const ANSI_DARK: [(u8, u8, u8); 16] = [
+    (0, 0, 0), (205, 60, 50), (60, 190, 60), (205, 175, 40), (75, 125, 235), (200, 90, 200), (60, 185, 200), (200, 200, 200),
+    (110, 110, 110), (245, 95, 80), (90, 225, 90), (240, 215, 80), (120, 160, 255), (235, 120, 235), (100, 225, 235), (255, 255, 255),
+];
+
+/// Temas do Terminal (inspirados nos do Terminal da era, com cores próprias).
+pub fn term_themes() -> Vec<TermTheme> {
+    let t = |id, name, bg, fg, cursor, palette| TermTheme { id, name, bg, fg, cursor, palette };
+    vec![
+        t("basico", "Básico", (255, 255, 255), (0, 0, 0), (60, 60, 60), ANSI_LIGHT),
+        t("pro", "Pro", (14, 14, 16), (230, 230, 230), (200, 200, 200), ANSI_DARK),
+        t("homebrew", "Homebrew", (0, 0, 0), (40, 254, 20), (40, 254, 20), ANSI_DARK),
+        t("oceano", "Oceano", (34, 79, 188), (255, 255, 255), (220, 230, 255), ANSI_DARK),
+        t("grama", "Grama", (19, 119, 61), (255, 240, 165), (142, 40, 0), ANSI_DARK),
+        t("novela", "Novela", (223, 219, 195), (59, 35, 34), (58, 35, 34), ANSI_LIGHT),
+        t("areia", "Areia Vermelha", (122, 37, 30), (215, 201, 167), (255, 255, 255), ANSI_DARK),
+        t("manual", "Manual", (254, 244, 156), (0, 0, 0), (127, 127, 127), ANSI_LIGHT),
+        t("noite", "Noite", (30, 30, 46), (205, 214, 244), (245, 224, 220), ANSI_DARK),
+    ]
+}
+
+/// O tema pelo nome (o Básico se não existir).
+pub fn term_theme(id: &str) -> TermTheme {
+    let all = term_themes();
+    all.iter().find(|t| t.id == id).cloned().unwrap_or_else(|| all[0].clone())
+}
+
+/// Nome do ícone de um app pelo app_id: o dos apps do Glove (ou do Dock); para os
+/// de fora, o Icon= do .desktop dele; senão "window".
+pub fn app_icon_name(dock: &[DockApp], app_id: &str) -> String {
+    match known_app(dock, app_id) {
+        Some(a) if a.icon != "window" && a.icon != "generic" && !a.icon.is_empty() => a.icon,
+        _ => desktop_icon(app_id).unwrap_or_else(|| "window".into()),
     }
 }

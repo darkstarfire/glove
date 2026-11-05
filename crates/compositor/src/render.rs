@@ -85,7 +85,62 @@ void main() {
 pub struct EffectCache {
     tex: Option<(GlesTexture, (i32, i32))>,
     program: Option<GlesTexProgram>,
+    /// Programa da Lâmpada Mágica.
+    genie: Option<GlesTexProgram>,
 }
+
+/// Lâmpada Mágica: para cada ponto da área da animação, de onde ele vem na foto
+/// da janela. `fr`/`sl` = janela e ícone (x, y, largura, altura, em pontos da área
+/// `bx`); `anim` = (quanto os lados já curvaram, quanto a janela já escorreu).
+const GENIE_SHADER: &str = r#"#version 100
+
+//_DEFINES_
+
+#if defined(EXTERNAL)
+#extension GL_OES_EGL_image_external : require
+#endif
+
+precision highp float;
+#if defined(EXTERNAL)
+uniform samplerExternalOES tex;
+#else
+uniform sampler2D tex;
+#endif
+
+uniform float alpha;
+varying vec2 v_coords;
+
+#if defined(DEBUG_FLAGS)
+uniform float tint;
+#endif
+
+uniform vec4 fr;
+uniform vec4 sl;
+uniform vec2 anim;
+uniform vec2 bx;
+
+void main() {
+    vec2 p = v_coords * bx;
+    float bottom = sl.y + sl.w;
+    float top = fr.y + anim.y * (bottom - fr.y);
+    // Linha da janela neste ponto (ela só escorre: a altura não muda).
+    float v = (p.y - top) / fr.w;
+    // Borda do funil nesta altura: da janela até o ícone, em "S".
+    float f = smoothstep(0.0, 1.0, (p.y - fr.y) / max(sl.y - fr.y, 1.0));
+    float l = mix(fr.x, mix(fr.x, sl.x, f), anim.x);
+    float wd = mix(fr.z, mix(fr.z, sl.z, f), anim.x);
+    float u = (p.x - l) / max(wd, 0.5);
+    // Bordas suaves (meio ponto de cada lado) e nada abaixo do ícone.
+    float edge = clamp(min(p.x - l, l + wd - p.x) + 0.5, 0.0, 1.0)
+        * clamp(min(p.y - top, top + fr.w - p.y) + 0.5, 0.0, 1.0)
+        * clamp(bottom - p.y + 0.5, 0.0, 1.0);
+    if (edge <= 0.0 || u < 0.0 || u > 1.0 || v < 0.0 || v > 1.0) {
+        gl_FragColor = vec4(0.0);
+        return;
+    }
+    gl_FragColor = texture2D(tex, vec2(u, v)) * alpha * edge;
+}
+"#;
 
 fn mem(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, scale: f64) -> Option<GloveElement> {
     mem_alpha(renderer, loc, tex, scale, None)
@@ -109,13 +164,22 @@ impl Glove {
     /// Um monitor extra (mesa estendida): o cursor, as janelas que passam por
     /// ele e o papel de parede. Barra de menu e Dock só no principal.
     pub fn build_extra_elements(&self, renderer: &mut GlesRenderer, area: Rectangle<i32, Logical>, sc: f64) -> Vec<GloveElement> {
+        self.build_area_elements(renderer, area, sc, true)
+    }
+
+    /// O que aparece na área (de um monitor extra): `cursor` = com o mouse e a película
+    /// da captura de área (a foto de uma área vai sem eles).
+    pub fn build_area_elements(&self, renderer: &mut GlesRenderer, area: Rectangle<i32, Logical>, sc: f64, cursor: bool) -> Vec<GloveElement> {
         let mut out = Vec::new();
         let origin = area.loc;
         if self.saver.is_some() || self.idle.screen_off {
             return out;
         }
-        if area.to_f64().contains(self.pointer_pos) {
+        if cursor && area.to_f64().contains(self.pointer_pos) {
             self.cursor_elements_at(renderer, sc, origin, &mut out);
+        }
+        if cursor {
+            self.region_elements_at(sc, origin, (area.size.w, area.size.h), &mut out);
         }
         // Bloqueada ou encerrando: só o papel de parede (nada das janelas).
         let covered = self.lock.is_some() || self.greeter || self.ending.as_ref().is_some_and(|e| e.screen_since.is_some()) || self.startup.as_ref().is_some_and(|s| s.covering());
@@ -340,7 +404,9 @@ impl Glove {
         }
         // Janelas indo para o Dock ou voltando: por cima de tudo isso.
         for a in &self.min_anims {
-            if let Some(r) = self.min_anim_rect(&a.window) {
+            if let Some((frame, slot, p)) = self.genie_params(&a.window) {
+                self.push_genie_window(renderer, &a.window, frame, slot, p, sc, &mut out);
+            } else if let Some(r) = self.min_anim_rect(&a.window) {
                 self.push_scaled_window(renderer, &a.window, r, sc, &mut out);
             }
         }
@@ -460,6 +526,93 @@ impl Glove {
         }
     }
 
+    /// Efeito Lâmpada Mágica: a foto da janela deformada pela placa de vídeo. Os lados
+    /// se curvam num funil até o ícone e a janela escorre por ele (`p`: 0 = na tela,
+    /// 1 = no Dock). Cada pixel acha de onde vem na janela (curvas lisas, sem degraus).
+    fn push_genie_window(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, frame: Rectangle<f64, Logical>, slot: Rectangle<f64, Logical>, p: f64, sc: f64, out: &mut Vec<GloveElement>) {
+        use smithay::backend::renderer::element::Kind;
+        let Some(a) = self.min_anims.iter().find(|a| &a.window == w) else { return };
+        // A foto da janela (barra de título + conteúdo), uma vez só por animação.
+        if a.snapshot.borrow().is_none() {
+            let (tw, th) = ((frame.size.w * sc).round() as i32, (frame.size.h * sc).round() as i32);
+            if tw <= 0 || th <= 0 {
+                return;
+            }
+            let Ok(mut tex) = renderer.create_buffer(Fourcc::Abgr8888, (tw, th).into()) else { return };
+            let mut els: Vec<GloveElement> = Vec::new();
+            let deco = crate::shell::deco_top(w);
+            let geo = w.geometry().loc;
+            let origin = Point::<i32, Logical>::from((-geo.x, deco - geo.y)).to_physical_precise_round(sc);
+            els.extend(w.render_elements::<GloveElement>(renderer, origin, Scale::from(sc), 1.0));
+            if let Some(deco_cell) = w.user_data().get::<RefCell<Deco>>() {
+                if let Some(t) = &deco_cell.borrow().title {
+                    els.extend(mem(renderer, (0, 0).into(), t, sc));
+                }
+            }
+            {
+                let Ok(mut fb) = renderer.bind(&mut tex) else { return };
+                let mut dt = OutputDamageTracker::new((tw, th), sc, Transform::Normal);
+                if dt.render_output(renderer, &mut fb, 0, &els, [0.0, 0.0, 0.0, 0.0]).is_err() {
+                    return;
+                }
+            }
+            *a.snapshot.borrow_mut() = Some(tex);
+        }
+        let Some(tex) = a.snapshot.borrow().clone() else { return };
+        let mut cache = self.effects.borrow_mut();
+        if cache.genie.is_none() {
+            let names = [
+                UniformName::new("fr", UniformType::_4f),
+                UniformName::new("sl", UniformType::_4f),
+                UniformName::new("anim", UniformType::_2f),
+                UniformName::new("bx", UniformType::_2f),
+            ];
+            match renderer.compile_custom_texture_shader(GENIE_SHADER, &names) {
+                Ok(pr) => cache.genie = Some(pr),
+                Err(e) => {
+                    tracing::warn!("Lâmpada Mágica não compilou: {e:?}");
+                    return;
+                }
+            }
+        }
+        let Some(program) = cache.genie.clone() else { return };
+        drop(cache);
+        let smooth = |t: f64| {
+            let t = t.clamp(0.0, 1.0);
+            t * t * (3.0 - 2.0 * t)
+        };
+        let bend = smooth(p / 0.45);
+        let slide = smooth((p - 0.3) / 0.7);
+        // Área que a animação ocupa: da janela até o ícone.
+        let bb = frame.merge(slot);
+        let bb = Rectangle::new((bb.loc.x.floor() - 2.0, bb.loc.y.floor() - 2.0).into(), (bb.size.w.ceil() + 4.0, bb.size.h.ceil() + 4.0).into());
+        let rel = |r: Rectangle<f64, Logical>| ((r.loc.x - bb.loc.x) as f32, (r.loc.y - bb.loc.y) as f32, r.size.w as f32, r.size.h as f32);
+        let (fx, fy, fw, fh) = rel(frame);
+        let (sx, sy, sw, sh) = rel(slot);
+        let size = smithay::backend::renderer::Texture::size(&tex);
+        let src = Rectangle::from_size((size.w as f64, size.h as f64).into());
+        let el = TextureRenderElement::from_static_texture(
+            Id::new(),
+            renderer.context_id(),
+            bb.loc.to_physical(sc),
+            tex,
+            1,
+            Transform::Normal,
+            None,
+            Some(src),
+            Some(smithay::utils::Size::from((bb.size.w.round() as i32, bb.size.h.round() as i32))),
+            None,
+            Kind::Unspecified,
+        );
+        let uniforms = vec![
+            Uniform::new("fr", [fx, fy, fw, fh]),
+            Uniform::new("sl", [sx, sy, sw, sh]),
+            Uniform::new("anim", [bend as f32, slide as f32]),
+            Uniform::new("bx", [bb.size.w as f32, bb.size.h as f32]),
+        ];
+        out.push(GloveElement::Shader(TextureShaderElement::new(el, program, uniforms)));
+    }
+
     fn cursor_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
         self.cursor_elements_at(renderer, sc, Point::from((0, 0)), out);
     }
@@ -479,6 +632,12 @@ impl Glove {
                 }
                 return;
             }
+        }
+        // Arrastando entre apps: o ícone do app, colado ao cursor (antes dele na lista = por cima).
+        if let Some(icon) = self.dnd_icon.as_ref().filter(|i| smithay::reexports::wayland_server::Resource::is_alive(*i)) {
+            // Um pouco abaixo e à direita da ponta da seta.
+            let loc = (pos + Point::<f64, Logical>::from((6.0, 6.0))).to_physical(sc).to_i32_round();
+            out.extend(render_elements_from_surface_tree::<_, WaylandSurfaceRenderElement<GlesRenderer>>(renderer, icon, loc, sc, 0.9, Kind::Cursor).into_iter().map(GloveElement::Surface));
         }
         match &self.cursor_status {
             CursorImageStatus::Hidden => {}
@@ -601,6 +760,9 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
     if let smithay::input::pointer::CursorImageStatus::Surface(s) = &state.cursor_status {
         smithay::desktop::utils::send_frames_surface_tree(s, output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
     }
+    if let Some(s) = &state.dnd_icon {
+        smithay::desktop::utils::send_frames_surface_tree(s, output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+    }
 }
 
 /// Desenha a tela inteira numa textura fora da tela e salva como PNG.
@@ -622,6 +784,31 @@ fn extra_screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path
 
 fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path, crop: Option<Rectangle<i32, Logical>>) -> Result<(), Box<dyn std::error::Error>> {
     let (lw, lh) = state.output_size();
+    // Área fora do monitor principal (outro monitor): desenha só ela, na escala dele.
+    if let Some(c) = crop.filter(|c| !Rectangle::from_size((lw, lh).into()).contains_rect(*c)) {
+        let center = c.loc.to_f64() + c.size.to_f64().downscale(2.0).to_point();
+        let out = state.space.outputs().find(|o| state.space.output_geometry(o).is_some_and(|g| g.to_f64().contains(center))).cloned();
+        let (geo, sc) = match &out {
+            Some(o) => (state.space.output_geometry(o).unwrap_or(c), o.current_scale().fractional_scale()),
+            None => (c, state.scale()),
+        };
+        let Some(area) = c.intersection(geo) else { return Err("área fora dos monitores".into()) };
+        let (w, h) = ((area.size.w as f64 * sc).round() as i32, (area.size.h as f64 * sc).round() as i32);
+        let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into())?;
+        let elements = state.build_area_elements(renderer, area, sc, false);
+        let mut fb = renderer.bind(&mut tex)?;
+        let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
+        dt.render_output(renderer, &mut fb, 0, &elements, [0.0, 0.0, 0.0, 1.0])?;
+        let mapping = renderer.copy_framebuffer(&fb, Rectangle::from_size((w, h).into()), Fourcc::Abgr8888)?;
+        let data = renderer.map_texture(&mapping)?.to_vec();
+        let size = glove_paint::tiny_skia::IntSize::from_wh(w as u32, h as u32).ok_or("tamanho inválido")?;
+        let pm = glove_paint::Pixmap::from_vec(data, size).ok_or("dados inválidos")?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        pm.save_png(path)?;
+        return Ok(());
+    }
     let sc = state.scale();
     let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);
     let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into())?;

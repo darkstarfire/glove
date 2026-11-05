@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use glove_kit::{
     paint::{
         draw::*,
-        tiny_skia::{FilterQuality, IntSize, Pixmap, PixmapPaint, Transform},
+        tiny_skia::{FilterQuality, Pixmap, PixmapPaint, Transform},
         Color,
     },
     run,
@@ -25,7 +25,7 @@ const THUMB: u32 = 96;
 
 /// Lado máximo guardado na memória (fotos maiores são reduzidas ao abrir).
 const MAX_SIDE: u32 = 4096;
-const EXTS: [&str; 3] = ["png", "jpg", "jpeg"];
+const EXTS: [&str; 4] = glove_kit::image::EXTENSIONS;
 
 fn is_pdf(p: &Path) -> bool {
     p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
@@ -36,19 +36,7 @@ fn is_image(p: &Path) -> bool {
 }
 
 fn decode(path: &Path) -> Result<Pixmap, String> {
-    let ext = path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).unwrap_or_default();
-    let img = if ext == "png" {
-        Pixmap::load_png(path).map_err(|e| format!("PNG inválido: {e}"))?
-    } else {
-        use zune_jpeg::zune_core::{colorspace::ColorSpace, options::DecoderOptions};
-        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-        let opts = DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGBA);
-        let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(bytes), opts);
-        let data = dec.decode().map_err(|e| format!("JPEG inválido: {e:?}"))?;
-        let info = dec.info().ok_or("JPEG sem dimensões")?;
-        let size = IntSize::from_wh(info.width as u32, info.height as u32).ok_or("tamanho inválido")?;
-        Pixmap::from_vec(data, size).ok_or("dados inválidos")?
-    };
+    let img = glove_kit::image::decode(path)?;
     // Reduz fotos enormes logo na abertura.
     let (w, h) = (img.width(), img.height());
     if w.max(h) > MAX_SIDE {
@@ -198,6 +186,28 @@ struct Viewer {
     shown_dpi: u32,
     thumbs_started: bool,
     side_scroll: f32,
+    /// Menu de contexto aberto (botão direito na imagem): onde.
+    ctx: Option<(f32, f32)>,
+    /// Aviso curto na faixa de baixo (ex.: "Imagem copiada.").
+    note: Option<(String, std::time::Instant)>,
+}
+
+/// Itens do menu de contexto: (ação, nome); ação vazia = divisória.
+const CTX: [(&str, &str); 8] = [
+    ("copy", "Copiar Imagem"),
+    ("trash", "Mover para a Lixeira"),
+    ("", ""),
+    ("rot-left", "Girar à Esquerda"),
+    ("rot-right", "Girar à Direita"),
+    ("", ""),
+    ("reveal", "Mostrar no Arquivos"),
+    ("open", "Abrir Outra…"),
+];
+
+fn ctx_rect(w: f32, h: f32, (x, y): (f32, f32)) -> Rect {
+    let mh = CTX.iter().map(|i| if i.0.is_empty() { 9.0 } else { 20.0 }).sum::<f32>() + 8.0;
+    let mw = 210.0;
+    Rect::new(x.min(w - mw - 4.0).max(0.0), if y + mh > h - 4.0 { (y - mh).max(0.0) } else { y }, mw, mh)
 }
 
 impl Viewer {
@@ -220,6 +230,8 @@ impl Viewer {
             shown_dpi: 0,
             thumbs_started: false,
             side_scroll: 0.0,
+            ctx: None,
+            note: None,
         };
         if let Some(p) = path {
             v.load(p);
@@ -306,6 +318,39 @@ impl Viewer {
                 self.image = None;
                 self.shown_dpi = 0;
             }
+        }
+    }
+
+    /// O arquivo mostrado agora (a imagem da vez, ou o PDF).
+    fn current_file(&self) -> Option<PathBuf> {
+        match &self.doc {
+            Some(Doc::Images(l)) => l.get(self.index).cloned(),
+            Some(Doc::Pdf { path, .. }) => Some(path.clone()),
+            None => None,
+        }
+    }
+
+    /// Manda o arquivo para a Lixeira (padrão do sistema) e mostra o próximo da pasta.
+    fn trash_current(&mut self) {
+        let Some(p) = self.current_file() else { return };
+        let ok = std::process::Command::new("gio").arg("trash").arg(&p).status().is_ok_and(|s| s.success());
+        if !ok {
+            self.note = Some(("Não foi possível mover para a Lixeira.".into(), std::time::Instant::now()));
+            return;
+        }
+        let rest: Vec<PathBuf> = match &self.doc {
+            Some(Doc::Images(l)) => l.iter().filter(|q| **q != p).cloned().collect(),
+            _ => Vec::new(),
+        };
+        if rest.is_empty() {
+            self.doc = None;
+            self.image = None;
+            self.path = None;
+            self.note = Some(("Movida para a Lixeira.".into(), std::time::Instant::now()));
+        } else {
+            let next = rest[self.index.min(rest.len() - 1)].clone();
+            self.load(next);
+            self.note = Some(("Movida para a Lixeira.".into(), std::time::Instant::now()));
         }
     }
 
@@ -420,7 +465,7 @@ impl Viewer {
         match a {
             "open" => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(|d| d.to_path_buf()));
-                self.open_fb = Some(FileBrowser::open(dir, &["png", "jpg", "jpeg", "pdf"]));
+                self.open_fb = Some(FileBrowser::open(dir, &["png", "jpg", "jpeg", "webp", "pdf"]));
             }
             "bigger" => self.set_zoom(k * 1.25),
             "smaller" => self.set_zoom(k / 1.25),
@@ -440,6 +485,14 @@ impl Viewer {
             "last" => self.go(usize::MAX),
             "sidebar" => self.sidebar = !self.sidebar,
             "close" => ui.close = true,
+            "copy" => {
+                // O arquivo de verdade: colar num chat ou editor cola a imagem.
+                if let Some(p) = self.current_file() {
+                    ui.copy_files(&[p], false);
+                    self.note = Some(("Imagem copiada.".into(), std::time::Instant::now()));
+                }
+            }
+            "trash" => self.trash_current(),
             "reveal" => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()));
                 let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).filter(|p| p.is_file()).unwrap_or_else(|| "glove-files".into());
@@ -512,13 +565,23 @@ impl Viewer {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(222, 226, 232, 255)));
         ui.c.vline(r.w - 0.5, r.y, r.h, rgba(150, 150, 156, 255));
         let cell = THUMB as f32 + 30.0;
-        self.side_scroll = (self.side_scroll - ui.scroll_in(r) * 1.0).clamp(0.0, (n as f32 * cell - h + 10.0).max(0.0));
+        // Barra de rolagem do kit (setas, trilho, rodinha) quando não cabem todas.
+        let inner = ui.scroll_area(Rect::new(r.x, r.y, r.w - 1.0, r.h), &mut self.side_scroll, n as f32 * cell + 10.0, cell);
+        let side_w = inner.w;
+        // Recorte: as miniaturas roladas não passam por cima da barra de ferramentas.
+        let s = ui.c.scale;
+        let old = ui.c.clip();
+        let mut clip = [0, (top * s).floor() as i32, (side_w * s).ceil() as i32, ((top + h) * s).ceil() as i32];
+        if let Some(o) = old {
+            clip = [clip[0].max(o[0]), clip[1].max(o[1]), clip[2].min(o[2]), clip[3].min(o[3])];
+        }
+        ui.c.set_clip(Some(clip));
         let jobs = self.jobs.lock().unwrap();
         let first = (self.side_scroll / cell) as usize;
         let mut go = None;
         for i in first..n.min(first + (h / cell) as usize + 2) {
             let y = top + 8.0 + i as f32 * cell - self.side_scroll;
-            let box_r = Rect::new((SIDEBAR_W - THUMB as f32) / 2.0, y, THUMB as f32, THUMB as f32);
+            let box_r = Rect::new((side_w - THUMB as f32) / 2.0, y, THUMB as f32, THUMB as f32);
             if i == self.index {
                 ui.c.fill(rrect(box_r.x - 4.0, box_r.y - 4.0, box_r.w + 8.0, box_r.h + 22.0, 5.0), &solid(rgba(160, 180, 210, 255)));
             }
@@ -536,15 +599,16 @@ impl Viewer {
                 }
                 None => ui.c.stroke(rrect(box_r.x + 20.0, box_r.y + 10.0, box_r.w - 40.0, box_r.h - 20.0, 2.0), &solid(rgba(160, 160, 166, 255)), 1.0),
             }
-            let name = ui.fonts.ellipsize(&names[i], 10.0, false, SIDEBAR_W - 10.0);
+            let name = ui.fonts.ellipsize(&names[i], 10.0, false, side_w - 10.0);
             let tw = ui.text_width(&name, 10.0, false);
-            ui.fonts.draw(ui.c, &name, (SIDEBAR_W - tw) / 2.0, y + THUMB as f32 + 13.0, 10.0, false, rgba(40, 40, 44, 255));
-            if ui.hit(Rect::new(0.0, y - 4.0, SIDEBAR_W - 1.0, cell)).clicked {
+            ui.fonts.draw(ui.c, &name, (side_w - tw) / 2.0, y + THUMB as f32 + 13.0, 10.0, false, rgba(40, 40, 44, 255));
+            if ui.hit(Rect::new(0.0, y - 4.0, side_w, cell)).clicked && ui.pointer().1 >= top {
                 go = Some(i);
             }
         }
         let busy = !jobs.thumbs_done;
         drop(jobs);
+        ui.c.set_clip(old);
         if busy {
             ui.wake_after(Duration::from_millis(250));
         }
@@ -559,6 +623,16 @@ impl App for Viewer {
         let (w, h) = (ui.c.w, ui.c.h);
         let left = if self.sidebar && self.doc.is_some() { SIDEBAR_W } else { 0.0 };
         let area = Rect::new(left, TOOLBAR_H, w - left, h - 15.0 - TOOLBAR_H);
+
+        // Menu de contexto aberto: o clique sobre ele não chega à imagem; fora, só fecha.
+        if let Some(pos) = self.ctx {
+            let r = ctx_rect(w, h, pos);
+            ui.reserve(r);
+            if ui.mouse_pressed() && !r.contains(ui.pointer()) {
+                self.ctx = None;
+                ui.reserve(Rect::new(0.0, 0.0, w, h));
+            }
+        }
 
         // Página de PDF pronta?
         let done = self.jobs.lock().unwrap().page.take();
@@ -602,6 +676,8 @@ impl App for Viewer {
                 "Ctrl+O" => "open",
                 "Ctrl+Shift+R" => "reveal",
                 "Ctrl+Shift+M" => "sidebar",
+                "Ctrl+C" => "copy",
+                "Ctrl+BackSpace" | "Delete" => "trash",
                 _ => match k.key {
                     Key::Right | Key::Down | Key::PageDown => "next",
                     Key::Left | Key::Up | Key::PageUp => "prev",
@@ -717,6 +793,56 @@ impl App for Viewer {
         // Faixa inferior (puxador de redimensionar)
         ui.c.fill_rect(0.0, h - 15.0, w, 15.0, &vgrad(h - 15.0, h, &[(0.0, rgba(232, 232, 236, 255)), (1.0, rgba(214, 214, 218, 255))]));
         ui.c.hline(0.0, h - 15.0, w, rgba(150, 150, 156, 255));
+        if let Some((t, at)) = &self.note {
+            if at.elapsed() < Duration::from_secs(3) {
+                ui.fonts.draw(ui.c, t, 8.0, h - 4.0, 10.0, false, rgba(60, 60, 66, 255));
+                ui.wake_after(Duration::from_millis(500));
+            } else {
+                self.note = None;
+            }
+        }
+        // Botão direito na imagem: menu com copiar, Lixeira, girar…
+        if self.ctx.is_none() && self.open_fb.is_none() && self.doc.is_some() && ui.right_clicked(area) {
+            self.ctx = Some(ui.pointer());
+        }
+        if let Some(pos) = self.ctx {
+            let r = ctx_rect(w, h, pos);
+            let has = self.doc.is_some();
+            let chosen = ui.unreserved(|ui| {
+                ui.c.fill_rect(r.x + 3.0, r.y + 4.0, r.w, r.h, &solid(rgba(0, 0, 0, 50)));
+                ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(246, 247, 249, 252)));
+                ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 0.0), &solid(rgba(0, 0, 0, 80)), 1.0);
+                let mut y = r.y + 4.0;
+                let mut chosen = None;
+                for (id, label) in CTX {
+                    if id.is_empty() {
+                        ui.c.hline(r.x + 1.0, y + 4.0, r.w - 2.0, rgba(214, 214, 218, 255));
+                        y += 9.0;
+                        continue;
+                    }
+                    let on = has || id == "open";
+                    let row = Rect::new(r.x, y, r.w, 20.0);
+                    let hit = ui.hit(row);
+                    if hit.hover && on {
+                        ui.c.fill_rect(row.x, row.y, row.w, row.h, &solid(ui.theme.menu_hot));
+                    }
+                    let col = if !on { rgba(160, 160, 160, 255) } else if hit.hover { Color::WHITE } else { rgba(20, 20, 20, 255) };
+                    ui.fonts.draw(ui.c, label, r.x + 16.0, y + 14.5, 13.0, false, col);
+                    if hit.clicked && on {
+                        chosen = Some(id);
+                    }
+                    y += 20.0;
+                }
+                chosen
+            });
+            if let Some(a) = chosen {
+                self.ctx = None;
+                self.action(a, ui, area);
+                ui.redraw = true;
+            } else if ui.keys().iter().any(|k| k.key == Key::Escape) {
+                self.ctx = None;
+            }
+        }
         // Diálogo Abrir.
         if let Some(fb) = &mut self.open_fb {
             if let Some(c) = ui.file_sheet(fb) {
@@ -738,10 +864,12 @@ impl App for Viewer {
                 vec![
                     MenuItem::new("open", "Abrir…", "Ctrl+O"),
                     MenuItem::new("reveal", "Mostrar no Arquivos", "Ctrl+Shift+R"),
+                    MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(self.doc.is_some()),
                     MenuItem::Separator,
                     MenuItem::new("close", "Fechar", "Ctrl+W"),
                 ],
             ),
+            Menu::new("Editar", vec![MenuItem::new("copy", "Copiar Imagem", "Ctrl+C").enabled(self.doc.is_some())]),
             Menu::new(
                 "Visualizar",
                 vec![
@@ -792,7 +920,7 @@ fn main() {
     let k = (900.0 / w).min(520.0 / h).min(1.0);
     let side = if viewer.sidebar { SIDEBAR_W as u32 } else { 0 };
     let size = (((w * k) as u32 + 24 + side).max(480), ((h * k) as u32 + 24 + 15 + TOOLBAR_H as u32).max(300));
-    let opts = WindowOptions { title: "Visualizador".into(), app_id: "glove.Viewer".into(), size, fixed: false };
+    let opts = WindowOptions { title: "Visualizador".into(), app_id: "glove.Viewer".into(), size, fixed: false, min_size: None };
     if let Err(e) = run(opts, viewer) {
         eprintln!("glove-view: {e}");
     }

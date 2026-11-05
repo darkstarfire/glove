@@ -342,6 +342,16 @@ pub struct Memory {
     capture: Option<Id>,
     /// Texto copiado neste quadro (o kit publica na área de transferência).
     pub(crate) clip_out: Option<String>,
+    /// Arquivos copiados neste quadro (e se é "recortar").
+    pub(crate) clip_files: Option<(Vec<std::path::PathBuf>, bool)>,
+    /// Colar pedindo arquivos (text/uri-list) antes de texto.
+    pub(crate) paste_files: bool,
+    /// Arrastar arquivos para fora (outra janela, outro app, a mesa).
+    pub(crate) drag_out: Option<Vec<std::path::PathBuf>>,
+    /// Algo sendo arrastado por cima desta janela (de qualquer app).
+    pub(crate) dnd_hover: bool,
+    /// Arquivos soltos nesta janela e onde.
+    pub(crate) dropped: Option<(Vec<std::path::PathBuf>, (f32, f32))>,
     /// Widget que pediu para colar.
     pub(crate) paste_req: Option<Id>,
     /// Texto colado chegando para um widget.
@@ -417,6 +427,10 @@ pub struct Ui<'a> {
     counter: u64,
     /// Clique engolido por um pop-up aberto.
     captured: bool,
+    /// Widgets desligados por `set_enabled`/`set_active` (não apaga o bloqueio do pop-up).
+    disabled: bool,
+    /// O mouse está sobre uma área reservada por `reserve` (menu desenhado depois).
+    reserved: bool,
     /// Controles desligados de propósito (`set_active(false)`): aparecem apagados.
     dimmed: bool,
     /// Pede outro quadro logo em seguida.
@@ -436,7 +450,7 @@ impl<'a> Ui<'a> {
     pub(crate) fn new(c: &'a mut Canvas, theme: &'a Theme, fonts: &'a Fonts, doc_fonts: &'a Fonts, resizable: bool, input: &'a Input, mem: &'a mut Memory) -> Self {
         let (w, h) = (c.w, c.h);
         let captured = mem.popup.as_ref().is_some_and(|p| p.rect.contains(input.pos)) || mem.popup.is_some() && input.pressed;
-        let mut ui = Self { c, theme, fonts, doc_fonts, resizable, input, mem, stack: Vec::new(), seed: 0, counter: 0, captured, dimmed: false, redraw: false, close: false };
+        let mut ui = Self { c, theme, fonts, doc_fonts, resizable, input, mem, stack: Vec::new(), seed: 0, counter: 0, captured, disabled: false, reserved: false, dimmed: false, redraw: false, close: false };
         ui.stack.push(Layout { horizontal: false, x0: 0.0, y0: 0.0, cx: 0.0, cy: 0.0, width: w, used_w: 0.0, used_h: 0.0, spacing: 8.0 });
         let _ = h;
         ui
@@ -555,13 +569,40 @@ impl<'a> Ui<'a> {
 
     /// Desliga (ou religa) a interação com os widgets seguintes (ex.: atrás de uma folha).
     pub fn set_enabled(&mut self, on: bool) {
-        self.captured = !on;
+        self.disabled = !on;
+    }
+
+    /// Reserva `r` para um menu que o app desenha por cima no fim do quadro: os
+    /// widgets desenhados antes não recebem o mouse ali (o clique não atravessa).
+    /// Desenhe o menu dentro de `unreserved`.
+    pub fn reserve(&mut self, r: Rect) {
+        if r.contains(self.input.pos) {
+            self.reserved = true;
+        }
+    }
+
+    /// Roda `f` com o mouse valendo de novo dentro das áreas reservadas.
+    pub fn unreserved<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = std::mem::replace(&mut self.reserved, false);
+        let r = f(self);
+        self.reserved = old;
+        r
+    }
+
+    /// Esconde o puxador de redimensionar neste quadro (ex.: lembrete recolhido).
+    pub fn hide_resize_grip(&mut self) {
+        self.resizable = false;
+    }
+
+    /// Os widgets agora não recebem o mouse (pop-up aberto, folha por cima, menu reservado).
+    fn blocked(&self) -> bool {
+        self.captured || self.disabled || self.reserved
     }
 
     /// Liga ou desliga os controles seguintes; desligados, aparecem apagados
     /// (diferente de `set_enabled`, que só ignora os cliques, como atrás de uma folha).
     pub fn set_active(&mut self, on: bool) {
-        self.captured = !on;
+        self.disabled = !on;
         self.dimmed = !on;
     }
 
@@ -593,6 +634,11 @@ impl<'a> Ui<'a> {
     /// Pede ao Glove para o usuário escolher uma área da tela e capturá-la.
     pub fn request_screenshot_area(&mut self, open: bool) {
         self.mem.glove_cmds.push(format!("SHOT\t300\t{}\t1", open as u8));
+    }
+
+    /// Captura de uma janela: o Glove destaca a janela sob o mouse e o clique a fotografa.
+    pub fn request_screenshot_window(&mut self, open: bool) {
+        self.mem.glove_cmds.push(format!("SHOT\t300\t{}\t2", open as u8));
     }
 
     /// Pede ao Glove o fim da sessão: "encerrar", "reiniciar" ou "desligar".
@@ -642,6 +688,34 @@ impl<'a> Ui<'a> {
         self.mem.paste_req = Some(0);
     }
 
+    /// Como `request_paste`, mas prefere arquivos: chega a lista `file://`, uma por linha.
+    pub fn request_paste_files(&mut self) {
+        self.mem.paste_req = Some(0);
+        self.mem.paste_files = true;
+    }
+
+    /// Copia arquivos de verdade (não só o caminho): os outros apps recebem a lista
+    /// de arquivos (text/uri-list), o formato dos gerenciadores de arquivos e, para
+    /// uma imagem só, a própria imagem em PNG. `cut` = recortar.
+    pub fn copy_files(&mut self, paths: &[std::path::PathBuf], cut: bool) {
+        self.mem.clip_files = Some((paths.to_vec(), cut));
+    }
+
+    /// Começa a arrastar arquivos para fora da janela (chame com o botão apertado).
+    pub fn start_drag_files(&mut self, paths: &[std::path::PathBuf]) {
+        self.mem.drag_out = Some(paths.to_vec());
+    }
+
+    /// Algo (arquivos de outro app ou desta janela) está sendo arrastado por cima.
+    pub fn drag_hovering(&self) -> bool {
+        self.mem.dnd_hover
+    }
+
+    /// Arquivos soltos nesta janela e o ponto onde caíram.
+    pub fn take_drop(&mut self) -> Option<(Vec<std::path::PathBuf>, (f32, f32))> {
+        self.mem.dropped.take()
+    }
+
     /// Texto colado que chegou (pedido com `request_paste`).
     pub fn take_paste(&mut self) -> Option<String> {
         match self.mem.paste_in.take() {
@@ -658,7 +732,7 @@ impl<'a> Ui<'a> {
     // -----------------------------------------------------------------------
 
     fn hovered(&self, r: Rect) -> bool {
-        !self.captured && self.input.inside && r.contains(self.input.pos)
+        !self.blocked() && self.input.inside && r.contains(self.input.pos)
     }
 
     /// Lógica de clique comum: devolve (hover, pressionado agora, clicado).
@@ -708,7 +782,7 @@ impl<'a> Ui<'a> {
 
     /// Botão direito pressionado dentro de `r` neste quadro (menus de contexto).
     pub fn right_clicked(&self, r: Rect) -> bool {
-        self.input.right_pressed && !self.captured && r.contains(self.input.pos)
+        self.input.right_pressed && !self.blocked() && r.contains(self.input.pos)
     }
 
     /// O botão do mouse foi solto neste quadro.
@@ -2107,7 +2181,7 @@ impl<'a> Ui<'a> {
         let expand = |s: &str| s.replace('\t', "    ");
         let width = |s: &str| fonts.measure(&expand(s), px_size, false);
 
-        if self.mem.focus.is_none() && !self.captured {
+        if self.mem.focus.is_none() && !self.blocked() {
             self.mem.focus = Some(id);
         }
         let before_len = buf.len();
@@ -2185,7 +2259,7 @@ impl<'a> Ui<'a> {
         self.vscrollbar(id, sb, &mut buf.scroll_y, content_h, r.h, lh);
 
         // Teclado
-        let focused = self.mem.focus == Some(id) && !self.captured;
+        let focused = self.mem.focus == Some(id) && !self.blocked();
         if focused {
             if let Some((pid, text)) = self.mem.paste_in.take() {
                 if pid == id {
@@ -2343,20 +2417,18 @@ impl<'a> Ui<'a> {
     fn resize_grip(&mut self) {
         let (w, h) = (self.c.w, self.c.h);
         let r = Rect::new(w - 15.0, h - 15.0, 15.0, 15.0);
-        self.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(236, 236, 238, 255)));
-        self.c.vline(r.x, r.y, r.h, rgba(150, 150, 156, 255));
-        for i in 0..3 {
-            let d = 4.0 + i as f32 * 3.5;
-            let mut pb = glove_paint::tiny_skia::PathBuilder::new();
-            pb.move_to(w - d, h - 2.0);
-            pb.line_to(w - 2.0, h - d);
-            self.c.stroke(pb.finish(), &solid(rgba(120, 120, 126, 255)), 1.0);
-            let mut pb = glove_paint::tiny_skia::PathBuilder::new();
-            pb.move_to(w - d + 1.0, h - 2.0);
-            pb.line_to(w - 2.0, h - d + 1.0);
-            self.c.stroke(pb.finish(), &solid(rgba(255, 255, 255, 220)), 1.0);
+        // Como no Tiger: quatro ranhuras diagonais direto sobre a janela (sem caixa),
+        // pixel a pixel (nítidas): um traço escuro com um claro colado, como cavadas.
+        let (cx, cy) = ((w - 2.0).floor(), (h - 2.0).floor());
+        for len in [13.0f32, 10.0, 7.0, 4.0] {
+            let n = len as i32;
+            for t in 0..n {
+                let (x, y) = (cx - len + t as f32, cy - t as f32);
+                self.c.fill_cell(x, y, 1.0, 1.0, rgba(70, 70, 74, 230));
+                self.c.fill_cell(x + 1.0, y, 1.0, 1.0, rgba(255, 255, 255, 220));
+            }
         }
-        if !self.captured && self.input.pressed && r.contains(self.input.pos) {
+        if !self.blocked() && self.input.pressed && r.contains(self.input.pos) {
             self.mem.resize_req = true;
         }
     }
@@ -2373,8 +2445,11 @@ impl<'a> Ui<'a> {
             let mut keep = true;
             if !fresh && (self.input.released || self.input.pressed) {
                 if let Some(h) = hover {
-                    if self.input.released && h >= 0 && (h as usize) < p.items.len() {
-                        self.mem.popup_choice = Some((p.id, h as usize));
+                    if self.input.released {
+                        // Na margem (fora dos itens) só fecha, sem mudar o valor.
+                        if h >= 0 && (h as usize) < p.items.len() {
+                            self.mem.popup_choice = Some((p.id, h as usize));
+                        }
                         keep = false;
                         self.redraw = true;
                     }

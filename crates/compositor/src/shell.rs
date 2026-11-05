@@ -786,6 +786,38 @@ impl Glove {
         self.dirty = true;
     }
 
+    /// Arrastar uma janela em zoom: ela sai do zoom e volta ao tamanho de antes
+    /// (como no Mac). Devolve o tamanho de antes, se estava em zoom.
+    pub fn unzoom_for_drag(&mut self, w: &Window) -> Option<Size<i32, Logical>> {
+        let restore = w.user_data().get::<RefCell<Restore>>()?;
+        let r = restore.borrow_mut().0.take()?;
+        if let Some(x) = w.x11_surface() {
+            let _ = x.set_maximized(false);
+            let loc = self.space.element_location(w).unwrap_or(r.loc);
+            let _ = x.configure(Rectangle::new(loc, r.size));
+        } else if let Some(t) = w.toplevel() {
+            t.with_pending_state(|s| {
+                s.states.unset(xdg_toplevel::State::Maximized);
+                s.size = Some(r.size);
+            });
+            t.send_pending_configure();
+        }
+        self.dirty = true;
+        Some(r.size)
+    }
+
+    /// Novo tamanho pedido no meio de um arrasto (a janela não cabia no monitor).
+    pub fn resize_for_drag(&mut self, w: &Window, size: Size<i32, Logical>) {
+        if let Some(x) = w.x11_surface() {
+            let loc = self.space.element_location(w).unwrap_or_default();
+            let _ = x.configure(Rectangle::new(loc, size));
+        } else if let Some(t) = w.toplevel() {
+            t.with_pending_state(|s| s.size = Some(size));
+            t.send_pending_configure();
+        }
+        self.dirty = true;
+    }
+
     /// Zoom de um app X11: ocupa a área útil (abaixo da barra de título) ou volta.
     fn toggle_zoom_x11(&mut self, w: &Window) {
         let Some(x) = w.x11_surface().cloned() else { return };
@@ -1239,10 +1271,16 @@ impl Glove {
                 self.chrome.trash_full.1 = None;
             }
             MenuAction::SetMode(output, mode) => {
-                self.config.monitor.output = output;
-                self.config.monitor.mode = mode;
-                // Salvar faz o Glove recarregar a configuração e trocar a resolução.
-                let _ = self.config.save();
+                // Grava uma cópia: ao recarregar, o Glove vê a diferença e troca a
+                // resolução (mudar a memória antes fazia a recarga achar que nada mudou).
+                let primary = glove_config::OutputsInfo::load().and_then(|i| i.outputs.into_iter().find(|o| o.primary)).map(|o| o.name);
+                let mut c = self.config.clone();
+                if primary.as_deref().is_none_or(|p| p == output) {
+                    c.monitor.mode = mode;
+                } else {
+                    c.monitor.others.entry(output).or_default().mode = mode;
+                }
+                let _ = c.save();
             }
             MenuAction::ToggleBatteryPercent => {
                 self.config.battery_percent = !self.config.battery_percent;
@@ -1478,6 +1516,12 @@ impl Glove {
             .collect();
         for (i, app) in self.config.dock_apps.iter().enumerate() {
             let mut icon = Icon::from_name(&app.icon);
+            // App de fora mantido no Dock: o ícone dele no tema do sistema.
+            if matches!(icon, Icon::Window | Icon::Generic) {
+                if let Some(n) = glove_config::desktop_icon(&app.app_id) {
+                    icon = Icon::from_name(&n);
+                }
+            }
             if let Icon::Clock(..) = icon {
                 let (h, m) = local_hm();
                 icon = Icon::Clock(h, m);
@@ -1496,7 +1540,11 @@ impl Glove {
         // Apps abertos que não estão fixos: depois dos fixos.
         for (id, w) in self.running_unpinned() {
             let name = app_display_name(&w);
-            let icon = glove_config::known_app(&[], &window_info(&w).1).map(|a| Icon::from_name(&a.icon)).unwrap_or(Icon::Window);
+            let app_id = window_info(&w).1;
+            let icon = glove_config::known_app(&[], &app_id)
+                .map(|a| Icon::from_name(&a.icon))
+                .or_else(|| glove_config::desktop_icon(&app_id).map(|n| Icon::from_name(&n)))
+                .unwrap_or(Icon::Window);
             items.push(DockItem { icon, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
             actions.push(DockAction::Running(id));
         }

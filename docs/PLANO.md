@@ -9,7 +9,7 @@ próprios para os recursos (ex.: "Busca Rápida", não o nome da Apple).
 barra de menu translúcida). As fases 0 e 1 foram feitas olhando o 10.0–10.3; a etapa 2.0 compara
 o Glove com o Tiger e decide o que muda.
 
-Depois de cumprir tudo da era (fases 1 a 9), vem a **Fase 10**: o Glove "como deveria ter sido",
+Depois de cumprir tudo da era (fases 1 a 9.10), vem a **Fase 10**: o Glove "como deveria ter sido",
 com ferramentas de luxo e recursos modernos, mantendo o visual gel.
 
 O levantamento comparou 334 capturas de referência com o Glove atual. As análises
@@ -166,9 +166,149 @@ Meta: tela de login inteira abaixo de 25 MB.
 - [x] 9.2 Apps X11 (XWayland) (M)
 - [x] 9.3 Troca rápida de usuário (Baixa)
 
+## Fase 9.9 — Correções do uso real (05/11/2026, antes da Fase 10)
+
+Defeitos vistos usando a sessão no dia a dia (17 capturas de tela), todos corrigidos:
+
+- [x] 9.9.1 Janelas encolhiam até os controles se sobreporem (Monitor, Discos, Música, Correio, Agenda):
+  `WindowOptions::min_size`; sem ele, o mínimo é 3/4 do tamanho inicial (era 1/2)
+- [x] 9.9.2 Visualizador: miniaturas roladas passavam por cima da barra de ferramentas (recorte na lateral)
+- [x] 9.9.3 Monitores: "Ajustar o monitor" escolhe qualquer monitor ligado; resolução, frequência e
+  escala de cada um (`[monitor.others]` na configuração); o compositor usa o ajuste de cada tela
+- [x] 9.9.4 Cliques atravessavam menus: o menu da engrenagem do Arquivos media 120 px (tem ~177) e
+  "Mostrar arquivos ocultos" caía na coluna de trás; `ui.reserve`/`ui.unreserved` no kit reservam a
+  área do menu, e clique fora só fecha. `set_active(true)` apagava o bloqueio do pop-up aberto
+  (Captura: "Uma área" caía no pop-up "Quando"); soltar na margem do pop-up agora fecha
+- [x] 9.9.5 Som: alertas curtos se perdiam com a saída em repouso (folga de silêncio no WAV); clicar no
+  alerta escolhido toca de novo; sliders gravam a configuração no máximo a cada 150 ms (antes, a cada
+  quadro: todos os apps recarregavam), `wpctl` numa fila só com o último volume, `wpctl status` em thread
+- [x] 9.9.6 "Abrir com": os apps do Glove que abrem arquivos se registram em `~/.local/share/applications`
+  (`glove-*.desktop`, fora dos menus) e viram padrão dos tipos sem padrão; clique duplo segue o padrão
+  do tipo do arquivo
+- [x] 9.9.7 Coluna de detalhes do Arquivos mostra a foto (prévia numa thread); Visualizador e prévia
+  leem PNG, JPEG e **WebP**, pelo conteúdo (fotos da web costumam ser WebP com nome .jpg)
+- [x] 9.9.8 Caracteres: visão **Fonte** (lista das fontes instaladas, os caracteres que a fonte tem, prévia
+  grande com linha de base, altura do x, maiúsculas, subida e descida) e **Instalar Fonte…** (Ctrl+Shift+I)
+- [x] 9.9.9 Menu de monitores da barra: a resolução não mudava (o compositor mudava a memória antes de
+  gravar e a recarga não via diferença); lista também os outros monitores
+- [x] 9.9.10 Apps demorando ~25 s para abrir: o portal GTK saía com "cannot open display"; a sessão passa
+  `WAYLAND_DISPLAY`/`DISPLAY` ao systemd e ao D-Bus e grava `glove-portals.conf`; GTK/Qt/SDL caem no
+  Xwayland quando não têm Wayland
+- [x] 9.9.11 Lembretes: o botão de abrir a nota recolhida ficava sob o puxador e sumia com a nota inativa;
+  × (fechar) e –/+ (recolher/abrir) sempre à vista; reabrir travava o app (canto arredondado com
+  tamanho negativo na animação: `rrect4` ignora áreas vazias)
+- [x] 9.9.12 Tela de login grande demais: monitores que gravam a proporção no lugar do tamanho
+  (160 × 90 mm) davam escala 2,25 (`auto_scale` desconfia de telas minúsculas e densas); o instalador
+  copia a configuração do usuário (escala, monitor, teclado, tema) para `/etc/glove/login`;
+  escolha do **ambiente gráfico** (wayland-sessions e xsessions; X11 pelo `startx`), lembrando a última
+- [x] 9.9.13 Arquivos mais perto do Finder do Tiger: lateral branca com linhas de 30 e ícones de 24 por
+  lugar, lateral e conteúdo como painéis encaixados no metal, visão de ícones em 64; pasta redesenhada
+  (fundo com aba e frente clara listrada); Dock em vidro cinza-lilás com os ícones passando da borda
+- [x] 9.9.14 Vídeo: o app existe (8.11) e usa o mpv para a imagem; o instalador oferece o mpv e os
+  outros programas que faltarem
+- [x] 9.9.15 `./instalar.sh`: instalador que pergunta cada passo (compilar, programas que faltam, sessão,
+  tela de login com greetd e troca do gerenciador, tema do Plymouth); `--remover` desfaz
+- [x] 9.9.16 Dock refeito para o do Tiger: vidro cinza-lilás quase opaco (o tom não depende do papel de
+  parede), ícones crescidos até encher a vaga e quase encostados (2 px), dentro da prateleira
+- [x] 9.9.17 Som: em português o `pw-play` lia "0.50" como 0 (vírgula decimal) e só o volume máximo
+  tocava; roda com `LC_NUMERIC=C`
+- [x] 9.9.18 Prévia de imagens enche a coluna de detalhes sem distorcer, com −, +, Ajustar, rodinha e
+  arrastar a foto ampliada; mostra as dimensões
+- [x] 9.9.19 Menus de contexto: nomes compridos encurtados com "…"; com vários escolhidos, o botão
+  direito mantém a seleção e o menu vale para todos ("Mover 3 itens para a Lixeira", "Abrir 3 itens")
+- [x] 9.9.20 Arquivos mais rápido: metal escovado guardado depois da primeira vez (era calculado pixel a
+  pixel a cada quadro, inclusive no fundo todo), pasta Aplicativos guardada por 5 s (relia todos os
+  .desktop várias vezes por quadro), abrir arquivo fora da linha principal
+- [x] 9.9.21 Arrastar de verdade (protocolo do Wayland): o ícone segue o mouse (o compositor desenha o
+  ícone do arrasto), a pasta de destino acende, solta em outra janela do Arquivos ou em outro app;
+  mesmo disco move, outro disco copia; apertar num dos vários escolhidos arrasta todos
+- [x] 9.9.22 Copiar copia o arquivo (não o caminho): `text/uri-list`, `x-special/gnome-copied-files`
+  e, para uma imagem, a imagem em PNG; colar aceita esses formatos de outros apps
+  (`ui.copy_files`, `ui.request_paste_files`, `ui.start_drag_files`, `ui.take_drop` no kit)
+- [x] 9.9.24 Dock: ícones dentro da prateleira com folga igual em cima e embaixo, sombra com a forma de
+  cada ícone (guardada por tamanho), borda clara fina e suave
+- [x] 9.9.25 Visualizador: barra de rolagem na lateral de miniaturas
+- [x] 9.9.26 "Salvar como" do navegador com a janela do Glove: portal FileChooser próprio
+  (`glove-portal`, D-Bus, sob demanda) que abre `glove-escolher` (Abrir, Salvar e Escolher pasta, a
+  folha do kit); a sessão registra o portal sem instalar nada no sistema (XDG_DESKTOP_PORTAL_DIR) e
+  exporta GTK_USE_PORTAL=1 para os apps GTK3 (Firefox)
+- [x] 9.9.27 Terminal pronto para o Neovim e CLIs modernas: fundo das células alinhado aos pixels
+  (sem as listras entre colunas), fundos antes das letras, caracteres de bloco e de linhas
+  (█ ▀ ░ ─ │ ┌ ╭ ═ ╬…) desenhados como retângulos exatos
+- [x] 9.9.28 Janela "Salvar" do navegador ocupa a janela toda (sem as bordas cinza da folha); aviso do
+  Vídeo como janela de alerta (sem folha numa janela pequena)
+- [x] 9.9.29 Visualizador: botão direito com Copiar Imagem (o arquivo/PNG), Mover para a Lixeira (e
+  mostra a próxima), Girar, Mostrar no Arquivos; Ctrl+C e Delete
+- [x] 9.9.30 Wi-Fi: o Glove não inicia mais o ícone de rede do GNOME (nm-applet, que pedia a senha e o
+  chaveiro nas janelas dele); rede salva que pede senha abre a folha de senha das Preferências
+- [x] 9.9.31 Botões em vidro polido (Aqua): reflexo forte com borda definida, cor funda sob o reflexo,
+  brilho que atravessa o vidro embaixo, borda fina e sombrinha; azul-céu como o OK do Tiger
+- [x] 9.9.32 Captura de uma janela (a janela sob o mouse fica azulada; o clique a traz para a frente e
+  fotografa com a barra de título; Ctrl+Shift+J); captura de área em qualquer monitor (a película e o
+  retângulo aparecem em todos; a foto de outro monitor sai na escala dele)
+- [x] 9.9.33 Arrastar janela em zoom: sai do zoom e volta ao tamanho de antes, com o ponto agarrado sob o
+  mouse, sem soltar o arrasto; entrando num monitor em que não cabe, encolhe para 80% dele e continua
+- [x] 9.9.34 Minimizar com o efeito Lâmpada Mágica (a janela em 64 faixas: os lados entortam num funil até
+  o ícone e ela escorre para dentro do Dock); escolha em Preferências ▸ Dock
+- [x] 9.9.35 Temas do Terminal (Básico, Pro, Homebrew, Oceano, Grama, Novela, Areia Vermelha, Manual,
+  Noite), escolhidos por amostras nas Preferências e trocados na hora; fonte numa lista das de largura fixa
+- [x] 9.9.36 Temas de ícones do sistema (freedesktop, PNG e SVG com herança): os apps de fora mostram o
+  ícone de verdade (no Dock, Super+Tab, Forçar Encerrar, Aplicativos, Busca); em Preferências ▸ Aparência
+  dá para trocar os ícones do Glove por um tema instalado (com prévia)
+- [x] 9.9.37 Tudo do config.toml ajustável nas Preferências: Terminal do atalho, navegador do app
+  Navegador, onde a Lixeira abre e os apps X11 (em Aplicativos Padrão)
+- [x] 9.9.38 Metal escovado do Tiger: claro e suave (de ~230 a ~200), riscos longos e fracos, um brilho
+  sutil no meio da janela; título e barra de ferramentas numa peça só (sem a linha entre eles); cantos
+  de baixo arredondados no Arquivos (com a sombra acompanhando)
+- [x] 9.9.39 Puxador de redimensionar como o do Tiger: quatro ranhuras diagonais nítidas, sem caixa
+- [x] 9.9.40 Lâmpada Mágica sem serrilhado: a foto da janela é deformada pela placa de vídeo (shader que
+  acha, para cada pixel, de onde ele vem na janela), com curvas contínuas e bordas suaves
+- [x] 9.9.23 Sombra das janelas cobre também os cantos de cima arredondados (antes o pedaço recortado
+  ficava sem sombra e o canto parecia vivo sobre outra janela)
+
+## Fase 9.10 — O que faltou do Tiger (levantamento de 05/11/2026)
+
+Segunda passada nas 91 capturas de `referencias/tiger/` contra o Glove atual, depois do uso real
+mostrar que a mesa não era o Finder. Tudo aqui é do 10.4 e vem antes da Fase 10.
+
+- [ ] 9.10.1 **Mesa como o Arquivos** (`Desktop`): mostra os itens da pasta Mesa (`xdg-user-dir DESKTOP`)
+  além dos discos; menu do fundo (Nova Pasta, Obter Informações, Alterar Fundo da Mesa…, Limpar,
+  Organizar por ▸, Mostrar Opções de Visualização); menu do ícone (Abrir, Abrir com ▸, Mover para o
+  Lixo, Obter Informações, Compactar, Duplicar, Criar Atalho, Copiar, Rótulo); arrastar ícones pela mesa
+  (posição guardada), para pastas, janelas e o Lixo, e do Arquivos para a mesa; renomear no lugar;
+  atalhos do Arquivos (Ctrl+Shift+N, Ctrl+Backspace, Enter, Ctrl+O/D/I/J); com a mesa em foco a barra
+  de menu mostra os menus do Arquivos (G)
+- [ ] 9.10.2 **Painel de Widgets** (`Dashboard`, F12): camada escurecida sobre a mesa com widgets
+  originais (Relógio, Calculadora, Calendário, Clima, Lembrete, Dicionário, Conversor de unidades,
+  Monitor), barra de widgets com o "+" para adicionar e fechar, posição guardada; tecla e canto ativo
+  no painel "Exposé e Painel" das Preferências (G)
+- [ ] 9.10.3 Arquivos: **Preferências do Arquivos** (Geral: itens na mesa, pasta das novas janelas;
+  Rótulos; Barra Lateral; Avançado: extensões, aviso ao esvaziar o Lixo), **rótulos de cor**,
+  **Opções de Visualização** (Ctrl+J: tamanho dos ícones, posição do nome, organizar por, fundo) (M)
+- [ ] 9.10.4 Arquivos: **Ejetar** na barra lateral e na mesa (botão ⏏, arrastar o disco para o Lixo vira
+  Ejetar) e o aviso "disco não foi ejetado corretamente" (`Finder-Eject-Warning`) (M)
+- [ ] 9.10.5 Arquivos: **Conectar ao Servidor** (Ctrl+K: smb, sftp, ftp, webdav, com favoritos;
+  `Finder-Connect-to-Server`) e item **Rede** na barra lateral com as máquinas vistas pelo Avahi
+  (`Finder-Network`) (M)
+- [ ] 9.10.6 Arquivos: **pastas com mola** (segurar um arquivo arrastado sobre uma pasta a abre) (P)
+- [ ] 9.10.7 Janelas: **botão-pílula** no canto do título que oculta a barra de ferramentas; **ponto no
+  botão fechar** quando o documento tem alterações não salvas; **ícone do documento** no título
+  (arrastável; Ctrl+clique mostra o caminho em menu); **Ctrl+`** alterna as janelas do mesmo app (M)
+- [ ] 9.10.8 **Imprimir** (Ctrl+P) como folha do kit, por CUPS, com Pré-visualizar e Salvar como PDF
+  (`Print`), no Editor, Visualizador, Navegador e Correio (M)
+- [ ] 9.10.9 **Acesso às Chaves** (`Keychain-Access`): ver, copiar e apagar senhas guardadas (Secret
+  Service), trocar a senha do chaveiro (M)
+- [ ] 9.10.10 **Utilitário de Rede** (`Network-Utility`): Informações, Ping, Lookup, Traceroute, Whois,
+  Finger e varredura de portas, com as ferramentas do sistema (M)
+- [ ] 9.10.11 Preferências que faltam: **Segurança** (senha ao sair do repouso e do protetor, sair após
+  inatividade, firewall pelo ufw), **Busca Rápida** (categorias e ordem, privacidade),
+  **CDs e DVDs** (ação ao inserir), **Exposé e Painel** num painel próprio (`System-Preferences-*`) (M)
+- Pular: Classic, .Mac/iDisk, AirPort, iSync, Internet Connect (coberto por Rede), Automator e
+  Editor de Scripts (não há AppleScript no Linux); iChat fica na 10.9 (Mensagens)
+
 ## Fase 10 — O Glove "como deveria ter sido" (depois de cumprir toda a era)
 
-Ideias para depois das fases 1 a 9: o que veio depois do Tiger (ou nunca veio), redesenhado no
+Ideias para depois das fases 1 a 9.10: o que veio depois do Tiger (ou nunca veio), redesenhado no
 visual gel. Cada uma será detalhada antes de começar.
 
 - [ ] 10.1 Grade de apps em tela cheia (como o Launchpad), com pastas e busca

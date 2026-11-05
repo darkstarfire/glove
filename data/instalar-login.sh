@@ -56,6 +56,16 @@ vt=$(sed -n 's/^vt *= *//p' "$backup" 2>/dev/null | head -1)
 sed -e "s|@LIB@|$lib|" -e "s|@SESSAO@|$dir/glove-session|" -e "s|@GREETER@|$greeter|" \
     -e "s|^vt = 1|vt = ${vt:-1}|" "$dir/greetd/config.toml" > "$conf"
 chmod 644 "$conf"
+# A tela de login usa a configuração de quem instalou (escala da interface,
+# monitor principal e resolução, teclado, tema): sem ela, a escala é a automática.
+if [ -n "$SUDO_USER" ]; then
+    casa=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    cfg="${casa}/.config/glove/config.toml"
+    if [ -f "$cfg" ]; then
+        install -m 644 "$cfg" /etc/glove/login/config.toml
+        echo "Tela de login com os ajustes de $SUDO_USER (monitor, escala, teclado e tema)."
+    fi
+fi
 echo "Pronto: o greetd vai mostrar a tela de login do Glove."
 if ! systemctl is-enabled greetd >/dev/null 2>&1; then
     echo

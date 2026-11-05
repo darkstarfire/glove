@@ -234,10 +234,12 @@ fn plan(list: &[Connected], cfg: &glove_config::Monitor, keep: &[(connector::Han
     // Estender (ou um só): cada tela com a resolução e a escala dela.
     let mut plans: Vec<Plan> = Vec::new();
     for (i, (c, crtc)) in chosen.into_iter().enumerate() {
-        let wanted = if i == 0 { cfg.mode.as_str() } else { "" };
+        // O principal usa `mode`/`scale`; os outros, o ajuste de cada um (`others`).
+        let other = cfg.others.get(&c.name).cloned().unwrap_or_default();
+        let (wanted, want_scale) = if i == 0 { (cfg.mode.as_str(), cfg.scale) } else { (other.mode.as_str(), other.scale) };
         let Some(mode) = choose_mode(&c.modes, wanted) else { continue };
         let (pw, ph) = mode.size();
-        let scale = if i == 0 && cfg.scale > 0.0 { cfg.scale } else { auto_scale((pw as u32, ph as u32), c.size_mm) };
+        let scale = if want_scale > 0.0 { want_scale } else { auto_scale((pw as u32, ph as u32), c.size_mm) };
         plans.push(Plan { c, crtc, mode, scale, pos: (0, 0) });
     }
     if let Some(first) = plans.first() {

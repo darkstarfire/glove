@@ -1,4 +1,7 @@
 //! Caracteres: mapa de caracteres por categoria; clique para ver, copie com um botão.
+//! Também mostra o teclado na tela e, na visão Fonte, os caracteres de uma fonte.
+
+mod fonte;
 
 use glove_kit::{
     paint::{draw::*, Color},
@@ -39,6 +42,8 @@ const BLOCKS: [(&str, u32, u32); 15] = [
 ];
 
 const CELL: f32 = 34.0;
+/// Visões, no segmentado do alto.
+const MODES: [&str; 3] = ["Caracteres", "Teclado", "Fonte"];
 const SIDE: f32 = 190.0;
 
 struct Chars {
@@ -46,8 +51,9 @@ struct Chars {
     selected: Option<char>,
     scroll: f32,
     copied: Option<char>,
-    /// 0 = mapa de caracteres, 1 = teclado.
+    /// 0 = mapa de caracteres, 1 = teclado, 2 = uma fonte.
     mode: usize,
+    font: fonte::FontView,
     shift: bool,
     /// Texto montado clicando nas teclas.
     text: String,
@@ -119,7 +125,7 @@ impl App for Chars {
             ui.close = true;
         }
         if copy {
-            if let Some(c) = self.selected {
+            if let Some(c) = if self.mode == 2 { self.font.selected } else { self.selected } {
                 ui.copy(&c.to_string());
                 self.copied = Some(c);
             }
@@ -130,13 +136,34 @@ impl App for Chars {
             match a.as_str() {
                 "mode-map" => self.mode = 0,
                 "mode-kbd" => self.mode = 1,
+                "mode-font" => self.mode = 2,
+                "install-font" => {
+                    self.mode = 2;
+                    self.font.ask_install();
+                }
                 _ => {}
             }
         }
+        if ui.keys().iter().any(|k| k.combo == "Ctrl+Shift+I") {
+            self.mode = 2;
+            self.font.ask_install();
+        }
+        if self.mode == 2 {
+            let mut m = self.mode;
+            ui.area(Rect::new(10.0, 10.0, 300.0, 24.0), |ui| {
+                if let Some(i) = ui.segmented_text(&MODES, Some(m)) {
+                    m = i;
+                }
+            });
+            self.mode = m;
+            self.font.ui(ui, Rect::new(10.0, 44.0, w - 20.0, h - 54.0));
+            self.font.sheet(ui);
+            return;
+        }
         if self.mode == 1 {
             let mut m = self.mode;
-            ui.area(Rect::new(10.0, 10.0, 220.0, 24.0), |ui| {
-                if let Some(i) = ui.segmented_text(&["Caracteres", "Teclado"], Some(m)) {
+            ui.area(Rect::new(10.0, 10.0, 300.0, 24.0), |ui| {
+                if let Some(i) = ui.segmented_text(&MODES, Some(m)) {
                     m = i;
                 }
             });
@@ -163,18 +190,22 @@ impl App for Chars {
             return;
         }
         let mut m = self.mode;
-        ui.area(Rect::new(10.0, 10.0, SIDE, 24.0), |ui| {
-            if let Some(i) = ui.segmented_text(&["Caracteres", "Teclado"], Some(m)) {
+        ui.area(Rect::new(10.0, 10.0, 300.0, 24.0), |ui| {
+            if let Some(i) = ui.segmented_text(&MODES, Some(m)) {
                 m = i;
             }
         });
         self.mode = m;
+        if m != 0 {
+            ui.redraw = true;
+            return;
+        }
 
         // Categorias
         let names: Vec<String> = BLOCKS.iter().map(|b| b.0.to_string()).collect();
         let before = self.block;
-        ui.area(Rect::new(10.0, 42.0, SIDE, h - 52.0), |ui| {
-            ui.list(&mut self.block, &names, SIDE, h - 52.0);
+        ui.area(Rect::new(10.0, 44.0, SIDE, h - 54.0), |ui| {
+            ui.list(&mut self.block, &names, SIDE, h - 54.0);
         });
         if self.block != before {
             self.scroll = 0.0;
@@ -182,7 +213,7 @@ impl App for Chars {
         }
 
         // Grade
-        let full = Rect::new(SIDE + 20.0, 10.0, w - SIDE - 30.0, h - 120.0);
+        let full = Rect::new(SIDE + 20.0, 44.0, w - SIDE - 30.0, h - 154.0);
         let chars = self.chars();
         let per_row = ((full.w - SCROLLBAR_W) / CELL).floor().max(1.0) as usize;
         let rows = chars.len().div_ceil(per_row);
@@ -249,19 +280,23 @@ impl App for Chars {
 
     fn menus(&self) -> Vec<Menu> {
         vec![
-            Menu::new("Arquivo", vec![MenuItem::new("close", "Fechar", "Ctrl+W")]),
-            Menu::new("Editar", vec![MenuItem::new("copy", "Copiar caractere", "Ctrl+C").enabled(self.selected.is_some())]),
+            Menu::new("Arquivo", vec![MenuItem::new("install-font", "Instalar Fonte…", "Ctrl+Shift+I"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")]),
+            Menu::new("Editar", vec![MenuItem::new("copy", "Copiar caractere", "Ctrl+C").enabled(if self.mode == 2 { self.font.selected.is_some() } else { self.selected.is_some() })]),
             Menu::new(
                 "Visualizar",
-                vec![MenuItem::new("mode-map", "Caracteres", "").checked(self.mode == 0), MenuItem::new("mode-kbd", "Teclado", "").checked(self.mode == 1)],
+                vec![
+                    MenuItem::new("mode-map", "Caracteres", "").checked(self.mode == 0),
+                    MenuItem::new("mode-kbd", "Teclado", "").checked(self.mode == 1),
+                    MenuItem::new("mode-font", "Fonte", "").checked(self.mode == 2),
+                ],
             ),
         ]
     }
 }
 
 fn main() {
-    let opts = WindowOptions { title: "Caracteres".into(), app_id: "glove.Chars".into(), size: (640, 440), fixed: false };
-    if let Err(e) = run(opts, Chars { block: Some(1), selected: None, scroll: 0.0, copied: None, mode: 0, shift: false, text: String::new(), lit: None }) {
+    let opts = WindowOptions { title: "Caracteres".into(), app_id: "glove.Chars".into(), size: (760, 470), fixed: false, min_size: Some((600, 380)) };
+    if let Err(e) = run(opts, Chars { block: Some(1), selected: None, scroll: 0.0, copied: None, mode: 0, font: fonte::FontView::default(), shift: false, text: String::new(), lit: None }) {
         eprintln!("glove-chars: {e}");
     }
 }

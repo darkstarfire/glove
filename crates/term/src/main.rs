@@ -1,6 +1,8 @@
 //! Terminal do Glove: o núcleo de terminal do Alacritty (sequências de escape,
 //! grade, histórico) desenhado com o toolkit do Glove.
 
+mod blocks;
+
 use std::cell::RefCell;
 use std::io::Write;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
@@ -50,31 +52,10 @@ impl Dimensions for Size {
     }
 }
 
-/// Paleta de 16 cores sobre fundo claro.
-const PALETTE: [(u8, u8, u8); 16] = [
-    (0, 0, 0),
-    (194, 54, 33),
-    (37, 160, 38),
-    (173, 140, 0),
-    (40, 70, 200),
-    (176, 50, 176),
-    (20, 150, 170),
-    (190, 190, 190),
-    (102, 102, 102),
-    (235, 70, 50),
-    (49, 200, 50),
-    (210, 180, 0),
-    (80, 110, 240),
-    (225, 70, 225),
-    (40, 200, 220),
-    (255, 255, 255),
-];
-const FG: (u8, u8, u8) = (0, 0, 0);
-const BG: (u8, u8, u8) = (255, 255, 255);
-
-fn indexed(i: u8) -> (u8, u8, u8) {
+/// Cores 16 a 255 (cubo 6×6×6 e cinzas); as 16 primeiras vêm do tema.
+fn indexed(pal: &[(u8, u8, u8); 16], i: u8) -> (u8, u8, u8) {
     match i {
-        0..=15 => PALETTE[i as usize],
+        0..=15 => pal[i as usize],
         16..=231 => {
             let i = i - 16;
             let c = |v: u8| if v == 0 { 0 } else { 55 + v * 40 };
@@ -88,6 +69,8 @@ fn indexed(i: u8) -> (u8, u8, u8) {
 }
 
 struct Terminal {
+    /// Tema de cores (Preferências ▸ Terminal), trocado na hora.
+    theme: glove_config::TermTheme,
     term: Term<Listener>,
     parser: Processor,
     events: Rc<RefCell<Vec<Event>>>,
@@ -160,6 +143,7 @@ impl Terminal {
         let mono = Fonts::load_family(&cfg.terminal_font).ok_or_else(|| std::io::Error::other("sem fonte monoespaçada"))?;
         let px = if cfg.terminal_font_size >= 6.0 { cfg.terminal_font_size } else { DEFAULT_PX };
         Ok(Self {
+            theme: glove_config::term_theme(&cfg.terminal_theme),
             term,
             parser: Processor::new(),
             events,
@@ -215,7 +199,7 @@ impl Terminal {
                 Event::ResetTitle => self.title = "Terminal".into(),
                 Event::ClipboardStore(_, text) => self.pending_copy = Some(text),
                 Event::ColorRequest(i, f) => {
-                    let (r, g, b) = if i == 256 + 0 { FG } else if i < 256 { indexed(i as u8) } else { BG };
+                    let (r, g, b) = if i == 256 + 0 { self.theme.fg } else if i < 256 { indexed(&self.theme.palette, i as u8) } else { self.theme.bg };
                     let reply = f(Rgb { r, g, b });
                     self.write(reply.as_bytes());
                 }
@@ -228,23 +212,27 @@ impl Terminal {
         let colors = self.term.colors();
         match c {
             AColor::Spec(rgb) => (rgb.r, rgb.g, rgb.b),
-            AColor::Indexed(i) => colors[i as usize].map(|c| (c.r, c.g, c.b)).unwrap_or_else(|| indexed(i)),
+            AColor::Indexed(i) => colors[i as usize].map(|c| (c.r, c.g, c.b)).unwrap_or_else(|| indexed(&self.theme.palette, i)),
             AColor::Named(n) => {
                 let idx = n as usize;
                 if let Some(c) = colors[idx] {
                     return (c.r, c.g, c.b);
                 }
                 match n {
-                    NamedColor::Foreground | NamedColor::BrightForeground => FG,
-                    NamedColor::Background => BG,
-                    NamedColor::DimForeground => (90, 90, 90),
-                    _ if idx < 8 && bold && fg => PALETTE[idx + 8],
-                    _ if idx < 16 => PALETTE[idx],
+                    NamedColor::Foreground | NamedColor::BrightForeground => self.theme.fg,
+                    NamedColor::Background => self.theme.bg,
+                    NamedColor::Cursor => self.theme.cursor,
+                    NamedColor::DimForeground => {
+                        let (f, b) = (self.theme.fg, self.theme.bg);
+                        (((f.0 as u16 + b.0 as u16) / 2) as u8, ((f.1 as u16 + b.1 as u16) / 2) as u8, ((f.2 as u16 + b.2 as u16) / 2) as u8)
+                    }
+                    _ if idx < 8 && bold && fg => self.theme.palette[idx + 8],
+                    _ if idx < 16 => self.theme.palette[idx],
                     _ => {
                         if fg {
-                            FG
+                            self.theme.fg
                         } else {
-                            BG
+                            self.theme.bg
                         }
                     }
                 }
@@ -370,7 +358,8 @@ impl Terminal {
     fn draw(&self, c: &mut Canvas, fonts_ui: &Fonts, area: Rect, accent: Color) {
         let (cw, ch) = self.cell();
         let (_, ascent) = self.mono.mono_metrics(self.px);
-        c.fill_rect(area.x, area.y, area.w, area.h, &solid(Color::WHITE));
+        let (tb, tf, tc) = (self.theme.bg, self.theme.fg, self.theme.cursor);
+        c.fill_rect(area.x, area.y, area.w, area.h, &solid(rgba(tb.0, tb.1, tb.2, 255)));
         let content = self.term.renderable_content();
         let offset = content.display_offset as i32;
         let sel = content.selection;
@@ -379,6 +368,9 @@ impl Terminal {
         let show_cursor = content.mode.contains(TermMode::SHOW_CURSOR) && offset == 0 && shape != CursorShape::Hidden;
         let mut cursor_rect: Option<(f32, f32, f32, (u8, u8, u8))> = None;
         let mut buf = [0u8; 4];
+        // Primeiro todos os fundos, depois as letras: o fundo da célula seguinte não
+        // corta o pedaço de letra que passa da célula (itálico, ícones, blocos).
+        let mut glyphs: Vec<(f32, f32, f32, (u8, u8, u8), char, Flags, Option<(u8, u8, u8)>)> = Vec::new();
         for cell in content.display_iter {
             let row = cell.point.line.0 + offset;
             if row < 0 || row as usize >= self.lines {
@@ -405,25 +397,34 @@ impl Terminal {
             if is_cursor {
                 if shape == CursorShape::Block {
                     std::mem::swap(&mut fg, &mut bg);
-                    if bg == BG {
-                        bg = (60, 60, 60);
-                        fg = BG;
+                    if bg == tb {
+                        bg = tc;
+                        fg = tb;
                     }
+                    let _ = tf;
                 } else {
                     // Barra, sublinhado ou bloco vazado: desenhado por cima depois.
                     cursor_rect = Some((x, y, width, fg));
                 }
             }
-            if bg != BG {
-                c.fill_rect(x, y, width, ch, &solid(rgba(bg.0, bg.1, bg.2, 255)));
+            if bg != tb {
+                c.fill_cell(x, y, width, ch, rgba(bg.0, bg.1, bg.2, 255));
             }
-            if cell.c != ' ' && cell.c != '\t' && !flags.contains(Flags::HIDDEN) {
-                let s: &str = cell.c.encode_utf8(&mut buf);
+            let uc = cell.underline_color().map(|u| self.color(u, true, false));
+            glyphs.push((x, y, width, fg, cell.c, flags, uc));
+        }
+        for (x, y, width, fg, chr, flags, uc) in glyphs {
+            let bold = flags.contains(Flags::BOLD);
+            if chr != ' ' && chr != '\t' && !flags.contains(Flags::HIDDEN) {
                 let alpha = if flags.contains(Flags::DIM) { 150 } else { 255 };
-                self.mono.draw(c, s, x, y + ((ch - self.px * 1.17) / 2.0).max(0.0) + ascent, self.px, bold, rgba(fg.0, fg.1, fg.2, alpha));
+                let col = rgba(fg.0, fg.1, fg.2, alpha);
+                if !crate::blocks::draw(c, chr, x, y, width, ch, col) {
+                    let s: &str = chr.encode_utf8(&mut buf);
+                    self.mono.draw(c, s, x, y + ((ch - self.px * 1.17) / 2.0).max(0.0) + ascent, self.px, bold, col);
+                }
             }
             if flags.intersects(Flags::ALL_UNDERLINES) {
-                let uc = cell.underline_color().map(|u| self.color(u, true, false)).unwrap_or(fg);
+                let uc = uc.unwrap_or(fg);
                 let ink = solid(rgba(uc.0, uc.1, uc.2, 255));
                 let uy = y + ch - 2.0;
                 if flags.contains(Flags::UNDERCURL) {
@@ -483,6 +484,11 @@ impl Drop for Terminal {
 }
 
 impl App for Terminal {
+    /// Preferências mudaram: o tema de cores vale na hora, nesta janela também.
+    fn config_changed(&mut self) {
+        self.theme = glove_config::term_theme(&glove_config::Config::load().terminal_theme);
+    }
+
     fn watch_fd(&self) -> Option<RawFd> {
         Some(self.pty.as_raw_fd())
     }
@@ -701,7 +707,7 @@ fn main() {
     };
     let (cw, ch) = term.cell();
     let size = ((80.0 * cw + 2.0 * PAD + 15.0).ceil() as u32, (24.0 * ch + 2.0 * PAD).ceil() as u32);
-    let opts = WindowOptions { title: "Terminal".into(), app_id: "glove.Terminal".into(), size, fixed: false };
+    let opts = WindowOptions { title: "Terminal".into(), app_id: "glove.Terminal".into(), size, fixed: false, min_size: None };
     if let Err(e) = run(opts, term) {
         eprintln!("glove-term: {e}");
     }

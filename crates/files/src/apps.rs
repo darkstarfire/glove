@@ -98,11 +98,13 @@ pub fn all() -> Vec<App> {
             if !id.to_string_lossy().ends_with(".desktop") || !seen.insert(id) {
                 continue;
             }
-            let Some((name, utility)) = std::fs::read_to_string(e.path()).ok().and_then(|t| parse(&t)) else { continue };
+            let Some(text) = std::fs::read_to_string(e.path()).ok() else { continue };
+            let Some((name, utility)) = parse(&text) else { continue };
+            let icon = text.lines().find_map(|l| l.strip_prefix("Icon=")).map(|v| Icon::from_name(v.trim())).unwrap_or(Icon::Window);
             if out.iter().any(|a| a.name.eq_ignore_ascii_case(&name)) {
                 continue;
             }
-            out.push(App { name, path: e.path(), icon: Icon::Window, utility });
+            out.push(App { name, path: e.path(), icon, utility });
         }
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));

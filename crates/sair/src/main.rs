@@ -122,7 +122,7 @@ fn main() {
         Mode::Confirm { kind, .. } => confirm_texts(kind).0,
         Mode::Cancelled { kind, .. } | Mode::Failed { kind } => confirm_texts(kind).0,
     };
-    let opts = WindowOptions { title: title.into(), app_id: "glove.Sair".into(), size: (440, 130), fixed: true };
+    let opts = WindowOptions { title: title.into(), app_id: "glove.Sair".into(), size: (440, 130), fixed: true, min_size: None };
     if let Err(e) = run(opts, Sair { mode }) {
         eprintln!("glove-sair: {e}");
     }

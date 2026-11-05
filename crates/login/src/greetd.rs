@@ -120,7 +120,7 @@ impl Greetd {
 
 /// Entra: cria a sessão, responde ao PAM com a senha e inicia `cmd`.
 /// Erro: texto para mostrar (a sessão é cancelada).
-pub fn log_in(user: &str, password: &str, cmd: &[String]) -> Result<(), String> {
+pub fn log_in(user: &str, password: &str, cmd: &[String], env: &[String]) -> Result<(), String> {
     let io = |e: std::io::Error| format!("Erro ao falar com o greetd: {e}");
     let mut g = Greetd::connect().map_err(io)?;
     let mut reply = g.create_session(user).map_err(io)?;
@@ -136,7 +136,7 @@ pub fn log_in(user: &str, password: &str, cmd: &[String]) -> Result<(), String> 
                 .map_err(io)?;
             }
             Reply::Success => {
-                return match g.start_session(cmd, &[]).map_err(io)? {
+                return match g.start_session(cmd, env).map_err(io)? {
                     Reply::Success => Ok(()),
                     Reply::Error { description, .. } => {
                         let _ = g.cancel();

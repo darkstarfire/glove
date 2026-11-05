@@ -125,6 +125,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     tracing::info!("Glove rodando em WAYLAND_DISPLAY={}", state.socket_name.to_string_lossy());
+    if !greeter && matches!(backend, Backend::Drm(_)) {
+        state::export_session_env(&state.socket_name, None);
+    }
+    // Visualizador, Editor, Vídeo… em "Abrir com" (fora da tela de login).
+    if !greeter {
+        if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
+            glove_config::register_file_apps(&dir);
+        }
+    }
     // Apps X11 (Xwayland), se instalado e ligado na configuração.
     state.start_xwayland();
 

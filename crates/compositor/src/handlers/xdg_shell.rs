@@ -119,12 +119,7 @@ impl XdgShellHandler for Glove {
             let initial_window_location = self.space.element_location(&window).unwrap();
 
             let min_y = glove_paint::theme::MENUBAR_H + deco_top(&window);
-            let grab = MoveSurfaceGrab {
-                start_data,
-                window,
-                initial_window_location,
-                min_y,
-            };
+            let grab = MoveSurfaceGrab::new(start_data, window, initial_window_location, min_y);
 
             pointer.set_grab(self, grab, serial, Focus::Clear);
         }

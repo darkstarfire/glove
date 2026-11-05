@@ -83,6 +83,8 @@ pub struct Glove {
     pub open_after_shot: bool,
     /// Cursor pedido pelo app sob o ponteiro (desenhado só na sessão própria).
     pub cursor_status: smithay::input::pointer::CursorImageStatus,
+    /// Ícone do que está sendo arrastado entre apps (segue o mouse).
+    pub dnd_icon: Option<smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>,
     /// A seta padrão, desenhada na escala atual.
     pub cursor_tex: Option<crate::shell::Tex>,
     pub cursor_tex_scale: f64,
@@ -183,6 +185,7 @@ impl Glove {
 
         let socket_name = Self::init_wayland_listener(display, event_loop);
         let config = Config::load();
+        glove_paint::icons::set_theme(&config.appearance.icon_theme);
         let theme = Theme::new(Variant::from_config(&config.theme));
         let fonts = Fonts::load_system().expect("nenhuma fonte encontrada (instale fonts-dejavu)");
 
@@ -221,6 +224,7 @@ impl Glove {
             screenshot_request: None,
             open_after_shot: false,
             cursor_status: smithay::input::pointer::CursorImageStatus::default_named(),
+            dnd_icon: None,
             cursor_tex: None,
             cursor_tex_scale: 0.0,
             effects: Default::default(),
@@ -334,7 +338,8 @@ impl Glove {
             return false;
         }
         let old = std::mem::replace(&mut self.config, new);
-        if old.theme != self.config.theme || old.wallpaper != self.config.wallpaper {
+        glove_paint::icons::set_theme(&self.config.appearance.icon_theme);
+        if old.theme != self.config.theme || old.wallpaper != self.config.wallpaper || old.appearance.icon_theme != self.config.appearance.icon_theme {
             self.theme = Theme::new(Variant::from_config(&self.config.theme));
             self.theme_gen += 1;
         }
@@ -519,8 +524,10 @@ impl Glove {
         cmd.arg("-c")
             .arg(if exec { format!("exec {command}") } else { command.to_string() })
             .env("WAYLAND_DISPLAY", &self.socket_name)
-            .env("GDK_BACKEND", "wayland")
-            .env("QT_QPA_PLATFORM", "wayland")
+            // Wayland primeiro; sem suporte (ou sem o plugin do Qt), cai no Xwayland.
+            .env("GDK_BACKEND", "wayland,x11")
+            .env("QT_QPA_PLATFORM", "wayland;xcb")
+            .env("SDL_VIDEODRIVER", "wayland,x11")
             .env("MOZ_ENABLE_WAYLAND", "1")
             .env("GLOVE_MENU_SOCKET", self.menu_socket.clone().unwrap_or_default());
         // Apps X11 vão para o Xwayland do Glove (nunca para o X de fora, na janela aninhada).
@@ -546,4 +553,91 @@ pub struct ClientState {
 impl ClientData for ClientState {
     fn initialized(&self, _client_id: ClientId) {}
     fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+}
+
+/// Sessão própria: os serviços do usuário (portais, chaveiro…) que o systemd e o
+/// D-Bus abrem sob demanda passam a conhecer esta tela. Sem isso o portal GTK sai
+/// com "cannot open display" e cada app GTK/Electron espera ~25 s ao abrir.
+pub fn export_session_env(wayland: &std::ffi::OsStr, xdisplay: Option<u32>) {
+    let mut vars = vec![format!("WAYLAND_DISPLAY={}", wayland.to_string_lossy()), "XDG_CURRENT_DESKTOP=Glove".into(), "XDG_SESSION_TYPE=wayland".into(), "XDG_SESSION_DESKTOP=glove".into()];
+    if let Some(n) = xdisplay {
+        vars.push(format!("DISPLAY=:{n}"));
+    }
+    // Portais: os do sistema mais o do Glove (escolher arquivo com a janela do Glove).
+    if let Some(dir) = setup_portal_dir() {
+        vars.push(format!("XDG_DESKTOP_PORTAL_DIR={}", dir.display()));
+    }
+    let first = xdisplay.is_none();
+    std::thread::spawn(move || {
+        let ok = std::process::Command::new("dbus-update-activation-environment").arg("--systemd").args(&vars).status().is_ok_and(|s| s.success());
+        if !ok {
+            let names: Vec<&str> = vars.iter().filter_map(|v| v.split('=').next()).collect();
+            let _ = std::process::Command::new("systemctl").args(["--user", "import-environment"]).args(&names).status();
+        }
+        if first {
+            write_portals_conf();
+            // Portais de uma sessão anterior (o systemd do usuário continua de pé
+            // entre logins) guardam a tela velha: saem e voltam sob demanda.
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "stop", "xdg-desktop-portal.service", "xdg-desktop-portal-gtk.service", "xdg-desktop-portal-gnome.service"])
+                .stderr(std::process::Stdio::null())
+                .status();
+            let _ = std::process::Command::new("systemctl").args(["--user", "reset-failed"]).stderr(std::process::Stdio::null()).status();
+        }
+    });
+}
+
+/// Pasta de portais da sessão (~/.local/share/glove/portais): atalhos para os do
+/// sistema e o do Glove (`glove.portal`), e o serviço do D-Bus que inicia o
+/// `glove-portal` sob demanda. O xdg-desktop-portal lê essa pasta pela variável
+/// XDG_DESKTOP_PORTAL_DIR (sem precisar instalar nada no sistema).
+fn setup_portal_dir() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?.parent()?.join("glove-portal");
+    if !exe.is_file() {
+        return None;
+    }
+    let data = std::env::var_os("XDG_DATA_HOME").map(std::path::PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")))?;
+    let dir = data.join("glove/portais");
+    std::fs::create_dir_all(&dir).ok()?;
+    let system = std::path::Path::new("/usr/share/xdg-desktop-portal/portals");
+    if let Ok(rd) = std::fs::read_dir(system) {
+        for e in rd.flatten() {
+            let link = dir.join(e.file_name());
+            if e.file_name() != "glove.portal" && std::fs::symlink_metadata(&link).is_err() {
+                let _ = std::os::unix::fs::symlink(e.path(), link);
+            }
+        }
+    }
+    let _ = std::fs::write(dir.join("glove.portal"), "[portal]\nDBusName=org.freedesktop.impl.portal.desktop.glove\nInterfaces=org.freedesktop.impl.portal.FileChooser;\nUseIn=Glove\n");
+    let services = data.join("dbus-1/services");
+    std::fs::create_dir_all(&services).ok()?;
+    let _ = std::fs::write(
+        services.join("org.freedesktop.impl.portal.desktop.glove.service"),
+        format!("[D-BUS Service]\nName=org.freedesktop.impl.portal.desktop.glove\nExec={}\n", exe.display()),
+    );
+    Some(dir)
+}
+
+/// Quais portais o Glove usa (`glove-portals.conf`): o Glove para escolher arquivo,
+/// o do GTK para o resto (escolher app…) e o chaveiro do GNOME para senhas.
+fn write_portals_conf() {
+    let Some(base) = std::env::var_os("XDG_CONFIG_HOME").map(std::path::PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config"))) else { return };
+    let dir = base.join("xdg-desktop-portal");
+    let file = dir.join("glove-portals.conf");
+    // O arquivo é do usuário se ele editou (sem a marca do Glove ou já com o portal novo).
+    if let Ok(old) = std::fs::read_to_string(&file) {
+        if !old.starts_with("# Gerado pelo Glove") || old.contains("FileChooser") {
+            return;
+        }
+    }
+    let portals = std::path::Path::new("/usr/share/xdg-desktop-portal/portals");
+    let mut text = String::from("# Gerado pelo Glove. Pode editar: ele não grava por cima.\n[preferred]\n");
+    text.push_str(if portals.join("gtk.portal").exists() { "default=gtk;\n" } else { "default=*;\n" });
+    text.push_str("org.freedesktop.impl.portal.FileChooser=glove;gtk;\n");
+    if portals.join("gnome-keyring.portal").exists() {
+        text.push_str("org.freedesktop.impl.portal.Secret=gnome-keyring;\n");
+    }
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let _ = std::fs::write(file, text);
+    }
 }
