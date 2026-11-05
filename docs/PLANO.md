@@ -275,8 +275,8 @@ Defeitos vistos usando a sessão no dia a dia (17 capturas de tela), todos corri
   zoom se reajustam quando o Dock muda
 - [x] 9.9.42 Arrastar arquivos ou pastas para o Terminal escreve o caminho completo (entre aspas quando
   tem espaço), como no Terminal do Mac; o arrastar vira "copiar", nunca "mover"
-- [x] 9.9.43 Ctrl+clique (ou Super+clique) num app do Dock abre mais uma instância dele, mesmo já aberto
-  (o clique simples continua trazendo o app para a frente)
+- [x] 9.9.43 Abrir mais de uma instância do mesmo app pelo Dock: Ctrl+clique (ou Super+clique) no ícone,
+  ou "Abrir Outra Instância" no menu do ícone (o clique simples continua trazendo o app para a frente)
 
 ## Fase 9.10 — O que faltou do Tiger (levantamento de 05/11/2026)
 

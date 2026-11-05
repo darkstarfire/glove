@@ -243,6 +243,8 @@ pub enum MenuAction {
     /// Abre no Arquivos a pasta do programa (comando do app).
     ShowInFiles(String),
     DockRun(DockAction),
+    /// Abre mais uma instância do app (comando, app_id), mesmo já aberto.
+    NewInstance(String, String),
     /// Esvaziar a Lixeira (com confirmação, no Arquivos).
     EmptyTrash,
     /// Menu do monitor: (saída, "LxA@Hz").
@@ -1324,6 +1326,10 @@ impl Glove {
                 }
             }
             MenuAction::Desk(c) => self.desk_cmd(c),
+            MenuAction::NewInstance(cmd, id) => {
+                self.spawn(&cmd);
+                self.start_bounce(&id);
+            }
         }
     }
 

@@ -104,6 +104,10 @@ impl Glove {
         let show = if command.is_empty() { show.disabled() } else { show };
         v.push(MenuNode::new(show, Some(MenuAction::ShowInFiles(command.to_string()))));
         v.push(MenuNode::sep());
+        // App aberto: abrir mais uma instância (o mesmo que Ctrl+clique no ícone).
+        if pid.is_some() && !command.is_empty() {
+            v.push(MenuNode::new(MenuItem::item("Abrir Outra Instância"), Some(MenuAction::NewInstance(command.to_string(), app_id.to_string()))));
+        }
         match (pid, open) {
             (Some(pid), _) => {
                 v.push(MenuNode::new(MenuItem::item("Ocultar"), Some(MenuAction::HideApp(pid))));
