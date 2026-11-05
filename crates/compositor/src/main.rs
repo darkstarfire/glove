@@ -12,6 +12,7 @@ mod menus;
 mod recent;
 mod render;
 mod shell;
+mod startup;
 mod state;
 mod udev;
 mod winit;
@@ -165,14 +166,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Itens de início (-c): abrem no último passo do painel "Iniciando sessão".
     let mut args = std::env::args().skip(1);
+    let mut commands = Vec::new();
     while let Some(arg) = args.next() {
         if arg == "-c" || arg == "--command" {
             if let Some(cmd) = args.next() {
-                state.spawn(&cmd);
+                commands.push(cmd);
             }
         }
     }
+    state.start_session_panel(commands);
 
     let mut data = CalloopData { state, display_handle, backend };
     if matches!(data.backend, Backend::Drm(_)) {

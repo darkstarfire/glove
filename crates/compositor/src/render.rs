@@ -31,13 +31,17 @@ render_elements! {
 }
 
 fn mem(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, scale: f64) -> Option<GloveElement> {
+    mem_alpha(renderer, loc, tex, scale, None)
+}
+
+fn mem_alpha(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, scale: f64, alpha: Option<f32>) -> Option<GloveElement> {
     let buf = tex.upload(renderer)?;
     // Origem = a textura inteira (em pixels); destino = tamanho lógico.
     let src = Rectangle::from_size((tex.px.0 as f64, tex.px.1 as f64).into());
     Some(GloveElement::Texture(TextureRenderElement::from_texture_buffer(
         loc.to_f64().to_physical(scale),
         &buf,
-        None,
+        alpha,
         Some(src),
         Some(tex.size),
         Kind::Unspecified,
@@ -71,6 +75,21 @@ impl Glove {
                 out.extend(mem(renderer, (0, 0).into(), b, sc));
             }
             return out;
+        }
+
+        // Iniciando sessão: o painel por cima; enquanto cobre, só o papel de parede embaixo.
+        if let Some(s) = &self.startup {
+            if let Some(t) = &s.tex {
+                let (x, y) = self.startup_pos();
+                let m = glove_paint::chrome::STARTUP_SHADOW as i32;
+                out.extend(mem_alpha(renderer, (x - m, y - m).into(), t, sc, Some(s.alpha())));
+            }
+            if s.covering() {
+                if let Some(b) = &c.wallpaper {
+                    out.extend(mem(renderer, (0, 0).into(), b, sc));
+                }
+                return out;
+            }
         }
 
         // Tela de encerramento: cobre tudo (menos o cursor).

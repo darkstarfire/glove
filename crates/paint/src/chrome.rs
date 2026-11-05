@@ -1202,3 +1202,33 @@ pub fn lock_panel(fonts: &Fonts, theme: &Theme, name: &str, dots: usize, message
     fonts.draw(&mut c, label, x0 + bx + (bw - tw) / 2.0, y0 + by + 15.5, 13.0, false, if busy { rgba(140, 140, 140, 255) } else { ink });
     Some(c)
 }
+
+// ---------------------------------------------------------------------------
+// Iniciando sessão
+// ---------------------------------------------------------------------------
+
+pub const STARTUP_W: f32 = 340.0;
+pub const STARTUP_H: f32 = 190.0;
+pub const STARTUP_SHADOW: f32 = 24.0;
+
+/// Painel "Iniciando sessão": orbe, nome, o passo atual e a barra de progresso.
+pub fn startup_panel(fonts: &Fonts, theme: &Theme, status: &str, progress: f32, scale: f32) -> Option<Canvas> {
+    let (w, h, m) = (STARTUP_W, STARTUP_H, STARTUP_SHADOW);
+    let mut c = Canvas::new(w + 2.0 * m, h + 2.0 * m, scale)?;
+    if let Some(sh) = Canvas::shadow(-m, -m, w + 2.0 * m, h + 2.0 * m, w, h, &ShadowSpec { blur: 16.0, offset_y: 6.0, radius: 8.0, alpha: 0.45 }, scale) {
+        c.draw_canvas(&sh, 0.0, 0.0);
+    }
+    let (x0, y0) = (m, m);
+    c.fill(rrect(x0, y0, w, h, 8.0), &solid(theme.body_b));
+    c.pinstripes(x0, y0 + 8.0, w, h - 16.0, theme.body_a, theme.body_b);
+    c.stroke(rrect(x0, y0, w, h, 8.0), &solid(rgba(0, 0, 0, 90)), 1.0 / scale);
+    gel_circle(&mut c, x0 + w / 2.0, y0 + 46.0, 26.0, theme.accent);
+    let center = |c: &mut Canvas, t: &str, y: f32, px: f32, bold: bool, col: Color| {
+        let tw = fonts.measure(t, px, bold);
+        fonts.draw(c, t, x0 + (w - tw) / 2.0, y, px, bold, col);
+    };
+    center(&mut c, "Glove", y0 + 104.0, 22.0, true, rgba(20, 20, 20, 255));
+    center(&mut c, status, y0 + 132.0, 11.0, false, rgba(50, 50, 50, 255));
+    progress_bar(&mut c, x0 + 40.0, y0 + 148.0, w - 80.0, 12.0, Some(progress.clamp(0.0, 1.0)), 0.0, theme.accent);
+    Some(c)
+}

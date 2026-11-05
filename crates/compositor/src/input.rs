@@ -251,6 +251,10 @@ impl Glove {
         if state == KeyState::Pressed {
             self.note_input();
         }
+        // Iniciando sessão: as teclas esperam a mesa aparecer.
+        if self.startup_covering() {
+            return;
+        }
         let serial = SERIAL_COUNTER.next_serial();
         let keyboard = self.seat.get_keyboard().unwrap();
         let action = keyboard.input::<Option<KeyAction>, _>(self, code.into(), state, serial, time, |st, mods, handle| {
@@ -526,6 +530,9 @@ impl Glove {
 
     fn on_button(&mut self, button: u32, state: ButtonState, time: u32) {
         if self.ending_screen_shown() {
+            return;
+        }
+        if self.startup_covering() {
             return;
         }
         // O clique que acende a tela só acende.

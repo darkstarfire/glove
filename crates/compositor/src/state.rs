@@ -101,6 +101,8 @@ pub struct Glove {
     pub idle: crate::lock::Idle,
     /// O clique que acendeu a tela não vai para os apps (nem o soltar dele).
     pub swallow_wake_release: bool,
+    /// Painel "Iniciando sessão" (só na entrada).
+    pub startup: Option<crate::startup::Startup>,
 }
 
 impl Glove {
@@ -170,6 +172,7 @@ impl Glove {
             lock: None,
             idle: Default::default(),
             swallow_wake_release: false,
+            startup: None,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,
