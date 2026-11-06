@@ -9,7 +9,7 @@ fn main() {
     let out = args.next().unwrap_or("icones.png".into());
     let s: f32 = args.next().and_then(|v| v.parse().ok()).unwrap_or(112.0);
     let list: Vec<(&str, Icon)> = vec![
-        ("Arquivos", Icon::Folder), ("Terminal", Icon::Terminal), ("Navegador", Icon::Globe), ("Editor", Icon::TextEditor),
+        ("Arquivos", Icon::Files), ("Terminal", Icon::Terminal), ("Navegador", Icon::Globe), ("Editor", Icon::TextEditor),
         ("Calculadora", Icon::Calculator), ("Preferências", Icon::Settings), ("Relógio", Icon::Clock(10, 9)), ("Lixo", Icon::Trash),
         ("Lixo cheio", Icon::TrashFull), ("Disco", Icon::Disk), ("Documento", Icon::Document), ("Imagem", Icon::Picture),
         ("Arquivo", Icon::File), ("Lembretes", Icon::Notes), ("Busca", Icon::Search), ("Caracteres", Icon::Chars),
@@ -21,6 +21,8 @@ fn main() {
         ("Mesa", Icon::SpecialFolder(FolderKind::Desktop)), ("Documentos", Icon::SpecialFolder(FolderKind::Documents)), ("Início", Icon::SpecialFolder(FolderKind::Home)), ("Aplicativos", Icon::SpecialFolder(FolderKind::Applications)),
         ("Aparência", Icon::Pref(PrefKind::Appearance)), ("Dock", Icon::Pref(PrefKind::Dock)), ("Som", Icon::Pref(PrefKind::Sound)), ("Energia", Icon::Pref(PrefKind::Energy)),
         ("Rede", Icon::Pref(PrefKind::Network)), ("Segurança", Icon::Pref(PrefKind::Security)), ("Impressão", Icon::Pref(PrefKind::Printer)), ("Contas", Icon::Pref(PrefKind::Accounts)),
+        ("Pasta", Icon::Folder), ("Código", Icon::CodeFile), ("Pendrive", Icon::Removable), ("CD/DVD", Icon::Optical), ("Servidor", Icon::Server),
+        ("Downloads", Icon::SpecialFolder(FolderKind::Downloads)), ("Imagens", Icon::SpecialFolder(FolderKind::Pictures)), ("Músicas", Icon::SpecialFolder(FolderKind::Music)), ("Inteligente", Icon::SpecialFolder(FolderKind::Smart)),
     ];
     let fonts = Fonts::load_system().expect("fonte");
     let (cell, cols) = (s + 28.0, 8usize);

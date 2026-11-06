@@ -91,7 +91,7 @@ impl Entry {
             Kind::Archive => Icon::ArchiveFile,
             Kind::Pdf => Icon::PdfFile,
             Kind::App => self.app_icon.unwrap_or(Icon::Window),
-            Kind::Server => Icon::Globe,
+            Kind::Server => Icon::Server,
             Kind::Other => Icon::File,
         }
     }
@@ -1549,7 +1549,7 @@ impl Files {
         }
         // Pendrives, discos externos e servidores conectados (com o ⏏), como no Tiger.
         for m in mounts {
-            let icon = if m.dev.starts_with("gvfs:") { Icon::Globe } else { Icon::Disk };
+            let icon = icons::mount_icon(&m.dev, &m.path);
             v.push(Some((m.name.clone(), icon, m.path.clone())));
         }
         if shown("rede") {

@@ -157,7 +157,8 @@ fn metal_paint(y0: f32, y1: f32) -> tiny_skia::Paint<'static> {
 /// Pasta azul translúcida: fundo com a aba, frente com brilho e borda clara.
 /// `base` muda a cor (as pastas especiais usam a mesma forma).
 pub(crate) fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32, base: Color) {
-    let u = U { x, y, s };
+    // Uma margem em volta: sem ela a pasta encosta nos vizinhos no Dock.
+    let u = U { x: x + s * 0.05, y: y + s * 0.05, s: s * 0.9 };
     let back = |u: &U| {
         let mut pb = PathBuilder::new();
         let r = u.d(0.035);
@@ -197,34 +198,101 @@ pub(crate) fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32, base: Color) {
 // Terminal
 // ---------------------------------------------------------------------------
 
-/// Monitor de alumínio escovado com tela preta, o prompt e o reflexo do vidro.
+/// Tela do monitor de tubo (medidas relativas): x0, y0, x1, y1.
+const CRT: (f32, f32, f32, f32) = (0.15, 0.19, 0.77, 0.63);
+
+/// Monitor de tubo (CRT) de plástico claro em 3/4: gabinete fundo atrás,
+/// moldura com chanfro e a tela de vidro abaulada. Devolve a tela; depois do
+/// conteúdo, chame `crt_glass`.
+fn crt(pm: &mut Canvas, u: U) -> Option<Path> {
+    let plastic = |y0: f32, y1: f32| vgrad(u.py(y0), u.py(y1), &[(0.0, rgba(246, 245, 242, 255)), (0.6, rgba(218, 217, 214, 255)), (1.0, rgba(176, 175, 172, 255))]);
+    // Pé giratório
+    pm.fill(u.ov(0.22, 0.83, 0.5, 0.1), &plastic(0.83, 0.93));
+    pm.stroke(u.ov(0.22, 0.83, 0.5, 0.1), &solid(rgba(140, 140, 138, 255)), u.lw(0.006));
+    pm.fill(u.poly(&[(0.36, 0.76), (0.56, 0.76), (0.6, 0.87), (0.32, 0.87)]), &vgrad(u.py(0.76), u.py(0.87), &[(0.0, rgba(150, 150, 148, 255)), (1.0, rgba(206, 205, 202, 255))]));
+    // Gabinete: o tubo vai para trás (topo e lado direito à mostra).
+    let all = u.poly(&[(0.04, 0.13), (0.22, 0.04), (0.8, 0.04), (0.96, 0.1), (0.96, 0.64), (0.88, 0.8), (0.04, 0.8)]);
+    soft_shadow(pm, all, u.s, 1.0);
+    let top = u.poly(&[(0.07, 0.12), (0.22, 0.04), (0.8, 0.04), (0.9, 0.12)]);
+    pm.fill(top.clone(), &vgrad(u.py(0.04), u.py(0.12), &[(0.0, rgba(206, 205, 202, 255)), (1.0, rgba(240, 239, 236, 255))]));
+    // Fendas de ventilação no topo
+    if u.s >= 40.0 {
+        let mut v = PathBuilder::new();
+        for k in 0..6 {
+            let xx = 0.3 + k as f32 * 0.08;
+            v.move_to(u.px(xx), u.py(0.065));
+            v.line_to(u.px(xx - 0.02), u.py(0.1));
+        }
+        pm.stroke(v.finish(), &solid(rgba(130, 130, 128, 200)), u.lw(0.01));
+    }
+    pm.stroke(top, &solid(rgba(140, 140, 138, 255)), u.lw(0.006));
+    let side = u.poly(&[(0.86, 0.14), (0.8, 0.04), (0.96, 0.1), (0.96, 0.64), (0.88, 0.78)]);
+    pm.fill(side.clone(), &linear(u.px(0.86), 0.0, u.px(0.96), 0.0, &[(0.0, rgba(196, 195, 192, 255)), (1.0, rgba(150, 149, 146, 255))]));
+    pm.stroke(side, &solid(rgba(130, 130, 128, 255)), u.lw(0.006));
+    // Moldura da frente
+    let bezel = u.rr(0.04, 0.12, 0.84, 0.68, 0.06);
+    pm.fill(bezel.clone(), &plastic(0.12, 0.8));
+    pm.fill_clipped(u.rr(0.04, 0.12, 0.84, 0.03, 0.0), &solid(rgba(255, 255, 255, 160)), bezel.clone());
+    pm.stroke(bezel, &solid(rgba(130, 130, 128, 255)), u.lw(0.007));
+    // Chanfro em volta da tela: escuro em cima (sombra), claro embaixo.
+    let (x0, y0, x1, y1) = CRT;
+    let well = u.rr(x0 - 0.035, y0 - 0.035, x1 - x0 + 0.07, y1 - y0 + 0.07, 0.07);
+    pm.fill(well.clone(), &vgrad(u.py(y0 - 0.035), u.py(y1 + 0.035), &[(0.0, rgba(120, 120, 118, 255)), (0.5, rgba(196, 195, 192, 255)), (1.0, rgba(252, 252, 250, 255))]));
+    // Luz de ligado e os botões no queixo
+    pm.fill(u.circ(0.76, 0.73, 0.018), &radial(u.px(0.76), u.py(0.73), u.d(0.03), &[(0.0, rgba(190, 255, 190, 255)), (1.0, rgba(40, 170, 60, 255))]));
+    for xx in [0.62, 0.68] {
+        pm.fill(u.rr(xx, 0.715, 0.04, 0.03, 0.01), &vgrad(u.py(0.715), u.py(0.745), &[(0.0, rgba(180, 180, 178, 255)), (1.0, rgba(236, 236, 234, 255))]));
+    }
+    u.rr(x0, y0, x1 - x0, y1 - y0, 0.06)
+}
+
+/// Vidro do tubo: borda escurecida (abaulado), reflexo curvo forte em cima,
+/// ponto de luz e fio claro embaixo.
+fn crt_glass(pm: &mut Canvas, u: U, screen: Option<Path>) {
+    let (x0, y0, x1, y1) = CRT;
+    let (cx, cy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+    pm.fill_clipped(screen.clone(), &radial(u.px(cx), u.py(cy), u.d((x1 - x0) * 0.62), &[(0.0, rgba(0, 0, 0, 0)), (0.75, rgba(0, 0, 0, 30)), (1.0, rgba(0, 0, 0, 140))]), screen.clone());
+    // Reflexo: elipse larga cortada em baixo por uma curva (o vidro é convexo).
+    let mut pb = PathBuilder::new();
+    pb.move_to(u.px(x0), u.py(y0));
+    pb.line_to(u.px(x1), u.py(y0));
+    pb.line_to(u.px(x1), u.py(y0 + 0.1));
+    pb.quad_to(u.px(cx + 0.05), u.py(y0 + 0.2), u.px(x0), u.py(y0 + 0.26));
+    pb.close();
+    pm.fill_clipped(pb.finish(), &vgrad(u.py(y0), u.py(y0 + 0.24), &[(0.0, rgba(255, 255, 255, 190)), (1.0, rgba(255, 255, 255, 30))]), screen.clone());
+    pm.fill_clipped(u.ov(x0 + 0.05, y0 + 0.03, 0.12, 0.05), &radial(u.px(x0 + 0.11), u.py(y0 + 0.055), u.d(0.07), &[(0.0, rgba(255, 255, 255, 220)), (1.0, rgba(255, 255, 255, 0))]), screen.clone());
+    let mut lip = PathBuilder::new();
+    lip.move_to(u.px(x0 + 0.08), u.py(y1 - 0.02));
+    lip.quad_to(u.px(cx), u.py(y1 + 0.005), u.px(x1 - 0.08), u.py(y1 - 0.02));
+    pm.stroke(lip.finish(), &solid(rgba(255, 255, 255, 70)), u.lw(0.008));
+    pm.stroke(screen, &solid(rgba(40, 40, 44, 255)), u.lw(0.008));
+}
+
+/// Terminal: monitor de tubo com o prompt ">_" verde-claro na tela.
 pub(crate) fn terminal(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    // Pé
-    pm.fill(u.ov(0.3, 0.86, 0.4, 0.08), &metal_paint(u.py(0.86), u.py(0.94)));
-    pm.fill(u.poly(&[(0.43, 0.74), (0.57, 0.74), (0.6, 0.89), (0.4, 0.89)]), &vgrad(u.py(0.74), u.py(0.89), &[(0.0, rgba(150, 152, 160, 255)), (1.0, rgba(200, 202, 208, 255))]));
-    let body = u.rr(0.05, 0.07, 0.9, 0.7, 0.07);
-    soft_shadow(pm, body.clone(), s, 1.0);
-    // Espessura (borda de baixo mais escura) e a moldura de alumínio.
-    pm.fill(u.rr(0.05, 0.09, 0.9, 0.7, 0.07), &solid(rgba(110, 112, 120, 255)));
-    pm.fill(body.clone(), &metal_paint(u.py(0.07), u.py(0.77)));
-    brush_streaks(pm, body.clone(), u, 11, false);
-    pm.stroke(body, &solid(rgba(96, 98, 106, 255)), u.lw(0.01));
-    // Tela: preta com um fundo levemente azul, afundada na moldura.
-    let screen = u.rr(0.12, 0.14, 0.76, 0.54, 0.025);
-    pm.fill(u.rr(0.115, 0.135, 0.77, 0.55, 0.03), &solid(rgba(70, 72, 80, 255)));
-    pm.fill(screen.clone(), &radial(u.px(0.5), u.py(0.35), u.d(0.6), &[(0.0, rgba(34, 40, 50, 255)), (1.0, rgba(6, 8, 12, 255))]));
-    // Prompt ">_" claro.
-    let ink = rgba(236, 238, 242, 255);
+    let screen = crt(pm, u);
+    pm.fill(screen.clone(), &radial(u.px(0.46), u.py(0.4), u.d(0.45), &[(0.0, rgba(30, 44, 40, 255)), (1.0, rgba(4, 8, 8, 255))]));
+    let ink = rgba(170, 255, 190, 255);
+    // Brilho do fósforo atrás do texto.
     let mut pb = PathBuilder::new();
-    pb.move_to(u.px(0.2), u.py(0.27));
-    pb.line_to(u.px(0.31), u.py(0.34));
-    pb.line_to(u.px(0.2), u.py(0.41));
-    pm.stroke_round(pb.finish(), &solid(ink), u.lw(0.035));
-    pm.fill(u.rr(0.35, 0.39, 0.15, 0.03, 0.005), &solid(ink));
-    // Reflexo diagonal do vidro.
-    let glare = u.poly(&[(0.12, 0.14), (0.62, 0.14), (0.3, 0.68), (0.12, 0.68)]);
-    pm.fill_clipped(glare, &linear(u.px(0.12), u.py(0.14), u.px(0.45), u.py(0.5), &[(0.0, rgba(255, 255, 255, 46)), (1.0, rgba(255, 255, 255, 0))]), screen);
+    pb.move_to(u.px(0.23), u.py(0.3));
+    pb.line_to(u.px(0.33), u.py(0.36));
+    pb.line_to(u.px(0.23), u.py(0.42));
+    let prompt = pb.finish();
+    pm.stroke_round(prompt.clone(), &solid(rgba(80, 255, 130, 60)), u.lw(0.07));
+    pm.stroke_round(prompt, &solid(ink), u.lw(0.032));
+    pm.fill(u.rr(0.36, 0.4, 0.14, 0.03, 0.005), &solid(ink));
+    if s >= 40.0 {
+        let mut lines = PathBuilder::new();
+        for (k, w) in [0.3, 0.22, 0.36].iter().enumerate() {
+            if let Some(r) = tiny_skia::Rect::from_xywh(u.px(0.23), u.py(0.47 + k as f32 * 0.04), u.d(*w), u.d(0.015)) {
+                lines.push_rect(r);
+            }
+        }
+        pm.fill(lines.finish(), &solid(rgba(120, 220, 150, 120)));
+    }
+    crt_glass(pm, u, screen);
 }
 
 // ---------------------------------------------------------------------------
@@ -649,43 +717,47 @@ fn screen_glare(pm: &mut Canvas, u: U, screen: Option<Path>) {
     pm.fill_clipped(glare, &linear(u.px(0.12), u.py(0.14), u.px(0.45), u.py(0.5), &[(0.0, rgba(255, 255, 255, 50)), (1.0, rgba(255, 255, 255, 0))]), screen);
 }
 
-/// Monitor (de atividade): a moldura de alumínio com o gráfico verde na tela preta.
+/// Monitor (de atividade): monitor de tubo com o gráfico verde na tela preta.
 pub(crate) fn activity(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    let screen = aluminum_display(pm, u, 13);
-    pm.fill(screen.clone(), &solid(rgba(8, 12, 10, 255)));
+    let screen = crt(pm, u);
+    let (x0, y0, x1, y1) = CRT;
+    pm.fill(screen.clone(), &solid(rgba(6, 12, 8, 255)));
     if s >= 32.0 {
         let mut grid = PathBuilder::new();
         for k in 1..6 {
-            let xx = 0.12 + k as f32 * 0.76 / 6.0;
-            grid.move_to(u.px(xx), u.py(0.14));
-            grid.line_to(u.px(xx), u.py(0.68));
+            let xx = x0 + k as f32 * (x1 - x0) / 6.0;
+            grid.move_to(u.px(xx), u.py(y0));
+            grid.line_to(u.px(xx), u.py(y1));
         }
         for k in 1..4 {
-            let yy = 0.14 + k as f32 * 0.54 / 4.0;
-            grid.move_to(u.px(0.12), u.py(yy));
-            grid.line_to(u.px(0.88), u.py(yy));
+            let yy = y0 + k as f32 * (y1 - y0) / 4.0;
+            grid.move_to(u.px(x0), u.py(yy));
+            grid.line_to(u.px(x1), u.py(yy));
         }
-        pm.stroke(grid.finish(), &solid(rgba(40, 110, 60, 120)), u.lw(0.004));
+        pm.fill_clipped(grid.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.004), ..Default::default() }, 1.0)), &solid(rgba(40, 120, 60, 130)), screen.clone());
     }
-    let pts = [0.55, 0.5, 0.58, 0.32, 0.4, 0.26, 0.46, 0.38, 0.3, 0.44];
+    let vals = [0.75, 0.62, 0.7, 0.3, 0.45, 0.2, 0.38, 0.55, 0.35, 0.5];
     let mut pb = PathBuilder::new();
     let mut area = PathBuilder::new();
-    area.move_to(u.px(0.12), u.py(0.68));
-    for (i, v) in pts.iter().enumerate() {
-        let xx = 0.12 + i as f32 * 0.76 / (pts.len() - 1) as f32;
+    area.move_to(u.px(x0), u.py(y1));
+    for (i, v) in vals.iter().enumerate() {
+        let xx = x0 + i as f32 * (x1 - x0) / (vals.len() - 1) as f32;
+        let yy = y0 + v * (y1 - y0);
         if i == 0 {
-            pb.move_to(u.px(xx), u.py(*v));
+            pb.move_to(u.px(xx), u.py(yy));
         } else {
-            pb.line_to(u.px(xx), u.py(*v));
+            pb.line_to(u.px(xx), u.py(yy));
         }
-        area.line_to(u.px(xx), u.py(*v));
+        area.line_to(u.px(xx), u.py(yy));
     }
-    area.line_to(u.px(0.88), u.py(0.68));
+    area.line_to(u.px(x1), u.py(y1));
     area.close();
-    pm.fill_clipped(area.finish(), &vgrad(u.py(0.25), u.py(0.68), &[(0.0, rgba(60, 230, 90, 110)), (1.0, rgba(20, 120, 40, 20))]), screen.clone());
-    pm.stroke(pb.finish(), &solid(rgba(110, 255, 140, 255)), u.lw(0.016));
-    screen_glare(pm, u, screen);
+    pm.fill_clipped(area.finish(), &vgrad(u.py(y0), u.py(y1), &[(0.0, rgba(60, 230, 90, 120)), (1.0, rgba(20, 120, 40, 20))]), screen.clone());
+    let line = pb.finish();
+    pm.stroke(line.clone(), &solid(rgba(80, 255, 130, 60)), u.lw(0.05));
+    pm.stroke(line, &solid(rgba(140, 255, 160, 255)), u.lw(0.016));
+    crt_glass(pm, u, screen);
 }
 
 /// Monitores (preferência): a moldura com uma mesa azul na tela.
@@ -822,9 +894,25 @@ pub(crate) fn search(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     // Aro cromado e lente
     pm.fill(u.circ(cx, cy, r + 0.05), &linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[(0.0, rgba(255, 255, 255, 255)), (0.4, rgba(170, 174, 184, 255)), (0.7, rgba(100, 104, 114, 255)), (1.0, rgba(220, 224, 230, 255))]));
     let lens = u.circ(cx, cy, r);
-    pm.fill(lens.clone(), &radial(u.px(cx + 0.05), u.py(cy + 0.06), u.d(r * 1.2), &[(0.0, rgba(220, 236, 255, 230)), (0.7, rgba(150, 190, 240, 210)), (1.0, rgba(90, 130, 200, 230))]));
-    glass_glare(pm, lens.clone(), u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy), 170);
-    pm.stroke(lens, &solid(rgba(70, 74, 84, 255)), u.lw(0.008));
+    // Vidro: quase transparente no meio, azulado e mais escuro na borda (espessura).
+    pm.fill(lens.clone(), &radial(u.px(cx), u.py(cy), u.d(r), &[(0.0, rgba(236, 246, 255, 120)), (0.7, rgba(170, 205, 245, 170)), (0.92, rgba(90, 130, 200, 220)), (1.0, rgba(40, 70, 130, 240))]));
+    // Luz que atravessa a lente e bate embaixo à direita (cáustica).
+    pm.fill_clipped(u.circ(cx + r * 0.25, cy + r * 0.3, r * 0.6), &radial(u.px(cx + r * 0.3), u.py(cy + r * 0.4), u.d(r * 0.6), &[(0.0, rgba(255, 255, 255, 140)), (1.0, rgba(255, 255, 255, 0))]), lens.clone());
+    // Reflexo em meia-lua em cima à esquerda (a lente menos um círculo deslocado).
+    let mut moon = PathBuilder::new();
+    moon.push_circle(u.px(cx), u.py(cy), u.d(r * 0.9));
+    moon.push_circle(u.px(cx + r * 0.2), u.py(cy + r * 0.24), u.d(r * 0.86));
+    if let Some(m) = moon.finish() {
+        let paint = linear(u.px(cx - r), u.py(cy - r), u.px(cx + r * 0.3), u.py(cy + r * 0.3), &[(0.0, rgba(255, 255, 255, 250)), (1.0, rgba(255, 255, 255, 40))]);
+        pm.fill_rule(Some(m), &paint, tiny_skia::FillRule::EvenOdd);
+    }
+    // Ponto de luz e o fio claro na borda de baixo.
+    pm.fill(u.ov(cx - r * 0.55, cy - r * 0.6, r * 0.34, r * 0.22), &radial(u.px(cx - r * 0.38), u.py(cy - r * 0.49), u.d(r * 0.2), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(255, 255, 255, 0))]));
+    let mut lip = PathBuilder::new();
+    lip.move_to(u.px(cx - r * 0.5), u.py(cy + r * 0.8));
+    lip.quad_to(u.px(cx + r * 0.4), u.py(cy + r * 0.95), u.px(cx + r * 0.82), u.py(cy + r * 0.3));
+    pm.stroke_round(lip.finish(), &solid(rgba(255, 255, 255, 170)), u.lw(0.012));
+    pm.stroke(lens, &solid(rgba(50, 54, 66, 255)), u.lw(0.008));
 }
 
 /// Teclas de gel brancas com volume (Caracteres).
@@ -1087,56 +1175,419 @@ pub(crate) fn font_book(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) 
     }
 }
 
-/// Preferências: duas engrenagens de metal escovado engatadas.
+/// Metal torneado (aço polido): anéis concêntricos finos claros e escuros dentro de `clip`.
+fn spun_metal(pm: &mut Canvas, clip: Option<Path>, u: U, cx: f32, cy: f32, r: f32, seed: u32) {
+    if u.s < 28.0 {
+        return;
+    }
+    let mut light = PathBuilder::new();
+    let mut dark = PathBuilder::new();
+    let n = (u.d(r) / 1.3) as u32;
+    for i in 1..n {
+        let rr = r * i as f32 / n as f32;
+        let pb = if hash(seed.wrapping_add(i * 131)) & 1 == 0 { &mut light } else { &mut dark };
+        pb.push_circle(u.px(cx), u.py(cy), u.d(rr));
+    }
+    let w = (u.s / 400.0).max(0.4);
+    if let Some(p) = light.finish() {
+        let clipped = clip.clone();
+        pm.fill_clipped(p.stroke(&tiny_skia::Stroke { width: w, ..Default::default() }, 1.0), &solid(rgba(255, 255, 255, 60)), clipped);
+    }
+    if let Some(p) = dark.finish() {
+        pm.fill_clipped(p.stroke(&tiny_skia::Stroke { width: w, ..Default::default() }, 1.0), &solid(rgba(0, 0, 0, 34)), clip);
+    }
+}
+
+/// Preferências: duas engrenagens de aço polido engatadas, com chanfro nos dentes,
+/// reflexo forte em faixas e o cubo torneado.
 pub(crate) fn gears(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
     let gear = |pm: &mut Canvas, cx: f32, cy: f32, r: f32, teeth: usize, rot: f32, seed: u32| {
+        // Dentes trapezoidais (mais largos na base).
         let mut pb = PathBuilder::new();
-        let n = teeth * 4;
-        for i in 0..n {
-            let a = rot + i as f32 / n as f32 * std::f32::consts::TAU;
-            let rr = if (i / 2) % 2 == 0 { r } else { r * 0.8 };
-            let (px, py) = (u.px(cx) + a.cos() * u.d(rr), u.py(cy) + a.sin() * u.d(rr));
-            if i == 0 {
-                pb.move_to(px, py);
-            } else {
-                pb.line_to(px, py);
+        let step = std::f32::consts::TAU / teeth as f32;
+        let at = |a: f32, rr: f32| (u.px(cx) + a.cos() * u.d(rr), u.py(cy) + a.sin() * u.d(rr));
+        for i in 0..teeth {
+            let a0 = rot + i as f32 * step;
+            let pts = [at(a0, r * 0.8), at(a0 + step * 0.12, r), at(a0 + step * 0.42, r), at(a0 + step * 0.54, r * 0.8)];
+            for (k, p) in pts.iter().enumerate() {
+                if i == 0 && k == 0 {
+                    pb.move_to(p.0, p.1);
+                } else {
+                    pb.line_to(p.0, p.1);
+                }
             }
         }
         pb.close();
+        // Furo do meio
+        pb.push_circle(u.px(cx), u.py(cy), u.d(r * 0.22));
         let g = pb.finish();
-        soft_shadow(pm, g.clone(), u.s, 0.8);
-        pm.fill(g.clone(), &linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[(0.0, rgba(246, 247, 250, 255)), (0.5, rgba(170, 174, 184, 255)), (1.0, rgba(110, 114, 124, 255))]));
-        brush_streaks(pm, g.clone(), u, seed, false);
-        pm.stroke(g, &solid(rgba(70, 72, 82, 255)), u.lw(0.008));
-        pm.fill(u.circ(cx, cy, r * 0.5), &linear(u.px(cx + r), u.py(cy + r), u.px(cx - r), u.py(cy - r), &[(0.0, rgba(240, 242, 246, 255)), (1.0, rgba(130, 134, 144, 255))]));
-        pm.fill(u.circ(cx, cy, r * 0.2), &solid(rgba(50, 52, 60, 255)));
+        soft_shadow(pm, g.clone(), u.s, 0.9);
+        // Espessura: a mesma forma deslocada para baixo, em aço escuro.
+        if let Some(side) = g.clone().and_then(|p| p.transform(Transform::from_translate(0.0, u.d(0.035)))) {
+            pm.fill_rule(Some(side), &vgrad(u.py(cy - r), u.py(cy + r), &[(0.0, rgba(110, 114, 124, 255)), (1.0, rgba(54, 56, 64, 255))]), tiny_skia::FillRule::EvenOdd);
+        }
+        // Face: aço com faixas de reflexo (claro, escuro, claro) na diagonal.
+        let face = linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[
+            (0.0, rgba(255, 255, 255, 255)),
+            (0.22, rgba(196, 200, 210, 255)),
+            (0.4, rgba(120, 124, 136, 255)),
+            (0.52, rgba(236, 238, 244, 255)),
+            (0.62, rgba(250, 251, 253, 255)),
+            (0.8, rgba(140, 144, 156, 255)),
+            (1.0, rgba(92, 96, 108, 255)),
+        ]);
+        pm.fill_rule(g.clone(), &face, tiny_skia::FillRule::EvenOdd);
+        let face_clip = u.circ(cx, cy, r * 1.02);
+        spun_metal(pm, face_clip, u, cx, cy, r * 0.78, seed);
+        // Chanfro: aro claro em cima à esquerda, escuro embaixo à direita.
+        let ring = u.circ(cx, cy, r * 0.72);
+        pm.stroke(ring.clone(), &linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[(0.0, rgba(255, 255, 255, 200)), (0.5, rgba(255, 255, 255, 0)), (1.0, rgba(0, 0, 0, 90))]), u.lw(0.012));
+        pm.stroke(g, &solid(rgba(56, 58, 68, 255)), u.lw(0.007));
+        // Cubo polido com o aro e o furo.
+        let hub = u.circ(cx, cy, r * 0.38);
+        pm.fill(hub.clone(), &linear(u.px(cx + r * 0.4), u.py(cy + r * 0.4), u.px(cx - r * 0.4), u.py(cy - r * 0.4), &[(0.0, rgba(252, 252, 254, 255)), (0.5, rgba(160, 164, 176, 255)), (1.0, rgba(232, 234, 240, 255))]));
+        pm.stroke(hub, &solid(rgba(80, 82, 92, 200)), u.lw(0.006));
+        let hole = u.circ(cx, cy, r * 0.2);
+        pm.fill(hole.clone(), &radial(u.px(cx), u.py(cy - r * 0.08), u.d(r * 0.3), &[(0.0, rgba(70, 72, 82, 255)), (1.0, rgba(24, 24, 30, 255))]));
+        pm.fill(u.ov(cx - r * 0.12, cy + r * 0.12, r * 0.24, r * 0.06), &solid(rgba(255, 255, 255, 90)));
     };
-    gear(pm, 0.62, 0.62, 0.3, 10, 0.1, 3);
-    gear(pm, 0.32, 0.32, 0.24, 8, 0.25, 9);
+    gear(pm, 0.62, 0.6, 0.31, 11, 0.1, 3);
+    gear(pm, 0.32, 0.32, 0.25, 9, 0.32, 9);
 }
 
-/// Disco: caixa de disco externo de alumínio, vista um pouco de cima, com a luz verde.
+/// Disco: HD de 3,5" em perspectiva, tampa de alumínio com o relevo do prato,
+/// parafusos, etiqueta e a placa verde aparecendo na lateral.
 pub(crate) fn disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    let front = u.rr(0.08, 0.42, 0.84, 0.36, 0.04);
-    let top = u.poly(&[(0.08, 0.44), (0.18, 0.26), (0.92, 0.26), (0.92, 0.44)]);
-    soft_shadow(pm, u.poly(&[(0.08, 0.44), (0.18, 0.26), (0.92, 0.26), (0.92, 0.78), (0.08, 0.78)]), s, 1.0);
-    pm.fill(top.clone(), &vgrad(u.py(0.26), u.py(0.44), &[(0.0, rgba(250, 251, 252, 255)), (1.0, rgba(214, 216, 222, 255))]));
-    brush_streaks(pm, top.clone(), u, 37, false);
-    pm.stroke(top, &solid(rgba(110, 112, 120, 255)), u.lw(0.007));
-    pm.fill(front.clone(), &metal_paint(u.py(0.42), u.py(0.78)));
-    brush_streaks(pm, front.clone(), u, 43, false);
-    pm.stroke(front, &solid(rgba(90, 92, 100, 255)), u.lw(0.008));
-    // Grade de ventilação e a luz
-    if s >= 28.0 {
-        let mut slots = PathBuilder::new();
-        for k in 0..7 {
-            if let Some(r) = tiny_skia::Rect::from_xywh(u.px(0.18 + k as f32 * 0.06), u.py(0.54), u.d(0.03), u.d(0.12)) {
-                slots.push_rect(r);
+    // Plano do disco -> tela: achata e inclina (visto de cima, de frente).
+    let (cx, cy) = (u.px(0.5), u.py(0.5));
+    let t = Transform::from_row(0.9, 0.0, -0.22, 0.58, 0.0, 0.0);
+    let t = t.post_translate(cx - (0.9 * cx - 0.22 * cy), u.py(0.42) - 0.58 * cy);
+    let lid = tf(u.rr(0.08, 0.06, 0.84, 0.88, 0.035), t);
+    let down = |p: Option<Path>, d: f32| p.and_then(|p| p.transform(Transform::from_translate(0.0, u.d(d))));
+    // Espessura: corpo escuro e a placa de circuito verde embaixo.
+    soft_shadow(pm, down(lid.clone(), 0.1), s, 1.0);
+    pm.fill(down(lid.clone(), 0.13), &vgrad(u.py(0.5), u.py(0.95), &[(0.0, rgba(40, 110, 60, 255)), (1.0, rgba(16, 60, 30, 255))]));
+    for k in 1..=9 {
+        pm.fill(down(lid.clone(), k as f32 * 0.01), &solid(rgba(80, 84, 94, 255)));
+    }
+    pm.fill(down(lid.clone(), 0.012), &solid(rgba(120, 124, 134, 255)));
+    // Tampa
+    pm.fill(lid.clone(), &linear(u.px(0.1), u.py(0.15), u.px(0.9), u.py(0.7), &[(0.0, rgba(250, 251, 253, 255)), (0.5, rgba(204, 207, 214, 255)), (1.0, rgba(160, 164, 174, 255))]));
+    spun_metal(pm, lid.clone(), u, 0.5, 0.32, 0.5, 41);
+    pm.stroke(lid.clone(), &solid(rgba(80, 84, 94, 255)), u.lw(0.008));
+    // Relevo do prato e do braço
+    let platter = tf(u.circ(0.48, 0.38, 0.3), t);
+    pm.stroke(platter.clone().and_then(|p| p.transform(Transform::from_translate(0.0, u.d(0.008)))), &solid(rgba(255, 255, 255, 200)), u.lw(0.01));
+    pm.stroke(platter, &solid(rgba(110, 114, 124, 200)), u.lw(0.008));
+    pm.fill(tf(u.circ(0.48, 0.38, 0.06), t), &linear(u.px(0.42), u.py(0.3), u.px(0.56), u.py(0.4), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(130, 134, 144, 255))]));
+    // Parafusos
+    for (sx, sy) in [(0.14, 0.11), (0.86, 0.11), (0.14, 0.89), (0.86, 0.89), (0.86, 0.5), (0.14, 0.5)] {
+        let sc = tf(u.circ(sx, sy, 0.025), t);
+        pm.fill(sc.clone(), &solid(rgba(70, 72, 80, 255)));
+        pm.stroke(sc, &solid(rgba(255, 255, 255, 120)), u.lw(0.004));
+    }
+    // Etiqueta branca com faixa colorida e linhas
+    let label = tf(u.rr(0.2, 0.7, 0.6, 0.18, 0.015), t);
+    pm.fill(label.clone(), &solid(rgba(250, 250, 252, 255)));
+    pm.fill_clipped(tf(u.rr(0.2, 0.7, 0.6, 0.05, 0.0), t), &solid(rgba(40, 100, 190, 255)), label.clone());
+    if s >= 32.0 {
+        let mut pb = PathBuilder::new();
+        for k in 0..3 {
+            if let Some(r) = tiny_skia::Rect::from_xywh(u.px(0.25), u.py(0.78 + k as f32 * 0.03), u.d(if k == 2 { 0.25 } else { 0.45 }), u.d(0.012)) {
+                pb.push_rect(r);
             }
         }
-        pm.fill(slots.finish(), &solid(rgba(60, 62, 70, 200)));
+        pm.fill(tf(pb.finish(), t), &solid(rgba(110, 114, 124, 255)));
     }
-    pm.fill(u.circ(0.8, 0.6, 0.03), &radial(u.px(0.8), u.py(0.6), u.d(0.05), &[(0.0, rgba(180, 255, 180, 255)), (1.0, rgba(30, 170, 60, 255))]));
+    pm.stroke(label, &solid(rgba(150, 152, 160, 255)), u.lw(0.004));
+}
+
+// ---------------------------------------------------------------------------
+// Terceiro lote (9.11.4): documentos, tipos de arquivo, discos e servidores
+// ---------------------------------------------------------------------------
+
+/// Folha de papel com o canto de cima à direita dobrado para a frente (com a
+/// sombrinha embaixo da dobra). Devolve a folha para recortar o conteúdo.
+pub(crate) fn sheet(pm: &mut Canvas, u: U) -> Option<Path> {
+    let (x0, y0, x1, y1, f) = (0.17, 0.05, 0.83, 0.95, 0.2);
+    let page = u.poly(&[(x0, y0), (x1 - f, y0), (x1, y0 + f), (x1, y1), (x0, y1)]);
+    soft_shadow(pm, page.clone(), u.s, 0.8);
+    pm.fill(page.clone(), &linear(u.px(x0), u.py(y0), u.px(x1), u.py(y1), &[(0.0, rgba(255, 255, 255, 255)), (0.7, rgba(246, 247, 250, 255)), (1.0, rgba(226, 228, 234, 255))]));
+    // Sombra que a dobra joga na folha.
+    pm.fill_clipped(u.poly(&[(x1 - f, y0), (x1, y0 + f), (x1 - f * 0.1, y0 + f * 1.25), (x1 - f * 1.15, y0 + f * 0.2)]), &linear(u.px(x1 - f), u.py(y0 + f), u.px(x1 - f * 0.6), u.py(y0 + f * 1.3), &[(0.0, rgba(0, 0, 0, 50)), (1.0, rgba(0, 0, 0, 0))]), page.clone());
+    pm.stroke(page.clone(), &solid(rgba(150, 152, 160, 255)), u.lw(0.006));
+    // A dobra: o verso do papel, mais escuro na ponta.
+    let fold = u.poly(&[(x1 - f, y0), (x1, y0 + f), (x1 - f, y0 + f)]);
+    pm.fill(fold.clone(), &linear(u.px(x1 - f), u.py(y0 + f), u.px(x1 - f * 0.45), u.py(y0 + f * 0.45), &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(196, 200, 210, 255))]));
+    pm.stroke(fold, &solid(rgba(150, 152, 160, 255)), u.lw(0.006));
+    page
+}
+
+/// Documento de texto: linhas de texto em cinza; Arquivo: folha em branco.
+pub(crate) fn document(pm: &mut Canvas, x: f32, y: f32, s: f32, lines: bool) {
+    let u = U { x, y, s };
+    sheet(pm, u);
+    if lines && s >= 20.0 {
+        let mut pb = PathBuilder::new();
+        for k in 0..11 {
+            let yy = 0.32 + k as f32 * 0.052;
+            let w = if k % 4 == 3 { 0.28 } else { 0.5 - (hash(k + 3) & 0x3f) as f32 / 63.0 * 0.06 };
+            if let Some(r) = tiny_skia::Rect::from_xywh(u.px(0.26), u.py(yy), u.d(w), u.d(0.018).max(0.8)) {
+                pb.push_rect(r);
+            }
+        }
+        pm.fill(pb.finish(), &solid(rgba(120, 124, 136, 200)));
+    }
+}
+
+/// Imagem: foto com borda branca, um pouco girada, sobre outra atrás.
+pub(crate) fn picture(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    for (ang, front) in [(8.0, false), (-5.0, true)] {
+        let t = Transform::from_rotate_at(ang, u.px(0.5), u.py(0.5));
+        let card = tf(u.rr(0.08, 0.16, 0.84, 0.66, 0.015), t);
+        soft_shadow(pm, card.clone(), s, 0.8);
+        pm.fill(card.clone(), &vgrad(u.py(0.16), u.py(0.82), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(232, 232, 236, 255))]));
+        pm.stroke(card, &solid(rgba(150, 152, 160, 255)), u.lw(0.005));
+        let img = tf(u.rr(0.13, 0.21, 0.74, 0.5, 0.0), t);
+        if !front {
+            pm.fill(img, &vgrad(u.py(0.21), u.py(0.71), &[(0.0, rgba(240, 190, 130, 255)), (1.0, rgba(190, 100, 70, 255))]));
+            continue;
+        }
+        pm.fill(img.clone(), &vgrad(u.py(0.21), u.py(0.6), &[(0.0, rgba(60, 130, 220, 255)), (1.0, rgba(180, 220, 250, 255))]));
+        pm.fill_clipped(tf(u.circ(0.7, 0.32, 0.06), t), &radial(u.px(0.7), u.py(0.32), u.d(0.09), &[(0.0, rgba(255, 250, 200, 255)), (0.6, rgba(255, 210, 80, 255)), (1.0, rgba(255, 210, 80, 0))]), img.clone());
+        let hills = tf(u.poly(&[(0.13, 0.71), (0.13, 0.56), (0.32, 0.42), (0.5, 0.58), (0.64, 0.48), (0.87, 0.62), (0.87, 0.71)]), t);
+        pm.fill_clipped(hills, &vgrad(u.py(0.42), u.py(0.71), &[(0.0, rgba(120, 190, 90, 255)), (1.0, rgba(40, 110, 50, 255))]), img.clone());
+        glass_glare(pm, img.clone(), u.px(0.1), u.py(0.2), u.px(0.9), u.py(0.45), 50);
+        pm.stroke(img, &solid(rgba(90, 92, 100, 160)), u.lw(0.004));
+    }
+}
+
+/// Tipos de arquivo: a folha com um selo do tipo (1 áudio, 2 vídeo, 3 compactado,
+/// 4 PDF, 5 código).
+pub(crate) fn typed_document(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, kind: u8) {
+    let u = U { x, y, s };
+    let page = sheet(pm, u);
+    match kind {
+        1 => {
+            // Nota musical de vidro roxo.
+            let ink = |pm: &mut Canvas, p: Option<Path>| {
+                pm.fill(p.clone(), &linear(u.px(0.3), u.py(0.3), u.px(0.7), u.py(0.85), &[(0.0, rgba(200, 150, 255, 255)), (0.5, rgba(130, 60, 200, 255)), (1.0, rgba(70, 20, 130, 255))]));
+                pm.stroke(p, &solid(rgba(50, 10, 90, 255)), u.lw(0.006));
+            };
+            ink(pm, tf(u.ov(0.24, 0.7, 0.2, 0.13), Transform::from_rotate_at(-20.0, u.px(0.34), u.py(0.76))));
+            ink(pm, tf(u.ov(0.5, 0.64, 0.2, 0.13), Transform::from_rotate_at(-20.0, u.px(0.6), u.py(0.7))));
+            ink(pm, u.poly(&[(0.4, 0.38), (0.45, 0.38), (0.45, 0.76), (0.4, 0.76)]));
+            ink(pm, u.poly(&[(0.66, 0.32), (0.71, 0.32), (0.71, 0.7), (0.66, 0.7)]));
+            ink(pm, u.poly(&[(0.4, 0.38), (0.71, 0.3), (0.71, 0.4), (0.4, 0.48)]));
+            pm.fill(u.rr(0.42, 0.36, 0.26, 0.04, 0.02), &solid(rgba(255, 255, 255, 110)));
+        }
+        2 => {
+            // Fotograma de filme com o triângulo de tocar.
+            let film = u.rr(0.24, 0.38, 0.52, 0.4, 0.02);
+            pm.fill(film.clone(), &vgrad(u.py(0.38), u.py(0.78), &[(0.0, rgba(60, 62, 70, 255)), (1.0, rgba(18, 18, 22, 255))]));
+            let mut holes = PathBuilder::new();
+            for k in 0..5 {
+                let xx = 0.27 + k as f32 * 0.1;
+                for yy in [0.4, 0.73] {
+                    if let Some(r) = tiny_skia::Rect::from_xywh(u.px(xx), u.py(yy), u.d(0.05), u.d(0.03)) {
+                        holes.push_rect(r);
+                    }
+                }
+            }
+            pm.fill(holes.finish(), &solid(rgba(240, 240, 244, 255)));
+            pm.fill(u.rr(0.28, 0.45, 0.44, 0.26, 0.01), &vgrad(u.py(0.45), u.py(0.71), &[(0.0, rgba(90, 150, 230, 255)), (1.0, rgba(30, 60, 140, 255))]));
+            pm.fill(u.poly(&[(0.44, 0.5), (0.6, 0.58), (0.44, 0.66)]), &solid(rgba(255, 255, 255, 240)));
+        }
+        3 => {
+            // Zíper de metal pela folha, com o puxador.
+            let mut teeth = PathBuilder::new();
+            for k in 0..12 {
+                let yy = 0.08 + k as f32 * 0.05;
+                let xx = if k % 2 == 0 { 0.44 } else { 0.5 };
+                if let Some(r) = tiny_skia::Rect::from_xywh(u.px(xx), u.py(yy), u.d(0.06), u.d(0.032)) {
+                    teeth.push_rect(r);
+                }
+            }
+            pm.fill_clipped(teeth.finish(), &linear(u.px(0.44), 0.0, u.px(0.56), 0.0, &[(0.0, rgba(250, 250, 252, 255)), (0.5, rgba(150, 154, 164, 255)), (1.0, rgba(220, 222, 228, 255))]), page);
+            let pull = u.rr(0.43, 0.68, 0.14, 0.2, 0.04);
+            pm.fill(pull.clone(), &metal_paint(u.py(0.68), u.py(0.88)));
+            pm.stroke(pull, &solid(rgba(80, 82, 92, 255)), u.lw(0.007));
+            pm.fill(u.rr(0.47, 0.74, 0.06, 0.1, 0.02), &solid(rgba(60, 62, 70, 255)));
+        }
+        4 => {
+            // Faixa vermelha brilhante com "PDF" e linhas de texto embaixo.
+            let band = u.rr(0.22, 0.42, 0.56, 0.2, 0.03);
+            pm.fill(band.clone(), &vgrad(u.py(0.42), u.py(0.62), &[(0.0, rgba(250, 90, 80, 255)), (1.0, rgba(170, 16, 16, 255))]));
+            pm.fill_clipped(u.rr(0.22, 0.42, 0.56, 0.09, 0.0), &solid(rgba(255, 255, 255, 60)), band.clone());
+            pm.stroke(band, &solid(rgba(110, 10, 10, 255)), u.lw(0.006));
+            if s >= 24.0 {
+                let px = u.d(0.14);
+                let tw = fonts.measure("PDF", px, true);
+                fonts.draw(pm, "PDF", u.px(0.5) - tw / 2.0, u.py(0.575), px, true, Color::WHITE);
+            }
+            let mut pb = PathBuilder::new();
+            for k in 0..4 {
+                if let Some(r) = tiny_skia::Rect::from_xywh(u.px(0.26), u.py(0.68 + k as f32 * 0.05), u.d(if k == 3 { 0.26 } else { 0.48 }), u.d(0.018).max(0.8)) {
+                    pb.push_rect(r);
+                }
+            }
+            pm.fill(pb.finish(), &solid(rgba(120, 124, 136, 200)));
+        }
+        _ => {
+            // Código: linhas coloridas recuadas como num editor.
+            let rows = [(0.0, 0.3, rgba(180, 60, 160, 230)), (0.06, 0.38, rgba(60, 110, 200, 230)), (0.12, 0.26, rgba(40, 150, 80, 230)), (0.12, 0.34, rgba(110, 110, 120, 230)), (0.06, 0.2, rgba(60, 110, 200, 230)), (0.0, 0.1, rgba(180, 60, 160, 230)), (0.0, 0.32, rgba(200, 110, 40, 230)), (0.06, 0.4, rgba(110, 110, 120, 230)), (0.0, 0.1, rgba(180, 60, 160, 230))];
+            for (k, (ind, w, c)) in rows.iter().enumerate() {
+                pm.fill(u.rr(0.26 + ind, 0.32 + k as f32 * 0.062, *w, 0.026, 0.012), &solid(*c));
+            }
+        }
+    }
+}
+
+/// Ejetar: triângulo e barra em grafite polido, com chanfro e reflexo.
+pub(crate) fn eject(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let tri = u.poly(&[(0.5, 0.12), (0.88, 0.58), (0.12, 0.58)]);
+    let bar = u.rr(0.12, 0.68, 0.76, 0.16, 0.03);
+    for p in [tri.clone(), bar.clone()] {
+        soft_shadow(pm, p.clone(), s, 0.9);
+        pm.fill(p.clone().and_then(|p| p.transform(Transform::from_translate(0.0, u.d(0.025)))), &solid(rgba(20, 20, 26, 255)));
+        pm.fill(p.clone(), &vgrad(u.py(0.1), u.py(0.86), &[(0.0, rgba(140, 144, 156, 255)), (0.45, rgba(70, 74, 86, 255)), (1.0, rgba(36, 38, 46, 255))]));
+        pm.stroke(p, &solid(rgba(16, 16, 22, 255)), u.lw(0.008));
+    }
+    pm.fill_clipped(u.ov(0.2, 0.06, 0.6, 0.36), &vgrad(u.py(0.12), u.py(0.42), &[(0.0, rgba(255, 255, 255, 170)), (1.0, rgba(255, 255, 255, 10))]), tri);
+    pm.fill_clipped(u.rr(0.12, 0.68, 0.76, 0.07, 0.0), &solid(rgba(255, 255, 255, 70)), bar);
+}
+
+/// Pendrive: corpo de plástico branco brilhante com o conector de metal e a luz.
+pub(crate) fn removable(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let t = Transform::from_rotate_at(-35.0, u.px(0.5), u.py(0.5));
+    let body = tf(u.rr(0.14, 0.36, 0.56, 0.28, 0.08), t);
+    let plug = tf(u.rr(0.68, 0.4, 0.2, 0.2, 0.01), t);
+    soft_shadow(pm, body.clone(), s, 1.0);
+    soft_shadow(pm, plug.clone(), s, 0.8);
+    pm.fill(plug.clone(), &tpaint(metal_paint(u.py(0.4), u.py(0.6)), t));
+    pm.stroke(plug, &solid(rgba(90, 92, 100, 255)), u.lw(0.007));
+    for yy in [0.45, 0.51] {
+        pm.fill(tf(u.rr(0.75, yy, 0.06, 0.04, 0.0), t), &solid(rgba(60, 62, 70, 255)));
+    }
+    pm.fill(tf(u.rr(0.14, 0.38, 0.56, 0.28, 0.08), t), &solid(rgba(150, 154, 166, 255)));
+    pm.fill(body.clone(), &tpaint(vgrad(u.py(0.36), u.py(0.64), &[(0.0, rgba(255, 255, 255, 255)), (0.6, rgba(230, 232, 238, 255)), (1.0, rgba(190, 194, 204, 255))]), t));
+    pm.fill_clipped(tf(u.rr(0.16, 0.37, 0.52, 0.1, 0.05), t), &solid(rgba(255, 255, 255, 200)), body.clone());
+    pm.stroke(body, &solid(rgba(120, 124, 134, 255)), u.lw(0.007));
+    pm.fill(tf(u.circ(0.24, 0.5, 0.03), t), &radial(u.px(0.3), u.py(0.55), u.d(0.05), &[(0.0, rgba(180, 230, 255, 255)), (1.0, rgba(30, 120, 220, 255))]));
+}
+
+/// CD/DVD: disco prateado com o furo, reflexos coloridos em leque.
+pub(crate) fn optical(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let (cx, cy, r) = (0.5, 0.5, 0.42);
+    let disc = u.circ(cx, cy, r);
+    soft_shadow(pm, disc.clone(), s, 0.9);
+    pm.fill(disc.clone(), &linear(u.px(0.1), u.py(0.1), u.px(0.9), u.py(0.9), &[(0.0, rgba(236, 238, 244, 255)), (0.5, rgba(196, 200, 210, 255)), (1.0, rgba(150, 154, 166, 255))]));
+    // Leques de cor (arco-íris do disco): triângulos finos saindo do centro.
+    let fans = [(-0.75, rgba(110, 190, 255, 200)), (-0.4, rgba(210, 130, 255, 170)), (2.4, rgba(255, 190, 100, 200)), (2.75, rgba(120, 255, 170, 170))];
+    for (a, c) in fans {
+        let p = |a: f32| (cx + a.cos() * r * 1.1, cy + a.sin() * r * 1.1);
+        let tri = u.poly(&[(cx, cy), p(a), p(a + 0.45)]);
+        pm.fill_clipped(tri, &radial(u.px(cx), u.py(cy), u.d(r), &[(0.0, with_alpha(c, 0.0)), (0.35, with_alpha(c, 0.3)), (0.75, c), (1.0, with_alpha(c, 0.4))]), disc.clone());
+    }
+    // Brilho branco em leque cruzando o disco.
+    let p = |a: f32| (cx + a.cos() * r * 1.1, cy + a.sin() * r * 1.1);
+    pm.fill_clipped(u.poly(&[(cx, cy), p(-2.3), p(-2.0)]), &radial(u.px(cx), u.py(cy), u.d(r), &[(0.0, rgba(255, 255, 255, 0)), (0.6, rgba(255, 255, 255, 200)), (1.0, rgba(255, 255, 255, 60))]), disc.clone());
+    pm.fill_clipped(u.poly(&[(cx, cy), p(0.85), p(1.15)]), &radial(u.px(cx), u.py(cy), u.d(r), &[(0.0, rgba(255, 255, 255, 0)), (0.6, rgba(255, 255, 255, 170)), (1.0, rgba(255, 255, 255, 40))]), disc.clone());
+    if s >= 40.0 {
+        let mut rings = PathBuilder::new();
+        for rr in [0.2, 0.39] {
+            rings.push_circle(u.px(cx), u.py(cy), u.d(rr));
+        }
+        pm.stroke(rings.finish(), &solid(rgba(255, 255, 255, 120)), u.lw(0.004));
+    }
+    pm.stroke(disc, &solid(rgba(110, 114, 124, 255)), u.lw(0.007));
+    pm.fill(u.circ(cx, cy, 0.13), &solid(rgba(226, 230, 238, 230)));
+    pm.stroke(u.circ(cx, cy, 0.13), &solid(rgba(150, 154, 166, 255)), u.lw(0.005));
+    let hole = u.circ(cx, cy, 0.055);
+    pm.fill(hole.clone(), &solid(rgba(250, 250, 252, 255)));
+    pm.stroke(hole, &solid(rgba(110, 114, 124, 255)), u.lw(0.006));
+}
+
+/// Servidor (compartilhamento de rede): gabinete de alumínio em pé com o globo azul na frente.
+pub(crate) fn server(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let front = u.rr(0.18, 0.12, 0.5, 0.8, 0.04);
+    let side = u.poly(&[(0.66, 0.14), (0.84, 0.06), (0.84, 0.84), (0.66, 0.92)]);
+    soft_shadow(pm, u.poly(&[(0.18, 0.12), (0.84, 0.06), (0.84, 0.84), (0.66, 0.92), (0.18, 0.92)]), s, 1.0);
+    pm.fill(side.clone(), &vgrad(u.py(0.06), u.py(0.92), &[(0.0, rgba(190, 192, 200, 255)), (1.0, rgba(120, 124, 134, 255))]));
+    pm.stroke(side, &solid(rgba(90, 92, 100, 255)), u.lw(0.007));
+    pm.fill(u.poly(&[(0.2, 0.12), (0.38, 0.04), (0.84, 0.06), (0.66, 0.13)]), &vgrad(u.py(0.04), u.py(0.13), &[(0.0, rgba(252, 252, 254, 255)), (1.0, rgba(214, 216, 222, 255))]));
+    pm.fill(front.clone(), &metal_paint(u.py(0.12), u.py(0.92)));
+    brush_streaks(pm, front.clone(), u, 53, false);
+    pm.stroke(front.clone(), &solid(rgba(90, 92, 100, 255)), u.lw(0.008));
+    // Gavetas de disco
+    for k in 0..3 {
+        let yy = 0.2 + k as f32 * 0.12;
+        pm.fill(u.rr(0.24, yy, 0.38, 0.08, 0.01), &vgrad(u.py(yy), u.py(yy + 0.08), &[(0.0, rgba(70, 72, 80, 255)), (1.0, rgba(140, 142, 150, 255))]));
+        pm.fill(u.circ(0.57, yy + 0.04, 0.012), &solid(rgba(110, 255, 140, 255)));
+    }
+    // Globo azul de rede
+    let g = u.circ(0.43, 0.72, 0.14);
+    pm.fill(g.clone(), &radial(u.px(0.39), u.py(0.67), u.d(0.2), &[(0.0, rgba(150, 210, 255, 255)), (0.6, rgba(40, 120, 220, 255)), (1.0, rgba(10, 50, 140, 255))]));
+    if s >= 28.0 {
+        let mut grid = PathBuilder::new();
+        grid.push_oval(tiny_skia::Rect::from_xywh(u.px(0.37), u.py(0.58), u.d(0.12), u.d(0.28)).unwrap());
+        grid.move_to(u.px(0.29), u.py(0.72));
+        grid.line_to(u.px(0.57), u.py(0.72));
+        pm.stroke(grid.finish(), &solid(rgba(220, 240, 255, 160)), u.lw(0.006));
+    }
+    glass_glare(pm, g.clone(), u.px(0.29), u.py(0.58), u.px(0.57), u.py(0.7), 140);
+    pm.stroke(g, &solid(rgba(10, 40, 110, 255)), u.lw(0.006));
+}
+
+/// Arquivos (o app): pasta de gel azul Aqua, brilhante, com um rosto sorrindo
+/// de frente em baixo-relevo. Lembra o Mac pelo azul e pelo sorriso, com
+/// desenho próprio (sem o rosto de perfil em dois tons).
+pub(crate) fn files_app(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x: x + s * 0.03, y: y + s * 0.03, s: s * 0.94 };
+    let shape = |u: &U, dy: f32| {
+        let mut pb = PathBuilder::new();
+        let r = u.d(0.1);
+        let (x0, x1, y0, y1, ty) = (u.px(0.06), u.px(0.94), u.py(0.2 + dy), u.py(0.9 + dy), u.py(0.1 + dy));
+        pb.move_to(x0 + r * 0.5, ty);
+        pb.line_to(u.px(0.36), ty);
+        pb.quad_to(u.px(0.41), ty, u.px(0.44), y0);
+        pb.line_to(x1 - r, y0);
+        pb.quad_to(x1, y0, x1, y0 + r);
+        pb.line_to(x1, y1 - r);
+        pb.quad_to(x1, y1, x1 - r, y1);
+        pb.line_to(x0 + r, y1);
+        pb.quad_to(x0, y1, x0, y1 - r);
+        pb.line_to(x0, ty + r * 0.5);
+        pb.quad_to(x0, ty, x0 + r * 0.5, ty);
+        pb.close();
+        pb.finish()
+    };
+    let body = shape(&u, 0.0);
+    soft_shadow(pm, body.clone(), s, 1.0);
+    // Espessura do gel
+    pm.fill(shape(&u, 0.03), &solid(rgba(14, 50, 130, 255)));
+    pm.fill(body.clone(), &vgrad(u.py(0.1), u.py(0.9), &[(0.0, rgba(140, 200, 255, 255)), (0.45, rgba(50, 130, 235, 255)), (1.0, rgba(18, 76, 190, 255))]));
+    // Brilho de baixo (a luz atravessa o gel) e o reflexo forte em cima.
+    pm.fill_clipped(u.ov(0.1, 0.55, 0.8, 0.5), &radial(u.px(0.5), u.py(0.92), u.d(0.45), &[(0.0, rgba(150, 230, 255, 150)), (1.0, rgba(150, 230, 255, 0))]), body.clone());
+    // Rosto em baixo-relevo: cada traço escuro com um fio claro embaixo.
+    let face = |pm: &mut Canvas, dy: f32, c: Color| {
+        for ex in [0.36, 0.64] {
+            pm.fill(u.rr(ex - 0.04, 0.36 + dy, 0.08, 0.17, 0.04), &solid(c));
+        }
+        let mut smile = PathBuilder::new();
+        smile.move_to(u.px(0.27), u.py(0.62 + dy));
+        smile.quad_to(u.px(0.5), u.py(0.84 + dy), u.px(0.73), u.py(0.62 + dy));
+        pm.stroke_round(smile.finish(), &solid(c), u.lw(0.05));
+    };
+    face(pm, 0.012, rgba(200, 236, 255, 150));
+    face(pm, 0.0, rgba(8, 36, 104, 235));
+    pm.fill_clipped(u.ov(0.02, 0.06, 0.96, 0.4), &vgrad(u.py(0.1), u.py(0.46), &[(0.0, rgba(255, 255, 255, 200)), (1.0, rgba(255, 255, 255, 12))]), body.clone());
+    pm.stroke(body, &solid(rgba(12, 52, 140, 255)), u.lw(0.009));
 }

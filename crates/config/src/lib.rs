@@ -720,7 +720,7 @@ pub fn default_prefs_favorites() -> Vec<String> {
 }
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
-pub const DOCK_REV: u32 = 6;
+pub const DOCK_REV: u32 = 7;
 
 fn default_removable() -> String {
     "abrir".into()
@@ -772,7 +772,7 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
 
 pub fn default_dock_apps() -> Vec<DockApp> {
     vec![
-        app("Arquivos", "folder", "glove-files", "glove.Files"),
+        app("Arquivos", "files", "glove-files", "glove.Files"),
         app("Terminal", "terminal", "glove-term", "glove.Terminal"),
         app("Navegador", "globe", "glove-navegador", "glove.Navegador"),
         app("Correio", "mail", "glove-correio", "glove.Correio"),
@@ -973,6 +973,12 @@ impl Config {
         }
         if self.trash_command.contains("nautilus") || self.trash_command.is_empty() {
             self.trash_command = "glove-files ~/.local/share/Trash/files".into();
+        }
+        // O Arquivos ganhou ícone próprio (antes usava o da pasta).
+        for a in &mut self.dock_apps {
+            if a.app_id == "glove.Files" && a.icon == "folder" {
+                a.icon = "files".into();
+            }
         }
         self.dock_rev = DOCK_REV;
         true

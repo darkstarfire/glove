@@ -247,13 +247,21 @@ fn desktop_entry(p: &Path) -> Option<(String, Icon)> {
 }
 
 fn read_items(dir: &Path, mounts: &[(String, PathBuf)], show_ext: bool) -> Vec<DeskItem> {
+    let devs = if mounts.len() > 1 { glove_config::discos::removable_mounts() } else { Vec::new() };
     let mut v: Vec<DeskItem> = mounts
         .iter()
         .map(|(name, path)| DeskItem {
             name: name.clone(),
             path: path.clone(),
             kind: if path == Path::new("/") { DeskKind::Disk } else { DeskKind::Removable },
-            icon: if path.starts_with(glove_config::discos::gvfs_dir()) { Icon::Globe } else { Icon::Disk },
+            icon: if path == Path::new("/") {
+                Icon::Disk
+            } else if path.starts_with(glove_config::discos::gvfs_dir()) {
+                Icon::Server
+            } else {
+                let dev = devs.iter().find(|m| &m.path == path).map(|m| m.dev.as_str()).unwrap_or("");
+                glove_paint::icons::mount_icon(dev, path)
+            },
             link: false,
             modified: None,
             size: 0,

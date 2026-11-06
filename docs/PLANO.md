@@ -399,7 +399,11 @@ composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do 
   Caracteres, Captura, Monitor, Xadrez, Música, Vídeo, Registros, Informações, Ajuda, Dicionário, Livro de
   Fontes, Acesso às Chaves, Utilitário de Rede, Discos, Preferências) (G) — v0.9.13: redesenhados; Música e
   Chaves ficaram como estavam (aprovados); o Lixo cheio ganhou papéis amassados em facetas
-- [ ] 9.11.4 Documentos e tipos de arquivo, pastas especiais, discos, pendrives e servidores (M)
+- [x] 9.11.4 Documentos e tipos de arquivo, pastas especiais, discos, pendrives e servidores (M) — v0.9.14:
+  folha com a dobra, foto, áudio, vídeo, zíper, PDF, código; HD de 3,5", pendrive, CD/DVD, servidor e Ejetar
+  (`icons::mount_icon` escolhe pelo aparelho). Pedidos do teste: Terminal e Monitor viraram monitores de tubo
+  com vidro brilhante, lupa com vidro de verdade, engrenagens de aço polido, pasta com margem; o app
+  Arquivos ganhou ícone próprio (pasta de gel azul com um rosto sorrindo de frente)
 - [ ] 9.11.5 Painéis das Preferências e os ícones pequenos (barra lateral, menus, mesa) (M)
 - [ ] 9.11.6 Depois de todos aprovados: **tema de ícones "Glove"** gerado a partir do código pelo
   `glove-arte` (PNGs de 16 a 256 px, 1× e 2×, nomes no padrão freedesktop), instalado em

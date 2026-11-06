@@ -8,6 +8,8 @@ use tiny_skia::{Color, PathBuilder};
 pub enum Icon {
     Terminal,
     Folder,
+    /// O app Arquivos: pasta de gel azul com um rosto sorrindo.
+    Files,
     Globe,
     TextEditor,
     Calculator,
@@ -71,6 +73,12 @@ pub enum Icon {
     CodeFile,
     /// Painéis das Preferências.
     Pref(PrefKind),
+    /// Pendrive (disco removível).
+    Removable,
+    /// CD ou DVD.
+    Optical,
+    /// Servidor conectado (compartilhamento de rede).
+    Server,
     /// Ícone de um tema do sistema, pelo nome (ex.: "firefox"); número da tabela de nomes.
     System(u32),
 }
@@ -147,15 +155,18 @@ pub enum FolderKind {
 impl Icon {
     /// Já redesenhado na linguagem do Tiger (Fase 9.11): traz a própria sombra.
     pub fn tiger_style(self) -> bool {
-        matches!(self, Icon::Folder | Icon::SpecialFolder(_) | Icon::Terminal | Icon::Calculator | Icon::Clock(..) | Icon::Mail | Icon::Calendar | Icon::Contacts | Icon::Trash | Icon::TrashFull
+        matches!(self, Icon::Folder | Icon::Files | Icon::SpecialFolder(_) | Icon::Terminal | Icon::Calculator | Icon::Clock(..) | Icon::Mail | Icon::Calendar | Icon::Contacts | Icon::Trash | Icon::TrashFull
             | Icon::Globe | Icon::TextEditor | Icon::Settings | Icon::Disk | Icon::Notes | Icon::Search | Icon::Chars | Icon::Camera | Icon::Monitor | Icon::Chess
-            | Icon::Video | Icon::Logs | Icon::Info | Icon::Help | Icon::Dictionary | Icon::FontBook | Icon::Display)
+            | Icon::Video | Icon::Logs | Icon::Info | Icon::Help | Icon::Dictionary | Icon::FontBook | Icon::Display
+            | Icon::Document | Icon::File | Icon::Picture | Icon::AudioFile | Icon::VideoFile | Icon::ArchiveFile | Icon::PdfFile | Icon::CodeFile
+            | Icon::Eject | Icon::Removable | Icon::Optical | Icon::Server)
     }
 
     pub fn from_name(s: &str) -> Self {
         match s {
             "terminal" => Icon::Terminal,
-            "folder" | "files" => Icon::Folder,
+            "folder" => Icon::Folder,
+            "files" => Icon::Files,
             "globe" | "browser" => Icon::Globe,
             "editor" | "text" => Icon::TextEditor,
             "calculator" => Icon::Calculator,
@@ -165,6 +176,9 @@ impl Icon {
             "trash" => Icon::Trash,
             "trash-full" => Icon::TrashFull,
             "disk" => Icon::Disk,
+            "removable" | "pendrive" => Icon::Removable,
+            "optical" | "cd" | "dvd" => Icon::Optical,
+            "server" => Icon::Server,
             "document" => Icon::Document,
             "picture" | "image" => Icon::Picture,
             "file" => Icon::File,
@@ -200,6 +214,7 @@ impl Icon {
         Some(match self {
             Icon::Terminal => "utilities-terminal",
             Icon::Folder => "folder",
+            Icon::Files => "system-file-manager",
             Icon::Globe => "web-browser",
             Icon::TextEditor => "accessories-text-editor",
             Icon::Calculator => "accessories-calculator",
@@ -208,6 +223,9 @@ impl Icon {
             Icon::TrashFull => "user-trash-full",
             Icon::Eject => "media-eject",
             Icon::Disk => "drive-harddisk",
+            Icon::Removable => "drive-removable-media-usb",
+            Icon::Optical => "media-optical",
+            Icon::Server => "network-server",
             Icon::Document => "text-x-generic",
             Icon::Picture => "image-x-generic",
             Icon::File => "text-x-generic",
@@ -410,6 +428,7 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
     match icon {
         Icon::Terminal => crate::tiger::terminal(pm, x, y, s),
         Icon::Folder => folder(pm, x, y, s),
+        Icon::Files => crate::tiger::files_app(pm, x, y, s),
         Icon::Globe => crate::tiger::globe(pm, x, y, s),
         Icon::TextEditor => crate::tiger::editor(pm, x, y, s),
         Icon::Calculator => crate::tiger::calculator(pm, fonts, x, y, s),
@@ -419,11 +438,14 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Clock(h, m) => crate::tiger::clock(pm, fonts, x, y, s, h, m),
         Icon::Trash => crate::tiger::trash(pm, x, y, s, false),
         Icon::TrashFull => crate::tiger::trash(pm, x, y, s, true),
-        Icon::Eject => eject(pm, x, y, s),
+        Icon::Eject => crate::tiger::eject(pm, x, y, s),
+        Icon::Removable => crate::tiger::removable(pm, x, y, s),
+        Icon::Optical => crate::tiger::optical(pm, x, y, s),
+        Icon::Server => crate::tiger::server(pm, x, y, s),
         Icon::Disk => crate::tiger::disk(pm, x, y, s),
-        Icon::Document => page(pm, x, y, s, true),
-        Icon::File => page(pm, x, y, s, false),
-        Icon::Picture => picture(pm, x, y, s),
+        Icon::Document => crate::tiger::document(pm, x, y, s, true),
+        Icon::File => crate::tiger::document(pm, x, y, s, false),
+        Icon::Picture => crate::tiger::picture(pm, x, y, s),
         Icon::Notes => crate::tiger::notes(pm, x, y, s),
         Icon::Search => crate::tiger::search(pm, x, y, s),
         Icon::Chars => crate::tiger::chars(pm, fonts, x, y, s),
@@ -463,11 +485,11 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
             folder_emblem(pm, k, x + s * 0.5, y + s * 0.585, s * 0.34);
         }
         Icon::Pref(k) => pref_icon(pm, k, x, y, s),
-        Icon::AudioFile => typed_page(pm, x, y, s, 1),
-        Icon::VideoFile => typed_page(pm, x, y, s, 2),
-        Icon::ArchiveFile => typed_page(pm, x, y, s, 3),
-        Icon::PdfFile => typed_page(pm, x, y, s, 4),
-        Icon::CodeFile => typed_page(pm, x, y, s, 5),
+        Icon::AudioFile => crate::tiger::typed_document(pm, fonts, x, y, s, 1),
+        Icon::VideoFile => crate::tiger::typed_document(pm, fonts, x, y, s, 2),
+        Icon::ArchiveFile => crate::tiger::typed_document(pm, fonts, x, y, s, 3),
+        Icon::PdfFile => crate::tiger::typed_document(pm, fonts, x, y, s, 4),
+        Icon::CodeFile => crate::tiger::typed_document(pm, fonts, x, y, s, 5),
     }
 }
 
@@ -573,67 +595,6 @@ fn emblem(pm: &mut Canvas, k: FolderKind, cx: f32, cy: f32, s: f32, col: Color) 
     }
 }
 
-/// Página com o desenho do tipo: 1 música, 2 vídeo, 3 compactado, 4 PDF, 5 código.
-fn typed_page(pm: &mut Canvas, x: f32, y: f32, s: f32, kind: u8) {
-    page(pm, x, y, s, false);
-    let (cx, cy) = (x + s * 0.5, y + s * 0.55);
-    let w = (s / 28.0).max(1.0);
-    let mut pb = PathBuilder::new();
-    match kind {
-        1 => {
-            let ink = solid(rgba(130, 60, 180, 255));
-            pm.fill(oval(cx - s * 0.17, cy + s * 0.07, s * 0.16, s * 0.11), &ink);
-            pm.fill(oval(cx + s * 0.03, cy + s * 0.03, s * 0.16, s * 0.11), &ink);
-            pm.fill_rect(cx - s * 0.03, cy - s * 0.18, w * 1.3, s * 0.3, &ink);
-            pm.fill_rect(cx + s * 0.17, cy - s * 0.22, w * 1.3, s * 0.3, &ink);
-            pm.fill(rrect(cx - s * 0.03, cy - s * 0.24, s * 0.21, s * 0.07, 0.0), &ink);
-        }
-        2 => {
-            let ink = solid(rgba(40, 40, 50, 255));
-            pm.fill(rrect(cx - s * 0.2, cy - s * 0.15, s * 0.4, s * 0.3, s * 0.02), &ink);
-            for i in 0..4 {
-                let xx = cx - s * 0.17 + i as f32 * s * 0.1;
-                pm.fill_rect(xx, cy - s * 0.13, s * 0.05, s * 0.04, &solid(Color::WHITE));
-                pm.fill_rect(xx, cy + s * 0.09, s * 0.05, s * 0.04, &solid(Color::WHITE));
-            }
-            pb.move_to(cx - s * 0.05, cy - s * 0.06);
-            pb.line_to(cx + s * 0.08, cy);
-            pb.line_to(cx - s * 0.05, cy + s * 0.06);
-            pb.close();
-            pm.fill(pb.finish(), &solid(Color::WHITE));
-        }
-        3 => {
-            // Zíper descendo pelo meio da página.
-            let ink = solid(rgba(90, 90, 100, 255));
-            for i in 0..8 {
-                let yy = y + s * 0.12 + i as f32 * s * 0.07;
-                let xx = if i % 2 == 0 { cx - s * 0.06 } else { cx };
-                pm.fill_rect(xx, yy, s * 0.06, s * 0.035, &ink);
-            }
-            pm.fill(rrect(cx - s * 0.07, y + s * 0.68, s * 0.14, s * 0.12, s * 0.02), &ink);
-        }
-        4 => {
-            pm.fill(rrect(cx - s * 0.24, cy - s * 0.1, s * 0.48, s * 0.18, s * 0.03), &solid(rgba(200, 30, 30, 255)));
-            for i in 0..3 {
-                pm.fill_rect(cx - s * 0.2, cy + s * 0.14 + i as f32 * s * 0.06, s * 0.4, w, &solid(rgba(150, 150, 160, 255)));
-            }
-        }
-        _ => {
-            // < / >
-            let ink = solid(rgba(40, 110, 60, 255));
-            pb.move_to(cx - s * 0.08, cy - s * 0.1);
-            pb.line_to(cx - s * 0.2, cy);
-            pb.line_to(cx - s * 0.08, cy + s * 0.1);
-            pb.move_to(cx + s * 0.08, cy - s * 0.1);
-            pb.line_to(cx + s * 0.2, cy);
-            pb.line_to(cx + s * 0.08, cy + s * 0.1);
-            pb.move_to(cx + s * 0.04, cy - s * 0.14);
-            pb.line_to(cx - s * 0.04, cy + s * 0.14);
-            pm.stroke_round(pb.finish(), &ink, w * 1.4);
-        }
-    }
-}
-
 /// Marca de atalho: setinha curva num quadradinho branco, no canto de baixo à esquerda.
 pub fn alias_badge(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let b = s * 0.32;
@@ -728,97 +689,6 @@ fn keychain(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     };
     key(pm, 0.75, s * 0.42);
     key(pm, 1.35, s * 0.36);
-}
-
-/// Ejetar: triângulo sobre uma barra, em grafite brilhante (como o do Dock do Tiger).
-fn eject(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, top, base) = (x + s * 0.5, y + s * 0.16, y + s * 0.6);
-    let half = s * 0.36;
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx, top);
-    pb.line_to(cx + half, base);
-    pb.line_to(cx - half, base);
-    pb.close();
-    let tri = pb.finish();
-    let bar = rrect(cx - half, y + s * 0.68, half * 2.0, s * 0.14, s * 0.03);
-    let g = vgrad(y + s * 0.1, y + s * 0.85, &[(0.0, rgba(150, 154, 164, 255)), (0.5, rgba(70, 74, 84, 255)), (1.0, rgba(40, 42, 50, 255))]);
-    for p in [tri.clone(), bar.clone()] {
-        pm.fill(p.clone(), &g);
-        pm.stroke(p, &solid(rgba(20, 20, 26, 220)), (s / 48.0).max(1.0));
-    }
-    // Brilho em cima.
-    pm.fill(oval(cx - half * 0.45, top + s * 0.08, half * 0.9, s * 0.2), &vgrad(top, top + s * 0.28, &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(255, 255, 255, 0))]));
-}
-
-
-/// Disco: caixa de metal com frente escura e luz de atividade verde.
-fn disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (bx, by, bw, bh) = (x + s * 0.1, y + s * 0.3, s * 0.8, s * 0.46);
-    // Tampa em perspectiva
-    let mut pb = PathBuilder::new();
-    pb.move_to(bx + s * 0.06, by - s * 0.1);
-    pb.line_to(bx + bw - s * 0.06, by - s * 0.1);
-    pb.line_to(bx + bw, by);
-    pb.line_to(bx, by);
-    pb.close();
-    pm.fill(pb.finish(), &vgrad(by - s * 0.1, by, &[(0.0, rgba(250, 251, 253, 255)), (1.0, rgba(205, 208, 216, 255))]));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(225, 228, 235, 255)), (1.0, rgba(150, 154, 164, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(95, 100, 110, 255)), (s / 64.0).max(1.0));
-    // Frente com grade de ventilação
-    let (fx, fy, fw, fh) = (bx + s * 0.06, by + bh * 0.52, bw - s * 0.12, bh * 0.3);
-    pm.fill(rrect(fx, fy, fw, fh, s * 0.02), &solid(rgba(70, 74, 84, 255)));
-    for i in 0..7 {
-        pm.fill_rect(fx + s * 0.03 + i as f32 * s * 0.055, fy + fh * 0.25, s * 0.03, fh * 0.5, &solid(rgba(40, 42, 48, 255)));
-    }
-    let (lx, ly) = (bx + bw - s * 0.11, by + bh * 0.25);
-    pm.fill(circle(lx, ly, s * 0.035), &radial(lx, ly, s * 0.05, &[(0.0, rgba(170, 255, 170, 255)), (1.0, rgba(40, 160, 60, 255))]));
-}
-
-/// Folha com canto dobrado; `lines` desenha linhas de texto.
-fn page(pm: &mut Canvas, x: f32, y: f32, s: f32, lines: bool) {
-    let (px, py, pw, ph) = (x + s * 0.2, y + s * 0.08, s * 0.6, s * 0.8);
-    let fold = s * 0.18;
-    let mut pb = PathBuilder::new();
-    pb.move_to(px, py);
-    pb.line_to(px + pw - fold, py);
-    pb.line_to(px + pw, py + fold);
-    pb.line_to(px + pw, py + ph);
-    pb.line_to(px, py + ph);
-    pb.close();
-    let p = pb.finish();
-    pm.fill(p.clone(), &vgrad(py, py + ph, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(228, 231, 238, 255))]));
-    pm.stroke(p, &solid(rgba(125, 128, 138, 255)), (s / 64.0).max(1.0));
-    let mut pb = PathBuilder::new();
-    pb.move_to(px + pw - fold, py);
-    pb.line_to(px + pw - fold, py + fold);
-    pb.line_to(px + pw, py + fold);
-    pb.close();
-    pm.fill(pb.finish(), &vgrad(py, py + fold, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(196, 200, 210, 255))]));
-    if lines {
-        for i in 0..7 {
-            let ly = py + ph * 0.3 + i as f32 * ph * 0.09;
-            let lw = if i == 6 { pw * 0.35 } else { pw * 0.68 };
-            pm.fill_rect(px + pw * 0.14, ly, lw, (s * 0.022).max(0.8), &solid(rgba(140, 150, 172, 255)));
-        }
-    }
-}
-
-/// Moldura com uma paisagem simples (céu, sol e montanhas).
-fn picture(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (fx, fy, fw, fh) = (x + s * 0.1, y + s * 0.18, s * 0.8, s * 0.62);
-    pm.fill(rrect(fx, fy, fw, fh, s * 0.03), &vgrad(fy, fy + fh, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(215, 218, 226, 255))]));
-    pm.stroke(rrect(fx, fy, fw, fh, s * 0.03), &solid(rgba(120, 124, 134, 255)), (s / 64.0).max(1.0));
-    let (ix, iy, iw, ih) = (fx + s * 0.06, fy + s * 0.06, fw - s * 0.12, fh - s * 0.12);
-    pm.fill_rect(ix, iy, iw, ih, &vgrad(iy, iy + ih, &[(0.0, rgba(90, 160, 235, 255)), (1.0, rgba(190, 225, 250, 255))]));
-    pm.fill(circle(ix + iw * 0.75, iy + ih * 0.3, s * 0.06), &solid(rgba(255, 215, 80, 255)));
-    let mut pb = PathBuilder::new();
-    pb.move_to(ix, iy + ih);
-    pb.line_to(ix + iw * 0.3, iy + ih * 0.45);
-    pb.line_to(ix + iw * 0.5, iy + ih * 0.75);
-    pb.line_to(ix + iw * 0.68, iy + ih * 0.55);
-    pb.line_to(ix + iw, iy + ih);
-    pb.close();
-    pm.fill(pb.finish(), &vgrad(iy + ih * 0.45, iy + ih, &[(0.0, rgba(90, 160, 80, 255)), (1.0, rgba(50, 110, 50, 255))]));
 }
 
 /// Mouse de um botão em plástico translúcido, com o fio saindo por cima.
@@ -1614,7 +1484,7 @@ fn pref_update(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 
 /// Disco rígido prateado com o símbolo de ligar.
 fn pref_startup_disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    disk(pm, x, y, s);
+    crate::tiger::disk(pm, x, y, s);
     let (cx, cy, r) = (x + s * 0.72, y + s * 0.3, s * 0.17);
     gel_circle(pm, cx, cy, r, rgba(40, 110, 220, 255));
     let w = (s * 0.04).max(1.2);
@@ -1718,5 +1588,24 @@ pub fn file_icon(path: &std::path::Path, is_dir: bool) -> Icon {
         "zip" | "tar" | "gz" | "tgz" | "xz" | "bz2" | "7z" | "rar" | "zst" | "deb" | "rpm" => Icon::ArchiveFile,
         "pdf" => Icon::PdfFile,
         _ => Icon::File,
+    }
+}
+
+/// Ícone de um disco montado: servidor (gvfs), CD/DVD, pendrive ou disco externo.
+pub fn mount_icon(dev: &str, path: &std::path::Path) -> Icon {
+    if dev.starts_with("gvfs:") || path.to_string_lossy().contains("/gvfs/") {
+        return Icon::Server;
+    }
+    let name = dev.trim_start_matches("/dev/");
+    if name.starts_with("sr") || name.starts_with("cdrom") {
+        return Icon::Optical;
+    }
+    // "sdb1" -> "sdb"; o kernel diz se o aparelho é removível.
+    let base: String = name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+    let base = base.strip_suffix('p').filter(|b| b.starts_with("nvme") || b.starts_with("mmcblk")).map(str::to_string).unwrap_or(base);
+    match std::fs::read_to_string(format!("/sys/block/{base}/removable")) {
+        Ok(v) if v.trim() == "1" => Icon::Removable,
+        _ if name.starts_with("mmcblk") => Icon::Removable,
+        _ => Icon::Disk,
     }
 }
