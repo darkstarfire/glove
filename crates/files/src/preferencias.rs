@@ -149,7 +149,7 @@ impl App for ViewOptions {
             ui.small("Vale para a vista de ícones de todas as janelas.");
             ui.space(8.0);
             let f = &mut self.config.files;
-            ui.label(&format!("Tamanho dos ícones: {0} × {0}", f.icon_size));
+            ui.label(&format!("Tamanho dos ícones: {0} × {0} px", f.icon_size));
             ui.space(4.0);
             let mut size = f.icon_size as f32;
             let t = Ticks { count: 7, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };

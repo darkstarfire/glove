@@ -2,6 +2,8 @@
 //!
 //!   glove-arte plymouth <pasta>   tema do Plymouth (início e desligamento do sistema):
 //!                                 orbe, 12 quadros do giratório, glove.plymouth e glove.script
+//!   glove-arte icones <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
+//!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
 
 use std::path::Path;
 
@@ -104,11 +106,76 @@ fun display_normal_callback() {
 Plymouth.SetDisplayNormalFunction(display_normal_callback);
 "#;
 
+/// Tamanhos do tema: (tamanho, escala).
+const ICON_SIZES: [(u32, u32); 16] = [(16, 1), (22, 1), (24, 1), (32, 1), (48, 1), (64, 1), (96, 1), (128, 1), (256, 1), (16, 2), (22, 2), (24, 2), (32, 2), (48, 2), (64, 2), (128, 2)];
+
+fn context_name(ctx: &str) -> &'static str {
+    match ctx {
+        "apps" => "Applications",
+        "places" => "Places",
+        "devices" => "Devices",
+        "mimetypes" => "MimeTypes",
+        "categories" => "Categories",
+        "status" => "Status",
+        _ => "Actions",
+    }
+}
+
+/// Gera o tema de ícones "Glove" a partir dos desenhos do código.
+fn icones(dir: &Path) -> Result<usize, String> {
+    use glove_paint::icons;
+    let fonts = glove_paint::Fonts::load_system().ok_or("nenhuma fonte do sistema")?;
+    let entries = icons::theme_entries();
+    let mut contexts: Vec<&str> = entries.iter().map(|e| e.1).collect();
+    contexts.sort();
+    contexts.dedup();
+    let mut dirs = Vec::new();
+    let mut count = 0;
+    for (size, scale) in ICON_SIZES {
+        let base = if scale == 1 { format!("{size}x{size}") } else { format!("{size}x{size}@{scale}") };
+        for ctx in &contexts {
+            let sub = format!("{base}/{ctx}");
+            let out = dir.join(&sub);
+            std::fs::create_dir_all(&out).map_err(|e| format!("{sub}: {e}"))?;
+            for (icon, c, names) in entries.iter().filter(|e| e.1 == *ctx) {
+                let _ = c;
+                let s = size as f32;
+                let mut canvas = Canvas::new(s, s, scale as f32).ok_or("canvas")?;
+                icons::draw(&mut canvas, &fonts, *icon, 0.0, 0.0, s, None);
+                let file = format!("{}.png", names[0]);
+                save(&canvas, &out, &file)?;
+                count += 1;
+                for alias in &names[1..] {
+                    let link = out.join(format!("{alias}.png"));
+                    let _ = std::fs::remove_file(&link);
+                    std::os::unix::fs::symlink(&file, &link).map_err(|e| format!("{alias}: {e}"))?;
+                }
+            }
+            dirs.push((sub, size, scale, *ctx));
+        }
+    }
+    let mut index = String::from("[Icon Theme]\nName=Glove\nComment=Ícones do Glove no estilo do Mac OS X Tiger, desenhados por código (arte própria)\nInherits=Adwaita,hicolor\nExample=folder\n");
+    index += &format!("Directories={}\n", dirs.iter().map(|d| d.0.as_str()).collect::<Vec<_>>().join(","));
+    for (sub, size, scale, ctx) in &dirs {
+        index += &format!("\n[{sub}]\nSize={size}\n");
+        if *scale > 1 {
+            index += &format!("Scale={scale}\n");
+        }
+        index += &format!("Context={}\nType=Fixed\n", context_name(ctx));
+    }
+    std::fs::write(dir.join("index.theme"), index).map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let r = match args.first().map(String::as_str) {
         Some("plymouth") => plymouth(Path::new(args.get(1).map(String::as_str).unwrap_or("data/plymouth/glove"))),
-        _ => Err("uso: glove-arte plymouth <pasta>".into()),
+        Some("icones") => match args.get(1) {
+            Some(d) => icones(Path::new(d)).map(|n| println!("{n} imagens em {d}")),
+            None => Err("uso: glove-arte icones <pasta>".into()),
+        },
+        _ => Err("uso: glove-arte plymouth <pasta> | glove-arte icones <pasta>".into()),
     };
     if let Err(e) = r {
         eprintln!("glove-arte: {e}");

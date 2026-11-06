@@ -404,11 +404,18 @@ composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do 
   (`icons::mount_icon` escolhe pelo aparelho). Pedidos do teste: Terminal e Monitor viraram monitores de tubo
   com vidro brilhante, lupa com vidro de verdade, engrenagens de aço polido, pasta com margem; o app
   Arquivos ganhou ícone próprio (pasta de gel azul com um rosto sorrindo de frente)
-- [ ] 9.11.5 Painéis das Preferências e os ícones pequenos (barra lateral, menus, mesa) (M)
-- [ ] 9.11.6 Depois de todos aprovados: **tema de ícones "Glove"** gerado a partir do código pelo
+- [x] 9.11.5 Painéis das Preferências e os ícones pequenos (barra lateral, menus, mesa) (M) — v0.9.15:
+  todos os painéis redesenhados (`tiger_prefs.rs`), mouse, trackpad, chaves, clipe, janela e genérico;
+  ícones próprios para Utilitário de Rede, Visualizador, Utilitário de Disco e Utilitário de Arquivo;
+  Lixo de tela de arame que enche aos poucos (um papel por item, cheio com 20); relevo das pastas
+  especiais reforçado nos tamanhos pequenos; Dock com mais espaço entre os ícones e os sliders de
+  tamanho mostrando os pixels
+- [x] 9.11.6 Depois de todos aprovados: **tema de ícones "Glove"** gerado a partir do código pelo
   `glove-arte` (PNGs de 16 a 256 px, 1× e 2×, nomes no padrão freedesktop), instalado em
   `~/.local/share/icons/Glove` e usado pelo Glove (desenhando na hora só o que muda, como o relógio do
-  Dock) e pelos apps GTK/Qt; publicado num **repositório próprio** no GitHub (M)
+  Dock) e pelos apps GTK/Qt; publicado num **repositório próprio** no GitHub (M) — v0.9.15:
+  `glove-arte icones <pasta>` gera 84 ícones em 16 tamanhos (1.344 PNGs) com os nomes comuns do
+  freedesktop/GNOME como atalhos; o repositório `glove-icones` fica em ~/Projetos/glove-icones
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 

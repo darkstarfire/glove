@@ -200,7 +200,7 @@ O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serv
 ## Estrutura
 
 ```
-crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones no estilo do Tiger (tiger.rs, guardados prontos por tamanho) e do sistema, texto, temas
+crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones no estilo do Tiger (tiger.rs e tiger_prefs.rs, guardados prontos por tamanho) e do sistema, texto, temas
 crates/config      configuração compartilhada (config.toml + aviso de mudança via inotify)
 crates/kit         toolkit dos apps (widgets, janela Wayland, Abrir/Salvar, arrastar e soltar)
 crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)
@@ -208,7 +208,7 @@ crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`
 crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
 crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
-crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth)
+crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth e o tema de ícones "Glove": `glove-arte icones <pasta>`)
 crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
 crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
 crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)

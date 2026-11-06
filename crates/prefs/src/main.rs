@@ -903,11 +903,15 @@ impl Prefs {
         let mut size = self.config.dock.size as f32;
         ui.form_row("Tamanho do Dock", LW, |ui| {
             let t = Ticks { count: 2, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };
-            if ui.slider_ticks(&mut size, 32.0, 72.0, 240.0, &t, true) {
-                self.config.dock.size = size.round() as u32;
-                self.config.dock.max_size = self.config.dock.max_size.max(self.config.dock.size);
-                self.save();
-            }
+            ui.horizontal(|ui| {
+                if ui.slider_ticks(&mut size, 32.0, 72.0, 240.0, &t, true) {
+                    self.config.dock.size = size.round() as u32;
+                    self.config.dock.max_size = self.config.dock.max_size.max(self.config.dock.size);
+                    self.save();
+                }
+                ui.spacing(6.0);
+                ui.label(&format!("{} px", self.config.dock.size));
+            });
         });
         ui.space(6.0);
         let mut mag = self.config.dock.magnification;
@@ -919,10 +923,16 @@ impl Prefs {
                 self.save();
             }
             let t = Ticks { count: 2, labels: &[(0.0, "Mínima"), (1.0, "Máxima")], snap: false };
-            if ui.slider_ticks(&mut max, min, 128.0, 240.0, &t, mag) {
-                self.config.dock.max_size = max.round() as u32;
-                self.save();
-            }
+            ui.horizontal(|ui| {
+                if ui.slider_ticks(&mut max, min, 128.0, 240.0, &t, mag) {
+                    self.config.dock.max_size = max.round() as u32;
+                    self.save();
+                }
+                ui.spacing(6.0);
+                if mag {
+                    ui.label(&format!("{} px", self.config.dock.max_size));
+                }
+            });
         });
         ui.space(8.0);
         let words = ["esquerda", "embaixo", "direita"];

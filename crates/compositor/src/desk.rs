@@ -1164,7 +1164,7 @@ impl Glove {
             MenuNode::new(MenuItem::item("Sobre o Arquivos"), Some(MenuAction::AboutApp("glove.Files".into(), "Arquivos".into()))),
             MenuNode::sep(),
             MenuNode::new(
-                if crate::shell::trash_has_items() { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
+                if crate::shell::trash_count() > 0 { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
                 Some(MenuAction::EmptyTrash),
             ),
             MenuNode::sep(),

@@ -216,7 +216,7 @@ impl App for ViewOptions {
         }
         ui.area(Rect::new(20.0, 16.0, ui.c.w - 40.0, ui.c.h - 30.0), |ui| {
             let d = self.config.desk.clone();
-            ui.label(&format!("Tamanho dos ícones: {0} × {0}", d.icon_size));
+            ui.label(&format!("Tamanho dos ícones: {0} × {0} px", d.icon_size));
             ui.space(4.0);
             let mut size = d.icon_size as f32;
             let t = Ticks { count: 7, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };

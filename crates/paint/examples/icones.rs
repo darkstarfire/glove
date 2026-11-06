@@ -11,7 +11,7 @@ fn main() {
     let list: Vec<(&str, Icon)> = vec![
         ("Arquivos", Icon::Files), ("Terminal", Icon::Terminal), ("Navegador", Icon::Globe), ("Editor", Icon::TextEditor),
         ("Calculadora", Icon::Calculator), ("Preferências", Icon::Settings), ("Relógio", Icon::Clock(10, 9)), ("Lixo", Icon::Trash),
-        ("Lixo cheio", Icon::TrashFull), ("Disco", Icon::Disk), ("Documento", Icon::Document), ("Imagem", Icon::Picture),
+        ("Lixo 1", Icon::TrashFull(1)), ("Lixo 7", Icon::TrashFull(7)), ("Lixo 14", Icon::TrashFull(14)), ("Lixo cheio", Icon::TrashFull(20)), ("Disco", Icon::Disk), ("Documento", Icon::Document), ("Imagem", Icon::Picture),
         ("Arquivo", Icon::File), ("Lembretes", Icon::Notes), ("Busca", Icon::Search), ("Caracteres", Icon::Chars),
         ("Captura", Icon::Camera), ("Monitor", Icon::Monitor), ("Xadrez", Icon::Chess), ("Música", Icon::Music),
         ("Contatos", Icon::Contacts), ("Agenda", Icon::Calendar), ("Vídeo", Icon::Video), ("Registros", Icon::Logs),
@@ -24,6 +24,16 @@ fn main() {
         ("Pasta", Icon::Folder), ("Código", Icon::CodeFile), ("Pendrive", Icon::Removable), ("CD/DVD", Icon::Optical), ("Servidor", Icon::Server),
         ("Downloads", Icon::SpecialFolder(FolderKind::Downloads)), ("Imagens", Icon::SpecialFolder(FolderKind::Pictures)), ("Músicas", Icon::SpecialFolder(FolderKind::Music)), ("Inteligente", Icon::SpecialFolder(FolderKind::Smart)),
     ];
+    // Terceiro argumento "prefs": a folha dos painéis das Preferências e dos ícones restantes.
+    let list = if args.next().as_deref() == Some("prefs") {
+        use PrefKind::*;
+        let mut v: Vec<(&str, Icon)> = [("Mostrar Todos", ShowAll), ("Aparência", Appearance), ("Dock", Dock), ("Teclado", Keyboard), ("Atalhos", Shortcuts), ("Mesa", Desktop), ("Som", Sound), ("Energia", Energy), ("Rede", Network), ("Data e Hora", DateTime), ("Itens", LoginItems), ("Acesso", Access), ("Contas", Accounts), ("Internacional", International), ("CDs e DVDs", Removable), ("Sem Fio", Wireless), ("Compartilhar", Sharing), ("Apps Padrão", DefaultApps), ("Impressão", Printer), ("Atualização", Update), ("Disco de Início", StartupDisk), ("Fala", Speech), ("Segurança", Security), ("Exposé", Expose)]
+            .into_iter().map(|(n, k)| (n, Icon::Pref(k))).collect();
+        v.extend([("Mouse", Icon::Mouse), ("Trackpad", Icon::Trackpad), ("Monitores", Icon::Display), ("Chaves", Icon::Keychain), ("Clipe", Icon::Clip), ("Janela", Icon::Window), ("Genérico", Icon::Generic), ("Música", Icon::Music), ("Util. de Rede", Icon::NetUtility), ("Visualizador", Icon::Viewer), ("Util. de Disco", Icon::DiskUtility), ("Util. de Arquivo", Icon::Archiver)]);
+        v
+    } else {
+        list
+    };
     let fonts = Fonts::load_system().expect("fonte");
     let (cell, cols) = (s + 28.0, 8usize);
     let rows = list.len().div_ceil(cols);

@@ -720,7 +720,7 @@ pub fn default_prefs_favorites() -> Vec<String> {
 }
 
 /// Aumente quando a lista padrão do Dock ganhar apps novos.
-pub const DOCK_REV: u32 = 7;
+pub const DOCK_REV: u32 = 8;
 
 fn default_removable() -> String {
     "abrir".into()
@@ -782,13 +782,13 @@ pub fn default_dock_apps() -> Vec<DockApp> {
         app("Agenda", "calendar", "glove-agenda", "glove.Agenda"),
         app("Calculadora", "calculator", "glove-calc", "glove.Calculator"),
         app("Relógio", "clock", "glove-clock", "glove.Clock"),
-        app("Visualizador", "picture", "glove-view", "glove.Viewer"),
+        app("Visualizador", "viewer", "glove-view", "glove.Viewer"),
         app("Música", "music", "glove-musica", "glove.Musica"),
         app("Busca", "search", "glove-find", "glove.Find"),
         app("Caracteres", "chars", "glove-chars", "glove.Chars"),
         app("Captura", "camera", "glove-shot", "glove.Shot"),
         app("Monitor", "monitor", "glove-monitor", "glove.Monitor"),
-        app("Discos", "disk", "glove-disks", "glove.Disks"),
+        app("Discos", "diskutil", "glove-disks", "glove.Disks"),
         app("Xadrez", "chess", "glove-chess", "glove.Chess"),
         app("Preferências", "settings", "glove-prefs", "glove.Preferences"),
     ]
@@ -804,7 +804,7 @@ pub fn extra_apps() -> Vec<DockApp> {
         app("Dicionário", "dictionary", "glove-dicionario", "glove.Dicionario"),
         app("Livro de Fontes", "fontbook", "glove-fontes", "glove.Fontes"),
         app("Acesso às Chaves", "keychain", "glove-chaves", "glove.Chaves"),
-        app("Utilitário de Rede", "globe", "glove-utilrede", "glove.UtilRede"),
+        app("Utilitário de Rede", "netutil", "glove-utilrede", "glove.UtilRede"),
     ]
 }
 
@@ -978,6 +978,12 @@ impl Config {
         for a in &mut self.dock_apps {
             if a.app_id == "glove.Files" && a.icon == "folder" {
                 a.icon = "files".into();
+            }
+            // Ícones próprios dos utilitários (antes reaproveitavam os de outros).
+            for (id, old, new) in [("glove.Viewer", "picture", "viewer"), ("glove.Disks", "disk", "diskutil"), ("glove.UtilRede", "globe", "netutil")] {
+                if a.app_id == id && a.icon == old {
+                    a.icon = new.into();
+                }
             }
         }
         self.dock_rev = DOCK_REV;
@@ -1225,6 +1231,10 @@ pub fn term_theme(id: &str) -> TermTheme {
 /// Nome do ícone de um app pelo app_id: o dos apps do Glove (ou do Dock); para os
 /// de fora, o Icon= do .desktop dele; senão "window".
 pub fn app_icon_name(dock: &[DockApp], app_id: &str) -> String {
+    // Utilitários que não aparecem na Busca, mas têm janela (e ícone próprio).
+    if app_id == "glove.Arquivo" {
+        return "archiver".into();
+    }
     match known_app(dock, app_id) {
         Some(a) if a.icon != "window" && a.icon != "generic" && !a.icon.is_empty() => a.icon,
         _ => desktop_icon(app_id).unwrap_or_else(|| "window".into()),

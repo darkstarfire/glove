@@ -63,7 +63,7 @@ impl Glove {
                 MenuNode::new(MenuItem::item("Abrir"), Some(MenuAction::DockRun(DockAction::Trash))),
                 MenuNode::sep(),
                 MenuNode::new(
-                    if crate::shell::trash_has_items() { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
+                    if crate::shell::trash_count() > 0 { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
                     Some(MenuAction::EmptyTrash),
                 ),
             ],

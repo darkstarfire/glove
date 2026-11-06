@@ -127,11 +127,13 @@ pub fn deco_top(w: &Window) -> i32 {
 }
 
 /// A Lixeira ($XDG_DATA_HOME/Trash/files) tem algum item?
-pub fn trash_has_items() -> bool {
+/// Quantos itens há na lixeira (contando até o que enche o ícone).
+pub fn trash_count() -> u8 {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")));
-    base.and_then(|b| std::fs::read_dir(b.join("Trash/files")).ok()).is_some_and(|mut d| d.next().is_some())
+    let full = glove_paint::TRASH_FULL_AT as usize;
+    base.and_then(|b| std::fs::read_dir(b.join("Trash/files")).ok()).map_or(0, |d| d.take(full).count() as u8)
 }
 
 /// Apps com janela "unificada" (título em metal emendado na barra de ferramentas).
@@ -396,7 +398,7 @@ pub struct Chrome {
     pub dock_hide: f32,
     pub dock_hide_anim: Option<(f32, f32, std::time::Instant)>,
     /// A Lixeira tem itens (e quando foi conferido).
-    pub trash_full: (bool, Option<std::time::Instant>),
+    pub trash_full: (u8, Option<std::time::Instant>),
     pub dock_hover: Option<usize>,
     pub dock_pressed: Option<usize>,
     dock_key: Option<(Vec<DockItem>, Option<i32>, i32, Option<usize>, u64)>,
@@ -1591,7 +1593,7 @@ impl Glove {
             actions.push(DockAction::Restore(i));
         }
         // Lixeira sempre no fim, do outro lado do separador.
-        let trash_icon = if self.chrome.trash_full.0 { Icon::TrashFull } else { Icon::Trash };
+        let trash_icon = if self.chrome.trash_full.0 > 0 { Icon::TrashFull(self.chrome.trash_full.0) } else { Icon::Trash };
         // Arrastando só discos da mesa: o Lixo vira Ejetar (como no Tiger).
         let (trash_icon, trash_label) = if self.desk_dragging_disks() { (Icon::Eject, "Ejetar") } else { (trash_icon, "Lixeira") };
         items.push(DockItem { icon: trash_icon, label: trash_label.into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
@@ -1602,7 +1604,7 @@ impl Glove {
     pub fn prepare_dock(&mut self) {
         // Lixeira cheia ou vazia: confere no máximo uma vez por segundo.
         if self.chrome.trash_full.1.is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(1)) {
-            self.chrome.trash_full = (trash_has_items(), Some(std::time::Instant::now()));
+            self.chrome.trash_full = (trash_count(), Some(std::time::Instant::now()));
         }
         let (items, actions) = self.dock_model();
         let d = &self.config.dock;

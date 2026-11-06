@@ -541,7 +541,8 @@ pub struct DockItem {
 
 pub const DOCK_BASE: f32 = 56.0;
 pub const DOCK_MAX: f32 = 80.0;
-const DOCK_GAP: f32 = 2.0;
+/// Espaço entre os ícones do Dock (os do estilo Tiger ocupam quase todo o quadrado).
+const DOCK_GAP: f32 = 8.0;
 const DOCK_PAD_X: f32 = 8.0;
 const DOCK_PAD_Y: f32 = 4.0;
 const DOCK_SEP: f32 = 14.0;

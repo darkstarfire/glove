@@ -20,7 +20,7 @@ pub enum Icon {
     Clock(u8, u8),
     Trash,
     /// Lixeira com papéis (há itens nela).
-    TrashFull,
+    TrashFull(u8),
     /// Símbolo de ejetar (o Lixo do Dock enquanto se arrasta um disco).
     Eject,
     /// Chaveiro com duas chaves douradas (Acesso às Chaves).
@@ -73,6 +73,14 @@ pub enum Icon {
     CodeFile,
     /// Painéis das Preferências.
     Pref(PrefKind),
+    /// Utilitário de Rede: globo em grade com a tela de radar.
+    NetUtility,
+    /// Visualizador: fotos com a lupa.
+    Viewer,
+    /// Utilitário de Disco: o HD com a chave inglesa.
+    DiskUtility,
+    /// Utilitário de Arquivo: caixa de papelão com zíper.
+    Archiver,
     /// Pendrive (disco removível).
     Removable,
     /// CD ou DVD.
@@ -155,11 +163,8 @@ pub enum FolderKind {
 impl Icon {
     /// Já redesenhado na linguagem do Tiger (Fase 9.11): traz a própria sombra.
     pub fn tiger_style(self) -> bool {
-        matches!(self, Icon::Folder | Icon::Files | Icon::SpecialFolder(_) | Icon::Terminal | Icon::Calculator | Icon::Clock(..) | Icon::Mail | Icon::Calendar | Icon::Contacts | Icon::Trash | Icon::TrashFull
-            | Icon::Globe | Icon::TextEditor | Icon::Settings | Icon::Disk | Icon::Notes | Icon::Search | Icon::Chars | Icon::Camera | Icon::Monitor | Icon::Chess
-            | Icon::Video | Icon::Logs | Icon::Info | Icon::Help | Icon::Dictionary | Icon::FontBook | Icon::Display
-            | Icon::Document | Icon::File | Icon::Picture | Icon::AudioFile | Icon::VideoFile | Icon::ArchiveFile | Icon::PdfFile | Icon::CodeFile
-            | Icon::Eject | Icon::Removable | Icon::Optical | Icon::Server)
+        // Todos, menos os dos temas do sistema e a Música (aprovada como estava).
+        !matches!(self, Icon::System(_) | Icon::Music)
     }
 
     pub fn from_name(s: &str) -> Self {
@@ -174,11 +179,15 @@ impl Icon {
             "window" => Icon::Window,
             "clock" => Icon::Clock(10, 10),
             "trash" => Icon::Trash,
-            "trash-full" => Icon::TrashFull,
+            "trash-full" => Icon::TrashFull(crate::tiger::TRASH_FULL_AT),
             "disk" => Icon::Disk,
             "removable" | "pendrive" => Icon::Removable,
             "optical" | "cd" | "dvd" => Icon::Optical,
             "server" => Icon::Server,
+            "netutil" => Icon::NetUtility,
+            "viewer" => Icon::Viewer,
+            "diskutil" => Icon::DiskUtility,
+            "archiver" => Icon::Archiver,
             "document" => Icon::Document,
             "picture" | "image" => Icon::Picture,
             "file" => Icon::File,
@@ -220,12 +229,16 @@ impl Icon {
             Icon::Calculator => "accessories-calculator",
             Icon::Settings => "preferences-system",
             Icon::Trash => "user-trash",
-            Icon::TrashFull => "user-trash-full",
+            Icon::TrashFull(_) => "user-trash-full",
             Icon::Eject => "media-eject",
             Icon::Disk => "drive-harddisk",
             Icon::Removable => "drive-removable-media-usb",
             Icon::Optical => "media-optical",
             Icon::Server => "network-server",
+            Icon::NetUtility => "network-workgroup",
+            Icon::Viewer => "image-viewer",
+            Icon::DiskUtility => "gnome-disks",
+            Icon::Archiver => "file-roller",
             Icon::Document => "text-x-generic",
             Icon::Picture => "image-x-generic",
             Icon::File => "text-x-generic",
@@ -433,15 +446,20 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::TextEditor => crate::tiger::editor(pm, x, y, s),
         Icon::Calculator => crate::tiger::calculator(pm, fonts, x, y, s),
         Icon::Settings => crate::tiger::gears(pm, x, y, s),
-        Icon::Window | Icon::System(_) => window(pm, fonts, x, y, s, letter),
-        Icon::Generic => generic(pm, fonts, x, y, s, letter),
+        Icon::Window => crate::tiger_prefs::window(pm, fonts, x, y, s, letter),
+        Icon::System(_) => window(pm, fonts, x, y, s, letter),
+        Icon::Generic => crate::tiger_prefs::generic(pm, fonts, x, y, s, letter),
         Icon::Clock(h, m) => crate::tiger::clock(pm, fonts, x, y, s, h, m),
-        Icon::Trash => crate::tiger::trash(pm, x, y, s, false),
-        Icon::TrashFull => crate::tiger::trash(pm, x, y, s, true),
+        Icon::Trash => crate::tiger::trash(pm, x, y, s, 0),
+        Icon::TrashFull(n) => crate::tiger::trash(pm, x, y, s, n),
         Icon::Eject => crate::tiger::eject(pm, x, y, s),
         Icon::Removable => crate::tiger::removable(pm, x, y, s),
         Icon::Optical => crate::tiger::optical(pm, x, y, s),
         Icon::Server => crate::tiger::server(pm, x, y, s),
+        Icon::NetUtility => crate::tiger_prefs::net_utility(pm, x, y, s),
+        Icon::Viewer => crate::tiger_prefs::viewer(pm, x, y, s),
+        Icon::DiskUtility => crate::tiger_prefs::disk_utility(pm, x, y, s),
+        Icon::Archiver => crate::tiger_prefs::archiver(pm, x, y, s),
         Icon::Disk => crate::tiger::disk(pm, x, y, s),
         Icon::Document => crate::tiger::document(pm, x, y, s, true),
         Icon::File => crate::tiger::document(pm, x, y, s, false),
@@ -469,13 +487,13 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Info => crate::tiger::info(pm, fonts, x, y, s),
         Icon::Help => crate::tiger::help(pm, fonts, x, y, s),
         Icon::Dictionary => crate::tiger::dictionary(pm, fonts, x, y, s),
-        Icon::Keychain => keychain(pm, x, y, s),
+        Icon::Keychain => crate::tiger_prefs::keychain(pm, x, y, s),
         Icon::FontBook => crate::tiger::font_book(pm, fonts, x, y, s),
-        Icon::Clip => clip(pm, x, y, s),
+        Icon::Clip => crate::tiger_prefs::clip(pm, x, y, s),
         Icon::Mail => crate::tiger::mail(pm, x, y, s),
         Icon::Display => crate::tiger::display_pref(pm, x, y, s),
-        Icon::Mouse => mouse(pm, x, y, s),
-        Icon::Trackpad => trackpad(pm, x, y, s),
+        Icon::Mouse => crate::tiger_prefs::mouse(pm, x, y, s),
+        Icon::Trackpad => crate::tiger_prefs::trackpad(pm, x, y, s),
         Icon::SpecialFolder(FolderKind::Smart) => {
             crate::tiger::folder(pm, x, y, s, rgba(150, 100, 210, 255));
             folder_emblem(pm, FolderKind::Smart, x + s * 0.5, y + s * 0.585, s * 0.34);
@@ -484,7 +502,7 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
             folder(pm, x, y, s);
             folder_emblem(pm, k, x + s * 0.5, y + s * 0.585, s * 0.34);
         }
-        Icon::Pref(k) => pref_icon(pm, k, x, y, s),
+        Icon::Pref(k) => pref_icon(pm, fonts, k, x, y, s),
         Icon::AudioFile => crate::tiger::typed_document(pm, fonts, x, y, s, 1),
         Icon::VideoFile => crate::tiger::typed_document(pm, fonts, x, y, s, 2),
         Icon::ArchiveFile => crate::tiger::typed_document(pm, fonts, x, y, s, 3),
@@ -495,8 +513,14 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
 
 /// Desenho em relevo na frente da pasta: azul escuro com um brilho embaixo.
 fn folder_emblem(pm: &mut Canvas, k: FolderKind, cx: f32, cy: f32, s: f32) {
-    let dark = rgba(38, 88, 162, 205);
-    let light = rgba(235, 245, 255, 190);
+    // Pequenas (listas e barra lateral): desenho maior, sem o brilho e bem escuro,
+    // senão o relevo some na pasta de 16 a 24 pixels.
+    if s < 9.0 {
+        emblem(pm, k, cx, cy, s * 1.2, rgba(22, 62, 140, 255));
+        return;
+    }
+    let dark = rgba(38, 88, 162, 215);
+    let light = rgba(235, 245, 255, 200);
     for (dy, col) in [(s * 0.04, light), (0.0, dark)] {
         emblem(pm, k, cx, cy + dy, s, col);
     }
@@ -613,13 +637,6 @@ pub fn alias_badge(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill(t.finish(), &solid(rgba(20, 20, 24, 255)));
 }
 
-fn gloss(pm: &mut Canvas, x: f32, y: f32, w: f32, h: f32, r: f32) {
-    pm.fill(rrect4(x, y, w, h, [r, r, 2.0, 2.0]),
-        &vgrad(y, y + h, &[(0.0, rgba(255, 255, 255, 170)), (1.0, rgba(255, 255, 255, 10))]),
-    );
-}
-
-
 fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     crate::tiger::folder(pm, x, y, s, rgba(88, 150, 226, 255));
 }
@@ -643,96 +660,11 @@ fn window(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, letter: Option
     }
 }
 
-fn generic(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, letter: Option<char>) {
-    let (bx, by, bw) = (x + s * 0.12, y + s * 0.1, s * 0.76);
-    gel_rect(pm, bx, by, bw, bw, s * 0.18, rgba(120, 130, 160, 255));
-    if let Some(l) = letter {
-        let t = l.to_uppercase().to_string();
-        let px = s * 0.42;
-        let tw = fonts.measure(&t, px, true);
-        fonts.draw(pm, &t, bx + (bw - tw) / 2.0, by + bw * 0.68, px, true, rgba(255, 255, 255, 240));
-    }
-}
-
 /// Marca do menu principal: uma gota de gel azul.
 pub fn logo(pm: &mut Canvas, x: f32, y: f32, s: f32, accent: tiny_skia::Color) {
     gel_circle(pm, x + s / 2.0, y + s / 2.0, s / 2.0, accent);
 }
 
-
-/// Chaveiro: argola prateada com duas chaves douradas.
-fn keychain(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, cy, r) = (x + s * 0.36, y + s * 0.3, s * 0.17);
-    pm.stroke(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(240, 242, 246, 255)), (0.5, rgba(140, 144, 154, 255)), (1.0, rgba(220, 222, 228, 255))]), s * 0.05);
-    let key = |pm: &mut Canvas, ang: f32, len: f32| {
-        let (c, sn) = (ang.cos(), ang.sin());
-        // Cabeça redonda com furo, haste e dentes.
-        let (hx, hy) = (cx + c * r * 1.05, cy + sn * r * 1.05);
-        let hr = s * 0.11;
-        let (kx, ky) = (hx + c * hr, hy + sn * hr);
-        let gold = linear(kx - hr, ky - hr, kx + hr, ky + hr, &[(0.0, rgba(255, 238, 150, 255)), (0.5, rgba(214, 160, 40, 255)), (1.0, rgba(250, 214, 100, 255))]);
-        let mut pb = PathBuilder::new();
-        let (ex, ey) = (kx + c * len, ky + sn * len);
-        pb.move_to(kx, ky);
-        pb.line_to(ex, ey);
-        pm.stroke(pb.finish(), &gold, s * 0.075);
-        for k in [0.62, 0.82] {
-            let (tx, ty) = (kx + c * len * k, ky + sn * len * k);
-            let mut pb = PathBuilder::new();
-            pb.move_to(tx, ty);
-            pb.line_to(tx - sn * s * 0.09, ty + c * s * 0.09);
-            pm.stroke(pb.finish(), &gold, s * 0.06);
-        }
-        pm.fill(circle(kx, ky, hr), &gold);
-        pm.stroke(circle(kx, ky, hr), &solid(rgba(150, 100, 20, 200)), (s / 64.0).max(0.8));
-        pm.fill(circle(kx, ky, hr * 0.38), &solid(rgba(90, 60, 10, 255)));
-    };
-    key(pm, 0.75, s * 0.42);
-    key(pm, 1.35, s * 0.36);
-}
-
-/// Mouse de um botão em plástico translúcido, com o fio saindo por cima.
-fn mouse(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    // Fio
-    let mut pb = PathBuilder::new();
-    pb.move_to(x + s * 0.5, y + s * 0.2);
-    pb.cubic_to(x + s * 0.5, y + s * 0.08, x + s * 0.72, y + s * 0.1, x + s * 0.78, y + s * 0.02);
-    pm.stroke(pb.finish(), &solid(rgba(120, 124, 135, 255)), (s * 0.03).max(1.0));
-    let (mx, my, mw, mh) = (x + s * 0.24, y + s * 0.18, s * 0.52, s * 0.74);
-    // Sombra
-    pm.fill(oval(mx + s * 0.02, my + s * 0.04, mw, mh), &solid(rgba(0, 0, 0, 50)));
-    // Casca transparente
-    pm.fill(oval(mx, my, mw, mh), &vgrad(my, my + mh, &[(0.0, rgba(250, 251, 253, 235)), (1.0, rgba(185, 190, 200, 235))]));
-    // Miolo cinza visto pelo plástico
-    let (ix, iy, iw, ih) = (mx + mw * 0.16, my + mh * 0.12, mw * 0.68, mh * 0.78);
-    pm.fill(oval(ix, iy, iw, ih), &vgrad(iy, iy + ih, &[(0.0, rgba(120, 124, 136, 255)), (1.0, rgba(60, 62, 72, 255))]));
-    // Botão (metade de cima) e sua linha
-    pm.fill(rrect4(ix, iy, iw, ih * 0.36, [iw * 0.5, iw * 0.5, 0.0, 0.0]), &vgrad(iy, iy + ih * 0.36, &[(0.0, rgba(170, 174, 186, 255)), (1.0, rgba(110, 114, 126, 255))]));
-    pm.fill_rect(ix, iy + ih * 0.36, iw, lw, &solid(rgba(40, 42, 50, 255)));
-    pm.stroke(oval(mx, my, mw, mh), &solid(rgba(110, 114, 126, 255)), lw);
-    // Brilho
-    pm.fill(oval(mx + mw * 0.18, my + mh * 0.04, mw * 0.64, mh * 0.3), &vgrad(my, my + mh * 0.34, &[(0.0, rgba(255, 255, 255, 200)), (1.0, rgba(255, 255, 255, 0))]));
-}
-
-/// Superfície de toque com o botão largo embaixo.
-fn trackpad(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.08), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.08), &vgrad(by, by + bh, &[(0.0, rgba(225, 227, 232, 255)), (1.0, rgba(165, 168, 176, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.08), &solid(rgba(100, 104, 114, 255)), lw);
-    // Área de toque
-    let (px, py, pw, ph) = (bx + s * 0.08, by + s * 0.08, bw - s * 0.16, bh * 0.58);
-    pm.fill(rrect(px, py, pw, ph, s * 0.04), &vgrad(py, py + ph, &[(0.0, rgba(150, 154, 164, 255)), (1.0, rgba(196, 199, 206, 255))]));
-    pm.stroke(rrect(px, py, pw, ph, s * 0.04), &solid(rgba(110, 114, 124, 255)), lw);
-    // Botão
-    let (qy, qh) = (py + ph + s * 0.06, bh * 0.16);
-    pm.fill(rrect(px, qy, pw, qh, s * 0.04), &vgrad(qy, qy + qh, &[(0.0, rgba(245, 246, 248, 255)), (1.0, rgba(175, 178, 186, 255))]));
-    pm.stroke(rrect(px, qy, pw, qh, s * 0.04), &solid(rgba(110, 114, 124, 255)), lw);
-    // Dedo (marca de toque)
-    pm.fill(circle(px + pw * 0.62, py + ph * 0.45, s * 0.06), &solid(rgba(70, 130, 230, 150)));
-}
 
 // ---------------------------------------------------------------------------
 // Ícones de alerta (arte própria: placa vermelha de oito lados e triângulo amarelo)
@@ -955,573 +887,33 @@ pub fn magnifier(pm: &mut Canvas, cx: f32, cy: f32, s: f32, color: Color) {
 // Painéis das Preferências
 // ---------------------------------------------------------------------------
 
-fn pref_icon(pm: &mut Canvas, k: PrefKind, x: f32, y: f32, s: f32) {
+fn pref_icon(pm: &mut Canvas, fonts: &Fonts, k: PrefKind, x: f32, y: f32, s: f32) {
+    use crate::tiger_prefs as p;
     match k {
-        PrefKind::ShowAll => pref_show_all(pm, x, y, s),
-        PrefKind::Appearance => pref_appearance(pm, x, y, s),
-        PrefKind::Dock => pref_dock(pm, x, y, s),
-        PrefKind::Keyboard => pref_keyboard(pm, x, y, s, false),
-        PrefKind::Shortcuts => pref_keyboard(pm, x, y, s, true),
-        PrefKind::Desktop => pref_desktop(pm, x, y, s),
-        PrefKind::Sound => pref_sound(pm, x, y, s),
-        PrefKind::Energy => pref_energy(pm, x, y, s),
-        PrefKind::Network => pref_network(pm, x, y, s),
-        PrefKind::DateTime => pref_datetime(pm, x, y, s),
-        PrefKind::LoginItems => pref_login_items(pm, x, y, s),
-        PrefKind::Access => pref_access(pm, x, y, s),
-        PrefKind::Accounts => pref_accounts(pm, x, y, s),
-        PrefKind::International => pref_international(pm, x, y, s),
-        PrefKind::Removable => pref_removable(pm, x, y, s),
-        PrefKind::Wireless => pref_wireless(pm, x, y, s),
-        PrefKind::Sharing => pref_sharing(pm, x, y, s),
-        PrefKind::DefaultApps => pref_default_apps(pm, x, y, s),
-        PrefKind::Printer => pref_printer(pm, x, y, s),
-        PrefKind::Update => pref_update(pm, x, y, s),
-        PrefKind::StartupDisk => pref_startup_disk(pm, x, y, s),
-        PrefKind::Speech => pref_speech(pm, x, y, s),
-        PrefKind::Security => pref_security(pm, x, y, s),
-        PrefKind::Expose => pref_expose(pm, x, y, s),
-    }
-}
-
-/// Cadeado prateado com o arco por cima (Segurança).
-fn pref_security(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (cx, top) = (x + s * 0.5, y + s * 0.12);
-    let r = s * 0.2;
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r, y + s * 0.46);
-    pb.line_to(cx - r, top + r);
-    pb.quad_to(cx - r, top, cx, top);
-    pb.quad_to(cx + r, top, cx + r, top + r);
-    pb.line_to(cx + r, y + s * 0.46);
-    pm.stroke(pb.finish(), &linear(cx - r, 0.0, cx + r, 0.0, &[(0.0, rgba(140, 144, 152, 255)), (0.5, rgba(236, 238, 242, 255)), (1.0, rgba(120, 124, 132, 255))]), s * 0.09);
-    let (bx, by, bw, bh) = (x + s * 0.2, y + s * 0.42, s * 0.6, s * 0.46);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(250, 214, 110, 255)), (1.0, rgba(196, 140, 40, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(130, 90, 20, 255)), lw);
-    pm.fill(circle(cx, by + bh * 0.42, s * 0.06), &solid(rgba(70, 46, 10, 255)));
-    pm.fill_rect(cx - s * 0.025, by + bh * 0.42, s * 0.05, bh * 0.32, &solid(rgba(70, 46, 10, 255)));
-}
-
-/// Quatro janelinhas espalhadas sobre a mesa (Exposé e Painel).
-fn pref_expose(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    pm.fill(rrect(x + s * 0.06, y + s * 0.14, s * 0.88, s * 0.72, s * 0.05), &vgrad(y + s * 0.14, y + s * 0.86, &[(0.0, rgba(90, 140, 220, 255)), (1.0, rgba(30, 70, 150, 255))]));
-    pm.stroke(rrect(x + s * 0.06, y + s * 0.14, s * 0.88, s * 0.72, s * 0.05), &solid(rgba(20, 40, 90, 255)), lw);
-    for (k, (wx, wy)) in [(0.12, 0.2), (0.52, 0.2), (0.12, 0.52), (0.52, 0.52)].iter().enumerate() {
-        let (px, py, pw, ph) = (x + s * wx, y + s * wy, s * 0.36, s * 0.28);
-        pm.fill(rrect(px + s * 0.01, py + s * 0.02, pw, ph, s * 0.02), &solid(rgba(0, 0, 0, 70)));
-        pm.fill(rrect(px, py, pw, ph, s * 0.02), &solid(rgba(250, 250, 252, 255)));
-        pm.fill_rect(px, py, pw, ph * 0.22, &vgrad(py, py + ph * 0.22, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(200, 200, 206, 255))]));
-        let dot = [rgba(240, 80, 70, 255), rgba(250, 190, 50, 255), rgba(100, 200, 80, 255), rgba(120, 160, 230, 255)][k];
-        pm.fill(circle(px + pw * 0.12, py + ph * 0.11, s * 0.018), &solid(dot));
-    }
-}
-
-/// Doze quadradinhos coloridos, como uma janela cheia de painéis.
-fn pref_show_all(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.14, s * 0.84, s * 0.72);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 45)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(200, 203, 210, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(110, 114, 124, 255)), lw);
-    let colors = [
-        rgba(70, 130, 230, 255), rgba(120, 190, 80, 255), rgba(240, 170, 50, 255), rgba(150, 100, 210, 255),
-        rgba(220, 80, 70, 255), rgba(90, 170, 210, 255), rgba(140, 145, 155, 255), rgba(60, 170, 140, 255),
-        rgba(230, 120, 170, 255), rgba(100, 110, 200, 255), rgba(200, 160, 90, 255), rgba(80, 140, 90, 255),
-    ];
-    let (cw, ch) = (bw * 0.17, bh * 0.22);
-    for (i, c) in colors.iter().enumerate() {
-        let (col, row) = ((i % 4) as f32, (i / 4) as f32);
-        let cx = bx + bw * 0.08 + col * (cw + bw * 0.06);
-        let cy = by + bh * 0.1 + row * (ch + bh * 0.08);
-        gel_rect(pm, cx, cy, cw, ch, s * 0.03, *c);
-    }
-}
-
-/// Paleta de pintor com as cores de destaque (azul e grafite) e um pincel.
-fn pref_appearance(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let mut pb = PathBuilder::new();
-    let (cx, cy) = (x + s * 0.48, y + s * 0.52);
-    pb.move_to(cx + s * 0.38, cy - s * 0.05);
-    pb.cubic_to(cx + s * 0.42, cy - s * 0.4, cx - s * 0.3, cy - s * 0.46, cx - s * 0.42, cy - s * 0.06);
-    pb.cubic_to(cx - s * 0.5, cy + s * 0.3, cx - s * 0.05, cy + s * 0.46, cx + s * 0.16, cy + s * 0.34);
-    pb.cubic_to(cx + s * 0.3, cy + s * 0.26, cx + s * 0.06, cy + s * 0.12, cx + s * 0.2, cy + s * 0.06);
-    pb.cubic_to(cx + s * 0.3, cy + s * 0.02, cx + s * 0.36, cy + s * 0.06, cx + s * 0.38, cy - s * 0.05);
-    pb.close();
-    let path = pb.finish();
-    pm.fill(path.clone().map(|p| p.transform(tiny_skia::Transform::from_translate(s * 0.015, s * 0.03))).flatten(), &solid(rgba(0, 0, 0, 45)));
-    pm.fill(path.clone(), &vgrad(y + s * 0.1, y + s * 0.9, &[(0.0, rgba(236, 214, 170, 255)), (1.0, rgba(196, 160, 104, 255))]));
-    pm.stroke(path, &solid(rgba(130, 98, 56, 255)), lw);
-    // Furo do polegar
-    pm.fill(oval(x + s * 0.24, y + s * 0.56, s * 0.12, s * 0.09), &solid(rgba(255, 255, 255, 0)));
-    pm.fill(oval(x + s * 0.24, y + s * 0.56, s * 0.12, s * 0.09), &vgrad(y + s * 0.56, y + s * 0.65, &[(0.0, rgba(150, 118, 70, 255)), (1.0, rgba(220, 196, 150, 255))]));
-    // Tintas
-    for (dx, dy, c) in [(0.3, 0.3, rgba(60, 120, 230, 255)), (0.5, 0.24, rgba(130, 138, 150, 255)), (0.68, 0.34, rgba(230, 70, 60, 255)), (0.44, 0.44, rgba(250, 200, 50, 255))] {
-        gel_circle(pm, x + s * dx, y + s * dy, s * 0.075, c);
-    }
-}
-
-/// Mesa azul com a prateleira de vidro e quatro ícones.
-fn pref_dock(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.12, s * 0.88, s * 0.72);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 45)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(60, 120, 210, 255)), (1.0, rgba(25, 60, 150, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(30, 50, 100, 255)), lw);
-    // Vidro em perspectiva
-    let (gy, gh) = (by + bh * 0.62, bh * 0.24);
-    let mut pb = PathBuilder::new();
-    pb.move_to(bx + bw * 0.14, gy);
-    pb.line_to(bx + bw * 0.86, gy);
-    pb.line_to(bx + bw * 0.95, gy + gh);
-    pb.line_to(bx + bw * 0.05, gy + gh);
-    pb.close();
-    pm.fill(pb.finish(), &vgrad(gy, gy + gh, &[(0.0, rgba(255, 255, 255, 150)), (1.0, rgba(220, 230, 245, 200))]));
-    let colors = [rgba(70, 140, 235, 255), rgba(120, 190, 80, 255), rgba(240, 170, 50, 255), rgba(150, 155, 165, 255)];
-    let iw = bw * 0.15;
-    for (i, c) in colors.iter().enumerate() {
-        let ix = bx + bw * 0.16 + i as f32 * (iw + bw * 0.04);
-        gel_rect(pm, ix, gy - iw * 0.55, iw, iw, s * 0.03, *c);
-    }
-}
-
-/// Teclado visto de cima; `hot` acende uma tecla (atalhos).
-fn pref_keyboard(pm: &mut Canvas, x: f32, y: f32, s: f32, hot: bool) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.04, y + s * 0.24, s * 0.92, s * 0.52);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(235, 237, 242, 255)), (1.0, rgba(175, 179, 188, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(100, 104, 114, 255)), lw);
-    let (kx, ky) = (bx + bw * 0.05, by + bh * 0.1);
-    let (cols, rows) = (8, 3);
-    let kw = (bw * 0.9 - (cols - 1) as f32 * s * 0.012) / cols as f32;
-    let kh = (bh * 0.62 - (rows - 1) as f32 * s * 0.012) / rows as f32;
-    for r in 0..rows {
-        for c in 0..cols {
-            let px = kx + c as f32 * (kw + s * 0.012);
-            let py = ky + r as f32 * (kh + s * 0.012);
-            let lit = hot && r == 1 && c == 1;
-            let (top, bot) = if lit { (rgba(120, 180, 250, 255), rgba(40, 100, 210, 255)) } else { (rgba(255, 255, 255, 255), rgba(214, 216, 222, 255)) };
-            pm.fill(rrect(px, py, kw, kh, s * 0.015), &vgrad(py, py + kh, &[(0.0, top), (1.0, bot)]));
-        }
-    }
-    // Barra de espaço
-    let sy = ky + rows as f32 * (kh + s * 0.012);
-    pm.fill(rrect(bx + bw * 0.25, sy, bw * 0.5, kh * 0.9, s * 0.015), &vgrad(sy, sy + kh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(214, 216, 222, 255))]));
-    if hot {
-        // Raio sobre o canto: "faz na hora".
-        let (lx, ly, l) = (x + s * 0.66, y + s * 0.02, s * 0.3);
-        let mut pb = PathBuilder::new();
-        pb.move_to(lx + l * 0.55, ly);
-        pb.line_to(lx + l * 0.1, ly + l * 0.58);
-        pb.line_to(lx + l * 0.45, ly + l * 0.58);
-        pb.line_to(lx + l * 0.3, ly + l);
-        pb.line_to(lx + l * 0.9, ly + l * 0.38);
-        pb.line_to(lx + l * 0.55, ly + l * 0.38);
-        pb.close();
-        let p = pb.finish();
-        pm.fill(p.clone(), &vgrad(ly, ly + l, &[(0.0, rgba(255, 230, 90, 255)), (1.0, rgba(240, 160, 30, 255))]));
-        pm.stroke(p, &solid(rgba(160, 100, 20, 255)), lw);
-    }
-}
-
-/// Moldura de madeira clara com a paisagem de ondas azuis.
-fn pref_desktop(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.14, s * 0.88, s * 0.7);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.03), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(236, 210, 160, 255)), (1.0, rgba(180, 140, 90, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.03), &solid(rgba(120, 88, 50, 255)), lw);
-    let m = s * 0.07;
-    let (sx, sy, sw, sh) = (bx + m, by + m, bw - 2.0 * m, bh - 2.0 * m);
-    pm.fill_rect(sx, sy, sw, sh, &vgrad(sy, sy + sh, &[(0.0, rgba(30, 80, 180, 255)), (1.0, rgba(90, 160, 235, 255))]));
-    for (k, a) in [(0.45, 120u8), (0.7, 80)] {
-        let mut pb = PathBuilder::new();
-        pb.move_to(sx, sy + sh * k);
-        pb.quad_to(sx + sw * 0.4, sy + sh * (k - 0.3), sx + sw, sy + sh * (k - 0.05));
-        pb.line_to(sx + sw, sy + sh * (k + 0.08));
-        pb.quad_to(sx + sw * 0.45, sy + sh * (k - 0.15), sx, sy + sh * (k + 0.15));
-        pb.close();
-        pm.fill(pb.finish(), &solid(rgba(255, 255, 255, a)));
-    }
-    pm.stroke(rrect(sx, sy, sw, sh, 0.0), &solid(rgba(120, 88, 50, 200)), lw);
-}
-
-/// Alto-falante prateado com o cone escuro e as ondas saindo.
-fn pref_sound(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.14, y + s * 0.08, s * 0.5, s * 0.84);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.08), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.08), &linear(bx, 0.0, bx + bw, 0.0, &[(0.0, rgba(170, 174, 184, 255)), (0.45, rgba(240, 242, 246, 255)), (1.0, rgba(150, 154, 164, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.08), &solid(rgba(100, 104, 114, 255)), lw);
-    // Agudo e grave.
-    let cx = bx + bw / 2.0;
-    for (cy, r) in [(by + bh * 0.24, s * 0.08), (by + bh * 0.64, s * 0.17)] {
-        pm.fill(circle(cx, cy, r + s * 0.02), &solid(rgba(200, 202, 208, 255)));
-        pm.fill(circle(cx, cy, r), &radial(cx - r * 0.3, cy - r * 0.3, r * 1.4, &[(0.0, rgba(110, 114, 124, 255)), (1.0, rgba(30, 32, 38, 255))]));
-        pm.fill(circle(cx, cy, r * 0.28), &solid(rgba(150, 154, 164, 255)));
-    }
-    // Ondas.
-    for (k, a) in [(0.0, 220u8), (1.0, 150)] {
-        let r = s * (0.16 + k * 0.1);
-        let ox = bx + bw + s * 0.02;
-        let oy = by + bh * 0.5;
-        let mut pb = PathBuilder::new();
-        pb.move_to(ox + r * 0.35, oy - r);
-        pb.quad_to(ox + r * 1.15, oy, ox + r * 0.35, oy + r);
-        pm.stroke(pb.finish(), &solid(rgba(60, 120, 220, a)), (s * 0.045).max(1.0));
-    }
-}
-
-/// Lâmpada de vidro acesa, com a rosca prateada.
-fn pref_energy(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.38, s * 0.3);
-    // Brilho em volta
-    pm.fill(circle(cx, cy, r * 1.5), &radial(cx, cy, r * 1.5, &[(0.0, rgba(255, 240, 160, 150)), (1.0, rgba(255, 240, 160, 0))]));
-    // Bulbo (círculo que afina até a rosca)
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r * 0.45, cy + r * 1.05);
-    pb.cubic_to(cx - r * 0.5, cy + r * 0.7, cx - r, cy + r * 0.5, cx - r, cy);
-    pb.cubic_to(cx - r, cy - r * 0.6, cx - r * 0.55, cy - r, cx, cy - r);
-    pb.cubic_to(cx + r * 0.55, cy - r, cx + r, cy - r * 0.6, cx + r, cy);
-    pb.cubic_to(cx + r, cy + r * 0.5, cx + r * 0.5, cy + r * 0.7, cx + r * 0.45, cy + r * 1.05);
-    pb.close();
-    let bulb = pb.finish();
-    pm.fill(bulb.clone(), &radial(cx - r * 0.3, cy - r * 0.4, r * 1.6, &[(0.0, rgba(255, 255, 235, 255)), (0.6, rgba(255, 236, 140, 255)), (1.0, rgba(240, 190, 60, 255))]));
-    pm.stroke(bulb, &solid(rgba(190, 140, 40, 255)), lw);
-    // Filamento
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r * 0.3, cy + r * 0.2);
-    pb.line_to(cx - r * 0.15, cy - r * 0.15);
-    pb.line_to(cx, cy + r * 0.15);
-    pb.line_to(cx + r * 0.15, cy - r * 0.15);
-    pb.line_to(cx + r * 0.3, cy + r * 0.2);
-    pm.stroke(pb.finish(), &solid(rgba(200, 110, 20, 255)), (s * 0.025).max(1.0));
-    // Rosca
-    let (bx, by, bw) = (cx - r * 0.45, cy + r * 1.05, r * 0.9);
-    for k in 0..3 {
-        let yy = by + k as f32 * s * 0.055;
-        pm.fill(rrect(bx, yy, bw, s * 0.05, s * 0.02), &vgrad(yy, yy + s * 0.05, &[(0.0, rgba(235, 236, 240, 255)), (1.0, rgba(140, 144, 152, 255))]));
-    }
-    pm.fill(oval(cx - r * 0.2, by + s * 0.16, r * 0.4, s * 0.06), &solid(rgba(70, 72, 80, 255)));
-}
-
-/// Esfera de vidro azul com meridianos e as ondas do Wi-Fi saindo do alto.
-fn pref_network(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.58, s * 0.32);
-    pm.fill(oval(cx - r, cy + r * 0.8, r * 2.0, r * 0.5), &solid(rgba(0, 0, 0, 40)));
-    pm.fill(circle(cx, cy, r), &radial(cx - r * 0.35, cy - r * 0.4, r * 1.7, &[(0.0, rgba(150, 205, 255, 255)), (0.6, rgba(40, 110, 220, 255)), (1.0, rgba(15, 50, 140, 255))]));
-    let line = solid(rgba(255, 255, 255, 110));
-    pm.stroke(oval(cx - r * 0.45, cy - r, r * 0.9, r * 2.0), &line, lw);
-    pm.stroke(oval(cx - r, cy - r * 0.35, r * 2.0, r * 0.7), &line, lw);
-    pm.stroke(circle(cx, cy, r), &solid(rgba(10, 40, 110, 255)), lw);
-    gloss(pm, cx - r * 0.7, cy - r * 0.95, r * 1.4, r * 0.8, r * 0.4);
-    // Ondas do Wi-Fi saindo do alto da esfera.
-    for (k, a) in [(1.0, 255u8), (1.6, 200), (2.2, 150)] {
-        let rr = s * 0.09 * k;
-        let (ox, oy) = (cx, cy - r - s * 0.02);
-        let mut pb = PathBuilder::new();
-        pb.move_to(ox - rr * 0.8, oy - rr * 0.35);
-        pb.quad_to(ox, oy - rr * 1.25, ox + rr * 0.8, oy - rr * 0.35);
-        pm.stroke(pb.finish(), &solid(rgba(255, 150, 30, a)), (s * 0.045).max(1.2));
-    }
-}
-
-/// Folha de calendário (faixa vermelha no alto) com um relógio redondo na frente.
-fn pref_datetime(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.08, s * 0.62, s * 0.66);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 45)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(228, 228, 232, 255))]));
-    pm.fill(rrect4(bx, by, bw, bh * 0.24, [s * 0.05, s * 0.05, 0.0, 0.0]), &vgrad(by, by + bh * 0.24, &[(0.0, rgba(240, 90, 80, 255)), (1.0, rgba(190, 40, 35, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(110, 110, 118, 255)), lw);
-    for r in 0..3 {
-        for c in 0..4 {
-            pm.fill_rect(bx + bw * (0.1 + c as f32 * 0.21), by + bh * (0.36 + r as f32 * 0.18), bw * 0.13, bh * 0.1, &solid(rgba(150, 150, 158, 255)));
-        }
-    }
-    // Relógio
-    let (cx, cy, r) = (x + s * 0.66, y + s * 0.66, s * 0.27);
-    pm.fill(circle(cx + s * 0.01, cy + s * 0.025, r), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(235, 237, 242, 255)), (1.0, rgba(140, 144, 154, 255))]));
-    pm.fill(circle(cx, cy, r * 0.82), &radial(cx - r * 0.2, cy - r * 0.3, r * 1.2, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(225, 228, 235, 255))]));
-    let hand = |pm: &mut Canvas, a: f32, len: f32, w: f32| {
-        let mut pb = PathBuilder::new();
-        pb.move_to(cx, cy);
-        pb.line_to(cx + len * a.sin(), cy - len * a.cos());
-        pm.stroke_round(pb.finish(), &solid(rgba(40, 40, 46, 255)), w);
-    };
-    hand(pm, std::f32::consts::TAU * 10.0 / 12.0, r * 0.45, (s * 0.04).max(1.2));
-    hand(pm, std::f32::consts::TAU * 2.0 / 12.0, r * 0.68, (s * 0.03).max(1.0));
-    pm.fill(circle(cx, cy, s * 0.025), &solid(rgba(200, 50, 40, 255)));
-}
-
-/// Folha com uma lista de itens e o botão verde de "abrir" na frente.
-fn pref_login_items(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.1, y + s * 0.06, s * 0.62, s * 0.78);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.04), &solid(rgba(0, 0, 0, 45)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(226, 228, 234, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(110, 112, 120, 255)), lw);
-    let colors = [rgba(70, 130, 230, 255), rgba(240, 170, 50, 255), rgba(120, 190, 80, 255), rgba(150, 100, 210, 255)];
-    for (k, c) in colors.iter().enumerate() {
-        let yy = by + bh * (0.1 + k as f32 * 0.2);
-        gel_rect(pm, bx + bw * 0.1, yy, bw * 0.16, bw * 0.16, s * 0.02, *c);
-        pm.fill_rect(bx + bw * 0.34, yy + bw * 0.05, bw * 0.52, bw * 0.06, &solid(rgba(150, 152, 160, 255)));
-    }
-    // Botão verde redondo com a seta.
-    let (cx, cy, r) = (x + s * 0.7, y + s * 0.72, s * 0.2);
-    gel_circle(pm, cx, cy, r, rgba(70, 180, 60, 255));
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r * 0.3, cy - r * 0.45);
-    pb.line_to(cx + r * 0.5, cy);
-    pb.line_to(cx - r * 0.3, cy + r * 0.45);
-    pb.close();
-    pm.fill(pb.finish(), &solid(rgba(255, 255, 255, 240)));
-}
-
-/// Círculo azul em gel com uma figura humana de braços abertos.
-fn pref_access(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.5, s * 0.42);
-    pm.fill(circle(cx + s * 0.01, cy + s * 0.03, r), &solid(rgba(0, 0, 0, 50)));
-    gel_circle(pm, cx, cy, r, rgba(40, 110, 220, 255));
-    pm.stroke(circle(cx, cy, r * 0.86), &solid(rgba(255, 255, 255, 230)), (s * 0.03).max(1.0));
-    let white = solid(rgba(255, 255, 255, 255));
-    pm.fill(circle(cx, cy - r * 0.48, r * 0.12), &white);
-    let w = (s * 0.06).max(1.4);
-    let line = |pm: &mut Canvas, a: (f32, f32), b: (f32, f32)| {
-        let mut pb = PathBuilder::new();
-        pb.move_to(a.0, a.1);
-        pb.line_to(b.0, b.1);
-        pm.stroke_round(pb.finish(), &white, w);
-    };
-    // Braços abertos, corpo e pernas.
-    line(pm, (cx - r * 0.5, cy - r * 0.22), (cx + r * 0.5, cy - r * 0.22));
-    line(pm, (cx, cy - r * 0.22), (cx, cy + r * 0.15));
-    line(pm, (cx, cy + r * 0.15), (cx - r * 0.25, cy + r * 0.55));
-    line(pm, (cx, cy + r * 0.15), (cx + r * 0.25, cy + r * 0.55));
-}
-
-/// Duas silhuetas, uma na frente da outra (contas).
-fn pref_accounts(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let person = |pm: &mut Canvas, cx: f32, top: f32, k: f32, body: Color| {
-        let r = s * 0.13 * k;
-        pm.fill(circle(cx, top + r, r), &radial(cx - r * 0.3, top + r * 0.6, r * 1.6, &[(0.0, rgba(255, 226, 196, 255)), (1.0, rgba(214, 160, 120, 255))]));
-        let (bw, bh) = (s * 0.42 * k, s * 0.34 * k);
-        let by = top + r * 2.1;
-        pm.fill(rrect4(cx - bw / 2.0, by, bw, bh, [bw * 0.45, bw * 0.45, s * 0.03, s * 0.03]), &vgrad(by, by + bh, &[(0.0, lighten(body, 0.25)), (1.0, body)]));
-    };
-    person(pm, x + s * 0.64, y + s * 0.1, 0.85, rgba(110, 120, 140, 255));
-    person(pm, x + s * 0.4, y + s * 0.22, 1.0, rgba(40, 110, 220, 255));
-}
-
-/// Balão de fala azul com três sinais de escrita desenhados (a, ñ, ö estilizados).
-fn pref_international(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.12, s * 0.88, s * 0.6);
-    let mut pb = PathBuilder::new();
-    let r = s * 0.12;
-    pb.move_to(bx + r, by);
-    pb.line_to(bx + bw - r, by);
-    pb.quad_to(bx + bw, by, bx + bw, by + r);
-    pb.line_to(bx + bw, by + bh - r);
-    pb.quad_to(bx + bw, by + bh, bx + bw - r, by + bh);
-    pb.line_to(bx + bw * 0.42, by + bh);
-    pb.line_to(bx + bw * 0.22, by + bh + s * 0.16);
-    pb.line_to(bx + bw * 0.26, by + bh);
-    pb.line_to(bx + r, by + bh);
-    pb.quad_to(bx, by + bh, bx, by + bh - r);
-    pb.line_to(bx, by + r);
-    pb.quad_to(bx, by, bx + r, by);
-    pb.close();
-    let p = pb.finish();
-    pm.fill(p.clone(), &vgrad(by, by + bh, &[(0.0, rgba(120, 180, 250, 255)), (1.0, rgba(30, 90, 200, 255))]));
-    pm.stroke(p, &solid(rgba(20, 60, 140, 255)), lw);
-    gloss(pm, bx + s * 0.04, by + s * 0.02, bw - s * 0.08, bh * 0.45, r);
-    // Três "letras" brancas: um círculo com haste, um til sobre um arco e dois pontos sobre um anel.
-    let white = solid(rgba(255, 255, 255, 240));
-    let w = (s * 0.045).max(1.2);
-    let cy = by + bh * 0.58;
-    pm.stroke(circle(bx + bw * 0.22, cy, s * 0.07), &white, w);
-    let mut pb = PathBuilder::new();
-    pb.move_to(bx + bw * 0.22 + s * 0.07, cy - s * 0.08);
-    pb.line_to(bx + bw * 0.22 + s * 0.07, cy + s * 0.07);
-    pm.stroke(pb.finish(), &white, w);
-    let mut pb = PathBuilder::new();
-    pb.move_to(bx + bw * 0.42, cy + s * 0.07);
-    pb.line_to(bx + bw * 0.42, cy - s * 0.02);
-    pb.quad_to(bx + bw * 0.5, cy - s * 0.09, bx + bw * 0.58, cy - s * 0.02);
-    pb.line_to(bx + bw * 0.58, cy + s * 0.07);
-    pb.move_to(bx + bw * 0.42, cy - s * 0.15);
-    pb.quad_to(bx + bw * 0.46, cy - s * 0.2, bx + bw * 0.5, cy - s * 0.15);
-    pb.quad_to(bx + bw * 0.54, cy - s * 0.1, bx + bw * 0.58, cy - s * 0.15);
-    pm.stroke(pb.finish(), &white, w);
-    pm.stroke(circle(bx + bw * 0.78, cy + s * 0.01, s * 0.065), &white, w);
-    pm.fill(circle(bx + bw * 0.74, cy - s * 0.12, s * 0.022), &white);
-    pm.fill(circle(bx + bw * 0.82, cy - s * 0.12, s * 0.022), &white);
-}
-
-/// Disco prateado atrás e um pendrive azul na frente.
-fn pref_removable(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (cx, cy, r) = (x + s * 0.42, y + s * 0.44, s * 0.36);
-    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(250, 250, 252, 255)), (0.5, rgba(190, 200, 215, 255)), (1.0, rgba(240, 236, 250, 255))]));
-    pm.stroke(circle(cx, cy, r), &solid(rgba(130, 134, 144, 255)), lw);
-    pm.fill(circle(cx, cy, r * 0.22), &solid(rgba(210, 214, 222, 255)));
-    pm.fill(circle(cx, cy, r * 0.1), &solid(rgba(255, 255, 255, 255)));
-    // Pendrive
-    let (bx, by, bw, bh) = (x + s * 0.5, y + s * 0.42, s * 0.24, s * 0.46);
-    pm.fill_rect(bx + bw * 0.2, by - s * 0.1, bw * 0.6, s * 0.12, &vgrad(by - s * 0.1, by, &[(0.0, rgba(235, 236, 240, 255)), (1.0, rgba(160, 164, 172, 255))]));
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.02, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 50)));
-    gel_rect(pm, bx, by, bw, bh, s * 0.05, rgba(40, 110, 220, 255));
-}
-
-/// Fone de ouvido sem fio com as ondas do sinal.
-fn pref_wireless(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let w = (s * 0.07).max(1.5);
-    let (cx, cy, r) = (x + s * 0.44, y + s * 0.5, s * 0.3);
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r, cy + r * 0.2);
-    pb.cubic_to(cx - r, cy - r * 1.3, cx + r, cy - r * 1.3, cx + r, cy + r * 0.2);
-    pm.stroke_round(pb.finish(), &solid(rgba(90, 94, 104, 255)), w);
-    for side in [-1.0f32, 1.0] {
-        let ex = cx + side * r - s * 0.08;
-        gel_rect(pm, ex, cy, s * 0.16, s * 0.26, s * 0.07, rgba(60, 64, 74, 255));
-    }
-    for (k, a) in [(1.0, 230u8), (1.7, 170)] {
-        let rr = s * 0.08 * k;
-        let (ox, oy) = (x + s * 0.8, y + s * 0.22);
-        let mut pb = PathBuilder::new();
-        pb.move_to(ox - rr * 0.3, oy - rr);
-        pb.quad_to(ox + rr * 0.6, oy, ox - rr * 0.3, oy + rr);
-        pm.stroke(pb.finish(), &solid(rgba(40, 110, 220, a)), (s * 0.04).max(1.0));
-    }
-}
-
-/// Pasta azul com uma plaquinha amarela de "compartilhada".
-fn pref_sharing(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    folder(pm, x, y + s * 0.04, s * 0.92);
-    let (bx, by, bw, bh) = (x + s * 0.5, y + s * 0.56, s * 0.44, s * 0.3);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.02, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 50)));
-    gel_rect(pm, bx, by, bw, bh, s * 0.05, rgba(240, 180, 40, 255));
-    // Duas cabecinhas na placa.
-    for k in 0..2 {
-        let cx = bx + bw * (0.33 + k as f32 * 0.34);
-        pm.fill(circle(cx, by + bh * 0.35, s * 0.045), &solid(rgba(255, 255, 255, 240)));
-        pm.fill(rrect4(cx - s * 0.06, by + bh * 0.55, s * 0.12, s * 0.07, [s * 0.05, s * 0.05, 0.0, 0.0]), &solid(rgba(255, 255, 255, 240)));
-    }
-}
-
-/// Três aplicativos em leque com o selo verde de "escolhido".
-fn pref_default_apps(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let colors = [rgba(150, 100, 210, 255), rgba(240, 170, 50, 255), rgba(40, 110, 220, 255)];
-    for (k, c) in colors.iter().enumerate() {
-        let o = k as f32 * s * 0.12;
-        let (bx, by) = (x + s * 0.08 + o, y + s * 0.1 + o);
-        pm.fill(rrect(bx + s * 0.01, by + s * 0.02, s * 0.5, s * 0.5, s * 0.08), &solid(rgba(0, 0, 0, 45)));
-        gel_rect(pm, bx, by, s * 0.5, s * 0.5, s * 0.08, *c);
-    }
-    let (cx, cy, r) = (x + s * 0.74, y + s * 0.74, s * 0.18);
-    gel_circle(pm, cx, cy, r, rgba(70, 180, 60, 255));
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r * 0.45, cy);
-    pb.line_to(cx - r * 0.1, cy + r * 0.38);
-    pb.line_to(cx + r * 0.5, cy - r * 0.38);
-    pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), (s * 0.05).max(1.2));
-}
-
-/// Impressora clara com a folha saindo por cima e a bandeja embaixo.
-fn pref_printer(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    pm.fill_rect(x + s * 0.28, y + s * 0.08, s * 0.44, s * 0.36, &solid(rgba(255, 255, 255, 255)));
-    pm.stroke(rrect(x + s * 0.28, y + s * 0.08, s * 0.44, s * 0.36, 0.0), &solid(rgba(150, 150, 156, 255)), lw);
-    for k in 0..3 {
-        pm.fill_rect(x + s * 0.33, y + s * (0.16 + k as f32 * 0.07), s * 0.34, s * 0.025, &solid(rgba(170, 170, 178, 255)));
-    }
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.36, s * 0.84, s * 0.36);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(236, 238, 242, 255)), (1.0, rgba(168, 172, 182, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(100, 104, 114, 255)), lw);
-    pm.fill_rect(bx + bw * 0.15, by + bh * 0.55, bw * 0.7, bh * 0.14, &solid(rgba(60, 62, 70, 255)));
-    pm.fill(circle(bx + bw * 0.88, by + bh * 0.25, s * 0.03), &solid(rgba(80, 200, 80, 255)));
-    pm.fill_rect(x + s * 0.2, y + s * 0.72, s * 0.6, s * 0.12, &vgrad(y + s * 0.72, y + s * 0.84, &[(0.0, rgba(200, 202, 208, 255)), (1.0, rgba(150, 152, 160, 255))]));
-}
-
-/// Caixa (pacote) com duas setas verdes em círculo.
-fn pref_update(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.12, y + s * 0.3, s * 0.76, s * 0.56);
-    pm.fill(rrect(bx + s * 0.01, by + s * 0.03, bw, bh, s * 0.04), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(222, 186, 130, 255)), (1.0, rgba(176, 132, 80, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(120, 86, 46, 255)), lw);
-    pm.fill_rect(bx + bw * 0.42, by, bw * 0.16, bh, &solid(rgba(240, 220, 170, 200)));
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.32, s * 0.2);
-    pm.fill(circle(cx, cy, r + s * 0.04), &solid(rgba(255, 255, 255, 230)));
-    for k in 0..2 {
-        let a0 = k as f32 * std::f32::consts::PI;
-        let mut pb = PathBuilder::new();
-        for i in 0..=10 {
-            let a = a0 + 0.3 + i as f32 * 0.25;
-            let (px, py) = (cx + r * a.cos(), cy + r * a.sin());
-            if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-        }
-        pm.stroke_round(pb.finish(), &solid(rgba(60, 170, 60, 255)), (s * 0.06).max(1.4));
-        let a = a0 + 0.3 + 2.5;
-        let (tx, ty) = (cx + r * a.cos(), cy + r * a.sin());
-        let mut pb = PathBuilder::new();
-        pb.move_to(tx + s * 0.07 * (a + 1.2).cos(), ty + s * 0.07 * (a + 1.2).sin());
-        pb.line_to(tx + s * 0.06 * (a + 2.4).cos(), ty + s * 0.06 * (a + 2.4).sin());
-        pb.line_to(tx - s * 0.05 * (a + 0.6).cos(), ty - s * 0.05 * (a + 0.6).sin());
-        pb.close();
-        pm.fill(pb.finish(), &solid(rgba(60, 170, 60, 255)));
-    }
-}
-
-/// Disco rígido prateado com o símbolo de ligar.
-fn pref_startup_disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    crate::tiger::disk(pm, x, y, s);
-    let (cx, cy, r) = (x + s * 0.72, y + s * 0.3, s * 0.17);
-    gel_circle(pm, cx, cy, r, rgba(40, 110, 220, 255));
-    let w = (s * 0.04).max(1.2);
-    let mut pb = PathBuilder::new();
-    for i in 0..=12 {
-        let a = -std::f32::consts::FRAC_PI_2 + 0.6 + i as f32 * (std::f32::consts::TAU - 1.2) / 12.0;
-        let (px, py) = (cx + r * 0.55 * a.cos(), cy + r * 0.55 * a.sin());
-        if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-    }
-    pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), w);
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx, cy - r * 0.7);
-    pb.line_to(cx, cy - r * 0.1);
-    pm.stroke_round(pb.finish(), &solid(rgba(255, 255, 255, 255)), w);
-}
-
-/// Perfil de um rosto com ondas de som saindo da boca.
-fn pref_speech(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let mut pb = PathBuilder::new();
-    pb.move_to(x + s * 0.18, y + s * 0.9);
-    pb.line_to(x + s * 0.18, y + s * 0.62);
-    pb.cubic_to(x + s * 0.06, y + s * 0.5, x + s * 0.08, y + s * 0.12, x + s * 0.38, y + s * 0.1);
-    pb.cubic_to(x + s * 0.58, y + s * 0.1, x + s * 0.62, y + s * 0.3, x + s * 0.6, y + s * 0.38);
-    pb.line_to(x + s * 0.66, y + s * 0.5);
-    pb.line_to(x + s * 0.6, y + s * 0.52);
-    pb.line_to(x + s * 0.6, y + s * 0.62);
-    pb.cubic_to(x + s * 0.6, y + s * 0.7, x + s * 0.5, y + s * 0.7, x + s * 0.44, y + s * 0.7);
-    pb.line_to(x + s * 0.44, y + s * 0.9);
-    pb.close();
-    pm.fill(pb.finish(), &vgrad(y + s * 0.1, y + s * 0.9, &[(0.0, rgba(120, 160, 230, 255)), (1.0, rgba(30, 80, 180, 255))]));
-    for (k, a) in [(1.0, 230u8), (1.7, 180), (2.4, 130)] {
-        let rr = s * 0.07 * k;
-        let (ox, oy) = (x + s * 0.68, y + s * 0.55);
-        let mut pb = PathBuilder::new();
-        pb.move_to(ox + rr * 0.3, oy - rr);
-        pb.quad_to(ox + rr * 1.2, oy, ox + rr * 0.3, oy + rr);
-        pm.stroke(pb.finish(), &solid(rgba(40, 110, 220, a)), (s * 0.035).max(1.0));
+        PrefKind::ShowAll => p::show_all(pm, x, y, s),
+        PrefKind::Appearance => p::appearance(pm, x, y, s),
+        PrefKind::Dock => p::dock(pm, x, y, s),
+        PrefKind::Keyboard => p::keyboard(pm, x, y, s, false),
+        PrefKind::Shortcuts => p::keyboard(pm, x, y, s, true),
+        PrefKind::Desktop => p::desktop(pm, x, y, s),
+        PrefKind::Sound => p::sound(pm, x, y, s),
+        PrefKind::Energy => p::energy(pm, x, y, s),
+        PrefKind::Network => p::network(pm, x, y, s),
+        PrefKind::DateTime => p::date_time(pm, fonts, x, y, s),
+        PrefKind::LoginItems => p::login_items(pm, x, y, s),
+        PrefKind::Access => p::access(pm, x, y, s),
+        PrefKind::Accounts => p::accounts(pm, x, y, s),
+        PrefKind::International => p::international(pm, fonts, x, y, s),
+        PrefKind::Removable => p::cds(pm, x, y, s),
+        PrefKind::Wireless => p::wireless(pm, x, y, s),
+        PrefKind::Sharing => p::sharing(pm, x, y, s),
+        PrefKind::DefaultApps => p::default_apps(pm, x, y, s),
+        PrefKind::Printer => p::printer(pm, x, y, s),
+        PrefKind::Update => p::update(pm, x, y, s),
+        PrefKind::StartupDisk => p::startup_disk(pm, x, y, s),
+        PrefKind::Speech => p::speech(pm, x, y, s),
+        PrefKind::Security => p::security(pm, x, y, s),
+        PrefKind::Expose => p::expose(pm, x, y, s),
     }
 }
 
@@ -1551,26 +943,6 @@ fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill(pb.finish(), &ink);
 }
 
-
-
-/// Clipe de papel inclinado, em metal cinza.
-fn clip(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, cy) = (x + s * 0.5, y + s * 0.5);
-    let k = s / 24.0;
-    let mut pb = PathBuilder::new();
-    // Coordenadas num quadrado de 24, giradas ~30 graus.
-    let pts = [(-2.0, 9.0), (-2.0, -6.0), (2.0, -10.0), (6.0, -6.0), (6.0, 7.0), (2.0, 11.0), (-1.5, 7.0), (-1.5, -4.0), (2.0, -6.5), (2.5, -4.0), (2.5, 6.0)];
-    let (sa, ca) = (0.5f32, 0.866f32);
-    for (i, (px, py)) in pts.iter().enumerate() {
-        let (rx, ry) = (px * ca - py * sa, px * sa + py * ca);
-        let (qx, qy) = (cx + rx * k, cy + ry * k);
-        if i == 0 { pb.move_to(qx, qy) } else { pb.line_to(qx, qy) }
-    }
-    if let Some(p) = pb.finish() {
-        pm.stroke(Some(p.clone()), &solid(rgba(70, 72, 80, 255)), (s / 9.0).max(1.4));
-        pm.stroke(Some(p), &solid(rgba(200, 204, 212, 255)), (s / 22.0).max(0.6));
-    }
-}
 
 
 /// Ícone de um arquivo pela extensão (o mesmo critério do Arquivos); pastas = `Folder`.
@@ -1608,4 +980,104 @@ pub fn mount_icon(dev: &str, path: &std::path::Path) -> Icon {
         _ if name.starts_with("mmcblk") => Icon::Removable,
         _ => Icon::Disk,
     }
+}
+
+/// Ícones do tema "Glove" (freedesktop): (ícone, contexto, nomes). O primeiro
+/// nome é o arquivo; os outros viram atalhos para ele (nomes comuns dos apps
+/// e dos temas GNOME, para os apps de fora também usarem os desenhos).
+pub fn theme_entries() -> Vec<(Icon, &'static str, &'static [&'static str])> {
+    use FolderKind as F;
+    use PrefKind as P;
+    vec![
+        // Apps
+        (Icon::Files, "apps", &["system-file-manager", "org.gnome.Nautilus", "nautilus", "glove-files"]),
+        (Icon::Terminal, "apps", &["utilities-terminal", "org.gnome.Terminal", "org.gnome.Ptyxis", "org.gnome.Console", "glove-term"]),
+        (Icon::Globe, "apps", &["web-browser", "glove-navegador"]),
+        (Icon::TextEditor, "apps", &["accessories-text-editor", "org.gnome.TextEditor", "gedit", "glove-edit"]),
+        (Icon::Calculator, "apps", &["accessories-calculator", "org.gnome.Calculator", "glove-calc"]),
+        (Icon::Settings, "apps", &["preferences-system", "preferences-desktop", "org.gnome.Settings", "gnome-control-center", "glove-prefs"]),
+        (Icon::Clock(10, 9), "apps", &["preferences-system-time", "org.gnome.clocks", "glove-clock"]),
+        (Icon::Mail, "apps", &["mail-client", "internet-mail", "org.gnome.Evolution", "thunderbird", "glove-correio"]),
+        (Icon::Notes, "apps", &["accessories-notes", "org.gnome.Notes", "glove-notes"]),
+        (Icon::Contacts, "apps", &["x-office-address-book", "org.gnome.Contacts", "glove-contatos"]),
+        (Icon::Calendar, "apps", &["x-office-calendar", "org.gnome.Calendar", "glove-agenda"]),
+        (Icon::Search, "apps", &["system-search", "glove-find"]),
+        (Icon::Chars, "apps", &["accessories-character-map", "org.gnome.Characters", "glove-chars"]),
+        (Icon::Camera, "apps", &["applets-screenshooter", "org.gnome.Screenshot", "glove-shot"]),
+        (Icon::Monitor, "apps", &["utilities-system-monitor", "org.gnome.SystemMonitor", "gnome-system-monitor", "glove-monitor"]),
+        (Icon::Chess, "apps", &["gnome-chess", "org.gnome.Chess", "glove-chess"]),
+        (Icon::Music, "apps", &["multimedia-audio-player", "org.gnome.Music", "rhythmbox", "glove-musica"]),
+        (Icon::Video, "apps", &["multimedia-video-player", "org.gnome.Totem", "totem", "glove-video"]),
+        (Icon::Logs, "apps", &["logviewer", "org.gnome.Logs", "glove-registros"]),
+        (Icon::Info, "apps", &["dialog-information", "glove-info"]),
+        (Icon::Help, "apps", &["help-browser", "help-contents", "org.gnome.Yelp", "glove-ajuda"]),
+        (Icon::Dictionary, "apps", &["accessories-dictionary", "org.gnome.Dictionary", "glove-dicionario"]),
+        (Icon::FontBook, "apps", &["preferences-desktop-font", "org.gnome.font-viewer", "glove-fontes"]),
+        (Icon::Keychain, "apps", &["dialog-password", "seahorse", "org.gnome.seahorse.Application", "glove-chaves"]),
+        (Icon::NetUtility, "apps", &["network-workgroup", "glove-utilrede"]),
+        (Icon::Viewer, "apps", &["image-viewer", "org.gnome.eog", "org.gnome.Loupe", "eog", "glove-view"]),
+        (Icon::DiskUtility, "apps", &["gnome-disks", "org.gnome.DiskUtility", "glove-disks"]),
+        (Icon::Archiver, "apps", &["file-roller", "org.gnome.FileRoller", "glove-arquivo"]),
+        (Icon::Window, "apps", &["application-default-icon", "application-x-executable"]),
+        // Lugares
+        (Icon::Folder, "places", &["folder", "inode-directory", "folder-remote"]),
+        (Icon::SpecialFolder(F::Desktop), "places", &["user-desktop", "folder-desktop"]),
+        (Icon::SpecialFolder(F::Documents), "places", &["folder-documents"]),
+        (Icon::SpecialFolder(F::Downloads), "places", &["folder-download", "folder-downloads"]),
+        (Icon::SpecialFolder(F::Pictures), "places", &["folder-pictures", "folder-images"]),
+        (Icon::SpecialFolder(F::Music), "places", &["folder-music"]),
+        (Icon::SpecialFolder(F::Videos), "places", &["folder-videos"]),
+        (Icon::SpecialFolder(F::Applications), "places", &["folder-applications"]),
+        (Icon::SpecialFolder(F::Home), "places", &["user-home", "folder-home"]),
+        (Icon::SpecialFolder(F::Public), "places", &["folder-publicshare"]),
+        (Icon::SpecialFolder(F::Templates), "places", &["folder-templates"]),
+        (Icon::SpecialFolder(F::Smart), "places", &["folder-saved-search"]),
+        (Icon::Trash, "places", &["user-trash"]),
+        (Icon::TrashFull(crate::tiger::TRASH_FULL_AT), "status", &["user-trash-full"]),
+        (Icon::Server, "places", &["network-server"]),
+        // Aparelhos
+        (Icon::Disk, "devices", &["drive-harddisk", "drive-harddisk-system", "drive-harddisk-usb"]),
+        (Icon::Removable, "devices", &["drive-removable-media-usb", "drive-removable-media", "media-flash"]),
+        (Icon::Optical, "devices", &["media-optical", "drive-optical", "media-optical-cd", "media-optical-dvd"]),
+        (Icon::Display, "devices", &["video-display", "preferences-desktop-display"]),
+        (Icon::Mouse, "devices", &["input-mouse", "preferences-desktop-peripherals"]),
+        (Icon::Trackpad, "devices", &["input-touchpad"]),
+        (Icon::Pref(P::Keyboard), "devices", &["input-keyboard", "preferences-desktop-keyboard"]),
+        (Icon::Pref(P::Printer), "devices", &["printer", "printer-network", "preferences-desktop-printer"]),
+        (Icon::Pref(P::Speech), "devices", &["audio-input-microphone"]),
+        (Icon::Pref(P::Sound), "devices", &["audio-speakers", "preferences-desktop-sound", "multimedia-volume-control"]),
+        (Icon::Pref(P::Wireless), "devices", &["bluetooth", "preferences-system-bluetooth", "audio-headphones"]),
+        // Tipos de arquivo
+        (Icon::Document, "mimetypes", &["text-x-generic", "text-plain", "x-office-document"]),
+        (Icon::File, "mimetypes", &["application-octet-stream", "unknown", "empty"]),
+        (Icon::Picture, "mimetypes", &["image-x-generic"]),
+        (Icon::AudioFile, "mimetypes", &["audio-x-generic"]),
+        (Icon::VideoFile, "mimetypes", &["video-x-generic"]),
+        (Icon::ArchiveFile, "mimetypes", &["package-x-generic", "application-zip", "application-x-compressed-tar", "application-x-tar"]),
+        (Icon::PdfFile, "mimetypes", &["application-pdf"]),
+        (Icon::CodeFile, "mimetypes", &["text-x-script", "text-x-csrc", "text-x-python", "text-x-rust", "application-x-shellscript"]),
+        // Preferências
+        (Icon::Pref(P::ShowAll), "categories", &["preferences-other"]),
+        (Icon::Pref(P::Appearance), "categories", &["preferences-desktop-theme", "preferences-desktop-appearance"]),
+        (Icon::Pref(P::Dock), "categories", &["preferences-desktop-dock"]),
+        (Icon::Pref(P::Shortcuts), "categories", &["preferences-desktop-keyboard-shortcuts"]),
+        (Icon::Pref(P::Desktop), "categories", &["preferences-desktop-wallpaper", "preferences-desktop-screensaver"]),
+        (Icon::Pref(P::Energy), "categories", &["preferences-system-power", "gnome-power-manager"]),
+        (Icon::Pref(P::Network), "categories", &["preferences-system-network", "network-wired"]),
+        (Icon::Pref(P::DateTime), "categories", &["preferences-system-date-time"]),
+        (Icon::Pref(P::LoginItems), "categories", &["preferences-desktop-startup", "session-properties"]),
+        (Icon::Pref(P::Access), "categories", &["preferences-desktop-accessibility", "accessibility"]),
+        (Icon::Pref(P::Accounts), "categories", &["system-users", "preferences-system-users"]),
+        (Icon::Pref(P::International), "categories", &["preferences-desktop-locale", "preferences-desktop-language"]),
+        (Icon::Pref(P::Removable), "categories", &["preferences-desktop-removable-media"]),
+        (Icon::Pref(P::Sharing), "categories", &["preferences-system-sharing"]),
+        (Icon::Pref(P::DefaultApps), "categories", &["preferences-desktop-default-applications"]),
+        (Icon::Pref(P::Update), "categories", &["system-software-update", "software-update-available"]),
+        (Icon::Pref(P::StartupDisk), "categories", &["preferences-system-startup-disk"]),
+        (Icon::Pref(P::Security), "categories", &["preferences-system-privacy", "system-lock-screen", "security-high"]),
+        (Icon::Pref(P::Expose), "categories", &["preferences-system-windows"]),
+        // Estados e ações
+        (Icon::Eject, "actions", &["media-eject"]),
+        (Icon::Clip, "status", &["mail-attachment"]),
+    ]
 }
