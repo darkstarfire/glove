@@ -348,6 +348,63 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
             }
         }
     }
+    // Os ícones novos são detalhados: desenhados uma vez por tamanho e reaproveitados.
+    if icon.tiger_style() && s >= 12.0 {
+        if let Some((img, pad, side)) = cached(fonts, icon, letter, s, pm.scale) {
+            // Centrado: o tamanho guardado pode diferir 1 pixel do pedido.
+            let off = (s - side) / 2.0 - pad;
+            pm.draw_canvas(&img, x + off, y + off);
+            return;
+        }
+    }
+    draw_raw(pm, fonts, icon, x, y, s, letter);
+}
+
+thread_local! {
+    /// Ícones já desenhados: (ícone e o dia, para a Agenda; lado em pixels; escala) → imagem.
+    static CACHE: std::cell::RefCell<Vec<((String, u32, u32), std::rc::Rc<Canvas>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// O ícone pronto no tamanho `s` (em pixels inteiros), com uma margem para a sombra.
+fn cached(fonts: &Fonts, icon: Icon, letter: Option<char>, s: f32, scale: f32) -> Option<(std::rc::Rc<Canvas>, f32, f32)> {
+    // Grandes (ampliação do Dock): de 2 em 2 pixels, metade dos desenhos.
+    let raw = (s * scale).max(1.0);
+    let px = if raw > 64.0 { ((raw / 2.0).round() * 2.0) as u32 } else { raw.round() as u32 };
+    let side = px as f32 / scale;
+    let pad = (side * 0.1).ceil();
+    // A Agenda mostra o dia de hoje: muda de imagem à meia-noite.
+    let day = if matches!(icon, Icon::Calendar) {
+        unsafe {
+            let t = libc::time(std::ptr::null_mut());
+            let mut tm: libc::tm = std::mem::zeroed();
+            libc::localtime_r(&t, &mut tm);
+            tm.tm_yday as u32
+        }
+    } else {
+        0
+    };
+    let key = (format!("{icon:?}{letter:?}{day}"), px, scale.to_bits());
+    if let Some(c) = CACHE.with(|m| m.borrow().iter().find(|(k, _)| *k == key).map(|(_, c)| c.clone())) {
+        return Some((c, pad, side));
+    }
+    let mut c = Canvas::new(side + 2.0 * pad, side + 2.0 * pad, scale)?;
+    draw_raw(&mut c, fonts, icon, pad, pad, side, letter);
+    let c = std::rc::Rc::new(c);
+    CACHE.with(|m| {
+        let mut m = m.borrow_mut();
+        m.push((key, c.clone()));
+        // No máximo uns 12 MB por processo: os mais antigos saem primeiro.
+        let mut total: usize = m.iter().map(|(_, c)| c.data().len()).sum();
+        while m.len() > 1 && total > 12 << 20 {
+            total -= m[0].1.data().len();
+            m.remove(0);
+        }
+    });
+    Some((c, pad, side))
+}
+
+/// O desenho em si (sem tema e sem guardar).
+fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, letter: Option<char>) {
     match icon {
         Icon::Terminal => crate::tiger::terminal(pm, x, y, s),
         Icon::Folder => folder(pm, x, y, s),

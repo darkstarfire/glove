@@ -844,6 +844,7 @@ pub fn dock(fonts: &Fonts, theme: &Theme, items: &[DockItem], layout: &DockLayou
             if let Some((sh, pad)) = icon_shadow(fonts, it.icon, it.letter, is, scale) {
                 c.draw_canvas(&sh, ix - pad, iy - pad + is * 0.035);
             }
+            // Os ícones novos vêm prontos do cache do glove-paint (a ampliação não redesenha).
             icons::draw_bare(&mut c, fonts, it.icon, ix, iy, is, it.letter);
         }
         if it.running {
