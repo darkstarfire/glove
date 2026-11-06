@@ -200,7 +200,7 @@ O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serv
 ## Estrutura
 
 ```
-crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones (próprios e do sistema), texto, temas
+crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones no estilo do Tiger (tiger.rs, guardados prontos por tamanho) e do sistema, texto, temas
 crates/config      configuração compartilhada (config.toml + aviso de mudança via inotify)
 crates/kit         toolkit dos apps (widgets, janela Wayland, Abrir/Salvar, arrastar e soltar)
 crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)

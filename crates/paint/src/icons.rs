@@ -147,7 +147,9 @@ pub enum FolderKind {
 impl Icon {
     /// Já redesenhado na linguagem do Tiger (Fase 9.11): traz a própria sombra.
     pub fn tiger_style(self) -> bool {
-        matches!(self, Icon::Folder | Icon::SpecialFolder(_) | Icon::Terminal | Icon::Calculator | Icon::Clock(..) | Icon::Mail | Icon::Calendar | Icon::Contacts | Icon::Trash | Icon::TrashFull)
+        matches!(self, Icon::Folder | Icon::SpecialFolder(_) | Icon::Terminal | Icon::Calculator | Icon::Clock(..) | Icon::Mail | Icon::Calendar | Icon::Contacts | Icon::Trash | Icon::TrashFull
+            | Icon::Globe | Icon::TextEditor | Icon::Settings | Icon::Disk | Icon::Notes | Icon::Search | Icon::Chars | Icon::Camera | Icon::Monitor | Icon::Chess
+            | Icon::Video | Icon::Logs | Icon::Info | Icon::Help | Icon::Dictionary | Icon::FontBook | Icon::Display)
     }
 
     pub fn from_name(s: &str) -> Self {
@@ -408,26 +410,26 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
     match icon {
         Icon::Terminal => crate::tiger::terminal(pm, x, y, s),
         Icon::Folder => folder(pm, x, y, s),
-        Icon::Globe => globe(pm, x, y, s),
-        Icon::TextEditor => editor(pm, x, y, s),
+        Icon::Globe => crate::tiger::globe(pm, x, y, s),
+        Icon::TextEditor => crate::tiger::editor(pm, x, y, s),
         Icon::Calculator => crate::tiger::calculator(pm, fonts, x, y, s),
-        Icon::Settings => gear(pm, x, y, s),
+        Icon::Settings => crate::tiger::gears(pm, x, y, s),
         Icon::Window | Icon::System(_) => window(pm, fonts, x, y, s, letter),
         Icon::Generic => generic(pm, fonts, x, y, s, letter),
         Icon::Clock(h, m) => crate::tiger::clock(pm, fonts, x, y, s, h, m),
         Icon::Trash => crate::tiger::trash(pm, x, y, s, false),
         Icon::TrashFull => crate::tiger::trash(pm, x, y, s, true),
         Icon::Eject => eject(pm, x, y, s),
-        Icon::Disk => disk(pm, x, y, s),
+        Icon::Disk => crate::tiger::disk(pm, x, y, s),
         Icon::Document => page(pm, x, y, s, true),
         Icon::File => page(pm, x, y, s, false),
         Icon::Picture => picture(pm, x, y, s),
-        Icon::Notes => notes(pm, x, y, s),
-        Icon::Search => search(pm, x, y, s),
-        Icon::Chars => chars(pm, fonts, x, y, s),
-        Icon::Camera => camera(pm, x, y, s),
-        Icon::Monitor => monitor(pm, x, y, s),
-        Icon::Chess => chess(pm, fonts, x, y, s),
+        Icon::Notes => crate::tiger::notes(pm, x, y, s),
+        Icon::Search => crate::tiger::search(pm, x, y, s),
+        Icon::Chars => crate::tiger::chars(pm, fonts, x, y, s),
+        Icon::Camera => crate::tiger::camera(pm, x, y, s),
+        Icon::Monitor => crate::tiger::activity(pm, x, y, s),
+        Icon::Chess => crate::tiger::chess(pm, x, y, s),
         Icon::Music => music(pm, x, y, s),
         Icon::Contacts => crate::tiger::contacts(pm, x, y, s),
         Icon::Calendar => {
@@ -440,16 +442,16 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
             };
             crate::tiger::calendar(pm, fonts, x, y, s, m, d)
         }
-        Icon::Video => video(pm, x, y, s),
-        Icon::Logs => logs(pm, x, y, s),
-        Icon::Info => info(pm, fonts, x, y, s),
-        Icon::Help => help(pm, fonts, x, y, s),
-        Icon::Dictionary => dictionary(pm, fonts, x, y, s),
+        Icon::Video => crate::tiger::video(pm, x, y, s),
+        Icon::Logs => crate::tiger::logs(pm, x, y, s),
+        Icon::Info => crate::tiger::info(pm, fonts, x, y, s),
+        Icon::Help => crate::tiger::help(pm, fonts, x, y, s),
+        Icon::Dictionary => crate::tiger::dictionary(pm, fonts, x, y, s),
         Icon::Keychain => keychain(pm, x, y, s),
-        Icon::FontBook => font_book(pm, fonts, x, y, s),
+        Icon::FontBook => crate::tiger::font_book(pm, fonts, x, y, s),
         Icon::Clip => clip(pm, x, y, s),
         Icon::Mail => crate::tiger::mail(pm, x, y, s),
-        Icon::Display => display(pm, x, y, s),
+        Icon::Display => crate::tiger::display_pref(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
         Icon::SpecialFolder(FolderKind::Smart) => {
@@ -662,75 +664,6 @@ fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 }
 
 
-fn globe(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.48, s * 0.38);
-    gel_circle(pm, cx, cy, r, rgba(40, 120, 220, 255));
-    let p = solid(rgba(255, 255, 255, 120));
-    let lw = (s / 48.0).max(1.0);
-    pm.stroke(oval(cx - r * 0.45, cy - r + 1.0, r * 0.9, r * 2.0 - 2.0), &p, lw);
-    pm.stroke(oval(cx - r + 1.0, cy - r * 0.35, r * 2.0 - 2.0, r * 0.7), &p, lw);
-    pm.fill_rect(cx - lw / 2.0, cy - r + 1.0, lw, r * 2.0 - 2.0, &p);
-    pm.fill_rect(cx - r + 1.0, cy - lw / 2.0, r * 2.0 - 2.0, lw, &p);
-}
-
-fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (px, py, pw, ph) = (x + s * 0.18, y + s * 0.08, s * 0.6, s * 0.78);
-    let fold = s * 0.16;
-    let mut pb = PathBuilder::new();
-    pb.move_to(px, py);
-    pb.line_to(px + pw - fold, py);
-    pb.line_to(px + pw, py + fold);
-    pb.line_to(px + pw, py + ph);
-    pb.line_to(px, py + ph);
-    pb.close();
-    let page = pb.finish();
-    pm.fill(page.clone(), &vgrad(py, py + ph, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(225, 228, 235, 255))]));
-    pm.stroke(page, &solid(rgba(120, 120, 130, 255)), (s / 64.0).max(1.0));
-    // Dobra
-    let mut pb = PathBuilder::new();
-    pb.move_to(px + pw - fold, py);
-    pb.line_to(px + pw - fold, py + fold);
-    pb.line_to(px + pw, py + fold);
-    pb.close();
-    pm.fill(pb.finish(), &solid(rgba(200, 204, 212, 255)));
-    // Linhas de texto
-    for i in 0..6 {
-        let ly = py + ph * 0.28 + i as f32 * ph * 0.11;
-        let lw = if i == 5 { pw * 0.4 } else { pw * 0.68 };
-        pm.fill_rect(px + pw * 0.14, ly, lw, (s * 0.025).max(1.0), &solid(rgba(150, 160, 180, 255)));
-    }
-    // Lápis
-    let mut pb = PathBuilder::new();
-    let (ax, ay) = (x + s * 0.88, y + s * 0.30);
-    let (bx, by) = (x + s * 0.48, y + s * 0.78);
-    let t = s * 0.06;
-    pb.move_to(ax - t, ay - t);
-    pb.line_to(ax + t, ay + t);
-    pb.line_to(bx + t * 0.3, by + t * 0.9);
-    pb.line_to(bx - t * 0.9, by - t * 0.3);
-    pb.close();
-    pm.fill(pb.finish(), &linear(ax - t, ay, ax + t, ay, &[(0.0, rgba(250, 200, 60, 255)), (1.0, rgba(210, 150, 20, 255))]));
-    pm.fill(circle(bx - t * 0.2, by + t * 0.2, t * 0.55), &solid(rgba(60, 50, 40, 255)));
-}
-
-
-fn gear(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, cy) = (x + s * 0.5, y + s * 0.48);
-    let (ro, ri) = (s * 0.42, s * 0.32);
-    let teeth = 10;
-    let mut pb = PathBuilder::new();
-    for i in 0..teeth * 4 {
-        let a = i as f32 / (teeth * 4) as f32 * std::f32::consts::TAU;
-        let r = if (i / 2) % 2 == 0 { ro } else { ri };
-        let (px, py) = (cx + a.cos() * r, cy + a.sin() * r);
-        if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-    }
-    pb.close();
-    let path = pb.finish();
-    pm.fill(path.clone(), &linear(x, y, x + s, y + s, &[(0.0, rgba(225, 228, 235, 255)), (1.0, rgba(110, 115, 125, 255))]));
-    pm.stroke(path, &solid(rgba(70, 72, 80, 255)), (s / 64.0).max(1.0));
-    pm.fill(circle(cx, cy, s * 0.13), &radial(cx, cy - s * 0.04, s * 0.15, &[(0.0, rgba(60, 62, 70, 255)), (1.0, rgba(20, 22, 26, 255))]));
-}
 
 fn window(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, letter: Option<char>) {
     let (wx, wy, ww, wh) = (x + s * 0.1, y + s * 0.16, s * 0.8, s * 0.66);
@@ -886,121 +819,6 @@ fn picture(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pb.line_to(ix + iw, iy + ih);
     pb.close();
     pm.fill(pb.finish(), &vgrad(iy + ih * 0.45, iy + ih, &[(0.0, rgba(90, 160, 80, 255)), (1.0, rgba(50, 110, 50, 255))]));
-}
-
-/// Pilha de lembretes coloridos com um alfinete.
-fn notes(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    for (i, col) in [rgba(150, 200, 255, 255), rgba(255, 170, 200, 255), rgba(255, 235, 120, 255)].iter().enumerate() {
-        let o = i as f32 * s * 0.06;
-        let (nx, ny, nw) = (x + s * 0.14 + o, y + s * 0.12 + o, s * 0.66);
-        pm.fill(rrect(nx, ny, nw, nw, s * 0.02), &vgrad(ny, ny + nw, &[(0.0, lighten(*col, 0.25)), (1.0, *col)]));
-        pm.stroke(rrect(nx, ny, nw, nw, s * 0.02), &solid(darken(*col, 0.35)), lw);
-        if i == 2 {
-            for k in 0..4 {
-                let ly = ny + nw * 0.32 + k as f32 * nw * 0.15;
-                pm.fill_rect(nx + nw * 0.14, ly, nw * if k == 3 { 0.4 } else { 0.7 }, (s * 0.022).max(0.8), &solid(rgba(150, 120, 40, 200)));
-            }
-            gel_circle(pm, nx + nw * 0.5, ny + nw * 0.1, s * 0.06, rgba(220, 50, 40, 255));
-        }
-    }
-}
-
-/// Lupa de vidro com cabo escuro.
-fn search(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (cx, cy, r) = (x + s * 0.42, y + s * 0.4, s * 0.26);
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx + r * 0.7, cy + r * 0.7);
-    pb.line_to(x + s * 0.84, y + s * 0.84);
-    pm.stroke(pb.finish(), &solid(rgba(50, 40, 35, 255)), s * 0.11);
-    pm.fill(circle(cx, cy, r + s * 0.05), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(240, 242, 248, 255)), (1.0, rgba(120, 125, 140, 255))]));
-    pm.fill(circle(cx, cy, r), &radial(cx, cy + r * 0.3, r * 1.2, &[(0.0, rgba(225, 240, 255, 230)), (1.0, rgba(120, 170, 230, 230))]));
-    pm.fill(oval(cx - r * 0.7, cy - r * 0.85, r * 1.2, r * 0.8), &vgrad(cy - r, cy, &[(0.0, rgba(255, 255, 255, 200)), (1.0, rgba(255, 255, 255, 0))]));
-}
-
-/// Teclas com letras de alfabetos diferentes.
-fn chars(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let k = s * 0.36;
-    for (i, ch) in ["A", "Ω", "é", "★"].iter().enumerate() {
-        let (kx, ky) = (x + s * 0.1 + (i % 2) as f32 * (k + s * 0.08), y + s * 0.1 + (i / 2) as f32 * (k + s * 0.08));
-        pm.fill(rrect(kx, ky, k, k, s * 0.06), &vgrad(ky, ky + k, &[(0.0, rgba(252, 252, 254, 255)), (1.0, rgba(200, 204, 214, 255))]));
-        pm.stroke(rrect(kx, ky, k, k, s * 0.06), &solid(rgba(110, 115, 128, 255)), (s / 64.0).max(1.0));
-        let px = k * 0.62;
-        let tw = fonts.measure(ch, px, true);
-        fonts.draw(pm, ch, kx + (k - tw) / 2.0, ky + k * 0.72, px, true, rgba(40, 50, 80, 255));
-    }
-}
-
-/// Câmera fotográfica prateada com lente azulada.
-fn camera(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.28, s * 0.84, s * 0.54);
-    pm.fill(rrect(x + s * 0.3, y + s * 0.18, s * 0.3, s * 0.14, s * 0.03), &solid(rgba(90, 95, 105, 255)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.08), &vgrad(by, by + bh, &[(0.0, rgba(235, 237, 242, 255)), (1.0, rgba(150, 155, 166, 255))]));
-    pm.fill_rect(bx, by + bh * 0.3, bw, bh * 0.4, &solid(rgba(60, 62, 70, 255)));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.08), &solid(rgba(80, 84, 94, 255)), (s / 64.0).max(1.0));
-    let (cx, cy) = (x + s * 0.5, by + bh * 0.5);
-    pm.fill(circle(cx, cy, s * 0.2), &linear(cx - s * 0.2, cy - s * 0.2, cx + s * 0.2, cy + s * 0.2, &[(0.0, rgba(240, 242, 246, 255)), (1.0, rgba(110, 115, 125, 255))]));
-    pm.fill(circle(cx, cy, s * 0.14), &radial(cx, cy, s * 0.14, &[(0.0, rgba(90, 140, 220, 255)), (0.7, rgba(20, 30, 70, 255)), (1.0, rgba(5, 5, 15, 255))]));
-    pm.fill(circle(cx - s * 0.05, cy - s * 0.05, s * 0.04), &solid(rgba(255, 255, 255, 180)));
-    pm.fill(circle(bx + bw * 0.86, by + bh * 0.15, s * 0.035), &solid(rgba(255, 200, 60, 255)));
-}
-
-/// Monitor de atividade: tela escura com gráfico verde.
-fn monitor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.12, s * 0.84, s * 0.62);
-    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(225, 228, 235, 255)), (1.0, rgba(150, 154, 164, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(85, 90, 100, 255)), (s / 64.0).max(1.0));
-    let (sx, sy, sw, sh) = (bx + s * 0.06, by + s * 0.06, bw - s * 0.12, bh - s * 0.12);
-    pm.fill(rrect(sx, sy, sw, sh, s * 0.03), &solid(rgba(10, 20, 15, 255)));
-    for i in 1..4 {
-        pm.fill_rect(sx, sy + sh * i as f32 / 4.0, sw, (s / 128.0).max(0.5), &solid(rgba(40, 90, 50, 255)));
-    }
-    let pts = [0.7, 0.55, 0.62, 0.3, 0.45, 0.2, 0.35, 0.5, 0.25];
-    let mut pb = PathBuilder::new();
-    for (i, v) in pts.iter().enumerate() {
-        let (px, py) = (sx + sw * i as f32 / (pts.len() - 1) as f32, sy + sh * v);
-        if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-    }
-    pm.stroke(pb.finish(), &solid(rgba(90, 255, 110, 255)), (s / 40.0).max(1.0));
-    pm.fill(rrect(x + s * 0.38, by + bh, s * 0.24, s * 0.1, 0.0), &solid(rgba(140, 144, 154, 255)));
-}
-
-/// Cavalo de xadrez sobre uma casa do tabuleiro.
-fn chess(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let (bx, by, bw) = (x + s * 0.1, y + s * 0.5, s * 0.8);
-    for i in 0..4 {
-        let c = if i % 2 == 0 { rgba(235, 215, 175, 255) } else { rgba(150, 100, 60, 255) };
-        pm.fill_rect(bx + i as f32 * bw / 4.0, by, bw / 4.0, s * 0.3, &vgrad(by, by + s * 0.3, &[(0.0, lighten(c, 0.15)), (1.0, c)]));
-    }
-    pm.stroke(rrect(bx, by, bw, s * 0.3, 0.0), &solid(rgba(80, 55, 30, 255)), (s / 64.0).max(1.0));
-    let px = s * 0.72;
-    let tw = fonts.measure("♞", px, false);
-    fonts.draw(pm, "♞", x + (s - tw) / 2.0 + s * 0.02, y + s * 0.74 + s * 0.02, px, false, rgba(0, 0, 0, 90));
-    fonts.draw(pm, "♞", x + (s - tw) / 2.0, y + s * 0.74, px, false, rgba(25, 25, 30, 255));
-}
-
-/// Tela plana sobre um pé de alumínio, com um céu azul na tela.
-fn display(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    // Pé
-    pm.fill(rrect(x + s * 0.4, y + s * 0.66, s * 0.2, s * 0.16, 0.0), &vgrad(y + s * 0.66, y + s * 0.82, &[(0.0, rgba(150, 152, 160, 255)), (1.0, rgba(205, 207, 212, 255))]));
-    pm.fill(rrect(x + s * 0.26, y + s * 0.8, s * 0.48, s * 0.07, s * 0.035), &vgrad(y + s * 0.8, y + s * 0.87, &[(0.0, rgba(230, 231, 235, 255)), (1.0, rgba(140, 142, 150, 255))]));
-    // Moldura clara
-    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.1, s * 0.88, s * 0.6);
-    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(245, 246, 248, 255)), (1.0, rgba(190, 193, 200, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(110, 114, 124, 255)), lw);
-    // Tela com céu
-    let (sx, sy, sw, sh) = (bx + s * 0.05, by + s * 0.05, bw - s * 0.1, bh - s * 0.1);
-    pm.fill(rrect(sx, sy, sw, sh, s * 0.02), &vgrad(sy, sy + sh, &[(0.0, rgba(40, 90, 200, 255)), (0.7, rgba(110, 170, 240, 255)), (1.0, rgba(190, 220, 250, 255))]));
-    // Faixa de onda clara
-    let mut pb = PathBuilder::new();
-    pb.move_to(sx, sy + sh * 0.75);
-    pb.quad_to(sx + sw * 0.35, sy + sh * 0.45, sx + sw, sy + sh * 0.62);
-    pb.line_to(sx + sw, sy + sh * 0.78);
-    pb.quad_to(sx + sw * 0.4, sy + sh * 0.6, sx, sy + sh * 0.9);
-    pb.close();
-    pm.fill(pb.finish(), &solid(rgba(255, 255, 255, 110)));
-    gloss(pm, sx + 1.0, sy + 1.0, sw - 2.0, sh * 0.42, s * 0.02);
 }
 
 /// Mouse de um botão em plástico translúcido, com o fio saindo por cima.
@@ -1864,133 +1682,6 @@ fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 }
 
 
-
-/// Tela escura com o triângulo de tocar, entre duas faixas de filme.
-fn video(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.16, s * 0.84, s * 0.66);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(70, 72, 80, 255)), (1.0, rgba(20, 20, 24, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(10, 10, 12, 255)), lw);
-    // Furos do filme nas duas bordas.
-    for row in [by + s * 0.04, by + bh - s * 0.1] {
-        for i in 0..7 {
-            let hx = bx + s * 0.05 + i as f32 * (bw - s * 0.1) / 6.5;
-            pm.fill(rrect(hx, row, s * 0.06, s * 0.06, s * 0.012), &solid(rgba(220, 220, 226, 255)));
-        }
-    }
-    // Quadro com um céu e o triângulo de tocar.
-    let (fx, fy, fw, fh) = (bx + s * 0.06, by + s * 0.14, bw - s * 0.12, bh - s * 0.28);
-    pm.fill(rrect(fx, fy, fw, fh, s * 0.02), &vgrad(fy, fy + fh, &[(0.0, rgba(110, 170, 240, 255)), (1.0, rgba(40, 90, 180, 255))]));
-    let (cx, cy, r) = (fx + fw / 2.0, fy + fh / 2.0, fh * 0.32);
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - r * 0.7, cy - r);
-    pb.line_to(cx + r, cy);
-    pb.line_to(cx - r * 0.7, cy + r);
-    pb.close();
-    pm.fill(pb.finish(), &solid(rgba(255, 255, 255, 235)));
-}
-
-/// Folha de registro: papel com linhas de texto, algumas em vermelho e amarelo.
-fn logs(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.16, y + s * 0.06, s * 0.68, s * 0.86);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.03), &solid(rgba(0, 0, 0, 55)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(228, 228, 232, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.03), &solid(rgba(120, 120, 128, 255)), lw);
-    // Faixa do título.
-    pm.fill(rrect4(bx, by, bw, s * 0.12, [s * 0.03, s * 0.03, 0.0, 0.0]), &vgrad(by, by + s * 0.12, &[(0.0, rgba(214, 214, 220, 255)), (1.0, rgba(170, 170, 178, 255))]));
-    let widths = [0.8, 0.6, 0.72, 0.5, 0.78, 0.66, 0.4, 0.7, 0.56];
-    for (i, k) in widths.iter().enumerate() {
-        let ly = by + s * 0.2 + i as f32 * s * 0.073;
-        let col = match i {
-            3 => rgba(200, 50, 40, 255),
-            6 => rgba(200, 150, 20, 255),
-            _ => rgba(110, 110, 120, 255),
-        };
-        pm.fill_rect(bx + s * 0.06, ly, (bw - s * 0.12) * k, (s * 0.03).max(1.0), &solid(col));
-    }
-}
-
-/// Chip prateado com perninhas e um "i" azul no meio.
-fn info(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw) = (x + s * 0.2, y + s * 0.18, s * 0.6);
-    for i in 0..5 {
-        let k = s * 0.26 + i as f32 * s * 0.11;
-        let pin = &solid(rgba(170, 150, 90, 255));
-        pm.fill_rect(x + k, y + s * 0.08, s * 0.05, s * 0.12, pin);
-        pm.fill_rect(x + k, y + s * 0.76, s * 0.05, s * 0.12, pin);
-        pm.fill_rect(x + s * 0.08, y + k, s * 0.12, s * 0.05, pin);
-        pm.fill_rect(x + s * 0.8, y + k, s * 0.12, s * 0.05, pin);
-    }
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bw, s * 0.06), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(rrect(bx, by, bw, bw, s * 0.06), &vgrad(by, by + bw, &[(0.0, rgba(236, 238, 242, 255)), (1.0, rgba(150, 154, 164, 255))]));
-    pm.stroke(rrect(bx, by, bw, bw, s * 0.06), &solid(rgba(80, 84, 94, 255)), lw);
-    let (cx, cy, r) = (bx + bw / 2.0, by + bw / 2.0, bw * 0.3);
-    pm.fill(circle(cx, cy, r), &vgrad(cy - r, cy + r, &[(0.0, rgba(110, 170, 245, 255)), (1.0, rgba(25, 80, 190, 255))]));
-    let px = r * 1.5;
-    let tw = fonts.measure("i", px, true);
-    fonts.draw(pm, "i", cx - tw / 2.0, cy + px * 0.36, px, true, rgba(255, 255, 255, 255));
-}
-
-/// Bola azul de gel com um ponto de interrogação branco.
-fn help(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.48, s * 0.38);
-    pm.fill(circle(cx + s * 0.01, cy + s * 0.03, r), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(circle(cx, cy, r), &vgrad(cy - r, cy + r, &[(0.0, rgba(120, 180, 250, 255)), (1.0, rgba(20, 70, 180, 255))]));
-    pm.stroke(circle(cx, cy, r), &solid(rgba(15, 50, 130, 255)), (s / 64.0).max(1.0));
-    pm.fill(oval(cx - r * 0.62, cy - r * 0.92, r * 1.24, r * 0.7), &vgrad(cy - r * 0.92, cy - r * 0.22, &[(0.0, rgba(255, 255, 255, 190)), (1.0, rgba(255, 255, 255, 20))]));
-    let px = r * 1.3;
-    let tw = fonts.measure("?", px, true);
-    fonts.draw(pm, "?", cx - tw / 2.0, cy + px * 0.36, px, true, rgba(255, 255, 255, 255));
-}
-
-/// Livro de capa escura com as páginas à mostra e "Aa" em dourado.
-fn dictionary(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.16, y + s * 0.08, s * 0.66, s * 0.82);
-    pm.fill(rrect(bx + s * 0.02, by + s * 0.03, bw + s * 0.04, bh, s * 0.04), &solid(rgba(0, 0, 0, 60)));
-    // Páginas (à direita e embaixo da capa).
-    pm.fill(rrect(bx + s * 0.06, by + s * 0.04, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(252, 250, 240, 255)), (1.0, rgba(214, 208, 190, 255))]));
-    for k in 1..5 {
-        pm.fill_rect(bx + bw + s * 0.06 - k as f32 * s * 0.012, by + s * 0.08, lw * 0.5, bh - s * 0.1, &solid(rgba(190, 184, 166, 255)));
-    }
-    // Capa.
-    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(70, 60, 64, 255)), (1.0, rgba(30, 24, 28, 255))]));
-    pm.fill_rect(bx, by, s * 0.08, bh, &solid(rgba(20, 16, 18, 255)));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(10, 8, 10, 255)), lw);
-    // Moldura dourada e "Aa".
-    let gold = rgba(222, 186, 92, 255);
-    pm.stroke(rrect(bx + s * 0.14, by + s * 0.1, bw - s * 0.22, bh - s * 0.2, s * 0.02), &solid(gold), lw);
-    let px = s * 0.3;
-    let tw = fonts.measure("Aa", px, true);
-    fonts.draw(pm, "Aa", bx + s * 0.04 + (bw - tw) / 2.0, by + bh * 0.58, px, true, gold);
-}
-
-/// Livro de capa clara com um "F" grande e uma fita vermelha.
-fn font_book(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.16, y + s * 0.08, s * 0.66, s * 0.82);
-    pm.fill(rrect(bx + s * 0.02, by + s * 0.03, bw + s * 0.04, bh, s * 0.04), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(rrect(bx + s * 0.06, by + s * 0.04, bw, bh, s * 0.03), &vgrad(by, by + bh, &[(0.0, rgba(252, 252, 250, 255)), (1.0, rgba(210, 210, 206, 255))]));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(240, 236, 226, 255)), (1.0, rgba(196, 188, 170, 255))]));
-    pm.fill_rect(bx, by, s * 0.08, bh, &vgrad(by, by + bh, &[(0.0, rgba(150, 140, 120, 255)), (1.0, rgba(110, 100, 84, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(110, 100, 84, 255)), lw);
-    // Fita.
-    let rx = bx + bw * 0.74;
-    let mut pb = PathBuilder::new();
-    pb.move_to(rx, by);
-    pb.line_to(rx + s * 0.08, by);
-    pb.line_to(rx + s * 0.08, by + bh * 0.42);
-    pb.line_to(rx + s * 0.04, by + bh * 0.36);
-    pb.line_to(rx, by + bh * 0.42);
-    pb.close();
-    pm.fill(pb.finish(), &vgrad(by, by + bh * 0.4, &[(0.0, rgba(220, 50, 40, 255)), (1.0, rgba(160, 20, 20, 255))]));
-    let px = s * 0.5;
-    let tw = fonts.measure("F", px, true);
-    fonts.draw(pm, "F", bx + s * 0.04 + (bw - s * 0.1 - tw) / 2.0, by + bh * 0.7, px, true, rgba(40, 36, 32, 255));
-}
 
 /// Clipe de papel inclinado, em metal cinza.
 fn clip(pm: &mut Canvas, x: f32, y: f32, s: f32) {

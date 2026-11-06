@@ -395,9 +395,10 @@ composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do 
   (bloco de mesa com argolas e a ponta virada), Contatos (caderno de couro verde com relevo dourado,
   elástico e fita) e Lixo vazio/cheio (aço escovado furadinho, com papéis amassados). Aguardando a
   aprovação da direção para seguir (G)
-- [ ] 9.11.3 Os outros apps do Dock e de Aplicativos/Utilitários (Navegador, Editor, Lembretes, Busca,
+- [x] 9.11.3 Os outros apps do Dock e de Aplicativos/Utilitários (Navegador, Editor, Lembretes, Busca,
   Caracteres, Captura, Monitor, Xadrez, Música, Vídeo, Registros, Informações, Ajuda, Dicionário, Livro de
-  Fontes, Acesso às Chaves, Utilitário de Rede, Discos, Preferências) (G)
+  Fontes, Acesso às Chaves, Utilitário de Rede, Discos, Preferências) (G) — v0.9.13: redesenhados; Música e
+  Chaves ficaram como estavam (aprovados); o Lixo cheio ganhou papéis amassados em facetas
 - [ ] 9.11.4 Documentos e tipos de arquivo, pastas especiais, discos, pendrives e servidores (M)
 - [ ] 9.11.5 Painéis das Preferências e os ícones pequenos (barra lateral, menus, mesa) (M)
 - [ ] 9.11.6 Depois de todos aprovados: **tema de ícones "Glove"** gerado a partir do código pelo

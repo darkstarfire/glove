@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "glove"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "bitflags 2.13.2",
  "glove-config",
@@ -955,14 +955,14 @@ dependencies = [
 
 [[package]]
 name = "glove-about"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-agenda"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -970,28 +970,28 @@ dependencies = [
 
 [[package]]
 name = "glove-ajuda"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-arquivo"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-arte"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-paint",
 ]
 
 [[package]]
 name = "glove-boasvindas"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -999,14 +999,14 @@ dependencies = [
 
 [[package]]
 name = "glove-calc"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-chars"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1015,7 +1015,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chaves"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "zbus",
@@ -1023,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chess"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1031,14 +1031,14 @@ dependencies = [
 
 [[package]]
 name = "glove-clock"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-config"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "libc",
  "serde",
@@ -1047,14 +1047,14 @@ dependencies = [
 
 [[package]]
 name = "glove-contatos"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-correio"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "base64",
  "glove-kit",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "glove-dicionario"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "flate2",
  "glove-kit",
@@ -1076,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "glove-disks"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1085,14 +1085,14 @@ dependencies = [
 
 [[package]]
 name = "glove-edit"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-files"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1101,7 +1101,7 @@ dependencies = [
 
 [[package]]
 name = "glove-find"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1109,21 +1109,21 @@ dependencies = [
 
 [[package]]
 name = "glove-fontes"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-info"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-kit"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-paint",
@@ -1137,7 +1137,7 @@ dependencies = [
 
 [[package]]
 name = "glove-login"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "glove-monitor"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1153,7 +1153,7 @@ dependencies = [
 
 [[package]]
 name = "glove-musica"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1162,7 +1162,7 @@ dependencies = [
 
 [[package]]
 name = "glove-navegador"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1170,7 +1170,7 @@ dependencies = [
 
 [[package]]
 name = "glove-notes"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1178,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "glove-paint"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "ab_glyph",
  "libc",
@@ -1188,7 +1188,7 @@ dependencies = [
 
 [[package]]
 name = "glove-portal"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "zbus",
@@ -1196,7 +1196,7 @@ dependencies = [
 
 [[package]]
 name = "glove-prefs"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-config",
  "glove-kit",
@@ -1206,21 +1206,21 @@ dependencies = [
 
 [[package]]
 name = "glove-registros"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-sair"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-shot"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "glove-term"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "alacritty_terminal",
  "glove-config",
@@ -1238,7 +1238,7 @@ dependencies = [
 
 [[package]]
 name = "glove-utilrede"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
  "libc",
@@ -1246,14 +1246,14 @@ dependencies = [
 
 [[package]]
 name = "glove-video"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
 
 [[package]]
 name = "glove-view"
-version = "0.9.12"
+version = "0.9.13"
 dependencies = [
  "glove-kit",
 ]
