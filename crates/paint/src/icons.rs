@@ -145,6 +145,11 @@ pub enum FolderKind {
 }
 
 impl Icon {
+    /// Já redesenhado na linguagem do Tiger (Fase 9.11): traz a própria sombra.
+    pub fn tiger_style(self) -> bool {
+        matches!(self, Icon::Folder | Icon::SpecialFolder(_) | Icon::Terminal | Icon::Calculator | Icon::Clock(..) | Icon::Mail | Icon::Calendar | Icon::Contacts | Icon::Trash | Icon::TrashFull)
+    }
+
     pub fn from_name(s: &str) -> Self {
         match s {
             "terminal" => Icon::Terminal,
@@ -311,6 +316,11 @@ fn draw_themed(pm: &mut Canvas, theme: &str, name: &str, x: f32, y: f32, s: f32)
 
 /// Desenha o ícone ocupando o quadrado (x, y, s, s).
 pub fn draw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, letter: Option<char>) {
+    // Os ícones novos (estilo Tiger) já têm a sombra no formato do objeto.
+    if icon.tiger_style() {
+        draw_bare(pm, fonts, icon, x, y, s, letter);
+        return;
+    }
     // Sombra de contato suave sob o ícone (mesa, Arquivos).
     pm.fill(oval(x + s * 0.12, y + s * 0.86, s * 0.76, s * 0.12),
         &radial(x + s * 0.5, y + s * 0.92, s * 0.4, &[(0.0, rgba(0, 0, 0, 90)), (1.0, rgba(0, 0, 0, 0))]),
@@ -339,17 +349,17 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         }
     }
     match icon {
-        Icon::Terminal => terminal(pm, x, y, s),
+        Icon::Terminal => crate::tiger::terminal(pm, x, y, s),
         Icon::Folder => folder(pm, x, y, s),
         Icon::Globe => globe(pm, x, y, s),
         Icon::TextEditor => editor(pm, x, y, s),
-        Icon::Calculator => calculator(pm, x, y, s),
+        Icon::Calculator => crate::tiger::calculator(pm, fonts, x, y, s),
         Icon::Settings => gear(pm, x, y, s),
         Icon::Window | Icon::System(_) => window(pm, fonts, x, y, s, letter),
         Icon::Generic => generic(pm, fonts, x, y, s, letter),
-        Icon::Clock(h, m) => clock(pm, x, y, s, h, m),
-        Icon::Trash => trash(pm, x, y, s, false),
-        Icon::TrashFull => trash(pm, x, y, s, true),
+        Icon::Clock(h, m) => crate::tiger::clock(pm, fonts, x, y, s, h, m),
+        Icon::Trash => crate::tiger::trash(pm, x, y, s, false),
+        Icon::TrashFull => crate::tiger::trash(pm, x, y, s, true),
         Icon::Eject => eject(pm, x, y, s),
         Icon::Disk => disk(pm, x, y, s),
         Icon::Document => page(pm, x, y, s, true),
@@ -362,8 +372,17 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Monitor => monitor(pm, x, y, s),
         Icon::Chess => chess(pm, fonts, x, y, s),
         Icon::Music => music(pm, x, y, s),
-        Icon::Contacts => contacts(pm, fonts, x, y, s),
-        Icon::Calendar => calendar(pm, fonts, x, y, s),
+        Icon::Contacts => crate::tiger::contacts(pm, x, y, s),
+        Icon::Calendar => {
+            // Mês e dia de hoje no horário local.
+            let (m, d) = unsafe {
+                let t = libc::time(std::ptr::null_mut());
+                let mut tm: libc::tm = std::mem::zeroed();
+                libc::localtime_r(&t, &mut tm);
+                (tm.tm_mon as u32 + 1, tm.tm_mday as u32)
+            };
+            crate::tiger::calendar(pm, fonts, x, y, s, m, d)
+        }
         Icon::Video => video(pm, x, y, s),
         Icon::Logs => logs(pm, x, y, s),
         Icon::Info => info(pm, fonts, x, y, s),
@@ -372,12 +391,12 @@ pub fn draw_bare(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: 
         Icon::Keychain => keychain(pm, x, y, s),
         Icon::FontBook => font_book(pm, fonts, x, y, s),
         Icon::Clip => clip(pm, x, y, s),
-        Icon::Mail => mail(pm, x, y, s),
+        Icon::Mail => crate::tiger::mail(pm, x, y, s),
         Icon::Display => display(pm, x, y, s),
         Icon::Mouse => mouse(pm, x, y, s),
         Icon::Trackpad => trackpad(pm, x, y, s),
         Icon::SpecialFolder(FolderKind::Smart) => {
-            folder_colored(pm, x, y, s, rgba(150, 100, 210, 255));
+            crate::tiger::folder(pm, x, y, s, rgba(150, 100, 210, 255));
             folder_emblem(pm, FolderKind::Smart, x + s * 0.5, y + s * 0.585, s * 0.34);
         }
         Icon::SpecialFolder(k) => {
@@ -580,59 +599,11 @@ fn gloss(pm: &mut Canvas, x: f32, y: f32, w: f32, h: f32, r: f32) {
     );
 }
 
-fn terminal(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (bx, by, bw, bh) = (x + s * 0.08, y + s * 0.12, s * 0.84, s * 0.72);
-    // Moldura de plástico claro
-    pm.fill(rrect(bx, by, bw, bh, s * 0.1), &vgrad(by, by + bh, &[(0.0, rgba(235, 235, 238, 255)), (1.0, rgba(160, 162, 170, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.1), &solid(rgba(90, 90, 100, 255)), (s / 64.0).max(1.0));
-    // Tela
-    let (sx, sy, sw, sh) = (bx + s * 0.07, by + s * 0.07, bw - s * 0.14, bh - s * 0.16);
-    pm.fill(rrect(sx, sy, sw, sh, s * 0.05), &vgrad(sy, sy + sh, &[(0.0, rgba(30, 34, 40, 255)), (1.0, rgba(8, 10, 12, 255))]));
-    // Prompt ">_"
-    let green = rgba(90, 240, 120, 255);
-    let lw = (s * 0.055).max(1.5);
-    let mut pb = PathBuilder::new();
-    pb.move_to(sx + sw * 0.16, sy + sh * 0.3);
-    pb.line_to(sx + sw * 0.34, sy + sh * 0.5);
-    pb.line_to(sx + sw * 0.16, sy + sh * 0.7);
-    pm.stroke(pb.finish(), &solid(green), lw);
-    pm.fill_rect(sx + sw * 0.42, sy + sh * 0.66, sw * 0.22, lw, &solid(green));
-    gloss(pm, sx + 1.0, sy + 1.0, sw - 2.0, sh * 0.45, s * 0.05);
-}
 
 fn folder(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    folder_colored(pm, x, y, s, rgba(78, 140, 220, 255));
+    crate::tiger::folder(pm, x, y, s, rgba(88, 150, 226, 255));
 }
 
-/// Pasta da era Aqua (desenho próprio): fundo com aba atrás e a frente clara e
-/// translúcida na frente, com listras finas e um brilho na borda de cima.
-fn folder_colored(pm: &mut Canvas, x: f32, y: f32, s: f32, base: Color) {
-    let lw = (s / 64.0).max(1.0);
-    let (fx, fw) = (x + s * 0.07, s * 0.86);
-    let (by, bh) = (y + s * 0.17, s * 0.65);
-    // Aba e fundo (a parte de trás da pasta).
-    let tab = rrect4(fx + s * 0.02, by - s * 0.06, fw * 0.38, s * 0.1, [s * 0.04, s * 0.04, 0.0, 0.0]);
-    pm.fill(tab.clone(), &vgrad(by - s * 0.06, by + s * 0.04, &[(0.0, lighten(base, 0.35)), (1.0, lighten(base, 0.1))]));
-    pm.stroke(tab, &solid(with_alpha(darken(base, 0.45), 0.8)), lw);
-    let back = rrect(fx, by, fw, bh, s * 0.05);
-    pm.fill(back.clone(), &vgrad(by, by + bh, &[(0.0, lighten(base, 0.3)), (1.0, darken(base, 0.08))]));
-    pm.stroke(back, &solid(with_alpha(darken(base, 0.45), 0.85)), lw);
-    // Frente, um pouco mais baixa: deixa ver o fundo em cima.
-    let fty = by + s * 0.12;
-    let fh = by + bh - fty;
-    let front = rrect(fx, fty, fw, fh, s * 0.05);
-    pm.fill(front.clone(), &vgrad(fty, fty + fh, &[(0.0, lighten(base, 0.55)), (0.45, lighten(base, 0.34)), (1.0, lighten(base, 0.08))]));
-    if s >= 30.0 {
-        let step = (s * 0.035).max(2.0);
-        let mut yy = fty + s * 0.05;
-        while yy < fty + fh - s * 0.03 {
-            pm.fill_rect(fx + lw, yy, fw - 2.0 * lw, lw * 0.6, &solid(rgba(255, 255, 255, 46)));
-            yy += step;
-        }
-    }
-    pm.stroke(front, &solid(with_alpha(darken(base, 0.35), 0.9)), lw);
-    pm.fill_rect(fx + s * 0.03, fty + lw, fw - s * 0.06, lw, &solid(rgba(255, 255, 255, 210)));
-}
 
 fn globe(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let (cx, cy, r) = (x + s * 0.5, y + s * 0.48, s * 0.38);
@@ -685,22 +656,6 @@ fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill(circle(bx - t * 0.2, by + t * 0.2, t * 0.55), &solid(rgba(60, 50, 40, 255)));
 }
 
-fn calculator(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let (bx, by, bw, bh) = (x + s * 0.2, y + s * 0.08, s * 0.6, s * 0.8);
-    pm.fill(rrect(bx, by, bw, bh, s * 0.08), &vgrad(by, by + bh, &[(0.0, rgba(110, 112, 120, 255)), (1.0, rgba(50, 52, 58, 255))]));
-    let (lx, ly, lw, lh) = (bx + bw * 0.1, by + bh * 0.08, bw * 0.8, bh * 0.2);
-    pm.fill(rrect(lx, ly, lw, lh, s * 0.03), &vgrad(ly, ly + lh, &[(0.0, rgba(190, 220, 190, 255)), (1.0, rgba(150, 190, 150, 255))]));
-    let k = bw * 0.8 / 4.0;
-    for row in 0..4 {
-        for col in 0..4 {
-            let kx = lx + col as f32 * k + k * 0.12;
-            let ky = by + bh * 0.36 + row as f32 * k + k * 0.12;
-            let base = if col == 3 { rgba(240, 150, 40, 255) } else { rgba(210, 212, 220, 255) };
-            pm.fill(rrect(kx, ky, k * 0.76, k * 0.76, k * 0.18), &vgrad(ky, ky + k * 0.76, &[(0.0, lighten(base, 0.3)), (1.0, base)]));
-        }
-    }
-    gloss(pm, bx + 2.0, by + 1.5, bw - 4.0, bh * 0.25, s * 0.07);
-}
 
 fn gear(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let (cx, cy) = (x + s * 0.5, y + s * 0.48);
@@ -753,31 +708,6 @@ pub fn logo(pm: &mut Canvas, x: f32, y: f32, s: f32, accent: tiny_skia::Color) {
     gel_circle(pm, x + s / 2.0, y + s / 2.0, s / 2.0, accent);
 }
 
-fn clock(pm: &mut Canvas, x: f32, y: f32, s: f32, h: u8, m: u8) {
-    use std::f32::consts::{FRAC_PI_2, TAU};
-    let (cx, cy, r) = (x + s * 0.5, y + s * 0.47, s * 0.4);
-    // Aro de metal + mostrador branco
-    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(245, 246, 250, 255)), (0.5, rgba(160, 165, 176, 255)), (1.0, rgba(230, 232, 238, 255))]));
-    let fr = r * 0.84;
-    pm.fill(circle(cx, cy, fr), &radial(cx, cy + fr * 0.2, fr * 1.1, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(212, 215, 224, 255))]));
-    for i in 0..12 {
-        let a = i as f32 / 12.0 * TAU;
-        let mut pb = PathBuilder::new();
-        pb.move_to(cx + a.cos() * fr * 0.78, cy + a.sin() * fr * 0.78);
-        pb.line_to(cx + a.cos() * fr * 0.92, cy + a.sin() * fr * 0.92);
-        pm.stroke(pb.finish(), &solid(rgba(50, 52, 60, 255)), (s / 40.0).max(1.0));
-    }
-    let ha = ((h % 12) as f32 + m as f32 / 60.0) / 12.0 * TAU - FRAC_PI_2;
-    let ma = m as f32 / 60.0 * TAU - FRAC_PI_2;
-    for (a, len, w) in [(ha, fr * 0.5, s / 16.0), (ma, fr * 0.78, s / 24.0)] {
-        let mut pb = PathBuilder::new();
-        pb.move_to(cx, cy);
-        pb.line_to(cx + a.cos() * len, cy + a.sin() * len);
-        pm.stroke(pb.finish(), &solid(rgba(35, 38, 46, 255)), w.max(1.0));
-    }
-    pm.fill(circle(cx, cy, (s * 0.035).max(1.2)), &solid(rgba(215, 50, 40, 255)));
-    pm.fill(oval(cx - fr * 0.7, cy - fr * 0.92, fr * 1.4, fr * 0.8), &vgrad(cy - fr, cy - fr * 0.1, &[(0.0, rgba(255, 255, 255, 130)), (1.0, rgba(255, 255, 255, 0))]));
-}
 
 /// Chaveiro: argola prateada com duas chaves douradas.
 fn keychain(pm: &mut Canvas, x: f32, y: f32, s: f32) {
@@ -830,61 +760,6 @@ fn eject(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill(oval(cx - half * 0.45, top + s * 0.08, half * 0.9, s * 0.2), &vgrad(top, top + s * 0.28, &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(255, 255, 255, 0))]));
 }
 
-/// Lixeira de metal escovado com nervuras verticais e tampa com alça.
-fn trash(pm: &mut Canvas, x: f32, y: f32, s: f32, full: bool) {
-    let (top, bot) = (y + s * 0.24, y + s * 0.88);
-    let (tl, tr) = (x + s * 0.2, x + s * 0.8);
-    let (bl, br) = (x + s * 0.27, x + s * 0.73);
-    let mut pb = PathBuilder::new();
-    pb.move_to(tl, top);
-    pb.line_to(tr, top);
-    pb.line_to(br, bot);
-    pb.line_to(bl, bot);
-    pb.close();
-    let body = pb.finish();
-    pm.fill(body.clone(), &linear(tl, 0.0, tr, 0.0, &[(0.0, rgba(150, 155, 165, 255)), (0.35, rgba(235, 238, 244, 255)), (0.7, rgba(190, 195, 205, 255)), (1.0, rgba(130, 135, 145, 255))]));
-    // Nervuras
-    for i in 1..6 {
-        let t = i as f32 / 6.0;
-        let (xa, xb) = (tl + (tr - tl) * t, bl + (br - bl) * t);
-        let mut r = PathBuilder::new();
-        r.move_to(xa, top + s * 0.03);
-        r.line_to(xb, bot - s * 0.03);
-        pm.stroke(r.finish(), &solid(rgba(110, 115, 125, 150)), (s / 64.0).max(0.8));
-    }
-    pm.stroke(body, &solid(rgba(90, 95, 105, 255)), (s / 64.0).max(1.0));
-    if full {
-        // Cheia: sem tampa, com papéis amassados saindo por cima.
-        let w = (s / 64.0).max(0.8);
-        for (dx, dy, r, ang) in [(0.36f32, 0.2f32, 0.13f32, -0.3f32), (0.62, 0.17, 0.14, 0.4), (0.5, 0.12, 0.12, 0.1)] {
-            let (cx, cy) = (x + s * dx, y + s * dy);
-            let mut p = PathBuilder::new();
-            // Bola de papel: polígono irregular.
-            for k in 0..9 {
-                let a = ang + k as f32 / 9.0 * std::f32::consts::TAU;
-                let rr = s * r * if k % 2 == 0 { 1.0 } else { 0.78 };
-                let (px, py) = (cx + a.cos() * rr, cy + a.sin() * rr * 0.85);
-                if k == 0 { p.move_to(px, py) } else { p.line_to(px, py) }
-            }
-            p.close();
-            let paper = p.finish();
-            pm.fill(paper.clone(), &vgrad(cy - s * r, cy + s * r, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(214, 218, 226, 255))]));
-            pm.stroke(paper, &solid(rgba(120, 124, 134, 255)), w);
-            // Dobras
-            let mut f = PathBuilder::new();
-            f.move_to(cx - s * r * 0.5, cy - s * r * 0.1);
-            f.line_to(cx + s * r * 0.1, cy + s * r * 0.25);
-            f.line_to(cx + s * r * 0.45, cy - s * r * 0.2);
-            pm.stroke(f.finish(), &solid(rgba(150, 154, 164, 200)), w);
-        }
-        return;
-    }
-    // Tampa + alça
-    let lid_y = y + s * 0.16;
-    pm.fill(rrect(x + s * 0.15, lid_y, s * 0.7, s * 0.09, s * 0.03), &vgrad(lid_y, lid_y + s * 0.09, &[(0.0, rgba(245, 246, 250, 255)), (1.0, rgba(150, 155, 165, 255))]));
-    pm.stroke(rrect(x + s * 0.15, lid_y, s * 0.7, s * 0.09, s * 0.03), &solid(rgba(90, 95, 105, 255)), (s / 64.0).max(1.0));
-    pm.fill(rrect(x + s * 0.4, lid_y - s * 0.05, s * 0.2, s * 0.06, s * 0.02), &solid(rgba(120, 125, 135, 255)));
-}
 
 /// Disco: caixa de metal com frente escura e luz de atividade verde.
 fn disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
@@ -1931,49 +1806,7 @@ fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill(pb.finish(), &ink);
 }
 
-/// Livro de couro com páginas claras, abas coloridas e um "@" gravado.
-fn contacts(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.14, y + s * 0.08, s * 0.66, s * 0.84);
-    pm.fill(rrect(bx + s * 0.02, by + s * 0.03, bw, bh, s * 0.05), &solid(rgba(0, 0, 0, 55)));
-    // Páginas aparecendo do lado.
-    pm.fill(rrect(bx + bw - s * 0.06, by + s * 0.03, s * 0.1, bh - s * 0.06, s * 0.02), &vgrad(by, by + bh, &[(0.0, rgba(250, 248, 240, 255)), (1.0, rgba(220, 216, 204, 255))]));
-    // Abas.
-    for (k, c) in [rgba(220, 70, 60, 255), rgba(240, 180, 40, 255), rgba(70, 160, 80, 255), rgba(60, 120, 220, 255)].iter().enumerate() {
-        pm.fill(rrect(bx + bw + s * 0.02, by + s * (0.12 + k as f32 * 0.17), s * 0.08, s * 0.12, s * 0.02), &solid(*c));
-    }
-    pm.fill(rrect(bx, by, bw, bh, s * 0.05), &vgrad(by, by + bh, &[(0.0, rgba(170, 110, 60, 255)), (1.0, rgba(110, 66, 30, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.05), &solid(rgba(80, 46, 20, 255)), lw);
-    pm.fill_rect(bx + s * 0.06, by, s * 0.03, bh, &solid(rgba(90, 54, 24, 255)));
-    let px = s * 0.36;
-    let tw = fonts.measure("@", px, true);
-    fonts.draw(pm, "@", bx + (bw - tw) / 2.0 + s * 0.03, by + bh * 0.62, px, true, rgba(240, 214, 160, 230));
-}
 
-/// Folha de calendário com a faixa vermelha e o dia de hoje em número grande.
-fn calendar(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.1, y + s * 0.08, s * 0.8, s * 0.84);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.06), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.06), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(226, 226, 230, 255))]));
-    pm.fill(rrect4(bx, by, bw, bh * 0.26, [s * 0.06, s * 0.06, 0.0, 0.0]), &vgrad(by, by + bh * 0.26, &[(0.0, rgba(236, 84, 70, 255)), (1.0, rgba(188, 38, 30, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.06), &solid(rgba(120, 120, 128, 255)), lw);
-    // Argolas.
-    for k in [0.3, 0.7] {
-        pm.fill(rrect(bx + bw * k - s * 0.02, by - s * 0.04, s * 0.04, s * 0.1, s * 0.02), &solid(rgba(150, 150, 158, 255)));
-    }
-    // Dia de hoje no horário local.
-    let day = unsafe {
-        let t = libc::time(std::ptr::null_mut());
-        let mut tm: libc::tm = std::mem::zeroed();
-        libc::localtime_r(&t, &mut tm);
-        tm.tm_mday as u32
-    };
-    let t = day.to_string();
-    let px = s * 0.46;
-    let tw = fonts.measure(&t, px, true);
-    fonts.draw(pm, &t, bx + (bw - tw) / 2.0, by + bh * 0.86, px, true, rgba(40, 40, 46, 255));
-}
 
 /// Tela escura com o triângulo de tocar, entre duas faixas de filme.
 fn video(pm: &mut Canvas, x: f32, y: f32, s: f32) {
@@ -2121,39 +1954,6 @@ fn clip(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     }
 }
 
-/// Envelope claro levemente inclinado, com um selo azul e o carimbo ondulado.
-fn mail(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (bx, by, bw, bh) = (x + s * 0.06, y + s * 0.2, s * 0.88, s * 0.6);
-    pm.fill(rrect(bx + s * 0.015, by + s * 0.03, bw, bh, s * 0.04), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(rrect(bx, by, bw, bh, s * 0.04), &vgrad(by, by + bh, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(224, 226, 232, 255))]));
-    pm.stroke(rrect(bx, by, bw, bh, s * 0.04), &solid(rgba(120, 124, 134, 255)), lw);
-    // Aba do envelope.
-    let mut pb = PathBuilder::new();
-    pb.move_to(bx + s * 0.02, by + s * 0.02);
-    pb.line_to(bx + bw / 2.0, by + bh * 0.58);
-    pb.line_to(bx + bw - s * 0.02, by + s * 0.02);
-    pm.stroke(pb.finish(), &solid(rgba(150, 154, 164, 255)), lw * 1.4);
-    // Selo com picote.
-    let (sx, sy, sw, sh) = (bx + bw - s * 0.26, by + s * 0.06, s * 0.18, s * 0.22);
-    pm.fill_rect(sx - s * 0.01, sy - s * 0.01, sw + s * 0.02, sh + s * 0.02, &solid(rgba(255, 255, 255, 255)));
-    pm.fill_rect(sx, sy, sw, sh, &vgrad(sy, sy + sh, &[(0.0, rgba(110, 170, 240, 255)), (1.0, rgba(30, 80, 180, 255))]));
-    pm.fill(circle(sx + sw * 0.5, sy + sh * 0.45, sw * 0.24), &solid(rgba(250, 230, 120, 255)));
-    for k in 0..4 {
-        let t = k as f32 / 3.0;
-        pm.fill(circle(sx + sw * t, sy - s * 0.01, s * 0.012), &solid(rgba(224, 226, 232, 255)));
-        pm.fill(circle(sx + sw * t, sy + sh + s * 0.01, s * 0.012), &solid(rgba(224, 226, 232, 255)));
-    }
-    // Carimbo: linhas onduladas sobre o selo.
-    for k in 0..3 {
-        let yy = sy + sh * 0.25 + k as f32 * s * 0.05;
-        let mut w = PathBuilder::new();
-        w.move_to(sx - s * 0.16, yy);
-        w.quad_to(sx - s * 0.11, yy - s * 0.03, sx - s * 0.06, yy);
-        w.quad_to(sx - s * 0.01, yy + s * 0.03, sx + s * 0.04, yy);
-        pm.stroke(w.finish(), &solid(rgba(60, 60, 70, 170)), lw);
-    }
-}
 
 /// Ícone de um arquivo pela extensão (o mesmo critério do Arquivos); pastas = `Folder`.
 pub fn file_icon(path: &std::path::Path, is_dir: bool) -> Icon {

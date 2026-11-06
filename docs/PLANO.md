@@ -385,11 +385,16 @@ Regra: **arte própria**, com os ícones da Apple só como referência de estilo
 materiais, paleta). Nenhum arquivo deles entra no projeto, e nenhum desenho decalca ou copia a
 composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do Safari, a maçã).
 
-- [ ] 9.11.1 Base no glove-paint: desenho em perspectiva (planos inclinados), materiais reutilizáveis
-  (metal, vidro, couro, papel, madeira, plástico), iluminação padrão de cima, sombra no formato do objeto
-  no lugar da elipse, e o ícone ocupando o quadro (G)
-- [ ] 9.11.2 Primeiro lote, para aprovar a direção: Arquivos, Terminal, Calculadora, Relógio, Correio,
-  Agenda, Contatos e Lixo (vazio e cheio), com a folha nova ao lado da do Tiger (G)
+- [x] 9.11.1 Base no glove-paint (`paint/src/tiger.rs`): medidas relativas ao quadrado do ícone, objetos
+  inclinados (transformação dos caminhos), sombra macia no formato do objeto no lugar da elipse,
+  materiais reutilizáveis (riscos de metal escovado, grão de couro, brilho de vidro, metal claro) feitos
+  com um caminho só por cor (rápido: ~1,5 ms por ícone em 128 px) (G)
+- [x] 9.11.2 Primeiro lote: Arquivos/pastas (azul translúcido com folhas dentro e espessura; as pastas
+  especiais herdam), Terminal (monitor de alumínio escovado), Calculadora (alumínio com visor verde e teclas
+  de gel), Relógio (de mesa, cromado), Correio (envelope inclinado com selo picotado e carimbo), Agenda
+  (bloco de mesa com argolas e a ponta virada), Contatos (caderno de couro verde com relevo dourado,
+  elástico e fita) e Lixo vazio/cheio (aço escovado furadinho, com papéis amassados). Aguardando a
+  aprovação da direção para seguir (G)
 - [ ] 9.11.3 Os outros apps do Dock e de Aplicativos/Utilitários (Navegador, Editor, Lembretes, Busca,
   Caracteres, Captura, Monitor, Xadrez, Música, Vídeo, Registros, Informações, Ajuda, Dicionário, Livro de
   Fontes, Acesso às Chaves, Utilitário de Rede, Discos, Preferências) (G)
