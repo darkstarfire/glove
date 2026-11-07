@@ -964,77 +964,82 @@ pub(crate) fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(nib, &solid(rgba(90, 94, 104, 255)), u.lw(0.003));
 }
 
-/// Xadrez: cavalo de madeira clara envernizada (perfil clássico) na casa da
-/// frente de um tabuleiro de 2×2 em perspectiva.
+/// Xadrez: cavalo de madeira dourada envernizada, com volume (luz na frente,
+/// sombra na nuca e nas bordas), colarinho em anel e base bojuda, na casa da
+/// ponta de um tabuleiro 2×2 cinza e branco em perspectiva.
 pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    // Tabuleiro: losango com 2×2 casas e a espessura.
+    // Tabuleiro: losango com 2×2 casas, espessura e verniz.
     let (t, r, b, l) = ((0.5, 0.5), (0.98, 0.7), (0.5, 0.9), (0.02, 0.7));
     let board = u.poly(&[t, r, b, l]);
     soft_shadow(pm, board.clone(), s, 0.9);
-    pm.fill(u.poly(&[l, b, (0.5, 0.96), (0.02, 0.76)]), &vgrad(u.py(0.7), u.py(0.96), &[(0.0, rgba(120, 80, 46, 255)), (1.0, rgba(70, 44, 24, 255))]));
-    pm.fill(u.poly(&[b, r, (0.98, 0.76), (0.5, 0.96)]), &vgrad(u.py(0.7), u.py(0.96), &[(0.0, rgba(90, 58, 32, 255)), (1.0, rgba(50, 30, 16, 255))]));
+    pm.fill(u.poly(&[l, b, (0.5, 0.95), (0.02, 0.75)]), &vgrad(u.py(0.7), u.py(0.95), &[(0.0, rgba(170, 172, 178, 255)), (1.0, rgba(110, 112, 118, 255))]));
+    pm.fill(u.poly(&[b, r, (0.98, 0.75), (0.5, 0.95)]), &vgrad(u.py(0.7), u.py(0.95), &[(0.0, rgba(130, 132, 138, 255)), (1.0, rgba(84, 86, 92, 255))]));
     let mid = |p: (f32, f32), q: (f32, f32)| ((p.0 + q.0) / 2.0, (p.1 + q.1) / 2.0);
     let c = mid(t, b);
     let (tr, rb, bl, lt) = (mid(t, r), mid(r, b), mid(b, l), mid(l, t));
-    let light = linear(u.px(0.2), u.py(0.5), u.px(0.8), u.py(0.9), &[(0.0, rgba(246, 232, 204, 255)), (1.0, rgba(214, 190, 150, 255))]);
-    let dark = linear(u.px(0.2), u.py(0.5), u.px(0.8), u.py(0.9), &[(0.0, rgba(150, 96, 54, 255)), (1.0, rgba(100, 60, 30, 255))]);
+    let light = linear(u.px(0.2), u.py(0.5), u.px(0.8), u.py(0.9), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(222, 224, 228, 255))]);
+    let dark = linear(u.px(0.2), u.py(0.5), u.px(0.8), u.py(0.9), &[(0.0, rgba(176, 178, 184, 255)), (1.0, rgba(130, 132, 140, 255))]);
     pm.fill(u.poly(&[t, tr, c, lt]), &light);
     pm.fill(u.poly(&[c, rb, b, bl]), &light);
     pm.fill(u.poly(&[tr, r, rb, c]), &dark);
     pm.fill(u.poly(&[lt, c, bl, l]), &dark);
-    // Verniz do tabuleiro: reflexo largo e a quina clara da frente.
-    pm.fill_clipped(u.poly(&[(0.0, 0.5), (0.6, 0.5), (0.3, 0.9), (0.0, 0.9)]), &solid(rgba(255, 255, 255, 30)), board.clone());
-    pm.stroke(u.poly(&[l, b, r]).and_then(|_| {
-        let mut pb = PathBuilder::new();
-        pb.move_to(u.px(l.0), u.py(l.1));
-        pb.line_to(u.px(b.0), u.py(b.1));
-        pb.line_to(u.px(r.0), u.py(r.1));
-        pb.finish()
-    }), &solid(rgba(255, 240, 210, 150)), u.lw(0.005));
+    pm.stroke(board, &solid(rgba(110, 112, 120, 200)), u.lw(0.004));
 
-    // Cavalo em coordenadas da peça (0 a 1), centrado na casa da frente.
-    let (ox, oy, w, h) = (0.5 - 0.2, 0.16, 0.4, 0.72);
-    let q = |a: f32, b: f32| (u.px(ox + a * w), u.py(oy + b * h));
-    let wood = |x0: f32, x1: f32| linear(u.px(ox + x0 * w), 0.0, u.px(ox + x1 * w), 0.0, &[
-        (0.0, rgba(110, 72, 38, 255)),
-        (0.22, rgba(206, 164, 112, 255)),
-        (0.4, rgba(240, 210, 162, 255)),
-        (0.6, rgba(214, 174, 120, 255)),
-        (0.85, rgba(156, 110, 62, 255)),
-        (1.0, rgba(96, 60, 30, 255)),
+    // Peça em coordenadas próprias (0 a 1), em pé na casa da frente.
+    let (ox, oy, w, h) = (0.5 - 0.23, 0.1, 0.46, 0.76);
+    let q = |a: f32, bq: f32| (u.px(ox + a * w), u.py(oy + bq * h));
+    let gold = |x0: f32, x1: f32| linear(u.px(ox + x0 * w), 0.0, u.px(ox + x1 * w), 0.0, &[
+        (0.0, rgba(92, 58, 24, 255)),
+        (0.18, rgba(186, 138, 72, 255)),
+        (0.36, rgba(244, 214, 150, 255)),
+        (0.55, rgba(206, 158, 88, 255)),
+        (0.82, rgba(130, 86, 38, 255)),
+        (1.0, rgba(70, 42, 16, 255)),
     ]);
-    // Base torneada: dois discos com a lateral e o colarinho.
-    let disc = |pm: &mut Canvas, x0: f32, x1: f32, y0: f32, y1: f32, ry: f32| {
-        let (a, bq) = (q(x0, y0), q(x1, y1));
-        let e = u.d(ry * h);
+    let edge = rgba(54, 32, 12, 230);
+    // Sombra da peça no tabuleiro.
+    let sh = q(0.5, 0.97);
+    pm.fill(oval(sh.0 - u.d(0.5 * w), sh.1 - u.d(0.02), u.d(1.1 * w), u.d(0.07)), &radial(sh.0 + u.d(0.05), sh.1 + u.d(0.01), u.d(0.6 * w), &[(0.0, rgba(0, 0, 0, 110)), (1.0, rgba(0, 0, 0, 0))]));
+    // Base bojuda: do colarinho ela abre em curva até o pé.
+    let base = {
         let mut pb = PathBuilder::new();
-        pb.move_to(a.0, a.1);
-        pb.line_to(a.0, bq.1);
-        pb.quad_to((a.0 + bq.0) / 2.0, bq.1 + e * 2.0, bq.0, bq.1);
-        pb.line_to(bq.0, a.1);
+        let (a0, a1) = (q(0.2, 0.8), q(0.8, 0.8));
+        let (f0, f1) = (q(0.04, 0.95), q(0.96, 0.95));
+        pb.move_to(a0.0, a0.1);
+        let c0 = q(0.02, 0.84);
+        pb.quad_to(c0.0, c0.1, f0.0, f0.1);
+        let bot = q(0.5, 1.02);
+        pb.quad_to(bot.0, bot.1, f1.0, f1.1);
+        let c1 = q(0.98, 0.84);
+        pb.quad_to(c1.0, c1.1, a1.0, a1.1);
         pb.close();
-        pm.fill(pb.finish(), &wood(x0, x1));
-        pm.fill(oval(a.0, a.1 - e, bq.0 - a.0, e * 2.0), &vgrad(a.1 - e, a.1 + e, &[(0.0, rgba(250, 226, 186, 255)), (1.0, rgba(206, 166, 116, 255))]));
+        pb.finish()
     };
-    pm.fill(oval(q(0.02, 0.0).0, q(0.0, 0.93).1, u.d(0.96 * w), u.d(0.12 * h)), &solid(rgba(0, 0, 0, 70)));
-    disc(pm, 0.04, 0.96, 0.88, 0.95, 0.035);
-    disc(pm, 0.14, 0.86, 0.8, 0.86, 0.03);
-    // Cabeça: pescoço com a crina arqueada atrás, orelhas, testa, focinho e queixo.
+    pm.fill(base.clone(), &gold(0.04, 0.96));
+    pm.fill_clipped(base.clone(), &vgrad(u.py(oy + 0.8 * h), u.py(oy + 1.0 * h), &[(0.0, rgba(0, 0, 0, 70)), (0.35, rgba(0, 0, 0, 0)), (0.75, rgba(255, 240, 200, 40)), (1.0, rgba(0, 0, 0, 90))]), base.clone());
+    pm.stroke(base, &solid(edge), u.lw(0.005));
+    // Colarinho: anel com o brilho em cima.
+    let (k0, k1) = (q(0.14, 0.74), q(0.86, 0.84));
+    let collar = oval(k0.0, k0.1, k1.0 - k0.0, k1.1 - k0.1);
+    pm.fill(collar.clone(), &gold(0.14, 0.86));
+    pm.fill_clipped(collar.clone(), &vgrad(k0.1, k1.1, &[(0.0, rgba(255, 245, 210, 110)), (0.45, rgba(0, 0, 0, 0)), (1.0, rgba(0, 0, 0, 110))]), collar.clone());
+    pm.stroke(collar, &solid(edge), u.lw(0.005));
+    // Cabeça e pescoço (olhando para a esquerda).
     let head = {
         let mut pb = PathBuilder::new();
-        let m = q(0.8, 0.8);
+        let m = q(0.78, 0.77);
         pb.move_to(m.0, m.1);
         let seq: [[(f32, f32); 3]; 9] = [
-            [(0.84, 0.64), (0.84, 0.44), (0.76, 0.3)],
-            [(0.72, 0.22), (0.68, 0.15), (0.63, 0.06)],
-            [(0.61, 0.09), (0.58, 0.12), (0.55, 0.15)],
-            [(0.45, 0.15), (0.36, 0.2), (0.3, 0.27)],
-            [(0.23, 0.35), (0.13, 0.42), (0.08, 0.5)],
-            [(0.05, 0.56), (0.08, 0.62), (0.15, 0.62)],
-            [(0.2, 0.62), (0.25, 0.6), (0.29, 0.6)],
-            [(0.37, 0.61), (0.45, 0.6), (0.5, 0.55)],
-            [(0.46, 0.65), (0.3, 0.68), (0.24, 0.8)],
+            [(0.86, 0.6), (0.88, 0.4), (0.78, 0.25)],
+            [(0.74, 0.19), (0.69, 0.13), (0.64, 0.07)],
+            [(0.61, 0.09), (0.58, 0.11), (0.53, 0.13)],
+            [(0.42, 0.13), (0.3, 0.2), (0.22, 0.29)],
+            [(0.15, 0.36), (0.06, 0.42), (0.03, 0.49)],
+            [(0.0, 0.55), (0.04, 0.6), (0.12, 0.6)],
+            [(0.18, 0.6), (0.24, 0.57), (0.3, 0.56)],
+            [(0.38, 0.57), (0.44, 0.56), (0.48, 0.52)],
+            [(0.42, 0.62), (0.28, 0.66), (0.24, 0.77)],
         ];
         for c3 in seq {
             let (a, b2, d) = (q(c3[0].0, c3[0].1), q(c3[1].0, c3[1].1), q(c3[2].0, c3[2].1));
@@ -1043,50 +1048,50 @@ pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pb.close();
         pb.finish()
     };
-    pm.fill(shift(&head, u.d(0.012), u.d(0.01)), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(head.clone(), &wood(0.06, 0.9));
-    if s >= 32.0 {
-        // Veios da madeira, bem leves.
-        let mut grain = PathBuilder::new();
-        for k in 0..7 {
-            let gx = 0.2 + k as f32 * 0.1;
-            let (a, b2, c2, d) = (q(gx, 0.1), q(gx + 0.05, 0.35), q(gx - 0.04, 0.6), q(gx + 0.02, 0.82));
-            grain.move_to(a.0, a.1);
-            grain.cubic_to(b2.0, b2.1, c2.0, c2.1, d.0, d.1);
-        }
-        pm.fill_clipped(grain.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.003), ..Default::default() }, 1.0)), &solid(rgba(120, 76, 36, 70)), head.clone());
-        // Crina: sulcos curtos ao longo do pescoço.
-        let mut mane = PathBuilder::new();
-        for k in 0..5 {
-            let tt = k as f32 / 5.0;
-            let (a, d) = (q(0.74 + tt * 0.09, 0.27 + tt * 0.42), q(0.67 + tt * 0.09, 0.31 + tt * 0.42));
-            mane.move_to(a.0, a.1);
-            mane.line_to(d.0, d.1);
-        }
-        pm.stroke(mane.finish(), &solid(rgba(110, 70, 34, 160)), u.lw(0.006));
-        // Linha da mandíbula, olho, narina e a boca.
-        let mut jaw = PathBuilder::new();
-        let (a, b2, d) = (q(0.5, 0.34), q(0.6, 0.48), q(0.5, 0.55));
-        jaw.move_to(a.0, a.1);
-        jaw.quad_to(b2.0, b2.1, d.0, d.1);
-        pm.stroke(jaw.finish(), &solid(rgba(120, 76, 36, 150)), u.lw(0.006));
-        let e = q(0.38, 0.26);
-        pm.fill(oval(e.0 - u.d(0.02), e.1 - u.d(0.012), u.d(0.04), u.d(0.024)), &solid(rgba(60, 34, 14, 230)));
-        let n = q(0.12, 0.52);
-        pm.fill(circle(n.0, n.1, u.d(0.01)), &solid(rgba(70, 40, 18, 210)));
-        let (m0, m1) = (q(0.12, 0.59), q(0.28, 0.585));
+    // Corpo: tom médio, luz na frente da cara, sombra na nuca, bordas escurecidas.
+    pm.fill(head.clone(), &solid(rgba(176, 128, 64, 255)));
+    let lit = q(0.32, 0.3);
+    pm.fill_clipped(head.clone(), &radial(lit.0, lit.1, u.d(0.55 * w), &[(0.0, rgba(255, 236, 186, 255)), (0.45, rgba(226, 182, 112, 200)), (1.0, rgba(226, 182, 112, 0))]), head.clone());
+    pm.fill_clipped(head.clone(), &linear(u.px(ox + 0.5 * w), 0.0, u.px(ox + 0.9 * w), 0.0, &[(0.0, rgba(60, 34, 10, 0)), (1.0, rgba(60, 34, 10, 190))]), head.clone());
+    pm.fill_clipped(head.clone().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.05), line_join: tiny_skia::LineJoin::Round, ..Default::default() }, 1.0)), &solid(rgba(70, 40, 14, 90)), head.clone());
+    if s >= 28.0 {
+        // Sulco da mandíbula (escuro com o fio de luz), olho fundo, narina e boca.
+        let jaw = |dx: f32, dy: f32| {
+            let mut pb = PathBuilder::new();
+            let (a, b2, d) = (q(0.5 + dx, 0.3 + dy), q(0.62 + dx, 0.46 + dy), q(0.47 + dx, 0.53 + dy));
+            pb.move_to(a.0, a.1);
+            pb.quad_to(b2.0, b2.1, d.0, d.1);
+            pb.finish()
+        };
+        pm.fill_clipped(jaw(0.0, 0.0).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.012), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(80, 46, 16, 170)), head.clone());
+        pm.fill_clipped(jaw(-0.015, 0.0).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.006), ..Default::default() }, 1.0)), &solid(rgba(255, 236, 190, 150)), head.clone());
+        let e = q(0.33, 0.26);
+        pm.fill(oval(e.0 - u.d(0.03), e.1 - u.d(0.02), u.d(0.06), u.d(0.04)), &solid(rgba(90, 54, 20, 160)));
+        pm.fill(oval(e.0 - u.d(0.018), e.1 - u.d(0.01), u.d(0.036), u.d(0.022)), &solid(rgba(40, 20, 6, 255)));
+        let n = q(0.08, 0.5);
+        pm.fill(circle(n.0, n.1, u.d(0.012)), &solid(rgba(50, 26, 8, 230)));
+        let (m0, m1) = (q(0.06, 0.575), q(0.24, 0.575));
         let mut mouth = PathBuilder::new();
         mouth.move_to(m0.0, m0.1);
         mouth.line_to(m1.0, m1.1);
-        pm.stroke(mouth.finish(), &solid(rgba(90, 54, 24, 180)), u.lw(0.004));
+        pm.stroke(mouth.finish(), &solid(rgba(60, 32, 10, 200)), u.lw(0.005));
+        // Crina: sulcos ao longo da nuca.
+        let mut mane = PathBuilder::new();
+        for k in 0..5 {
+            let tt = k as f32 / 5.0;
+            let (a, d) = (q(0.78 + tt * 0.07, 0.24 + tt * 0.42), q(0.7 + tt * 0.07, 0.29 + tt * 0.42));
+            mane.move_to(a.0, a.1);
+            mane.line_to(d.0, d.1);
+        }
+        pm.fill_clipped(mane.finish().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.008), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(60, 34, 10, 150)), head.clone());
     }
-    // Verniz: reflexo comprido na testa e no pescoço.
+    // Verniz: reflexo na testa e no focinho.
     let mut gloss = PathBuilder::new();
-    let (a, b2, c2, d) = (q(0.4, 0.17), q(0.5, 0.2), q(0.56, 0.5), q(0.5, 0.75));
+    let (a, b2, d) = (q(0.48, 0.16), q(0.3, 0.2), q(0.12, 0.4));
     gloss.move_to(a.0, a.1);
-    gloss.cubic_to(b2.0, b2.1, c2.0, c2.1, d.0, d.1);
-    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.025), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 245, 225, 90)), head.clone());
-    pm.stroke(head, &solid(rgba(90, 56, 26, 200)), u.lw(0.004));
+    gloss.quad_to(b2.0, b2.1, d.0, d.1);
+    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.02), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 250, 230, 150)), head.clone());
+    pm.stroke(head, &solid(edge), u.lw(0.006));
 }
 
 /// Fontes: um "F" serifado de metal escovado em relevo, com dois tipos móveis

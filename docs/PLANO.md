@@ -434,7 +434,7 @@ material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar fo
   alumínio escovado com o poço e a engrenagem de cinco raios); Utilitário de Disco (o HD com um
   estetoscópio; os discos nas outras telas continuam só o HD); Lixo de tela preta em losangos com aro e
   cinta cromados (o enchimento de papéis continua igual); Música (CD com a nota de vidro verde);
-  Editor (carta escrita com caneta-tinteiro); Xadrez (cavalo de madeira na casa da ponta de um tabuleiro 2×2); Fontes ("F"
+  Editor (carta escrita com caneta-tinteiro); Xadrez (cavalo de madeira dourada com volume, colarinho e base bojuda, na casa da ponta de um tabuleiro 2×2 cinza e branco); Fontes ("F"
   serifado de metal com tipos móveis); Visualizador (fotos com uma lupa de vidro que aumenta o pedaço de baixo); Captura (câmera
   sobre fotos impressas); Dicionário em couro vinho com "Aa"
 - [ ] 9.12.3 Os ícones que ainda faltam no acabamento novo (Contatos, Correio, Agenda, painéis), em lotes (M)
