@@ -183,6 +183,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Avisos dos apps (notify-send e cia.).
     if !greeter {
         state.start_avisos();
+        // Cópias de Segurança: confere de hora em hora (o app sai na hora se estiver
+        // desligado, sem disco ou com uma cópia recente). A primeira, 10 min depois de entrar.
+        event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(600)), |_, _, data| {
+            data.state.spawn("glove-copias --auto");
+            TimeoutAction::ToDuration(Duration::from_secs(3600))
+        }).ok();
     }
     // Mesa: confere a cada segundo os discos montados (lê /proc/mounts) e se a
     // pasta Mesa mudou (só a data dela; a pasta só é relida quando muda).

@@ -576,7 +576,15 @@ visual gel. Cada uma será detalhada antes de começar.
     `ui.watch_fd`), Editor (Ctrl+Shift+T; Abrir… abre numa aba nova; fechar uma aba com alterações
     pergunta antes) e Arquivos (Ctrl+T na mesma pasta, "Abrir em Nova Aba" no menu de uma pasta; cada aba
     com a sua navegação). Ctrl+Page Up/Down trocam e o Fechar fecha a aba.
-- [ ] 10.7 Cópias de segurança automáticas com linha do tempo (como o Time Machine)
+- [x] 10.7 Cópias de Segurança (G) — v0.10.7: app novo (`glove-copias`, em Utilitários). Escolhe-se um
+  disco externo (ou pasta); a pasta pessoal é copiada para `Glove Backups/<computador>/<data>`. Arquivos
+  iguais aos da cópia anterior viram links fixos: cada cópia parece completa e só o que mudou ocupa espaço.
+  Ficam todas as das últimas 24 h, uma por dia no último mês e uma por semana antes disso; com o disco
+  quase cheio, as mais velhas saem. O Glove chama `glove-copias --auto` de hora em hora (10 min depois de
+  entrar): copia se estiver ligado, com o disco conectado e sem cópia na última hora, e avisa na central.
+  A janela tem a linha do tempo à esquerda, o conteúdo da cópia escolhida (sem os ocultos), Restaurar
+  (volta ao lugar de origem; se já existir, com "(restaurado)" no nome) e Mostrar no Arquivos. Ficam de
+  fora caches e lixeiras (`~/.config/glove/copias.toml`).
 - [ ] 10.8 Central de apps (instalar e atualizar pelo apt/Flatpak) com cara da era
 - [ ] 10.9 Apps de luxo: Fotos (biblioteca de imagens), gravador de som, Mensagens
 

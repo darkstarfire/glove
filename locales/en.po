@@ -4019,3 +4019,84 @@ msgstr "Close Tab"
 
 msgid "Abrir em Nova Aba"
 msgstr "Open in New Tab"
+
+msgid " (desconectado)"
+msgstr " (disconnected)"
+
+msgid " — {} livres"
+msgstr " — {} free"
+
+msgid "A cópia de segurança não foi feita"
+msgstr "The backup was not made"
+
+msgid "Cópia cancelada."
+msgstr "Backup cancelled."
+
+msgid "Cópia de segurança feita"
+msgstr "Backup complete"
+
+msgid "Cópias"
+msgstr "Backups"
+
+msgid "Cópias automáticas a cada hora"
+msgstr "Back up automatically every hour"
+
+msgid "Escolha o disco das cópias."
+msgstr "Choose the backup disk."
+
+msgid "Escolha um disco externo (ou uma pasta) para guardar as cópias."
+msgstr "Choose an external disk (or a folder) to keep the backups."
+
+msgid "Escolha um disco para começar."
+msgstr "Choose a disk to get started."
+
+msgid "Escolher Disco…"
+msgstr "Choose Disk…"
+
+msgid "Fazendo a cópia…"
+msgstr "Backing up…"
+
+msgid "Fazer Cópia Agora"
+msgstr "Back Up Now"
+
+msgid "Nenhum disco de cópias escolhido"
+msgstr "No backup disk chosen"
+
+msgid "Nenhuma cópia ainda. Clique em Fazer Cópia Agora."
+msgstr "No backups yet. Click Back Up Now."
+
+msgid "Não foi possível restaurar: {}"
+msgstr "Could not restore: {}"
+
+msgid "O disco das cópias não está conectado ({})."
+msgstr "The backup disk is not connected ({})."
+
+msgid "Pasta pessoal"
+msgstr "Home folder"
+
+msgid "Restaurado em {}."
+msgstr "Restored to {}."
+
+msgid "Restaurar"
+msgstr "Restore"
+
+msgid "nenhuma ainda"
+msgstr "none yet"
+
+msgid "restaurado"
+msgstr "restored"
+
+msgid "{0} de {1} de {2}, {3}"
+msgstr "{1} {0}, {2}, {3}"
+
+msgid "{} arquivos copiados ({})."
+msgstr "{} files copied ({})."
+
+msgid "{} arquivos vistos, {} copiados ({})"
+msgstr "{} files checked, {} copied ({})"
+
+msgid "Última cópia: {}"
+msgstr "Last backup: {}"
+
+msgid "‹ Acima"
+msgstr "‹ Up"
