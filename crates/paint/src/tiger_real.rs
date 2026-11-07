@@ -1030,75 +1030,101 @@ pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     turned(pm, neck_y + 0.01, 0.1, foot_y - 0.03, 0.17, 0.035);
 
     // Colarinho: um anel baixo; o pescoço entra nele.
-    turned(pm, neck_y - 0.012, 0.12, neck_y + 0.016, 0.122, 0.008);
-    // Cabeça e pescoço (olhando para a esquerda) em coordenadas da peça.
-    let (w, h) = (0.38, 0.52);
-    let (ox, oy) = (cx - 0.5 * w, neck_y - 0.97 * h);
+    turned(pm, neck_y - 0.012, 0.135, neck_y + 0.016, 0.137, 0.008);
+    // Cabeça e pescoço (olhando para a esquerda) em coordenadas da peça:
+    // crina em arco atrás, duas orelhas, testa, focinho comprido e baixo, a
+    // boca, a bochecha redonda e o recorte fundo da garganta.
+    let (w, h) = (0.44, 0.58);
+    let (ox, oy) = (cx - 0.555 * w, neck_y - 0.97 * h);
     let q = |a: f32, bq: f32| (u.px(ox + a * w), u.py(oy + bq * h));
-    let head = {
+    let path = |cmds: &[(char, &[(f32, f32)])]| {
         let mut pb = PathBuilder::new();
-        let m = q(0.82, 1.0);
-        pb.move_to(m.0, m.1);
-        let seq: [[(f32, f32); 3]; 9] = [
-            [(0.9, 0.78), (0.92, 0.52), (0.8, 0.32)],
-            [(0.75, 0.22), (0.7, 0.14), (0.66, 0.05)],
-            [(0.62, 0.09), (0.59, 0.12), (0.55, 0.14)],
-            [(0.43, 0.15), (0.3, 0.23), (0.21, 0.34)],
-            [(0.13, 0.43), (0.05, 0.5), (0.03, 0.58)],
-            [(0.01, 0.65), (0.05, 0.71), (0.13, 0.71)],
-            [(0.2, 0.71), (0.26, 0.68), (0.32, 0.67)],
-            [(0.4, 0.68), (0.46, 0.66), (0.5, 0.62)],
-            [(0.4, 0.75), (0.22, 0.84), (0.18, 1.0)],
-        ];
-        for c3 in seq {
-            let (a, b2, d) = (q(c3[0].0, c3[0].1), q(c3[1].0, c3[1].1), q(c3[2].0, c3[2].1));
-            pb.cubic_to(a.0, a.1, b2.0, b2.1, d.0, d.1);
+        for (c, pts) in cmds {
+            let v: Vec<(f32, f32)> = pts.iter().map(|p| q(p.0, p.1)).collect();
+            match c {
+                'M' => pb.move_to(v[0].0, v[0].1),
+                'L' => pb.line_to(v[0].0, v[0].1),
+                'Q' => pb.quad_to(v[0].0, v[0].1, v[1].0, v[1].1),
+                _ => pb.cubic_to(v[0].0, v[0].1, v[1].0, v[1].1, v[2].0, v[2].1),
+            }
         }
         pb.close();
         pb.finish()
     };
+    let head = path(&[
+        ('M', &[(0.84, 1.0)]),
+        ('C', &[(0.96, 0.74), (0.95, 0.42), (0.77, 0.22)]),
+        ('C', &[(0.74, 0.17), (0.72, 0.1), (0.71, 0.0)]),
+        ('L', &[(0.62, 0.11)]),
+        ('C', &[(0.6, 0.08), (0.58, 0.05), (0.55, 0.01)]),
+        ('L', &[(0.5, 0.14)]),
+        ('C', &[(0.42, 0.17), (0.34, 0.24), (0.28, 0.32)]),
+        ('C', &[(0.2, 0.42), (0.1, 0.52), (0.05, 0.6)]),
+        ('C', &[(0.02, 0.66), (0.05, 0.72), (0.12, 0.72)]),
+        ('L', &[(0.17, 0.69)]),
+        ('L', &[(0.16, 0.75)]),
+        ('C', &[(0.23, 0.79), (0.32, 0.77), (0.38, 0.73)]),
+        ('C', &[(0.48, 0.7), (0.57, 0.66), (0.59, 0.57)]),
+        ('C', &[(0.49, 0.64), (0.37, 0.76), (0.31, 0.88)]),
+        ('C', &[(0.29, 0.93), (0.28, 0.97), (0.27, 1.0)]),
+    ]);
     pm.fill(shift(&head, u.d(0.01), u.d(0.008)), &solid(rgba(0, 0, 0, 45)));
     pm.fill(head.clone(), &solid(rgba(176, 128, 64, 255)));
-    let lit = q(0.32, 0.38);
-    pm.fill_clipped(head.clone(), &radial(lit.0, lit.1, u.d(0.55 * w), &[(0.0, rgba(255, 236, 186, 255)), (0.45, rgba(226, 182, 112, 200)), (1.0, rgba(226, 182, 112, 0))]), head.clone());
-    pm.fill_clipped(head.clone(), &linear(u.px(ox + 0.5 * w), 0.0, u.px(ox + 0.92 * w), 0.0, &[(0.0, rgba(60, 34, 10, 0)), (1.0, rgba(60, 34, 10, 190))]), head.clone());
-    pm.fill_clipped(head.clone().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.045), line_join: tiny_skia::LineJoin::Round, ..Default::default() }, 1.0)), &solid(rgba(70, 40, 14, 90)), head.clone());
-    if s >= 28.0 {
-        let jaw = |dx: f32| {
+    // Luz na cara (frente e em cima), sombra na crina, bordas escurecidas.
+    let lit = q(0.3, 0.36);
+    pm.fill_clipped(head.clone(), &radial(lit.0, lit.1, u.d(0.6 * w), &[(0.0, rgba(255, 236, 186, 255)), (0.45, rgba(226, 182, 112, 200)), (1.0, rgba(226, 182, 112, 0))]), head.clone());
+    pm.fill_clipped(head.clone(), &linear(u.px(ox + 0.55 * w), 0.0, u.px(ox + 0.95 * w), 0.0, &[(0.0, rgba(60, 34, 10, 0)), (1.0, rgba(60, 34, 10, 200))]), head.clone());
+    pm.fill_clipped(head.clone().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.04), line_join: tiny_skia::LineJoin::Round, ..Default::default() }, 1.0)), &solid(rgba(70, 40, 14, 100)), head.clone());
+    let groove = |pm: &mut Canvas, p: Option<Path>, w0: f32| {
+        // Entalhe: risco escuro com o fio de luz logo acima.
+        pm.fill_clipped(p.clone().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(w0), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(74, 42, 14, 190)), head.clone());
+        pm.fill_clipped(shift(&p.and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(w0 * 0.5), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), -u.d(0.003), -u.d(0.004)), &solid(rgba(255, 236, 190, 130)), head.clone());
+    };
+    if s >= 24.0 {
+        let open = |cmds: &[(char, &[(f32, f32)])]| {
             let mut pb = PathBuilder::new();
-            let (a, b2, d) = (q(0.52 + dx, 0.36), q(0.64 + dx, 0.55), q(0.49 + dx, 0.63));
-            pb.move_to(a.0, a.1);
-            pb.quad_to(b2.0, b2.1, d.0, d.1);
+            for (c, pts) in cmds {
+                let v: Vec<(f32, f32)> = pts.iter().map(|p| q(p.0, p.1)).collect();
+                match c {
+                    'M' => pb.move_to(v[0].0, v[0].1),
+                    'L' => pb.line_to(v[0].0, v[0].1),
+                    'Q' => pb.quad_to(v[0].0, v[0].1, v[1].0, v[1].1),
+                    _ => pb.cubic_to(v[0].0, v[0].1, v[1].0, v[1].1, v[2].0, v[2].1),
+                }
+            }
             pb.finish()
         };
-        pm.fill_clipped(jaw(0.0).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.011), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(80, 46, 16, 170)), head.clone());
-        pm.fill_clipped(jaw(-0.02).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.005), ..Default::default() }, 1.0)), &solid(rgba(255, 236, 190, 150)), head.clone());
-        let e = q(0.33, 0.33);
-        pm.fill(oval(e.0 - u.d(0.026), e.1 - u.d(0.017), u.d(0.052), u.d(0.034)), &solid(rgba(90, 54, 20, 160)));
-        pm.fill(oval(e.0 - u.d(0.016), e.1 - u.d(0.009), u.d(0.032), u.d(0.019)), &solid(rgba(40, 20, 6, 255)));
-        let n = q(0.08, 0.6);
-        pm.fill(circle(n.0, n.1, u.d(0.011)), &solid(rgba(50, 26, 8, 230)));
-        let (m0, m1) = (q(0.05, 0.675), q(0.24, 0.675));
-        let mut mouth = PathBuilder::new();
-        mouth.move_to(m0.0, m0.1);
-        mouth.line_to(m1.0, m1.1);
-        pm.stroke(mouth.finish(), &solid(rgba(60, 32, 10, 200)), u.lw(0.004));
-        let mut mane = PathBuilder::new();
-        for i in 0..5 {
-            let tt = i as f32 / 5.0;
-            let (a, d) = (q(0.8 + tt * 0.06, 0.3 + tt * 0.5), q(0.71 + tt * 0.06, 0.35 + tt * 0.5));
-            mane.move_to(a.0, a.1);
-            mane.line_to(d.0, d.1);
+        // Crina: a faixa entalhada que acompanha a nuca, com os tufos.
+        groove(pm, open(&[('M', &[(0.62, 0.16)]), ('C', &[(0.8, 0.32), (0.84, 0.62), (0.76, 0.98)])]), 0.012);
+        if s >= 48.0 {
+            let mut tufts = Vec::new();
+            for k in 0..4 {
+                let t = (k as f32 + 0.5) / 4.0;
+                let (x0, y0) = (0.72 + t * 0.12 - t * t * 0.08, 0.26 + t * 0.62);
+                tufts.push(open(&[('M', &[(x0, y0)]), ('Q', &[(x0 + 0.08, y0 - 0.01), (x0 + 0.13, y0 + 0.06)])]));
+            }
+            for t in tufts {
+                groove(pm, t, 0.008);
+            }
         }
-        pm.fill_clipped(mane.finish().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.007), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(60, 34, 10, 150)), head.clone());
+        // Bochecha redonda e a linha da boca.
+        groove(pm, open(&[('M', &[(0.42, 0.42)]), ('C', &[(0.56, 0.42), (0.62, 0.58), (0.5, 0.66)])]), 0.011);
+        groove(pm, open(&[('M', &[(0.17, 0.69)]), ('L', &[(0.3, 0.66)])]), 0.008);
+        // Olho amendoado sob a testa e a narina no focinho.
+        let e = q(0.38, 0.3);
+        let eye = oval(e.0 - u.d(0.03), e.1 - u.d(0.016), u.d(0.06), u.d(0.032)).and_then(|p| p.transform(Transform::from_rotate_at(-30.0, e.0, e.1)));
+        pm.fill(eye, &solid(rgba(40, 20, 6, 255)));
+        pm.fill(circle(e.0 - u.d(0.008), e.1 - u.d(0.006), u.d(0.006)), &solid(rgba(255, 240, 210, 200)));
+        let n = q(0.1, 0.62);
+        pm.fill(oval(n.0 - u.d(0.014), n.1 - u.d(0.01), u.d(0.028), u.d(0.02)), &solid(rgba(50, 26, 8, 230)));
     }
+    // Verniz: reflexo na testa e no focinho.
     let mut gloss = PathBuilder::new();
-    let (a, b2, d) = (q(0.5, 0.2), q(0.3, 0.26), q(0.12, 0.5));
+    let (a, b2, d) = (q(0.5, 0.18), q(0.3, 0.26), q(0.1, 0.55));
     gloss.move_to(a.0, a.1);
     gloss.quad_to(b2.0, b2.1, d.0, d.1);
-    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.018), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 250, 230, 150)), head.clone());
+    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.016), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 250, 230, 140)), head.clone());
     pm.stroke(head, &solid(edge), u.lw(0.005));
-    // Colarinho por cima da emenda do pescoço: um anel baixo.
 }
 
 /// Contatos: caderno de endereços de couro marrom, com a costura em volta da

@@ -438,7 +438,8 @@ material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar fo
   serifado de metal com tipos móveis); Visualizador (fotos com uma lupa de vidro que aumenta o pedaço de baixo); Captura (câmera
   sobre fotos impressas); Dicionário em couro vinho com "Aa"
 - [x] 9.12.3 Os que ainda não seguiam as referências (M) — v0.9.18: Xadrez com o cavalo como peça
-  torneada (pé, bojo e anel com as elipses na inclinação do tabuleiro; pescoço entrando no anel);
+  torneada (pé, bojo e anel com as elipses na inclinação do tabuleiro; pescoço entrando no anel) e a
+  cabeça redesenhada do zero (duas orelhas, focinho com a boca, bochecha, garganta recortada e crina);
   Contatos em couro marrom com costura e "@" dourado em relevo; Correio como selo picotado com
   andorinha, valor e carimbo; na barra lateral do Arquivos, Início vira uma casinha e Aplicativos um
   compasso de desenho em forma de "A" e Rede o globo de rede (os outros lugares já tinham ícone próprio)
