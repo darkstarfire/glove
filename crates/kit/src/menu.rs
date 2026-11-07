@@ -60,7 +60,7 @@ impl Menu {
 
     /// Itens a mais no menu Janela (o Glove já põe Minimizar, Zoom e a lista de janelas).
     pub fn window(items: Vec<MenuItem>) -> Self {
-        Self::new("Janela", items)
+        Self::new("@window", items)
     }
 }
 

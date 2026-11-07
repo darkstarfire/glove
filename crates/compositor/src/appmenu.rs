@@ -12,7 +12,8 @@ use crate::{
 
 /// Título do menu em que o app manda os itens do menu do app (Sobre, Preferências…).
 pub const APP_MENU: &str = "@app";
-pub const WINDOW_MENU: &str = "Janela";
+/// Título com que o app manda itens a mais para o menu Janela ("Janela" é o nome antigo).
+pub const WINDOW_MENU: &str = "@window";
 
 /// Um menu da barra depois do nome do app.
 pub enum BarMenu {
@@ -45,7 +46,7 @@ impl Glove {
             if m.title == APP_MENU {
                 continue;
             }
-            if m.title == WINDOW_MENU {
+            if m.title == WINDOW_MENU || m.title == "Janela" {
                 extra = m.items;
                 continue;
             }

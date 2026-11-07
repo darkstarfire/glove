@@ -1,6 +1,7 @@
 //! Painel de Fontes e Painel de Cores (como os da era): painéis flutuantes no
 //! canto da janela, que mudam a escolha na hora.
 
+use glove_config::tr;
 use glove_paint::{
     draw::*,
     tiny_skia::{IntSize, Pixmap, PixmapPaint, Transform},
@@ -67,14 +68,14 @@ impl Ui<'_> {
         let families = p.families.get_or_insert_with(installed_families).clone();
         let (pw, ph) = (320.0, 300.0);
         let r = Rect::new((self.c.w - pw - 10.0).max(0.0), 30.0, pw, ph);
-        let (body, close) = panel_frame(self, r, "Fontes");
+        let (body, close) = panel_frame(self, r, tr!("Fontes"));
         if close {
             p.open = false;
             return false;
         }
         let mut changed = false;
         // Busca.
-        self.search_field_in(Rect::new(body.x, body.y, body.w, crate::ui::SEARCH_H), &mut p.filter, "Buscar família");
+        self.search_field_in(Rect::new(body.x, body.y, body.w, crate::ui::SEARCH_H), &mut p.filter, tr!("Buscar família"));
         let f = p.filter.trim().to_lowercase();
         let list: Vec<&String> = families.iter().filter(|x| f.is_empty() || x.to_lowercase().contains(&f)).collect();
         // Famílias à esquerda, tamanhos à direita.
@@ -234,7 +235,7 @@ impl Ui<'_> {
         }
         let (pw, ph) = (250.0, 286.0);
         let r = Rect::new((self.c.w - pw - 10.0).max(0.0), 30.0, pw, ph);
-        let (body, close) = panel_frame(self, r, "Cores");
+        let (body, close) = panel_frame(self, r, tr!("Cores"));
         if close {
             p.open = false;
             return false;

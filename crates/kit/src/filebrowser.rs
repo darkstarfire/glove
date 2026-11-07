@@ -3,6 +3,7 @@
 //! O app guarda um `FileBrowser` enquanto a folha está aberta e chama
 //! `Ui::file_sheet` a cada quadro, até vir uma escolha.
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 
 use glove_paint::{
@@ -156,7 +157,7 @@ impl FileBrowser {
             Mode::Open => {
                 let p = self.selected.clone()?;
                 if !self.accepts(&p) {
-                    self.error = Some("Este app não abre esse tipo de arquivo.".into());
+                    self.error = Some(tr!("Este app não abre esse tipo de arquivo.").into());
                     return None;
                 }
                 Some(Choice::Picked(p))
@@ -164,11 +165,11 @@ impl FileBrowser {
             Mode::Save => {
                 let name = self.name.trim();
                 if name.is_empty() {
-                    self.error = Some("Digite um nome.".into());
+                    self.error = Some(tr!("Digite um nome.").into());
                     return None;
                 }
                 if name.contains('/') {
-                    self.error = Some("O nome não pode ter “/”.".into());
+                    self.error = Some(tr!("O nome não pode ter “/”.").into());
                     return None;
                 }
                 Some(Choice::Picked(self.dir().join(name)))
@@ -204,7 +205,7 @@ impl Ui<'_> {
 
         let mut y = 14.0;
         if fb.mode == Mode::Save {
-            self.fonts.draw(self.c, "Salvar como:", sx + 18.0, y + 15.0, 13.0, false, ink);
+            self.fonts.draw(self.c, tr!("Salvar como:"), sx + 18.0, y + 15.0, 13.0, false, ink);
             let mut name = std::mem::take(&mut fb.name);
             let (_, enter) = self.text_field_in(Rect::new(sx + 112.0, y, sw - 130.0, 22.0), &mut name, fb.first);
             fb.name = name;
@@ -216,7 +217,7 @@ impl Ui<'_> {
             }
             y += 34.0;
         } else {
-            self.fonts.draw(self.c, if fb.mode == Mode::Folder { "Escolher uma pasta" } else { "Abrir" }, sx + 18.0, y + 15.0, 13.0, true, ink);
+            self.fonts.draw(self.c, if fb.mode == Mode::Folder { tr!("Escolher uma pasta") } else { tr!("Abrir") }, sx + 18.0, y + 15.0, 13.0, true, ink);
             y += 26.0;
         }
 
@@ -225,8 +226,8 @@ impl Ui<'_> {
         self.c.fill_rect(body.x, body.y, body.w, body.h, &solid(rgba(255, 255, 255, 255)));
         self.c.stroke(rrect(body.x - 0.5, body.y - 0.5, body.w + 1.0, body.h + 1.0, 0.0), &solid(rgba(130, 130, 136, 255)), 1.0);
         self.c.fill_rect(body.x, body.y, SIDE_W, body.h, &solid(rgba(231, 235, 241, 255)));
-        let mut places: Vec<(&str, PathBuf)> = vec![("Disco", "/".into()), ("Início", home())];
-        for (label, key) in [("Mesa", "DESKTOP"), ("Documentos", "DOCUMENTS"), ("Downloads", "DOWNLOAD"), ("Imagens", "PICTURES"), ("Música", "MUSIC")] {
+        let mut places: Vec<(&str, PathBuf)> = vec![(tr!("Disco"), "/".into()), (tr!("Início"), home())];
+        for (label, key) in [(tr!("Mesa"), "DESKTOP"), (tr!("Documentos"), "DOCUMENTS"), (tr!("Downloads"), "DOWNLOAD"), (tr!("Imagens"), "PICTURES"), (tr!("Música"), "MUSIC")] {
             if let Some(p) = user_dir(key) {
                 places.push((label, p));
             }
@@ -238,7 +239,7 @@ impl Ui<'_> {
             if here {
                 self.c.fill_rect(r.x, r.y, r.w, r.h, &solid(self.theme.menu_hot));
             }
-            icons::draw_bare(self.c, self.fonts, if label == "Disco" { Icon::Disk } else { Icon::Folder }, r.x + 8.0, r.y + 2.0, 16.0, None);
+            icons::draw_bare(self.c, self.fonts, if p == std::path::Path::new("/") { Icon::Disk } else { Icon::Folder }, r.x + 8.0, r.y + 2.0, 16.0, None);
             self.fonts.draw(self.c, label, r.x + 30.0, r.y + 14.5, 12.0, false, if here { glove_paint::Color::WHITE } else { ink });
             if self.hit(r).clicked {
                 fb.set_root(p);
@@ -315,7 +316,7 @@ impl Ui<'_> {
                                 fb.new_folder = None;
                             }
                             Err(e) => {
-                                fb.error = Some(format!("Não foi possível criar a pasta: {e}"));
+                                fb.error = Some(tr!("Não foi possível criar a pasta: {}", e));
                                 fb.new_folder = Some(n);
                             }
                         }
@@ -325,20 +326,20 @@ impl Ui<'_> {
                 }
                 None => {
                     let mut clicked = false;
-                    self.area(Rect::new(sx + 18.0, by, 110.0, 24.0), |ui| clicked = ui.button("Nova Pasta"));
+                    self.area(Rect::new(sx + 18.0, by, 110.0, 24.0), |ui| clicked = ui.button(tr!("Nova Pasta")));
                     if clicked {
-                        fb.new_folder = Some("pasta sem título".into());
+                        fb.new_folder = Some(tr!("pasta sem título").into());
                     }
                 }
             }
         }
         let (mut cancel, mut ok) = (false, false);
         let ok_label = match fb.mode {
-            Mode::Save => "Salvar",
-            Mode::Folder => "Escolher",
-            Mode::Open => "Abrir",
+            Mode::Save => tr!("Salvar"),
+            Mode::Folder => tr!("Escolher"),
+            Mode::Open => tr!("Abrir"),
         };
-        self.area(Rect::new(sx + sw - 220.0, by, 95.0, 24.0), |ui| cancel = ui.button("Cancelar"));
+        self.area(Rect::new(sx + sw - 220.0, by, 95.0, 24.0), |ui| cancel = ui.button(tr!("Cancelar")));
         self.area(Rect::new(sx + sw - 115.0, by, 97.0, 24.0), |ui| ok = ui.default_button(ok_label));
         let keys: Vec<Key> = self.keys().iter().map(|k| k.key).collect();
         if keys.contains(&Key::Escape) && fb.new_folder.is_none() {

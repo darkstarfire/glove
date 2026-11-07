@@ -476,6 +476,26 @@ Estudo completo em `docs/MEMORIA.md`.
   `glove-login` + `lib/glove/glove-login-greetd`), com os passos de pós-instalação e pré-remoção de
   cada formato (deb, rpm, Arch `.INSTALL`, Slackware `doinst.sh`)
 
+## Fase 9.15 — Internacionalização (pedido de 07/11/2026)
+
+O texto em português fica no código e é a chave (`tr!("Abrir")`); as traduções ficam em
+`locales/<idioma>.po` (formato do gettext). Idioma pelo `LANG` (o painel Internacional grava),
+`GLOVE_LANG` força um; idioma sem tradução cai no inglês. `cargo test -p glove-i18n` acusa
+qualquer texto marcado sem tradução em inglês; `tools/i18n.py` marca textos e registra as
+traduções. Cuidado: texto que também é chave na lógica (ex.: comparar com "Cancelar") compara
+com a tradução ou com outra coisa (o caminho, um identificador).
+
+- [x] 9.15.1 Base e o glove-kit (M) — v0.9.23: crate `glove-i18n` (sem dependências; catálogos
+  embutidos e em /usr/share/glove/locales ou ~/.local/share/glove/locales), `tr!` exposto pelo
+  glove-config; Abrir/Salvar, impressão, painéis de fontes e cores e o alerta traduzidos; o menu
+  Janela dos apps vai ao compositor como `@window` (não depende do idioma)
+- [ ] 9.15.2 Compositor: barra de menu, menu principal, Dock, Exposé, Painel, avisos e diálogos (M)
+- [ ] 9.15.3 Preferências (G)
+- [ ] 9.15.4 Arquivos (M)
+- [ ] 9.15.5 Os outros apps, em lotes (G)
+- [ ] 9.15.6 Nomes do Dock e dos apps (configuração), tela de login e boas-vindas (M)
+- [ ] 9.15.7 Instalador vira `glove-setup-tool.sh` em português e inglês; README em inglês (M)
+
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
 Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no

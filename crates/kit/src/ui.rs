@@ -1,6 +1,7 @@
 //! Widgets em modo imediato: o app descreve a tela a cada quadro e o kit
 //! desenha e responde ao mouse/teclado. Só redesenha quando há evento.
 
+use glove_config::tr;
 use std::collections::HashMap;
 
 use crate::text::TextBuffer;
@@ -1567,7 +1568,7 @@ impl<'a> Ui<'a> {
         }
         let base = if capturing { lighten(self.theme.accent, 0.6) } else { rgba(244, 244, 246, 255) };
         gel_rect(self.c, r.x, r.y, r.w, r.h, 5.0, base);
-        let shown = if capturing { "Pressione as teclas…".to_string() } else { pretty_combo(value) };
+        let shown = if capturing { tr!("Pressione as teclas…").to_string() } else { pretty_combo(value) };
         let tw = self.fonts.measure(&shown, 12.0, false);
         self.fonts.draw(self.c, &shown, r.x + (r.w - tw) / 2.0, r.y + 15.0, 12.0, false, ink());
         changed
@@ -1778,7 +1779,7 @@ impl<'a> Ui<'a> {
             chosen = Some(last);
         }
         if keys.iter().any(|k| k.key == Key::Escape) {
-            if let Some(i) = buttons.iter().position(|b| b.eq_ignore_ascii_case("Cancelar")) {
+            if let Some(i) = buttons.iter().position(|b| b.eq_ignore_ascii_case("Cancelar") || b.eq_ignore_ascii_case(tr!("Cancelar"))) {
                 chosen = Some(i);
             } else if buttons.len() == 1 {
                 chosen = Some(0);

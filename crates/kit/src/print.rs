@@ -3,6 +3,7 @@
 //! Texto vira PDF aqui mesmo (Helvetica, A4); imagens vão direto para o CUPS
 //! (e viram PDF para salvar ou pré-visualizar).
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 
 use glove_paint::draw::*;
@@ -70,7 +71,7 @@ impl PrintSheet {
     }
 
     fn print(&self) -> Result<(), String> {
-        let printer = self.printers.get(self.printer).ok_or("Nenhuma impressora configurada.")?;
+        let printer = self.printers.get(self.printer).ok_or(tr!("Nenhuma impressora configurada."))?;
         let file = match &self.content {
             PrintContent::Image(p) | PrintContent::Pdf(p) => p.clone(),
             PrintContent::Text(_) => self.temp_pdf()?,
@@ -82,7 +83,7 @@ impl PrintSheet {
             let (a, b) = (self.from.trim().parse::<u32>().unwrap_or(1).max(1), self.to.trim().parse::<u32>().unwrap_or(1).max(1));
             cmd.args(["-P", &format!("{}-{}", a.min(b), a.max(b))]);
         }
-        let o = cmd.arg(&file).env("LC_ALL", "C").output().map_err(|e| format!("Não foi possível usar o lp (CUPS): {e}"))?;
+        let o = cmd.arg(&file).env("LC_ALL", "C").output().map_err(|e| tr!("Não foi possível usar o lp (CUPS): {}", e))?;
         if o.status.success() {
             Ok(())
         } else {
@@ -102,7 +103,7 @@ impl Ui<'_> {
                     let path = if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { path } else { path.with_extension("pdf") };
                     match p.pdf().and_then(|b| std::fs::write(&path, b).map_err(|e| e.to_string())) {
                         Ok(()) => return true,
-                        Err(e) => p.message = Some(format!("Não foi possível salvar: {e}")),
+                        Err(e) => p.message = Some(tr!("Não foi possível salvar: {}", e)),
                     }
                 }
                 Some(Choice::Cancelled) => p.save = None,
@@ -128,8 +129,8 @@ impl Ui<'_> {
         };
         // Impressora
         let mut y = 18.0;
-        label(self, "Impressora:", y);
-        let names: Vec<String> = if p.printers.is_empty() { vec!["Nenhuma impressora".into()] } else { p.printers.clone() };
+        label(self, tr!("Impressora:"), y);
+        let names: Vec<String> = if p.printers.is_empty() { vec![tr!("Nenhuma impressora").into()] } else { p.printers.clone() };
         let mut add_printer = false;
         self.area(Rect::new(sx + lw + 8.0, y, sw - lw - 26.0, 24.0), |ui| {
             ui.horizontal(|ui| {
@@ -138,7 +139,7 @@ impl Ui<'_> {
                 ui.set_enabled(true);
                 if p.printers.is_empty() {
                     ui.spacing(8.0);
-                    add_printer = ui.small_button("Adicionar…");
+                    add_printer = ui.small_button(tr!("Adicionar…"));
                 }
             });
         });
@@ -147,25 +148,25 @@ impl Ui<'_> {
         }
         // Cópias
         y += 36.0;
-        label(self, "Cópias:", y);
+        label(self, tr!("Cópias:"), y);
         self.text_field_in(Rect::new(sx + lw + 8.0, y, 50.0, 22.0), &mut p.copies, false);
         // Páginas
         y += 32.0;
-        label(self, "Páginas:", y);
+        label(self, tr!("Páginas:"), y);
         let mut all = p.all_pages as usize;
         self.area(Rect::new(sx + lw + 8.0, y + 2.0, 80.0, 22.0), |ui| {
-            if ui.radio(p.all_pages, "Todas") {
+            if ui.radio(p.all_pages, tr!("Todas")) {
                 all = 1;
             }
         });
         self.area(Rect::new(sx + lw + 8.0, y + 26.0, 40.0, 22.0), |ui| {
-            if ui.radio(!p.all_pages, "De:") {
+            if ui.radio(!p.all_pages, tr!("De:")) {
                 all = 0;
             }
         });
         p.all_pages = all == 1;
         let (c1, _) = self.text_field_in(Rect::new(sx + lw + 56.0, y + 24.0, 40.0, 22.0), &mut p.from, false);
-        self.fonts.draw(self.c, "até:", sx + lw + 104.0, y + 40.0, 13.0, false, ink);
+        self.fonts.draw(self.c, tr!("até:"), sx + lw + 104.0, y + 40.0, 13.0, false, ink);
         let (c2, _) = self.text_field_in(Rect::new(sx + lw + 136.0, y + 24.0, 40.0, 22.0), &mut p.to, false);
         if c1 || c2 {
             p.all_pages = false;
@@ -180,17 +181,17 @@ impl Ui<'_> {
         let (mut save_pdf, mut preview, mut cancel, mut go) = (false, false, false, false);
         self.area(Rect::new(sx + 16.0, by, sw - 230.0, 24.0), |ui| {
             ui.horizontal(|ui| {
-                save_pdf = ui.button("Salvar PDF…");
+                save_pdf = ui.button(tr!("Salvar PDF…"));
                 ui.spacing(8.0);
-                preview = ui.button("Pré-visualizar");
+                preview = ui.button(tr!("Pré-visualizar"));
             });
         });
         self.area(Rect::new(sx + sw - 196.0, by, 180.0, 24.0), |ui| {
             ui.horizontal(|ui| {
-                cancel = ui.button("Cancelar");
+                cancel = ui.button(tr!("Cancelar"));
                 ui.spacing(8.0);
                 ui.set_enabled(!p.printers.is_empty());
-                go = ui.default_button("Imprimir");
+                go = ui.default_button(tr!("Imprimir"));
                 ui.set_enabled(true);
             });
         });

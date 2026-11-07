@@ -1,0 +1,121 @@
+# Glove — tradução para o inglês.
+# A chave (msgid) é o texto em português que está no código.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid "Este app não abre esse tipo de arquivo."
+msgstr "This app can’t open this kind of file."
+
+msgid "Digite um nome."
+msgstr "Type a name."
+
+msgid "O nome não pode ter “/”."
+msgstr "The name can’t contain “/”."
+
+msgid "Salvar como:"
+msgstr "Save As:"
+
+msgid "Escolher uma pasta"
+msgstr "Choose a Folder"
+
+msgid "Abrir"
+msgstr "Open"
+
+msgid "Disco"
+msgstr "Disk"
+
+msgid "Início"
+msgstr "Home"
+
+msgid "Mesa"
+msgstr "Desktop"
+
+msgid "Documentos"
+msgstr "Documents"
+
+msgid "Downloads"
+msgstr "Downloads"
+
+msgid "Imagens"
+msgstr "Pictures"
+
+msgid "Música"
+msgstr "Music"
+
+msgid "Nova Pasta"
+msgstr "New Folder"
+
+msgid "pasta sem título"
+msgstr "untitled folder"
+
+msgid "Salvar"
+msgstr "Save"
+
+msgid "Escolher"
+msgstr "Choose"
+
+msgid "Cancelar"
+msgstr "Cancel"
+
+msgid "Não foi possível criar a pasta: {}"
+msgstr "Couldn’t create the folder: {}"
+
+msgid "Nenhuma impressora configurada."
+msgstr "No printer set up."
+
+msgid "Impressora:"
+msgstr "Printer:"
+
+msgid "Nenhuma impressora"
+msgstr "No printer"
+
+msgid "Adicionar…"
+msgstr "Add…"
+
+msgid "Cópias:"
+msgstr "Copies:"
+
+msgid "Páginas:"
+msgstr "Pages:"
+
+msgid "Todas"
+msgstr "All"
+
+msgid "De:"
+msgstr "From:"
+
+msgid "até:"
+msgstr "to:"
+
+msgid "Salvar PDF…"
+msgstr "Save PDF…"
+
+msgid "Pré-visualizar"
+msgstr "Preview"
+
+msgid "Imprimir"
+msgstr "Print"
+
+msgid "Não foi possível usar o lp (CUPS): {}"
+msgstr "Couldn’t use lp (CUPS): {}"
+
+msgid "Não foi possível salvar: {}"
+msgstr "Couldn’t save: {}"
+
+msgid "Pressione as teclas…"
+msgstr "Press the keys…"
+
+msgid "Fontes"
+msgstr "Fonts"
+
+msgid "Buscar família"
+msgstr "Search family"
+
+msgid "Cores"
+msgstr "Colors"
+
+msgid "Janela"
+msgstr "Window"
+

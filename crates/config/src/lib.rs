@@ -1,6 +1,9 @@
 //! Configuração do Glove (~/.config/glove/config.toml), compartilhada entre
 //! o compositor e os apps (Preferências, etc.).
 
+/// Traduções (ver o glove-i18n): a macro `tr!` com o texto em português.
+pub use glove_i18n::{idioma, tr, tr_dyn};
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

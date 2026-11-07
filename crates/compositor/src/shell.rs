@@ -3,6 +3,7 @@
 //!
 //! Os desenhos ficam em cache e só são refeitos quando algo visível muda.
 
+use glove_config::tr;
 use std::cell::RefCell;
 
 use glove_paint::{
@@ -971,7 +972,7 @@ impl Glove {
         let mut t = vec![self.focused_app_name()];
         t.extend(self.bar_menus().into_iter().map(|m| match m {
             crate::appmenu::BarMenu::Client(m) => m.title,
-            crate::appmenu::BarMenu::Window(_) => crate::appmenu::WINDOW_MENU.to_string(),
+            crate::appmenu::BarMenu::Window(_) => tr!("Janela").to_string(),
             crate::appmenu::BarMenu::Desk(t) => t,
         }));
         t
