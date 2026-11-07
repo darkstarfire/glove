@@ -154,7 +154,7 @@ fn icones(dir: &Path) -> Result<usize, String> {
             dirs.push((sub, size, scale, *ctx));
         }
     }
-    let mut index = String::from("[Icon Theme]\nName=Glove\nComment=Ícones do Glove no estilo do Mac OS X Tiger, desenhados por código (arte própria)\nInherits=Adwaita,hicolor\nExample=folder\n");
+    let mut index = String::from("[Icon Theme]\nName=Glove\nComment=Original code-drawn icons in the style of Mac OS X Tiger\nInherits=Adwaita,hicolor\nExample=folder\n");
     index += &format!("Directories={}\n", dirs.iter().map(|d| d.0.as_str()).collect::<Vec<_>>().join(","));
     for (sub, size, scale, ctx) in &dirs {
         index += &format!("\n[{sub}]\nSize={size}\n");
