@@ -8,6 +8,8 @@
 #   ./instalador.sh desinstalar          o inverso de instalar
 #   ./instalador.sh deb|slackware|rpm|arch|todos   gera os pacotes em pacotes/
 #   ./instalador.sh dependencias         instala o que falta para compilar
+#   ./instalador.sh login [remover]      tela de login do Glove (greetd) para o Glove
+#                                        instalado (pelo pacote ou pelo instalar)
 #
 # Para testar sem instalar nada: ./instalar.sh (usa os programas do projeto).
 set -e
@@ -403,6 +405,85 @@ EOF
     echo "  No Arch também dá para compilar lá: makepkg -si (com o PKGBUILD em $saida)"
 }
 
+# --- tela de login (greetd) ----------------------------------------------------------
+
+# Tela de login do Glove para o Glove instalado no sistema (pacote ou "instalar"):
+# o greetd abre o Glove em modo login. Guarda a configuração e o gerenciador de
+# antes; "login remover" devolve os dois.
+login() {
+    if [ "$(id -u)" != 0 ]; then
+        exec sudo "$0" login "$@"
+    fi
+    conf=/etc/greetd/config.toml
+    backup=/etc/greetd/config.toml.antes-do-glove
+    estado=/etc/glove/login
+    if [ "${1:-}" = remover ]; then
+        [ -f "$backup" ] && mv "$backup" "$conf" && echo "Configuração anterior do greetd devolvida."
+        antes=$(cat "$estado/gerenciador-anterior" 2>/dev/null || echo gdm)
+        systemctl disable greetd 2>/dev/null || true
+        systemctl enable --force "$antes" && echo "$antes volta a ser o gerenciador de login (vale no próximo boot)."
+        rm -rf "$estado"
+        return
+    fi
+    prefixo=""
+    for p in /usr /usr/local; do
+        if [ -x "$p/bin/glove" ] && [ -e "$p/bin/glove-login" ]; then prefixo=$p; break; fi
+    done
+    [ -n "$prefixo" ] || erro "o Glove não está instalado (instale o pacote ou rode: ./instalador.sh instalar)"
+    if ! tem greetd; then
+        msg "Instalando o greetd"
+        case $(distro) in
+            debian) apt-get install -y greetd ;;
+            fedora) dnf install -y greetd ;;
+            arch) pacman -S --needed --noconfirm greetd ;;
+            suse) zypper install -y greetd ;;
+            void) xbps-install -Sy greetd ;;
+            alpine) apk add greetd ;;
+            *) erro "instale o greetd pelo gerenciador de pacotes e rode de novo" ;;
+        esac
+    fi
+    # Usuário que roda a tela de login: _greetd (Debian/Ubuntu) ou greeter (outros).
+    if id _greetd >/dev/null 2>&1; then greeter=_greetd; else greeter=greeter; fi
+    mkdir -p /etc/greetd "$estado"
+    if [ -f "$conf" ] && [ ! -f "$backup" ]; then
+        cp "$conf" "$backup"
+        echo "Configuração anterior do greetd guardada em $backup"
+    fi
+    # Mantém o console (vt) da configuração original.
+    vt=$(sed -n 's/^vt *= *//p' "$backup" 2>/dev/null | head -1)
+    cat > "$conf" <<EOF
+# Tela de login do Glove (gerada por instalador.sh). Volta ao de antes com:
+# ./instalador.sh login remover
+[terminal]
+vt = ${vt:-7}
+
+[default_session]
+command = "env GLOVE_SESSION=$prefixo/bin/glove-session $prefixo/bin/glove --greeter"
+user = "$greeter"
+EOF
+    chmod 644 "$conf"
+    # A tela de login usa os ajustes de quem instalou (monitor, escala, teclado e tema).
+    if [ -n "${SUDO_USER:-}" ]; then
+        casa=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+        if [ -f "$casa/.config/glove/config.toml" ]; then
+            install -m 644 "$casa/.config/glove/config.toml" "$estado/config.toml"
+            echo "Tela de login com os ajustes de $SUDO_USER (monitor, escala, teclado e tema)."
+        fi
+    fi
+    msg "Tela de login do Glove configurada (usa o Glove de $prefixo)"
+    if ! systemctl is-enabled greetd >/dev/null 2>&1; then
+        atual=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
+        echo "O gerenciador de login atual é ${atual:-desconhecido}."
+        if pergunta "Trocar pelo greetd (vale a partir do próximo boot)?" s; then
+            [ -n "$atual" ] && [ "$atual" != greetd ] && echo "$atual" > "$estado/gerenciador-anterior"
+            [ -n "$atual" ] && systemctl disable "$atual" 2>/dev/null || true
+            systemctl enable --force greetd
+            echo "Pronto: reinicie para ver a tela de login do Glove."
+            echo "Para voltar ao ${atual:-anterior}: ./instalador.sh login remover"
+        fi
+    fi
+}
+
 # --- menu ---------------------------------------------------------------------------
 
 menu() {
@@ -416,6 +497,7 @@ menu() {
     echo "  6) Pacote do Arch (.pkg.tar.zst e PKGBUILD)"
     echo "  7) Todos os pacotes"
     echo "  8) Instalar o que falta para compilar"
+    echo "  9) Tela de login do Glove (greetd)"
     echo "  0) Sair"
     printf 'Escolha: '
     read -r op || op=0
@@ -428,6 +510,7 @@ menu() {
         6) pacote_arch ;;
         7) pacote_deb; pacote_slackware; pacote_rpm; pacote_arch ;;
         8) dependencias ;;
+        9) login ;;
         *) exit 0 ;;
     esac
 }
@@ -442,7 +525,8 @@ case "${1:-}" in
     arch|pacman) pacote_arch ;;
     todos|pacotes) pacote_deb; pacote_slackware; pacote_rpm; pacote_arch ;;
     dependencias) dependencias ;;
+    login) shift; login "$@" ;;
     _montar) montar "$2" "$3" "$4" ;;
-    -h|--help|ajuda) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+    -h|--help|ajuda) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) erro "opção desconhecida: $1 (veja ./instalador.sh ajuda)" ;;
 esac

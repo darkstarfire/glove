@@ -467,7 +467,9 @@ Estudo completo em `docs/MEMORIA.md`.
   instalado), desinstalar (pela lista, ou pelo gerenciador quando veio de pacote) e gerar os pacotes
   .deb (Debian/Ubuntu), .tgz (Slackware, com slack-desc), .rpm (receita; o pacote sai onde houver
   rpmbuild) e Arch (.pkg.tar.zst com .PKGINFO e .MTREE, e o PKGBUILD para o makepkg). `DESTDIR=` testa
-  sem mexer no sistema. A licença GPL-3 passa a acompanhar o projeto (LICENSE)
+  sem mexer no sistema. A licença GPL-3 passa a acompanhar o projeto (LICENSE); `login [remover]` põe a
+  tela de login do Glove no greetd usando o Glove instalado (pacote ou instalar) e troca o
+  gerenciador de login com confirmação, guardando o anterior
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
