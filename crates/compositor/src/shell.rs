@@ -1423,6 +1423,13 @@ impl Glove {
     }
 
     pub fn run_dock_action(&mut self, a: DockAction) {
+        // A grade de apps é desenhada pelo próprio Glove (não abre programa).
+        if let DockAction::App(i) = &a {
+            if self.config.dock_apps.get(*i).is_some_and(|d| d.app_id == glove_config::GRADE_ID) {
+                self.toggle_grade();
+                return;
+            }
+        }
         // Ctrl (ou Super) + clique num app: abre mais uma instância dele, mesmo já aberto.
         let extra = self.seat.get_keyboard().is_some_and(|k| {
             let m = k.modifier_state();
@@ -1562,6 +1569,7 @@ impl Glove {
         // Ícones da mesa
         self.prepare_desk();
         self.prepare_dashboard();
+        self.prepare_grade();
 
         self.prepare_force_quit();
         self.prepare_startup();

@@ -364,6 +364,7 @@ impl Glove {
         }
         self.close_menu();
         self.close_search();
+        self.close_grade();
         self.dash_load();
         self.dashboard.open = true;
         self.dashboard.anim = Some((self.dashboard.alpha, 1.0, Instant::now()));

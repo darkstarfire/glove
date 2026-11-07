@@ -10,7 +10,7 @@ suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imag
 
 Base visual e de comportamento: **Mac OS X 10.4 Tiger** (com o tema Listras para o visual 10.0–10.2).
 Fases 1 a 9 do [plano](docs/PLANO.md) feitas, incluindo as extras 9.10 a 9.15 (ícones realistas, leveza,
-instalador e pacotes, e a interface em **português e inglês**). A Fase 10 é a próxima.
+instalador e pacotes, e a interface em **português e inglês**). A Fase 10 está em andamento.
 
 **Sistema (compositor `glove`)**
 
@@ -31,6 +31,8 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 é a
   menus do Arquivos
 - **Painel de Widgets** (F12): Relógio, Calendário, Calculadora, Clima (Open-Meteo), Lembrete,
   Monitor e Dicionário sobre a tela escurecida, com a barra de widgets do "+"
+- **Todos os Apps** (F4 ou o Dock): todos os apps instalados em tela cheia, em páginas, com busca e a
+  pasta Utilitários
 - **Busca Rápida** (Super+Espaço): apps instalados, Preferências e arquivos
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
@@ -190,6 +192,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Ctrl+clique no Dock | Abre mais uma instância do app (o clique simples traz o que já está aberto) |
 | Super+Tab | Trocar de app: faixa de ícones no meio da tela (Tab/← → andam, Q encerra, H oculta, Esc cancela; soltar o Super troca) |
 | F12 | Painel de Widgets (de novo, Esc ou clique fora fecha) |
+| F4 | Todos os Apps (de novo, Esc ou clique fora fecha) |
 | F9 / F10 / F11 | Exposé: todas as janelas / só as do app / mostrar a mesa (de novo, ou Esc, volta) |
 | Super+, | Preferências |
 | Print / Shift+Print | Captura da tela inteira / de uma área (ou de uma janela, pelo app Captura) |

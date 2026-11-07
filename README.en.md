@@ -13,7 +13,7 @@ languages are added with a `.po` file — see [Languages](#languages).
 ## Current state
 
 Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for the
-10.0–10.2 look). Phases 1 to 9 of the [plan](docs/PLANO.md) (in Portuguese) are done.
+10.0–10.2 look). Phases 1 to 9 of the [plan](docs/PLANO.md) (in Portuguese) are done; phase 10 (beyond the era) is under way.
 
 **System (the `glove` compositor)**
 
@@ -34,6 +34,8 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
   and drop, in-place rename, Arrange By, Clean Up and View Options (Ctrl+J)
 - **Widget Dashboard** (F12): Clock, Calendar, Calculator, Weather (Open-Meteo), Note, System
   Monitor and Dictionary
+- **All Apps** (F4 or the Dock): every installed app full screen, in pages, with search and a
+  Utilities folder
 - **Quick Search** (Super+Space): installed apps, Preferences panes and files
 - **Screenshots** of the whole screen, an area or a window, on any display
 - Force Quit that detects unresponsive apps; screen lock (PAM), screen blanking, laptop lid,
@@ -159,6 +161,7 @@ Inside another desktop, Alt works as Super.
 | Super+↑ | Zoom |
 | Super+Tab | Switch apps |
 | F12 | Widget Dashboard |
+| F4 | All Apps |
 | F9 / F10 / F11 | Exposé: all windows / app windows / show the desktop |
 | Super+, | Preferences |
 | Print / Shift+Print | Screenshot of the screen / of an area |

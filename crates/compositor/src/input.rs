@@ -82,6 +82,10 @@ enum KeyAction {
     CycleWindows,
     /// Tecla com o Painel aberto.
     DashKey(crate::desk::DeskKey),
+    /// F4: abre ou fecha a grade de apps.
+    Grade,
+    /// Tecla com a grade aberta.
+    GradeKey(crate::grade::GradeKey),
 }
 
 impl KeyAction {
@@ -108,6 +112,7 @@ impl KeyAction {
             "expose_app" => Self::ExposeApp,
             "expose_desktop" => Self::ExposeDesktop,
             "dashboard" => Self::Dashboard,
+            "grade" => Self::Grade,
             "cycle_windows" => Self::CycleWindows,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
@@ -333,6 +338,12 @@ impl Glove {
                 // os "cliques" da roda continuam sendo um clique cada).
                 let speed = self.config.pointer.scroll_speed.clamp(0.25, 4.0);
                 let amount = |a| sign * speed * event.amount(a).unwrap_or_else(|| event.amount_v120(a).unwrap_or(0.0) * 15.0 / 120.0);
+                // Grade aberta: a rolagem troca de página (vertical ou horizontal).
+                if self.grade_active() {
+                    let v = amount(Axis::Vertical) + amount(Axis::Horizontal);
+                    self.grade_scroll(v);
+                    return;
+                }
                 let mut frame = AxisFrame::new(event.time_msec()).source(source);
                 for axis in [Axis::Horizontal, Axis::Vertical] {
                     let v = amount(axis);
@@ -452,6 +463,28 @@ impl Glove {
                 let ch = handle.modified_sym().key_char();
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(crate::desk::desk_key_of(&name, ch, mods.ctrl, mods.shift, true).map(KeyAction::DashKey));
+            }
+            // Grade de apps aberta: o texto vai para a busca; as teclas F seguem
+            // para os atalhos (F4 fecha, F12 troca pelo Painel…).
+            if st.grade.open && !mods.logo && !mods.ctrl && !(st.nested && mods.alt) {
+                use crate::grade::GradeKey as G;
+                let fkey = name.len() > 1 && name.starts_with('f') && name[1..].chars().all(|c| c.is_ascii_digit());
+                if !fkey {
+                    let k = match name.as_str() {
+                        "left" | "kp_left" => Some(G::Move(-1, 0)),
+                        "right" | "kp_right" => Some(G::Move(1, 0)),
+                        "up" | "kp_up" => Some(G::Move(0, -1)),
+                        "down" | "kp_down" => Some(G::Move(0, 1)),
+                        "prior" | "kp_prior" => Some(G::Page(-1)),
+                        "next" | "kp_next" => Some(G::Page(1)),
+                        "backspace" => Some(G::Backspace),
+                        "return" | "kp_enter" => Some(G::Enter),
+                        "escape" => Some(G::Escape),
+                        _ => handle.modified_sym().key_char().map(G::Char),
+                    };
+                    st.suppressed_keys.push(code);
+                    return FilterResult::Intercept(k.map(KeyAction::GradeKey));
+                }
             }
             // Exposé: Esc volta.
             if st.expose.is_some() && name == "escape" {
@@ -612,6 +645,8 @@ impl Glove {
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
             Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
+            Some(KeyAction::Grade) => self.toggle_grade(),
+            Some(KeyAction::GradeKey(k)) => self.grade_key(k),
             Some(KeyAction::CycleWindows) => self.cycle_app_windows(),
             Some(KeyAction::DashKey(k)) => self.dashboard_key(k),
             Some(KeyAction::SearchMove(d)) => self.search_move(d),
@@ -757,6 +792,15 @@ impl Glove {
         if !self.locked() && !self.greeter {
             self.hot_corner(pos);
         }
+        if self.grade_active() {
+            // Grade aberta: nenhum app vê o mouse.
+            self.grade_motion(pos);
+            let pointer = self.seat.get_pointer().unwrap();
+            let serial = SERIAL_COUNTER.next_serial();
+            pointer.motion(self, None, &MotionEvent { location: pos, serial, time });
+            pointer.frame(self);
+            return;
+        }
         if self.dashboard_active() {
             // Painel aberto: o mouse é dele (arrastar widgets).
             self.dashboard_motion(pos);
@@ -827,6 +871,14 @@ impl Glove {
             return;
         }
         if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {
+            return;
+        }
+        if self.grade_active() {
+            if button == BTN_LEFT && state == ButtonState::Pressed {
+                let pos = self.pointer_pos;
+                self.grade_button(pos);
+                self.swallow_wake_release = true;
+            }
             return;
         }
         if self.dashboard_active() {

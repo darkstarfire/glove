@@ -294,6 +294,20 @@ impl Glove {
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
         }
+        // Grade de apps: por cima de tudo (menos do cursor), sobre a tela escurecida.
+        let g = &self.grade;
+        if g.alpha > 0.0 {
+            let a = Some(g.alpha);
+            if let Some((_, t)) = &g.field_tex {
+                out.extend(mem_alpha(renderer, self.grade_field_pos(), t, sc, a));
+            }
+            if let Some((_, t)) = &g.grid_tex {
+                out.extend(mem_alpha(renderer, self.grade_grid_pos(), t, sc, a));
+            }
+            if let Some(d) = &g.dim {
+                out.push(GloveElement::Solid(SolidColorRenderElement::from_buffer(d, (0, 0), sc, 1.0, Kind::Unspecified)));
+            }
+        }
         // Painel de Widgets: por cima de tudo (menos do cursor), sobre a tela escurecida.
         let dash = &self.dashboard;
         if dash.alpha > 0.0 {

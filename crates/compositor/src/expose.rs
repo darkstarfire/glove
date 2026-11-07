@@ -294,6 +294,8 @@ impl Glove {
                     self.toggle_expose(mode);
                 } else if action == "painel" {
                     self.toggle_dashboard();
+                } else if action == "apps" {
+                    self.toggle_grade();
                 } else if action == "protetor" {
                     self.start_saver(None, false);
                 }

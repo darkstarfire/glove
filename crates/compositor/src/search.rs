@@ -44,6 +44,14 @@ pub struct App {
     pub icon: Icon,
     /// app_id do Glove (abre pelo Dock, trazendo para frente se já estiver aberto).
     pub glove_id: Option<String>,
+    /// Utilitário (categorias System/Utility/Settings/Monitor, ou um dos do Glove):
+    /// na grade de apps, fica na pasta Utilitários.
+    pub utility: bool,
+}
+
+/// Apps do Glove que são utilitários (a mesma lista do Arquivos).
+pub fn glove_utility(app_id: &str) -> bool {
+    matches!(app_id, "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Registros" | "glove.Info" | "glove.Chaves" | "glove.UtilRede")
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -149,7 +157,9 @@ pub fn parse_desktop(text: &str) -> Option<App> {
     // O texto no idioma em uso (Name[pt_BR], Name[en]…), senão o padrão.
     let lang = glove_config::idioma();
     let region = std::env::var("LANG").ok().and_then(|l| l.split('.').next().map(String::from)).unwrap_or_default();
-    let localized = |k: &str| val(&format!("{k}[{region}]")).or(val(&format!("{k}[{lang}]"))).or(val(k));
+    // Sem a região certa (ex.: GLOVE_LANG=pt com LANG=en_GB), vale qualquer variante do idioma (Name[pt_BR]).
+    let variant = |k: &str| get.iter().find(|(key, _)| key.strip_prefix(k).and_then(|r| r.strip_prefix('[')).is_some_and(|r| r.starts_with(&format!("{lang}_")))).map(|(_, v)| v.as_str());
+    let localized = |k: &str| val(&format!("{k}[{region}]")).or(val(&format!("{k}[{lang}]"))).or(variant(k)).or(val(k));
     if val("Type") != Some("Application") || val("NoDisplay") == Some("true") || val("Hidden") == Some("true") || val("Terminal") == Some("true") {
         return None;
     }
@@ -167,7 +177,8 @@ pub fn parse_desktop(text: &str) -> Option<App> {
     let keywords = normalize(&format!("{} {}", localized("GenericName").unwrap_or(""), localized("Keywords").unwrap_or("").replace(';', " ")));
     // O ícone do app no tema do sistema (o Icon= do .desktop).
     let icon = val("Icon").map(Icon::from_name).unwrap_or(Icon::Window);
-    Some(App { name, keywords, exec, icon, glove_id: None })
+    let utility = val("Categories").unwrap_or("").split(';').any(|c| matches!(c, "System" | "Utility" | "Settings" | "Monitor"));
+    Some(App { name, keywords, exec, icon, glove_id: None, utility })
 }
 
 /// Pastas de apps do XDG, na ordem de prioridade.
@@ -184,13 +195,13 @@ fn app_dirs() -> Vec<PathBuf> {
     v
 }
 
-fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
+pub(crate) fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
     let mut seen = std::collections::HashSet::new();
     let extras: Vec<glove_config::DockApp> = glove_config::extra_apps().into_iter().filter(|e| !glove_apps.iter().any(|a| a.app_id == e.app_id)).collect();
     let mut out: Vec<App> = glove_apps
         .iter()
         .chain(extras.iter())
-        .map(|a| App { name: glove_config::tr_dyn(&a.name), keywords: normalize(&a.app_id), exec: a.command.clone(), icon: Icon::from_name(&a.icon), glove_id: Some(a.app_id.clone()) })
+        .map(|a| App { name: glove_config::tr_dyn(&a.name), keywords: normalize(&a.app_id), exec: a.command.clone(), icon: Icon::from_name(&a.icon), glove_id: Some(a.app_id.clone()), utility: glove_utility(&a.app_id) })
         .collect();
     for dir in app_dirs() {
         let mut files = Vec::new();
@@ -309,6 +320,7 @@ impl Glove {
     pub fn open_search(&mut self) {
         self.close_menu();
         self.close_volume_slider();
+        self.close_grade();
         self.search.open = true;
         self.search.query.clear();
         self.search.results.clear();

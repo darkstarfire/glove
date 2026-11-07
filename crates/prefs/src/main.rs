@@ -266,7 +266,7 @@ struct Prefs {
 
 /// Grupos de atalhos (como no painel de atalhos do 10.4).
 const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
-    ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "cycle_windows"]),
+    ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "grade", "cycle_windows"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
     ("Sistema", &["screenshot", "screenshot_area", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
 ];
@@ -792,7 +792,7 @@ impl Prefs {
     /// Os quatro cantos da tela e o que cada um faz.
     fn hot_corners_ui(&mut self, ui: &mut Ui) {
         ui.label(tr!("Cantos ativos:"));
-        let actions: [(&str, &str); 6] = [("", "—"), ("todas", tr!("Todas as janelas")), ("app", tr!("Janelas do app")), ("mesa", tr!("Mesa")), ("painel", tr!("Painel de Widgets")), ("protetor", tr!("Iniciar o protetor de tela"))];
+        let actions: [(&str, &str); 7] = [("", "—"), ("todas", tr!("Todas as janelas")), ("app", tr!("Janelas do app")), ("mesa", tr!("Mesa")), ("painel", tr!("Painel de Widgets")), ("apps", tr!("Todos os Apps")), ("protetor", tr!("Iniciar o protetor de tela"))];
         let names: Vec<String> = actions.iter().map(|a| a.1.to_string()).collect();
         let hc = self.config.hot_corners.clone();
         let mut corners = [hc.top_left, hc.top_right, hc.bottom_left, hc.bottom_right];
@@ -1628,7 +1628,7 @@ impl Prefs {
         ui.space(8.0);
         ui.label(tr!("Atalhos de teclado:"));
         ui.space(4.0);
-        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard"] {
+        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard", "grade"] {
             let label = glove_config::action_label(action);
             let mut keys = self.config.shortcut(action).unwrap_or("").to_string();
             let mut changed = false;

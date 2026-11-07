@@ -9,6 +9,7 @@ mod desk;
 mod dockmenu;
 mod ending;
 mod expose;
+mod grade;
 mod lock;
 mod extras;
 mod forcequit;

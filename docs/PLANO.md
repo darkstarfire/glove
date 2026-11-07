@@ -536,7 +536,14 @@ O instalador do sistema (Fase 11) vai ser feito com ela.
 Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no
 visual gel. Cada uma será detalhada antes de começar.
 
-- [ ] 10.1 Grade de apps em tela cheia (como o Launchpad), com pastas e busca
+- [x] 10.1 Grade de apps em tela cheia, com pasta e busca (M) — v0.10.1: "Todos os Apps" abre pelo
+  Dock (ícone novo, logo depois do Arquivos; configurações antigas ganham o ícone), pela tecla F4 ou
+  por um canto ativo. Desenhada pelo compositor (`grade.rs`) sobre a tela escurecida: campo de busca
+  no alto (digitar já filtra), ícones grandes em páginas com pontinhos, e a pasta **Utilitários**
+  (mesma regra do Arquivos: categorias System/Utility/Settings/Monitor e os utilitários do Glove).
+  Setas escolhem, Enter abre, Esc limpa a busca, sai da pasta ou fecha; roda do mouse, dois dedos
+  no touchpad e Page Up/Down trocam de página; clicar fora fecha. O campo e a grade são texturas
+  separadas (o cursor pisca sem redesenhar os ícones) e são soltas ao fechar.
 - [ ] 10.2 Espaços de trabalho (mesas virtuais) integrados ao Exposé
 - [ ] 10.3 Olhada Rápida: Espaço no Arquivos mostra a prévia do arquivo
 - [ ] 10.4 Central de notificações e avisos dos apps
