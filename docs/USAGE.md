@@ -1,0 +1,196 @@
+# Using Glove — new features (phase 10)
+
+*Em português: [USO.md](USO.md)*
+
+This guide covers what arrived in phase 10 (v0.10.1 to v0.10.9): how to open each feature,
+what it does and its shortcuts. Shortcuts with **Super** use the Windows key; with Glove running
+in a window inside another desktop, **Alt** works as Super. Every shortcut can be changed in
+**Preferences ▸ Keyboard ▸ Keyboard shortcuts**.
+
+## All Apps (app grid)
+
+Every installed program, full screen, in pages.
+
+- **Open:** the grid icon in the Dock (right after Files), the **F4** key or a hot corner
+  (Preferences ▸ Exposé & Dashboard ▸ Hot corners ▸ All Apps). On the touchpad, **pinch with four
+  fingers**.
+- **Search:** just type; the search shows every app, utilities included.
+- **Choose:** arrows and Enter, or click.
+- **Pages:** mouse wheel, two fingers on the touchpad, Page Up/Down or the dots at the bottom.
+- **Utilities:** system apps live in the Utilities folder (the first tile).
+- **Close:** Esc (first clears the search, then leaves the folder), F4 again or a click outside
+  the icons.
+
+## Desktops
+
+Several desktops, each with its own windows. There are 4 by default; change the number in
+Preferences ▸ Exposé & Dashboard ▸ Desktops (1 turns them off).
+
+- **Switch desktops:** **Ctrl+Super+←** and **Ctrl+Super+→**. The windows slide sideways and a
+  panel in the middle of the screen shows which desktop you are on. On the touchpad: **three
+  fingers sideways**.
+- **Take the window along:** add **Shift** (Ctrl+Super+Shift+← or →).
+- **In Exposé (F9):** the strip at the top shows the desktops with their windows in miniature.
+  - Click a desktop to go to it.
+  - Drag a window onto a desktop to send it there (it shrinks over the strip).
+- **Find a window:** clicking its app in the Dock, choosing it with Super+Tab or picking the
+  window in the **Window** menu takes you to the desktop it is on. The Window menu lists the
+  windows on other desktops with the desktop number.
+
+A new window always opens on the current desktop. Minimized and hidden windows come back on the
+current desktop.
+
+## Quick Look (Files)
+
+See a file without opening its program.
+
+- In Files, select an item and press **Space** (or File ▸ Quick Look, Ctrl+Y).
+- It shows pictures (with their dimensions), the first page of PDFs, the start of text and code
+  (scroll with the wheel) and, for anything else, the large icon with kind, size and date.
+- The **arrow keys** move to the next item, both in the Quick Look window and in Files.
+- **Open** opens it in its app. **Space** or **Esc** close.
+
+PDF previews use `pdftoppm` (the `poppler-utils` package).
+
+## Notification center
+
+Glove shows app notifications: Firefox, Thunderbird, `notify-send` and Glove's own apps.
+
+- Each notification appears in a **bubble** at the top right for 6 seconds. Critical ones, like
+  low battery, stay until you click.
+- **Clicking the bubble** answers the app and brings the app forward. The **×** dismisses it.
+- The **speech bubble in the menu bar** (right of the clock) shows how many are unread. Click it
+  to open the center with the last 60.
+- In the center, **Do Not Disturb** hides the bubbles, except critical ones. **Clear** empties
+  the list. Esc or a click outside closes the center.
+
+To try it: `notify-send "Hello" "A test notification"` in Terminal.
+
+## Full screen
+
+- **Ctrl+Super+F** or **Window ▸ Enter Full Screen** puts the front window on the whole monitor,
+  without a title bar. The menu bar and the Dock go away.
+- Move the pointer to the top edge to bring the menu bar (and the Dock) back.
+- The same shortcut, or Window ▸ Exit Full Screen, returns to the previous size.
+- Apps that ask for full screen themselves (Firefox's F11, videos) work too.
+
+## Tabs (Files, Text Editor and Terminal)
+
+The tab strip appears when there is more than one tab. Each tab has a **×** to close it, and the
+**+** at the end opens another.
+
+| | New tab | Switch tabs | Close the tab |
+|---|---|---|---|
+| Files | Ctrl+T (same folder), or "Open in New Tab" in a folder's menu | Ctrl+Page Up/Down | Ctrl+W |
+| Text Editor | Ctrl+Shift+T (Open… also opens in a new tab) | Ctrl+Page Up/Down | Ctrl+W (asks if there are changes) |
+| Terminal | Ctrl+Shift+T (each tab with its own shell) | Ctrl+Page Up/Down or Ctrl+Tab | Ctrl+Shift+W |
+
+## Touchpad gestures
+
+Only in the Glove session (not with Glove in a window inside another desktop).
+
+| Gesture | What it does |
+|---|---|
+| 3 fingers up | Exposé (all windows); again to go back |
+| 3 fingers down | The front app's windows |
+| 3 fingers sideways | The neighbouring desktop (content follows your fingers) |
+| Pinch with 4 fingers | All Apps |
+| Spread 4 fingers | Show the desktop |
+
+Turn them on and off in Preferences ▸ Trackpad ▸ Multiple fingers.
+
+## Backups
+
+Automatic backups of your home folder to an external disk, with a timeline.
+
+1. Open **Backups** (All Apps ▸ Utilities, or Quick Search).
+2. **Choose Disk…** and pick the external disk (or a folder).
+3. **Back Up Now** makes the first backup. With **Back up automatically every hour** checked,
+   Glove makes one every hour by itself while the disk is connected, and tells you in the
+   notification center.
+
+- Only what changed takes space: files identical to the previous backup become hard links.
+- Every backup from the last 24 hours is kept, one per day for the last month and one per week
+  before that. When the disk is nearly full, the oldest go away.
+- **Timeline:** on the left, pick a backup. On the right, browse its folders (double-click goes
+  in, **‹ Up** goes back).
+- **Restore** puts the selected item back where it came from. If something with that name
+  already exists, it comes back with "(restored)" in its name, so nothing is overwritten.
+- **Show in Files** opens the backup in Files.
+
+Backups live in `Glove Backups/<computer name>/<date>` on the disk. Caches, the Trash and program
+folders (`.cache`, `node_modules`…) are skipped. The list is in `~/.config/glove/copias.toml`.
+The disk must support hard links (ext4, btrfs, xfs…); on FAT/exFAT each backup takes its full
+size.
+
+## App Center
+
+Install and remove programs with apt (system packages) and Flatpak (Flathub).
+
+- **Search:** type a name and press Enter. Results from Flatpak and apt appear together.
+- **Installed:** apt programs with windows and your Flatpaks. **Open** or **Remove** them here.
+- **Updates:** **Check for Updates** fetches the new list (apt update) and **Update All**
+  installs it.
+- For apt, the App Center asks for the **administrator password** in a sheet. The password only
+  goes to `sudo`; it is never shown or saved.
+- Flatpak installs in your account, without a password. With no remote set up, use **Turn On
+  Flathub**.
+
+## Photos
+
+Your Pictures folder as a library.
+
+- Photos appear as thumbnails, grouped by month, newest first. The bar at the bottom changes the
+  thumbnail size.
+- In the sidebar, **Photos** shows everything, and each subfolder of Pictures becomes an
+  **album**.
+- **Double-click** (or Enter) opens the photo large:
+  - the **arrow keys** move between photos;
+  - **Space** turns the **Slideshow** on and off (4 seconds per photo);
+  - **Esc** or **‹ Library** goes back;
+  - **Open in Viewer** opens it in Viewer.
+- Photos ▸ Look for New Photos (Ctrl+R) rereads the folder.
+
+Formats: PNG, JPEG and WebP.
+
+## Recorder
+
+- The **red button** records; the same button (a square) stops. Recording ▸ Record (Ctrl+R) does
+  the same.
+- While recording: the time, the level LEDs and the waveform of the last seconds.
+- Recordings go to **Music ▸ Recordings**, as WAV, with the date in the name.
+- In the list: **Play/Stop** (or double-click, or Space), **Move to Trash** and **Show in
+  Files**.
+
+It records through PipeWire (`pw-record`); without it, it uses `parecord` or `arecord`.
+
+## Messages
+
+IRC chat.
+
+1. The first time, the account sheet appears. The default is **Libera.Chat** (open and free),
+   port 6697, with TLS. Pick a **nickname** and **channels** (for example `#debian`) and click
+   **Connect**.
+2. The sidebar holds the server (with its messages), channels and private conversations, with
+   the unread count.
+3. Type at the bottom and press Enter. Your messages appear on the right, in blue; everyone
+   else's on the left.
+
+- **+** opens a channel (`#name`) or a conversation with someone (their nickname).
+- **Commands:** `/join #channel`, `/part`, `/msg nick text`, `/me action`, `/nick new`.
+- A private message, or one with your nickname, while the window is in the background becomes a
+  notification.
+- **Account…** changes the server and nickname. The account is kept in
+  `~/.config/glove/mensagens.toml`. NickServ passwords are not stored yet.
+
+## New shortcuts
+
+| Shortcut | What it does |
+|---|---|
+| F4 | All Apps |
+| Ctrl+Super+← / → | Previous / next desktop |
+| Ctrl+Super+Shift+← / → | Move the window to the previous / next desktop |
+| Ctrl+Super+F | Full screen |
+| Space (Files) | Quick Look |
+| Ctrl+T / Ctrl+Shift+T | New tab (Files / Text Editor and Terminal) |
+| Ctrl+Page Up / Page Down | Previous / next tab |
