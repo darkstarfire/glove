@@ -2292,10 +2292,11 @@ mod tests {
     /// Todo atalho do Glove aparece em algum grupo do painel Atalhos.
     #[test]
     fn minutos() {
-        assert_eq!(super::minutes_label(0), "Nunca");
-        assert_eq!(super::minutes_label(45), "45 min");
-        assert_eq!(super::minutes_label(120), "2 horas");
-        assert_eq!(super::minutes_label(90), "1 h 30 min");
+        use glove_config::tr;
+        assert_eq!(super::minutes_label(0), tr!("Nunca"));
+        assert_eq!(super::minutes_label(45), tr!("{} min", 45));
+        assert_eq!(super::minutes_label(120), tr!("{} horas", 2));
+        assert_eq!(super::minutes_label(90), tr!("{} h {} min", 1, 30));
     }
 
     #[test]

@@ -430,8 +430,8 @@ mod tests {
         let i = glove_config::rede::Iface { device: "wlp1s0".into(), kind: "wifi".into(), state: "connected".into(), connection: "Casa".into() };
         let (_, t, s) = super::status_line(&i, "192.168.0.5/24");
         assert_eq!(t, "Wi-Fi");
-        assert_eq!(s, "Wi-Fi está conectado à rede “Casa” e tem o endereço IP 192.168.0.5.");
+        assert_eq!(s, glove_config::tr!("{} está conectado à rede “{}” e tem o endereço IP {}.", "Wi-Fi", "Casa", "192.168.0.5"));
         let e = glove_config::rede::Iface { device: "eth0".into(), kind: "ethernet".into(), state: "unavailable".into(), connection: String::new() };
-        assert_eq!(super::status_line(&e, "").2, "O cabo não está conectado.");
+        assert_eq!(super::status_line(&e, "").2, glove_config::tr!("O cabo não está conectado."));
     }
 }
