@@ -415,7 +415,7 @@ composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do 
   `~/.local/share/icons/Glove` e usado pelo Glove (desenhando na hora só o que muda, como o relógio do
   Dock) e pelos apps GTK/Qt; publicado num **repositório próprio** no GitHub (M) — v0.9.15:
   `glove-arte icones <pasta>` gera 84 ícones em 16 tamanhos (1.344 PNGs) com os nomes comuns do
-  freedesktop/GNOME como atalhos; o repositório `glove-icones` fica em ~/Projetos/glove-icones
+  freedesktop/GNOME como atalhos; o tema é publicado em github.com/fabioaacarneiro/glove-icons
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
