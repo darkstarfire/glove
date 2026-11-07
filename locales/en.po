@@ -119,3 +119,753 @@ msgstr "Colors"
 msgid "Janela"
 msgstr "Window"
 
+msgid "Abrir com"
+msgstr "Open With"
+
+msgid "Mover para a Lixeira"
+msgstr "Move to Trash"
+
+msgid "Obter Informações"
+msgstr "Get Info"
+
+msgid "Renomear"
+msgstr "Rename"
+
+msgid "Duplicar"
+msgstr "Duplicate"
+
+msgid "Criar Atalho"
+msgstr "Make Alias"
+
+msgid "Copiar"
+msgstr "Copy"
+
+msgid "Rótulo"
+msgstr "Label"
+
+msgid "Nenhum app encontrado"
+msgstr "No app found"
+
+msgid "Nenhum"
+msgstr "None"
+
+msgid "Nome"
+msgstr "Name"
+
+msgid "Data de Modificação"
+msgstr "Date Modified"
+
+msgid "Tamanho"
+msgstr "Size"
+
+msgid "Tipo"
+msgstr "Kind"
+
+msgid "Colar"
+msgstr "Paste"
+
+msgid "Alterar Fundo da Mesa…"
+msgstr "Change Desktop Background…"
+
+msgid "Limpar"
+msgstr "Clean Up"
+
+msgid "Organizar por"
+msgstr "Arrange By"
+
+msgid "Mostrar Opções de Visualização"
+msgstr "Show View Options"
+
+msgid "Nova Janela do Arquivos"
+msgstr "New Files Window"
+
+msgid "Compactar"
+msgstr "Compress"
+
+msgid "Ejetar"
+msgstr "Eject"
+
+msgid "Selecionar Tudo"
+msgstr "Select All"
+
+msgid "Computador"
+msgstr "Computer"
+
+msgid "Lixeira"
+msgstr "Trash"
+
+msgid "Sobre o Arquivos"
+msgstr "About Files"
+
+msgid "Arquivos"
+msgstr "Files"
+
+msgid "Esvaziar Lixeira…"
+msgstr "Empty Trash…"
+
+msgid "Ocultar Outros"
+msgstr "Hide Others"
+
+msgid "Mostrar Todos"
+msgstr "Show All"
+
+msgid "{} {} itens"
+msgstr "{} {} Items"
+
+msgid "Compactar “{}”"
+msgstr "Compress “{}”"
+
+msgid "Compactar {} itens"
+msgstr "Compress {} Items"
+
+msgid "Ejetar “{}”"
+msgstr "Eject “{}”"
+
+msgid "Ejetar {} discos"
+msgstr "Eject {} Disks"
+
+msgid "{} (padrão)"
+msgstr "{} (default)"
+
+msgid "Arquivo"
+msgstr "File"
+
+msgid "Editar"
+msgstr "Edit"
+
+msgid "Visualizar"
+msgstr "View"
+
+msgid "Ir"
+msgstr "Go"
+
+msgid "{} atalho"
+msgstr "{} alias"
+
+msgid "{} atalho {}"
+msgstr "{} alias {}"
+
+msgid "Pasta sem título"
+msgstr "untitled folder"
+
+msgid "Pasta sem título {}"
+msgstr "untitled folder {}"
+
+msgid "Preferências"
+msgstr "System Preferences"
+
+msgid "Calculadora"
+msgstr "Calculator"
+
+msgid "Relógio"
+msgstr "Clock"
+
+msgid "Editor de Texto"
+msgstr "TextEdit"
+
+msgid "Visualizador"
+msgstr "Preview"
+
+msgid "Terminal"
+msgstr "Terminal"
+
+msgid "Lembretes"
+msgstr "Stickies"
+
+msgid "Monitor"
+msgstr "Activity Monitor"
+
+msgid "Captura"
+msgstr "Grab"
+
+msgid "Caracteres"
+msgstr "Character Viewer"
+
+msgid "Busca"
+msgstr "Search"
+
+msgid "Discos"
+msgstr "Disk Utility"
+
+msgid "Xadrez"
+msgstr "Chess"
+
+msgid "Utilitário de Arquivo"
+msgstr "Archive Utility"
+
+msgid "Navegador"
+msgstr "Browser"
+
+msgid "Contatos"
+msgstr "Contacts"
+
+msgid "Agenda"
+msgstr "Calendar"
+
+msgid "Vídeo"
+msgstr "Video"
+
+msgid "Registros"
+msgstr "Console"
+
+msgid "Informações do Sistema"
+msgstr "System Information"
+
+msgid "Ajuda"
+msgstr "Help"
+
+msgid "Dicionário"
+msgstr "Dictionary"
+
+msgid "Livro de Fontes"
+msgstr "Font Book"
+
+msgid "Correio"
+msgstr "Mail"
+
+msgid "Desativar Ampliação"
+msgstr "Turn Magnification Off"
+
+msgid "Ativar Ampliação"
+msgstr "Turn Magnification On"
+
+msgid "Desativar Ocultação"
+msgstr "Turn Hiding Off"
+
+msgid "Ativar Ocultação"
+msgstr "Turn Hiding On"
+
+msgid "Posição à Esquerda"
+msgstr "Position on Left"
+
+msgid "Posição Embaixo"
+msgstr "Position on Bottom"
+
+msgid "Posição à Direita"
+msgstr "Position on Right"
+
+msgid "Preferências do Dock…"
+msgstr "Dock Preferences…"
+
+msgid "Sobre o Glove"
+msgstr "About Glove"
+
+msgid "Ajuda do Glove"
+msgstr "Glove Help"
+
+msgid "Preferências…"
+msgstr "System Preferences…"
+
+msgid "Dock"
+msgstr "Dock"
+
+msgid "Itens Recentes"
+msgstr "Recent Items"
+
+msgid "Forçar Encerrar…"
+msgstr "Force Quit…"
+
+msgid "Bloquear Tela"
+msgstr "Lock Screen"
+
+msgid "Repouso"
+msgstr "Sleep"
+
+msgid "Reiniciar…"
+msgstr "Restart…"
+
+msgid "Desligar…"
+msgstr "Shut Down…"
+
+msgid "Aplicativos"
+msgstr "Applications"
+
+msgid "Limpar Menu"
+msgstr "Clear Menu"
+
+msgid "Sair do Glove…"
+msgstr "Quit Glove…"
+
+msgid "Encerrar Sessão de {}…"
+msgstr "Log Out {}…"
+
+msgid "Janela de Login…"
+msgstr "Login Window…"
+
+msgid "Abrir Preferências de Contas…"
+msgstr "Open Accounts Preferences…"
+
+msgid "Bateria carregada"
+msgstr "Battery charged"
+
+msgid "Mostrar porcentagem"
+msgstr "Show Percentage"
+
+msgid "Abrir Economizador de Energia…"
+msgstr "Open Energy Saver…"
+
+msgid "Abrir Preferências de Teclado…"
+msgstr "Open Keyboard Preferences…"
+
+msgid "Ver como Digital"
+msgstr "View as Digital"
+
+msgid "Ver como Analógico"
+msgstr "View as Analog"
+
+msgid "Abrir Data e Hora…"
+msgstr "Open Date & Time…"
+
+msgid "Wi-Fi: Ligado"
+msgstr "Wi-Fi: On"
+
+msgid "Wi-Fi: Desligado"
+msgstr "Wi-Fi: Off"
+
+msgid "Desligar Wi-Fi"
+msgstr "Turn Wi-Fi Off"
+
+msgid "Ligar Wi-Fi"
+msgstr "Turn Wi-Fi On"
+
+msgid "Nenhuma rede encontrada"
+msgstr "No networks found"
+
+msgid "Entrar em Outra Rede…"
+msgstr "Join Other Network…"
+
+msgid "Abrir Preferências de Rede…"
+msgstr "Open Network Preferences…"
+
+msgid "Janela do Glove"
+msgstr "Glove Window"
+
+msgid "Nenhum monitor"
+msgstr "No display"
+
+msgid "Abrir Preferências de Monitor…"
+msgstr "Open Displays Preferences…"
+
+msgid "Restam cerca de {}:{}"
+msgstr "About {}:{} remaining"
+
+msgid "Carregando: {}%"
+msgstr "Charging: {}%"
+
+msgid "Bateria: {}%"
+msgstr "Battery: {}%"
+
+msgid "Fonte de energia: {}"
+msgstr "Power Source: {}"
+
+msgid "Adaptador"
+msgstr "Power Adapter"
+
+msgid "Bateria"
+msgstr "Battery"
+
+msgid "domingo"
+msgstr "Sunday"
+
+msgid "segunda-feira"
+msgstr "Monday"
+
+msgid "terça-feira"
+msgstr "Tuesday"
+
+msgid "quarta-feira"
+msgstr "Wednesday"
+
+msgid "quinta-feira"
+msgstr "Thursday"
+
+msgid "sexta-feira"
+msgstr "Friday"
+
+msgid "sábado"
+msgstr "Saturday"
+
+msgid "janeiro"
+msgstr "January"
+
+msgid "fevereiro"
+msgstr "February"
+
+msgid "março"
+msgstr "March"
+
+msgid "abril"
+msgstr "April"
+
+msgid "maio"
+msgstr "May"
+
+msgid "junho"
+msgstr "June"
+
+msgid "julho"
+msgstr "July"
+
+msgid "agosto"
+msgstr "August"
+
+msgid "setembro"
+msgstr "September"
+
+msgid "outubro"
+msgstr "October"
+
+msgid "novembro"
+msgstr "November"
+
+msgid "dezembro"
+msgstr "December"
+
+msgid "{0}, {1} de {2} de {3}"
+msgstr "{0}, {2} {1}, {3}"
+
+msgid "Pastas"
+msgstr "Folders"
+
+msgid "Outros"
+msgstr "Other"
+
+msgid "Atualização de Software"
+msgstr "Software Update"
+
+msgid "Disco de Inicialização"
+msgstr "Startup Disk"
+
+msgid "Fala (voz)"
+msgstr "Speech (voice)"
+
+msgid "Impressão (impressoras)"
+msgstr "Print & Fax (printers)"
+
+msgid "Mídia Removível (pendrive)"
+msgstr "Removable Media (USB drive)"
+
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+msgid "Compartilhamento (nome do computador)"
+msgstr "Sharing (computer name)"
+
+msgid "Aplicativos Padrão (abrir com)"
+msgstr "Default Apps (open with)"
+
+msgid "Contas (usuário, senha, imagem)"
+msgstr "Accounts (user, password, picture)"
+
+msgid "Internacional (idioma, formatos)"
+msgstr "International (language, formats)"
+
+msgid "Protetor de Tela"
+msgstr "Screen Saver"
+
+msgid "Acesso Universal (zoom, cores)"
+msgstr "Universal Access (zoom, colors)"
+
+msgid "Itens de Início"
+msgstr "Login Items"
+
+msgid "Menu de Entrada (layouts de teclado)"
+msgstr "Input Menu (keyboard layouts)"
+
+msgid "Data e Hora (relógio, fuso)"
+msgstr "Date & Time (clock, time zone)"
+
+msgid "Rede (Wi-Fi)"
+msgstr "Network (Wi-Fi)"
+
+msgid "Economizador de Energia"
+msgstr "Energy Saver"
+
+msgid "Som (volume)"
+msgstr "Sound (volume)"
+
+msgid "Aparência"
+msgstr "Appearance"
+
+msgid "Mesa (papel de parede)"
+msgstr "Desktop (wallpaper)"
+
+msgid "Monitores"
+msgstr "Displays"
+
+msgid "Teclado"
+msgstr "Keyboard"
+
+msgid "Mouse"
+msgstr "Mouse"
+
+msgid "Trackpad"
+msgstr "Trackpad"
+
+msgid "Atalhos de teclado"
+msgstr "Keyboard Shortcuts"
+
+msgid "Segurança (senha, firewall)"
+msgstr "Security (password, firewall)"
+
+msgid "Busca Rápida (categorias, privacidade)"
+msgstr "Spotlight (categories, privacy)"
+
+msgid "Exposé e Painel (cantos ativos)"
+msgstr "Exposé & Dashboard (hot corners)"
+
+msgid "Manter no Dock"
+msgstr "Keep in Dock"
+
+msgid "Mostrar no Arquivos"
+msgstr "Show in Files"
+
+msgid "Abrir Outra Instância"
+msgstr "Open Another Instance"
+
+msgid "Ocultar"
+msgstr "Hide"
+
+msgid "Encerrar"
+msgstr "Quit"
+
+msgid "Minimizar"
+msgstr "Minimize"
+
+msgid "Zoom"
+msgstr "Zoom"
+
+msgid "Trazer Todas para a Frente"
+msgstr "Bring All to Front"
+
+msgid "Sobre {}"
+msgstr "About {}"
+
+msgid "Ocultar {}"
+msgstr "Hide {}"
+
+msgid "Encerrar {}"
+msgstr "Quit {}"
+
+msgid "Saindo do Glove…"
+msgstr "Quitting Glove…"
+
+msgid "Encerrando a sessão…"
+msgstr "Logging out…"
+
+msgid "Reiniciando…"
+msgstr "Restarting…"
+
+msgid "Desligando…"
+msgstr "Shutting down…"
+
+msgid "Senha incorreta. Tente de novo."
+msgstr "Wrong password. Try again."
+
+msgid "Captura de tela {} às {}.png"
+msgstr "Screenshot {} at {}.png"
+
+msgid "Nenhum monitor conectado."
+msgstr "No display connected."
+
+msgid "Tela embutida"
+msgstr "Built-in Display"
+
+msgid "Monitor HDMI"
+msgstr "HDMI Display"
+
+msgid "Monitor DisplayPort"
+msgstr "DisplayPort Display"
+
+msgid "Monitor DVI"
+msgstr "DVI Display"
+
+msgid "Monitor VGA"
+msgstr "VGA Display"
+
+msgid "Erro"
+msgstr "Error"
+
+msgid "Sem conexão"
+msgstr "No connection"
+
+msgid "Cidade não achada"
+msgstr "City not found"
+
+msgid "Sem dados"
+msgstr "No data"
+
+msgid "Buscando…"
+msgstr "Loading…"
+
+msgid "{} de {} GB"
+msgstr "{} of {} GB"
+
+msgid "Preparando a área de trabalho…"
+msgstr "Preparing the desktop…"
+
+msgid "Iniciando a barra de menu…"
+msgstr "Starting the menu bar…"
+
+msgid "Iniciando o Dock…"
+msgstr "Starting the Dock…"
+
+msgid "Abrindo os itens de início…"
+msgstr "Opening login items…"
+
+msgid "Deseja forçar o encerramento de “{}”?"
+msgstr "Do you want to force “{}” to quit?"
+
+msgid "Monitor|tela"
+msgstr "Display"
+
+msgid "Placa de vídeo: {}"
+msgstr "Graphics card: {}"
+
+msgid "{}  {} mm × {} mm  recomendada {}  escala automática {}  ({} resoluções)"
+msgstr "{}  {} mm × {} mm  preferred {}  automatic scale {}  ({} resolutions)"
+
+msgid "principal"
+msgstr "main"
+
+msgid "espelho"
+msgstr "mirror"
+
+msgid "extra"
+msgstr "extra"
+
+msgid "A sessão usaria ({}): {} em {} com escala {} (área de {} × {} pontos, em {}, {})"
+msgstr "The session would use ({}): {} at {} with scale {} ({} × {} points, at {}, {})"
+
+msgid "Calendário"
+msgstr "Calendar"
+
+msgid "Clima"
+msgstr "Weather"
+
+msgid "Lembrete"
+msgstr "Stickies"
+
+msgid "Digite a cidade e Enter"
+msgstr "Type a city and press Enter"
+
+msgid "Escreva aqui…"
+msgstr "Write here…"
+
+msgid "Processador"
+msgstr "Processor"
+
+msgid "Memória"
+msgstr "Memory"
+
+msgid "Procurar palavra"
+msgstr "Look up a word"
+
+msgid "Máx {}°   Mín {}°"
+msgstr "High {}°   Low {}°"
+
+msgid "Dom"
+msgstr "Sun"
+
+msgid "Seg"
+msgstr "Mon"
+
+msgid "Ter"
+msgstr "Tue"
+
+msgid "Qua"
+msgstr "Wed"
+
+msgid "Qui"
+msgstr "Thu"
+
+msgid "Sex"
+msgstr "Fri"
+
+msgid "Sáb"
+msgstr "Sat"
+
+msgid "Claro"
+msgstr "Light"
+
+msgid "Listras"
+msgstr "Stripes"
+
+msgid "Metal"
+msgstr "Metal"
+
+msgid "Grafite"
+msgstr "Graphite"
+
+msgid "Espaço"
+msgstr "Space"
+
+msgid "Forçar Encerrar"
+msgstr "Force Quit"
+
+msgid "Forçar Encerrar Aplicativos"
+msgstr "Force Quit Applications"
+
+msgid "Alterações não salvas serão perdidas."
+msgstr "Unsaved changes will be lost."
+
+msgid "(não responde)"
+msgstr "(not responding)"
+
+msgid "Esta tela está bloqueada."
+msgstr "This screen is locked."
+
+msgid "Digite sua senha para desbloquear."
+msgstr "Enter your password to unlock."
+
+msgid "Desbloquear"
+msgstr "Unlock"
+
+msgid "Busca Rápida"
+msgstr "Spotlight"
+
+msgid "Nenhum resultado"
+msgstr "No results"
+
+msgid "Se um aplicativo não responder por algum tempo, selecione o nome dele e clique em Forçar Encerrar."
+msgstr "If an application doesn’t respond for a while, select its name and click Force Quit."
+
+msgid "jan"
+msgstr "Jan"
+
+msgid "fev"
+msgstr "Feb"
+
+msgid "mar"
+msgstr "Mar"
+
+msgid "abr"
+msgstr "Apr"
+
+msgid "mai"
+msgstr "May"
+
+msgid "jun"
+msgstr "Jun"
+
+msgid "jul"
+msgstr "Jul"
+
+msgid "ago"
+msgstr "Aug"
+
+msgid "set"
+msgstr "Sep"
+
+msgid "out"
+msgstr "Oct"
+
+msgid "nov"
+msgstr "Nov"
+
+msgid "dez"
+msgstr "Dec"
+
+msgid "{0} {1} "
+msgstr "{1} {0} "
+

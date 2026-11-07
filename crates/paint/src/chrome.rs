@@ -2,6 +2,7 @@
 //! barra de menu, menus suspensos e o Dock. Tudo em coordenadas lógicas,
 //! gerado na escala da tela.
 
+use glove_i18n::tr;
 use crate::draw::*;
 use crate::font::Fonts;
 use crate::icons::{self, Icon};
@@ -382,7 +383,7 @@ fn shortcut_parts(s: &str) -> (String, String) {
         "equal" => "=",
         "minus" => "-",
         "plus" => "+",
-        "space" => "Espaço",
+        "space" => tr!("Espaço"),
         other => other,
     };
     let key = if key.chars().count() == 1 { key.to_uppercase() } else { key.to_string() };
@@ -1206,7 +1207,7 @@ fn fq_layout(fonts: &Fonts, rows: usize, question: Option<&str>) -> FqLayout {
     let top = TITLE_H as f32;
     let text_lines = match question {
         Some(q) => fq_wrap(fonts, q, 13.0, true, FQ_W - 2.0 * FQ_PAD).len() + 1,
-        None => fq_wrap(fonts, FQ_INFO, FQ_TEXT_PX, false, FQ_W - 2.0 * FQ_PAD).len(),
+        None => fq_wrap(fonts, glove_i18n::tr(FQ_INFO), FQ_TEXT_PX, false, FQ_W - 2.0 * FQ_PAD).len(),
     };
     let text_y = top + 14.0;
     let text_h = text_lines as f32 * 16.0;
@@ -1214,10 +1215,10 @@ fn fq_layout(fonts: &Fonts, rows: usize, question: Option<&str>) -> FqLayout {
     let list_h = rows.clamp(FQ_ROWS_MIN, FQ_ROWS_MAX) as f32 * FQ_ROW_H + 2.0;
     let btn_y = list_y + list_h + 16.0;
     let label_w = |t: &str| (fonts.measure(t, 13.0, false) + 36.0).max(90.0).ceil();
-    let cw = label_w("Forçar Encerrar");
+    let cw = label_w(tr!("Forçar Encerrar"));
     let confirm = (FQ_W - FQ_PAD - cw, btn_y, cw, FQ_BTN_H);
     let cancel = question.map(|_| {
-        let w = label_w("Cancelar");
+        let w = label_w(tr!("Cancelar"));
         (confirm.0 - 12.0 - w, btn_y, w, FQ_BTN_H)
     });
     FqLayout { h: btn_y + FQ_BTN_H + FQ_PAD, text_y, list: (FQ_PAD, list_y, FQ_W - 2.0 * FQ_PAD, list_h), confirm, cancel }
@@ -1268,7 +1269,7 @@ pub fn force_quit_panel(fonts: &Fonts, theme: &Theme, rows: &[ForceQuitRow], sel
     c.fill_rect(x0, y0, w, h, &solid(theme.body_b));
     c.pinstripes(x0, y0, w, h, theme.body_a, theme.body_b);
     let st = TitleBarState { active: true, hover: title_hover, pressed: match pressed { Some(FqHit::Title(b)) => b, _ => None }, zoom_enabled: false, edited: false, pill: false };
-    if let Some(t) = titlebar(fonts, theme, w, "Forçar Encerrar Aplicativos", &st, None, scale) {
+    if let Some(t) = titlebar(fonts, theme, w, tr!("Forçar Encerrar Aplicativos"), &st, None, scale) {
         c.draw_canvas(&t, x0, y0);
     }
     let ink = rgba(20, 20, 20, 255);
@@ -1281,10 +1282,10 @@ pub fn force_quit_panel(fonts: &Fonts, theme: &Theme, rows: &[ForceQuitRow], sel
                 fonts.draw(&mut c, &line, x0 + FQ_PAD, ty, 13.0, true, ink);
                 ty += 16.0;
             }
-            fonts.draw(&mut c, "Alterações não salvas serão perdidas.", x0 + FQ_PAD, ty, FQ_TEXT_PX, false, rgba(40, 40, 40, 255));
+            fonts.draw(&mut c, tr!("Alterações não salvas serão perdidas."), x0 + FQ_PAD, ty, FQ_TEXT_PX, false, rgba(40, 40, 40, 255));
         }
         None => {
-            for line in fq_wrap(fonts, FQ_INFO, FQ_TEXT_PX, false, w - 2.0 * FQ_PAD) {
+            for line in fq_wrap(fonts, glove_i18n::tr(FQ_INFO), FQ_TEXT_PX, false, w - 2.0 * FQ_PAD) {
                 fonts.draw(&mut c, &line, x0 + FQ_PAD, ty, FQ_TEXT_PX, false, ink);
                 ty += 16.0;
             }
@@ -1309,7 +1310,7 @@ pub fn force_quit_panel(fonts: &Fonts, theme: &Theme, rows: &[ForceQuitRow], sel
         if r.hung {
             let nw = fonts.measure(&r.name, 13.0, false);
             let red = if sel && question.is_none() { rgba(255, 210, 210, 255) } else { rgba(200, 30, 30, 255) };
-            fonts.draw(&mut c, "(não responde)", lx + 28.0 + nw + 6.0, ry + 15.5, 13.0, false, red);
+            fonts.draw(&mut c, tr!("(não responde)"), lx + 28.0 + nw + 6.0, ry + 15.5, 13.0, false, red);
         }
     }
 
@@ -1323,15 +1324,15 @@ pub fn force_quit_panel(fonts: &Fonts, theme: &Theme, rows: &[ForceQuitRow], sel
     };
     let can_quit = selected.is_some_and(|s| s < rows.len());
     if let Some(cr) = l.cancel {
-        button(&mut c, cr, "Cancelar", false, pressed == Some(FqHit::Cancel));
+        button(&mut c, cr, tr!("Cancelar"), false, pressed == Some(FqHit::Cancel));
     }
     if can_quit {
-        button(&mut c, l.confirm, "Forçar Encerrar", true, pressed == Some(FqHit::Confirm));
+        button(&mut c, l.confirm, tr!("Forçar Encerrar"), true, pressed == Some(FqHit::Confirm));
     } else {
         let r = l.confirm;
         gel_rect(&mut c, x0 + r.0, y0 + r.1, r.2, r.3, r.3 / 2.0, rgba(238, 238, 240, 160));
-        let tw = fonts.measure("Forçar Encerrar", 13.0, false);
-        fonts.draw(&mut c, "Forçar Encerrar", x0 + r.0 + (r.2 - tw) / 2.0, y0 + r.1 + 15.5, 13.0, false, rgba(150, 150, 150, 255));
+        let tw = fonts.measure(tr!("Forçar Encerrar"), 13.0, false);
+        fonts.draw(&mut c, tr!("Forçar Encerrar"), x0 + r.0 + (r.2 - tw) / 2.0, y0 + r.1 + 15.5, 13.0, false, rgba(150, 150, 150, 255));
     }
     Some(c)
 }
@@ -1665,8 +1666,8 @@ pub fn lock_panel(fonts: &Fonts, theme: &Theme, name: &str, dots: usize, message
     user_picture(&mut c, x0 + 20.0, y0 + 22.0, 76.0, theme.accent);
     let ink = rgba(20, 20, 20, 255);
     fonts.draw(&mut c, name, x0 + 112.0, y0 + 40.0, 15.0, true, ink);
-    fonts.draw(&mut c, "Esta tela está bloqueada.", x0 + 112.0, y0 + 62.0, 11.0, false, rgba(50, 50, 50, 255));
-    fonts.draw(&mut c, "Digite sua senha para desbloquear.", x0 + 112.0, y0 + 78.0, 11.0, false, rgba(50, 50, 50, 255));
+    fonts.draw(&mut c, tr!("Esta tela está bloqueada."), x0 + 112.0, y0 + 62.0, 11.0, false, rgba(50, 50, 50, 255));
+    fonts.draw(&mut c, tr!("Digite sua senha para desbloquear."), x0 + 112.0, y0 + 78.0, 11.0, false, rgba(50, 50, 50, 255));
 
     // Campo de senha
     let (fx, fy, fw, fh) = LOCK_FIELD;
@@ -1693,7 +1694,7 @@ pub fn lock_panel(fonts: &Fonts, theme: &Theme, name: &str, dots: usize, message
     let (bx, by, bw, bh) = lock_button_rect();
     let base = if busy { rgba(225, 225, 228, 255) } else { theme.accent };
     gel_rect(&mut c, x0 + bx, y0 + by, bw, bh, bh / 2.0, if pressed { darken(base, 0.2) } else { base });
-    let label = "Desbloquear";
+    let label = tr!("Desbloquear");
     let tw = fonts.measure(label, 13.0, false);
     fonts.draw(&mut c, label, x0 + bx + (bw - tw) / 2.0, y0 + by + 15.5, 13.0, false, if busy { rgba(140, 140, 140, 255) } else { ink });
     Some(c)
@@ -1789,14 +1790,16 @@ pub fn quick_search(fonts: &Fonts, theme: &Theme, query: &str, caret: bool, rows
         c.draw_canvas(&sh, 0.0, 0.0);
     }
     let x0 = m;
+    // Coluna das categorias: cabe o nome maior (os nomes mudam com o idioma).
+    let label_w = rows.iter().filter_map(|r| r.section.as_ref()).map(|t| fonts.measure(t, 11.0, true) + 26.0).fold(QS_LABEL_W, f32::max);
     c.fill_rect(x0, 0.0, w, h, &solid(rgba(250, 250, 251, 250)));
 
     // Faixa de cima em azul, com o nome e o campo em cápsula.
     let a = theme.accent;
     c.fill_rect(x0, 0.0, w, QS_HEADER, &vgrad(0.0, QS_HEADER, &[(0.0, lighten(a, 0.35)), (1.0, lighten(a, 0.05))]));
     c.hline(x0, QS_HEADER - 1.0, w, darken(a, 0.25));
-    fonts.draw(&mut c, "Busca Rápida", x0 + 12.0, 24.0, 13.0, true, Color::WHITE);
-    let (fx, fy, fw, fh) = (x0 + QS_LABEL_W, 8.0, w - QS_LABEL_W - 10.0, 22.0);
+    fonts.draw(&mut c, tr!("Busca Rápida"), x0 + 12.0, 24.0, 13.0, true, Color::WHITE);
+    let (fx, fy, fw, fh) = (x0 + label_w, 8.0, w - label_w - 10.0, 22.0);
     c.fill(rrect(fx, fy, fw, fh, fh / 2.0), &solid(Color::WHITE));
     c.stroke(rrect(fx + 0.5, fy + 0.5, fw - 1.0, fh - 1.0, fh / 2.0), &solid(darken(a, 0.35)), 1.0);
     magnifier_glyph(&mut c, fx + 7.0, fy + 5.0, 12.0, rgba(110, 110, 110, 255));
@@ -1819,10 +1822,10 @@ pub fn quick_search(fonts: &Fonts, theme: &Theme, query: &str, caret: bool, rows
     if !query.is_empty() {
         let y0 = QS_HEADER + QS_PAD;
         if none {
-            fonts.draw(&mut c, "Nenhum resultado", x0 + QS_LABEL_W + 26.0, y0 + 15.0, 13.0, false, rgba(120, 120, 120, 255));
+            fonts.draw(&mut c, tr!("Nenhum resultado"), x0 + label_w + 26.0, y0 + 15.0, 13.0, false, rgba(120, 120, 120, 255));
         }
         // Coluna das seções em cinza claro.
-        c.fill_rect(x0, QS_HEADER, QS_LABEL_W - 8.0, h - QS_HEADER, &solid(rgba(238, 240, 243, 255)));
+        c.fill_rect(x0, QS_HEADER, label_w - 8.0, h - QS_HEADER, &solid(rgba(238, 240, 243, 255)));
         for (i, r) in rows.iter().enumerate() {
             let y = y0 + i as f32 * QS_ROW_H;
             if let Some(sec) = &r.section {
@@ -1830,22 +1833,22 @@ pub fn quick_search(fonts: &Fonts, theme: &Theme, query: &str, caret: bool, rows
                     c.hline(x0, y - 0.5, w, rgba(222, 224, 228, 255));
                 }
                 let sw = fonts.measure(sec, 11.0, true);
-                fonts.draw(&mut c, sec, x0 + QS_LABEL_W - 16.0 - sw, y + 14.5, 11.0, true, rgba(110, 112, 118, 255));
+                fonts.draw(&mut c, sec, x0 + label_w - 16.0 - sw, y + 14.5, 11.0, true, rgba(110, 112, 118, 255));
             }
             let sel = selected == Some(i);
             if sel {
-                c.fill_rect(x0 + QS_LABEL_W - 8.0, y, w - QS_LABEL_W + 8.0, QS_ROW_H, &solid(theme.menu_hot));
+                c.fill_rect(x0 + label_w - 8.0, y, w - label_w + 8.0, QS_ROW_H, &solid(theme.menu_hot));
             }
-            icons::draw_bare(&mut c, fonts, r.icon, x0 + QS_LABEL_W, y + 2.5, 16.0, None);
+            icons::draw_bare(&mut c, fonts, r.icon, x0 + label_w, y + 2.5, 16.0, None);
             let mut name = r.name.clone();
-            let max = w - QS_LABEL_W - 34.0;
+            let max = w - label_w - 34.0;
             if fonts.measure(&name, 13.0, false) > max {
                 while fonts.measure(&format!("{name}…"), 13.0, false) > max && !name.is_empty() {
                     name.pop();
                 }
                 name.push('…');
             }
-            fonts.draw(&mut c, &name, x0 + QS_LABEL_W + 22.0, y + 15.0, 13.0, false, if sel { Color::WHITE } else { ink });
+            fonts.draw(&mut c, &name, x0 + label_w + 22.0, y + 15.0, 13.0, false, if sel { Color::WHITE } else { ink });
         }
     }
     c.stroke(rrect(x0, 0.0, w, h, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / scale);

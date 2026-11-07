@@ -7,6 +7,7 @@
 //! espelham a mesma imagem ou ficam apagados ("um"). Cada tela desenha só quando algo
 //! mudou, no ritmo dela (vblank).
 
+use glove_config::tr;
 use std::time::Duration;
 
 use glove_config::{auto_scale, parse_mode, OutputInfo, OutputsInfo};
@@ -259,22 +260,25 @@ pub fn probe(config: &glove_config::Config) -> Result<(), Box<dyn std::error::Er
     let path = udev::primary_gpu("seat0")?.or_else(|| udev::all_gpus("seat0").ok()?.into_iter().next()).ok_or("nenhuma placa de vídeo encontrada")?;
     let file = std::fs::File::open(&path)?;
     let fd = DrmDeviceFd::new(DeviceFd::from(std::os::fd::OwnedFd::from(file)));
-    println!("Placa de vídeo: {}", path.display());
+    println!("{}", tr!("Placa de vídeo: {}", path.display()));
     let list = connected_on(&fd);
     for c in &list {
         let pref = choose_mode(&c.modes, "").map(|m| mode_string(&m)).unwrap_or_default();
         let auto = choose_mode(&c.modes, "").map(|m| auto_scale((m.size().0 as u32, m.size().1 as u32), c.size_mm)).unwrap_or(1.0);
-        println!("  {}  {} mm × {} mm  recomendada {pref}  escala automática {auto}  ({} resoluções)", describe(&c.name), c.size_mm.0, c.size_mm.1, c.modes.len());
+        println!("  {}", tr!("{}  {} mm × {} mm  recomendada {}  escala automática {}  ({} resoluções)", describe(&c.name), c.size_mm.0, c.size_mm.1, pref, auto, c.modes.len()));
     }
     let (plans, mirror) = plan(&list, &config.monitor, &[]);
     if plans.is_empty() {
-        println!("Nenhum monitor conectado.");
+        println!("{}", tr!("Nenhum monitor conectado."));
     }
     for (i, p) in plans.iter().enumerate() {
         let (w, h) = p.mode.size();
-        let papel = if i == 0 { "principal" } else if mirror { "espelho" } else { "extra" };
+        let papel = if i == 0 { tr!("principal") } else if mirror { tr!("espelho") } else { tr!("extra") };
         println!(
-            "A sessão usaria ({papel}): {} em {} com escala {} (área de {} × {} pontos, em {}, {})",
+            "{}",
+            tr!(
+            "A sessão usaria ({}): {} em {} com escala {} (área de {} × {} pontos, em {}, {})",
+            papel,
             p.c.name,
             mode_string(&p.mode),
             p.scale,
@@ -282,6 +286,7 @@ pub fn probe(config: &glove_config::Config) -> Result<(), Box<dyn std::error::Er
             (h as f64 / p.scale).round(),
             p.pos.0,
             p.pos.1
+            )
         );
     }
     Ok(())
@@ -457,17 +462,17 @@ fn write_outputs_info(list: &[Connected], heads: &[Head]) {
 
 fn describe(name: &str) -> String {
     let kind = if is_internal(name) {
-        "Tela embutida"
+        tr!("Tela embutida")
     } else if name.starts_with("HDMI") {
-        "Monitor HDMI"
+        tr!("Monitor HDMI")
     } else if name.starts_with("DP") {
-        "Monitor DisplayPort"
+        tr!("Monitor DisplayPort")
     } else if name.starts_with("DVI") {
-        "Monitor DVI"
+        tr!("Monitor DVI")
     } else if name.starts_with("VGA") {
-        "Monitor VGA"
+        tr!("Monitor VGA")
     } else {
-        "Monitor"
+        tr!("Monitor|tela")
     };
     format!("{kind} ({name})")
 }
@@ -783,7 +788,7 @@ mod tests {
     fn nomes_de_tela() {
         assert!(is_internal("eDP-1"));
         assert!(!is_internal("HDMI-A-1"));
-        assert_eq!(describe("HDMI-A-1"), "Monitor HDMI (HDMI-A-1)");
+        assert_eq!(describe("HDMI-A-1"), format!("{} (HDMI-A-1)", tr!("Monitor HDMI")));
     }
 
     #[test]

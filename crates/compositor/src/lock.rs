@@ -6,6 +6,7 @@
 //!   recebe teclado ou mouse. A senha é conferida pelo PAM numa thread à parte.
 //! - Tampa fechada: apaga e bloqueia; aberta: acende.
 
+use glove_config::tr;
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     time::{Duration, Instant},
@@ -301,7 +302,7 @@ impl Glove {
                             tracing::info!("senha recusada: {e}");
                             if let Some(l) = &mut st.lock {
                                 l.busy = false;
-                                l.message = Some("Senha incorreta. Tente de novo.".into());
+                                l.message = Some(tr!("Senha incorreta. Tente de novo.").into());
                                 l.shake_since = Some(Instant::now());
                             }
                             st.dirty = true;

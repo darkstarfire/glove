@@ -72,11 +72,10 @@ def marcar(arquivo, lista):
             continue
         i = linha - 1
         lit = literal_rust(pt)
-        if f"tr!({lit}" in linhas[i]:
-            continue
         if lit not in linhas[i]:
             sys.exit(f"{arquivo}:{linha}: não achei {lit} em: {linhas[i].strip()}")
-        linhas[i] = linhas[i].replace(lit, f"tr!({lit})", 1)
+        # Todas as ocorrências ainda sem tr!( na linha.
+        linhas[i] = re.sub(r"(?<!tr!\()" + re.escape(lit), lambda m: f"tr!({lit})", linhas[i])
     texto = "\n".join(linhas)
     if "tr!(" in texto and not re.search(r"^use glove_config::(tr|\{[^}]*\btr\b)", texto, re.M) and "macro_rules! tr" not in texto:
         # Depois dos comentários de abertura (//!) e dos atributos do arquivo.

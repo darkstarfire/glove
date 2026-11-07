@@ -1,6 +1,7 @@
 //! Temas. Cada variante lembra uma fase da era "gel" dos anos 2000,
 //! com nomes e arte próprios.
 
+use glove_i18n::tr;
 use crate::draw::rgba;
 use tiny_skia::Color;
 
@@ -31,10 +32,10 @@ impl Variant {
 
     pub fn label(self) -> &'static str {
         match self {
-            Variant::Claro => "Claro",
-            Variant::Listras => "Listras",
-            Variant::Metal => "Metal",
-            Variant::Grafite => "Grafite",
+            Variant::Claro => tr!("Claro"),
+            Variant::Listras => tr!("Listras"),
+            Variant::Metal => tr!("Metal"),
+            Variant::Grafite => tr!("Grafite"),
         }
     }
 

@@ -8,6 +8,7 @@
 //! com progresso, Obter Informações, Opções de Visualização) fica com o
 //! `glove-files`, chamado com `--abrir`, `--transferir`, `--info`…
 
+use glove_config::tr;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime};
@@ -236,8 +237,12 @@ fn desktop_entry(p: &Path) -> Option<(String, Icon)> {
         }
         if let Some(v) = l.strip_prefix("Name=") {
             name.get_or_insert(v.trim().to_string());
-        } else if let Some(v) = l.strip_prefix("Name[pt_BR]=").or_else(|| l.strip_prefix("Name[pt]=")) {
-            name_pt.get_or_insert(v.trim().to_string());
+        } else if let Some((loc, v)) = l.strip_prefix("Name[").and_then(|r| r.split_once("]=")) {
+            // O nome no idioma em uso (Name[pt_BR], Name[en]…).
+            let lang = glove_config::idioma();
+            if loc == lang || loc.starts_with(&format!("{lang}_")) {
+                name_pt.get_or_insert(v.trim().to_string());
+            }
         } else if let Some(v) = l.strip_prefix("Icon=") {
             icon.get_or_insert(v.trim().to_string());
         }
@@ -388,7 +393,7 @@ impl Glove {
         let d = &self.config.desk;
         let mut mounts = Vec::new();
         if d.show_disks {
-            mounts.push(("Disco".to_string(), PathBuf::from("/")));
+            mounts.push((tr!("Disco").to_string(), PathBuf::from("/")));
         }
         let removable_now = glove_config::discos::removable_mounts();
         // Sumiu um pendrive e o aparelho não existe mais, sem o Glove ter ejetado: arrancado.
@@ -1002,40 +1007,40 @@ impl Glove {
         let n = chosen.len();
         let one = n == 1;
         let files = chosen.iter().all(DeskItem::is_file);
-        let many = |t: &str| if one { t.to_string() } else { format!("{t} {n} itens") };
+        let many = |t: &str| if one { t.to_string() } else { tr!("{} {} itens", t, n) };
         let act = |c: DeskCmd| Some(MenuAction::Desk(c));
         let on = |it: MenuItem, b: bool| if b { it } else { it.disabled() };
         let compress = match chosen.as_slice() {
-            [one] => format!("Compactar “{}”", one.name),
-            _ => format!("Compactar {n} itens"),
+            [one] => tr!("Compactar “{}”", one.name),
+            _ => tr!("Compactar {} itens", n),
         };
-        let mut v = vec![MenuNode::new(MenuItem::item(many("Abrir")), act(DeskCmd::Open))];
+        let mut v = vec![MenuNode::new(MenuItem::item(many(tr!("Abrir"))), act(DeskCmd::Open))];
         // Pendrives: Ejetar logo abaixo de Abrir.
         if !chosen.is_empty() && chosen.iter().all(|i| i.kind == DeskKind::Removable) {
             let label = match chosen.as_slice() {
-                [one] => format!("Ejetar “{}”", one.name),
-                _ => format!("Ejetar {n} discos"),
+                [one] => tr!("Ejetar “{}”", one.name),
+                _ => tr!("Ejetar {} discos", n),
             };
             v.push(MenuNode::new(MenuItem::item(label), act(DeskCmd::Eject)));
         }
         // Abrir com: só para um arquivo (não pastas nem discos).
         if let [it] = chosen.as_slice() {
             if matches!(it.kind, DeskKind::File) {
-                v.push(MenuNode::submenu("Abrir com", self.open_with_nodes(&it.path)));
+                v.push(MenuNode::submenu(tr!("Abrir com"), self.open_with_nodes(&it.path)));
             }
         }
         v.extend([
-            MenuNode::new(on(MenuItem::item("Mover para a Lixeira"), files), act(DeskCmd::Trash)),
+            MenuNode::new(on(MenuItem::item(tr!("Mover para a Lixeira")), files), act(DeskCmd::Trash)),
             MenuNode::sep(),
-            MenuNode::new(on(MenuItem::item("Obter Informações"), one), act(DeskCmd::Info)),
-            MenuNode::new(on(MenuItem::item("Renomear"), one && files), act(DeskCmd::Rename)),
+            MenuNode::new(on(MenuItem::item(tr!("Obter Informações")), one), act(DeskCmd::Info)),
+            MenuNode::new(on(MenuItem::item(tr!("Renomear")), one && files), act(DeskCmd::Rename)),
             MenuNode::new(on(MenuItem::item(compress), files), act(DeskCmd::Compress)),
-            MenuNode::new(on(MenuItem::item("Duplicar"), files), act(DeskCmd::Duplicate)),
-            MenuNode::new(on(MenuItem::item("Criar Atalho"), one), act(DeskCmd::Alias)),
+            MenuNode::new(on(MenuItem::item(tr!("Duplicar")), files), act(DeskCmd::Duplicate)),
+            MenuNode::new(on(MenuItem::item(tr!("Criar Atalho")), one), act(DeskCmd::Alias)),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item(many("Copiar")), act(DeskCmd::Copy)),
+            MenuNode::new(MenuItem::item(many(tr!("Copiar"))), act(DeskCmd::Copy)),
             MenuNode::sep(),
-            MenuNode::submenu("Rótulo", self.label_nodes()),
+            MenuNode::submenu(tr!("Rótulo"), self.label_nodes()),
         ]);
         v
     }
@@ -1048,14 +1053,14 @@ impl Glove {
         let def = a::default_app(&mime);
         let mut v = Vec::new();
         if let Some((id, name)) = def.as_ref().and_then(|d| apps.iter().find(|x| &x.0 == d)) {
-            v.push(MenuNode::new(MenuItem::item(format!("{name} (padrão)")), Some(MenuAction::Desk(DeskCmd::OpenWith(id.clone())))));
+            v.push(MenuNode::new(MenuItem::item(tr!("{} (padrão)", name)), Some(MenuAction::Desk(DeskCmd::OpenWith(id.clone())))));
             v.push(MenuNode::sep());
         }
         for (id, name) in apps.iter().filter(|x| Some(&x.0) != def.as_ref()) {
             v.push(MenuNode::new(MenuItem::item(name.clone()), Some(MenuAction::Desk(DeskCmd::OpenWith(id.clone())))));
         }
         if v.is_empty() {
-            v.push(MenuNode::new(MenuItem::item("Nenhum app encontrado").disabled(), None));
+            v.push(MenuNode::new(MenuItem::item(tr!("Nenhum app encontrado")).disabled(), None));
         }
         v
     }
@@ -1065,7 +1070,7 @@ impl Glove {
         let chosen = self.desk.chosen();
         let cur = chosen.first().map(|i| i.label).filter(|l| chosen.iter().all(|i| i.label == *l));
         let item = |n: u8, t: String| MenuNode::new(MenuItem::check(t, cur == Some(n)), Some(MenuAction::Desk(DeskCmd::Label(n))));
-        let mut v = vec![item(0, "Nenhum".into()), MenuNode::sep()];
+        let mut v = vec![item(0, tr!("Nenhum").into()), MenuNode::sep()];
         for (n, &(r, g, b)) in (1..=7u8).zip(glove_config::arquivos::LABEL_COLORS.iter()) {
             let mut node = item(n, self.config.files.label_name(n));
             node.item = node.item.with_swatch(glove_paint::draw::rgba(r, g, b, 255));
@@ -1075,7 +1080,7 @@ impl Glove {
     }
 
     fn arrange_nodes(&self) -> Vec<MenuNode> {
-        [("nome", "Nome"), ("data", "Data de Modificação"), ("tamanho", "Tamanho"), ("tipo", "Tipo")]
+        [("nome", tr!("Nome")), ("data", tr!("Data de Modificação")), ("tamanho", tr!("Tamanho")), ("tipo", tr!("Tipo"))]
             .into_iter()
             .map(|(k, l)| MenuNode::new(MenuItem::item(l), Some(MenuAction::Desk(DeskCmd::Arrange(k.into())))))
             .collect()
@@ -1086,21 +1091,21 @@ impl Glove {
         let free = self.config.desk.arrange.is_empty();
         let on = |it: MenuItem, b: bool| if b { it } else { it.disabled() };
         vec![
-            MenuNode::new(MenuItem::item("Nova Pasta"), act(DeskCmd::NewFolder)),
-            MenuNode::new(MenuItem::item("Obter Informações"), act(DeskCmd::Info)),
+            MenuNode::new(MenuItem::item(tr!("Nova Pasta")), act(DeskCmd::NewFolder)),
+            MenuNode::new(MenuItem::item(tr!("Obter Informações")), act(DeskCmd::Info)),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Colar"), act(DeskCmd::Paste)),
+            MenuNode::new(MenuItem::item(tr!("Colar")), act(DeskCmd::Paste)),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Alterar Fundo da Mesa…"), act(DeskCmd::Background)),
-            MenuNode::new(on(MenuItem::item("Limpar"), free), act(DeskCmd::CleanUp)),
-            MenuNode::submenu("Organizar por", self.arrange_nodes()),
-            MenuNode::new(MenuItem::item("Mostrar Opções de Visualização"), act(DeskCmd::ViewOptions)),
+            MenuNode::new(MenuItem::item(tr!("Alterar Fundo da Mesa…")), act(DeskCmd::Background)),
+            MenuNode::new(on(MenuItem::item(tr!("Limpar")), free), act(DeskCmd::CleanUp)),
+            MenuNode::submenu(tr!("Organizar por"), self.arrange_nodes()),
+            MenuNode::new(MenuItem::item(tr!("Mostrar Opções de Visualização")), act(DeskCmd::ViewOptions)),
         ]
     }
 
     /// Menus da barra com a mesa em foco (os do Arquivos, como no Finder).
     pub fn desk_bar_titles() -> Vec<String> {
-        ["Arquivo", "Editar", "Visualizar", "Ir"].map(String::from).to_vec()
+        [tr!("Arquivo"), tr!("Editar"), tr!("Visualizar"), tr!("Ir")].map(String::from).to_vec()
     }
 
     pub fn desk_bar_nodes(&self, title: &str) -> Vec<MenuNode> {
@@ -1112,46 +1117,46 @@ impl Glove {
         let on = |it: MenuItem, b: bool| if b { it } else { it.disabled() };
         let free = self.config.desk.arrange.is_empty();
         match title {
-            "Arquivo" => vec![
-                MenuNode::new(MenuItem::item("Nova Janela do Arquivos").with_shortcut("Ctrl+N"), act(DeskCmd::NewWindow)),
-                MenuNode::new(MenuItem::item("Nova Pasta").with_shortcut("Ctrl+Shift+N"), act(DeskCmd::NewFolder)),
-                MenuNode::new(on(MenuItem::item("Abrir").with_shortcut("Ctrl+O"), any), act(DeskCmd::Open)),
+            t if t == tr!("Arquivo") => vec![
+                MenuNode::new(MenuItem::item(tr!("Nova Janela do Arquivos")).with_shortcut("Ctrl+N"), act(DeskCmd::NewWindow)),
+                MenuNode::new(MenuItem::item(tr!("Nova Pasta")).with_shortcut("Ctrl+Shift+N"), act(DeskCmd::NewFolder)),
+                MenuNode::new(on(MenuItem::item(tr!("Abrir")).with_shortcut("Ctrl+O"), any), act(DeskCmd::Open)),
                 MenuNode::sep(),
-                MenuNode::new(MenuItem::item("Obter Informações").with_shortcut("Ctrl+I"), act(DeskCmd::Info)),
-                MenuNode::new(on(MenuItem::item("Duplicar").with_shortcut("Ctrl+D"), files), act(DeskCmd::Duplicate)),
-                MenuNode::new(on(MenuItem::item("Criar Atalho").with_shortcut("Ctrl+L"), one), act(DeskCmd::Alias)),
-                MenuNode::new(on(MenuItem::item("Compactar"), files), act(DeskCmd::Compress)),
-                MenuNode::new(on(MenuItem::item("Ejetar").with_shortcut("Ctrl+E"), any && chosen.iter().all(|i| i.kind == DeskKind::Removable)), act(DeskCmd::Eject)),
+                MenuNode::new(MenuItem::item(tr!("Obter Informações")).with_shortcut("Ctrl+I"), act(DeskCmd::Info)),
+                MenuNode::new(on(MenuItem::item(tr!("Duplicar")).with_shortcut("Ctrl+D"), files), act(DeskCmd::Duplicate)),
+                MenuNode::new(on(MenuItem::item(tr!("Criar Atalho")).with_shortcut("Ctrl+L"), one), act(DeskCmd::Alias)),
+                MenuNode::new(on(MenuItem::item(tr!("Compactar")), files), act(DeskCmd::Compress)),
+                MenuNode::new(on(MenuItem::item(tr!("Ejetar")).with_shortcut("Ctrl+E"), any && chosen.iter().all(|i| i.kind == DeskKind::Removable)), act(DeskCmd::Eject)),
                 MenuNode::sep(),
-                MenuNode::new(on(MenuItem::item("Mover para a Lixeira").with_shortcut("Ctrl+BackSpace"), files), act(DeskCmd::Trash)),
+                MenuNode::new(on(MenuItem::item(tr!("Mover para a Lixeira")).with_shortcut("Ctrl+BackSpace"), files), act(DeskCmd::Trash)),
             ],
-            "Editar" => vec![
-                MenuNode::new(on(MenuItem::item("Copiar").with_shortcut("Ctrl+C"), any), act(DeskCmd::Copy)),
-                MenuNode::new(MenuItem::item("Colar").with_shortcut("Ctrl+V"), act(DeskCmd::Paste)),
-                MenuNode::new(MenuItem::item("Selecionar Tudo").with_shortcut("Ctrl+A"), act(DeskCmd::SelectAll)),
+            t if t == tr!("Editar") => vec![
+                MenuNode::new(on(MenuItem::item(tr!("Copiar")).with_shortcut("Ctrl+C"), any), act(DeskCmd::Copy)),
+                MenuNode::new(MenuItem::item(tr!("Colar")).with_shortcut("Ctrl+V"), act(DeskCmd::Paste)),
+                MenuNode::new(MenuItem::item(tr!("Selecionar Tudo")).with_shortcut("Ctrl+A"), act(DeskCmd::SelectAll)),
                 MenuNode::sep(),
-                MenuNode::new(on(MenuItem::item("Renomear").with_shortcut("Return"), one && files), act(DeskCmd::Rename)),
+                MenuNode::new(on(MenuItem::item(tr!("Renomear")).with_shortcut("Return"), one && files), act(DeskCmd::Rename)),
             ],
-            "Visualizar" => vec![
-                MenuNode::new(on(MenuItem::item("Limpar"), free), act(DeskCmd::CleanUp)),
-                MenuNode::submenu("Organizar por", self.arrange_nodes()),
+            t if t == tr!("Visualizar") => vec![
+                MenuNode::new(on(MenuItem::item(tr!("Limpar")), free), act(DeskCmd::CleanUp)),
+                MenuNode::submenu(tr!("Organizar por"), self.arrange_nodes()),
                 MenuNode::sep(),
-                MenuNode::new(MenuItem::item("Mostrar Opções de Visualização").with_shortcut("Ctrl+J"), act(DeskCmd::ViewOptions)),
+                MenuNode::new(MenuItem::item(tr!("Mostrar Opções de Visualização")).with_shortcut("Ctrl+J"), act(DeskCmd::ViewOptions)),
             ],
-            "Ir" => {
+            t if t == tr!("Ir") => {
                 let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
                 let mut v = vec![
-                    MenuNode::new(MenuItem::item("Computador").with_shortcut("Ctrl+Shift+C"), act(DeskCmd::Go("/".into()))),
-                    MenuNode::new(MenuItem::item("Início").with_shortcut("Ctrl+Shift+H"), act(DeskCmd::Go(home.clone()))),
-                    MenuNode::new(MenuItem::item("Mesa").with_shortcut("Ctrl+Shift+D"), act(DeskCmd::Go(self.desk.dir.clone()))),
+                    MenuNode::new(MenuItem::item(tr!("Computador")).with_shortcut("Ctrl+Shift+C"), act(DeskCmd::Go("/".into()))),
+                    MenuNode::new(MenuItem::item(tr!("Início")).with_shortcut("Ctrl+Shift+H"), act(DeskCmd::Go(home.clone()))),
+                    MenuNode::new(MenuItem::item(tr!("Mesa")).with_shortcut("Ctrl+Shift+D"), act(DeskCmd::Go(self.desk.dir.clone()))),
                 ];
-                for (key, label) in [("DOCUMENTS", "Documentos"), ("DOWNLOAD", "Downloads"), ("PICTURES", "Imagens")] {
+                for (key, label) in [("DOCUMENTS", tr!("Documentos")), ("DOWNLOAD", tr!("Downloads")), ("PICTURES", tr!("Imagens"))] {
                     if let Some(p) = user_dir(key) {
                         v.push(MenuNode::new(MenuItem::item(label), act(DeskCmd::Go(p))));
                     }
                 }
                 v.push(MenuNode::sep());
-                v.push(MenuNode::new(MenuItem::item("Lixeira"), Some(MenuAction::DockRun(DockAction::Trash))));
+                v.push(MenuNode::new(MenuItem::item(tr!("Lixeira")), Some(MenuAction::DockRun(DockAction::Trash))));
                 v
             }
             _ => Vec::new(),
@@ -1161,15 +1166,15 @@ impl Glove {
     /// Menu com o nome do app ("Arquivos") com a mesa em foco.
     pub fn desk_app_nodes(&self) -> Vec<MenuNode> {
         vec![
-            MenuNode::new(MenuItem::item("Sobre o Arquivos"), Some(MenuAction::AboutApp("glove.Files".into(), "Arquivos".into()))),
+            MenuNode::new(MenuItem::item(tr!("Sobre o Arquivos")), Some(MenuAction::AboutApp("glove.Files".into(), tr!("Arquivos").into()))),
             MenuNode::sep(),
             MenuNode::new(
-                if crate::shell::trash_count() > 0 { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
+                if crate::shell::trash_count() > 0 { MenuItem::item(tr!("Esvaziar Lixeira…")) } else { MenuItem::item(tr!("Esvaziar Lixeira…")).disabled() },
                 Some(MenuAction::EmptyTrash),
             ),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Ocultar Outros").with_shortcut(self.binding("hide_others")), Some(MenuAction::HideOthers(0))),
-            MenuNode::new(if self.hidden.is_empty() { MenuItem::item("Mostrar Todos").disabled() } else { MenuItem::item("Mostrar Todos") }, Some(MenuAction::ShowAll)),
+            MenuNode::new(MenuItem::item(tr!("Ocultar Outros")).with_shortcut(self.binding("hide_others")), Some(MenuAction::HideOthers(0))),
+            MenuNode::new(if self.hidden.is_empty() { MenuItem::item(tr!("Mostrar Todos")).disabled() } else { MenuItem::item(tr!("Mostrar Todos")) }, Some(MenuAction::ShowAll)),
         ]
     }
 
@@ -1178,7 +1183,7 @@ impl Glove {
         let mut nodes = Vec::new();
         let mut cur = Some(doc);
         while let Some(p) = cur {
-            let name = if p == Path::new("/") { "Disco".to_string() } else { p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() };
+            let name = if p == Path::new("/") { tr!("Disco").to_string() } else { p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() };
             let icon_dir = if p.is_dir() { p.to_path_buf() } else { p.parent().map(Path::to_path_buf).unwrap_or_default() };
             nodes.push(MenuNode::new(MenuItem::item(name), Some(MenuAction::Desk(DeskCmd::Go(icon_dir)))));
             cur = p.parent();
@@ -1247,10 +1252,10 @@ impl Glove {
             DeskCmd::Alias => {
                 if let [it] = chosen.as_slice() {
                     let name = it.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| it.name.clone());
-                    let mut link = self.desk.dir.join(format!("{name} atalho"));
+                    let mut link = self.desk.dir.join(tr!("{} atalho", name));
                     let mut k = 2;
                     while link.symlink_metadata().is_ok() {
-                        link = self.desk.dir.join(format!("{name} atalho {k}"));
+                        link = self.desk.dir.join(tr!("{} atalho {}", name, k));
                         k += 1;
                     }
                     if std::os::unix::fs::symlink(&it.path, &link).is_ok() {
@@ -1313,10 +1318,10 @@ impl Glove {
 
     fn desk_new_folder(&mut self) {
         let dir = self.desk.dir.clone();
-        let mut name = "Pasta sem título".to_string();
+        let mut name = tr!("Pasta sem título").to_string();
         let mut n = 2;
         while dir.join(&name).exists() {
-            name = format!("Pasta sem título {n}");
+            name = tr!("Pasta sem título {}", n);
             n += 1;
         }
         let path = dir.join(&name);

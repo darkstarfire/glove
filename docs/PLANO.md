@@ -489,7 +489,13 @@ com a tradução ou com outra coisa (o caminho, um identificador).
   embutidos e em /usr/share/glove/locales ou ~/.local/share/glove/locales), `tr!` exposto pelo
   glove-config; Abrir/Salvar, impressão, painéis de fontes e cores e o alerta traduzidos; o menu
   Janela dos apps vai ao compositor como `@window` (não depende do idioma)
-- [ ] 9.15.2 Compositor: barra de menu, menu principal, Dock, Exposé, Painel, avisos e diálogos (M)
+- [x] 9.15.2 Compositor: barra de menu, menu principal, Dock, Exposé, Painel, avisos e diálogos (M)
+  — v0.9.24: menus da barra, do Dock, da mesa e dos extras (bateria, relógio, Wi-Fi, monitores),
+  Busca Rápida (também acha as Preferências pelo nome traduzido; a coluna de categorias se ajusta
+  ao idioma), Forçar Encerrar, bloqueio de tela, Painel, protetor de tela, encerramento, início da
+  sessão e o relatório do `--monitores`; datas e números no formato de cada idioma (ordem da data,
+  vírgula decimal); nomes de apps lidos dos .desktop no idioma em uso; chaves com contexto
+  (`"Monitor|tela"`) quando a mesma palavra tem dois sentidos
 - [ ] 9.15.3 Preferências (G)
 - [ ] 9.15.4 Arquivos (M)
 - [ ] 9.15.5 Os outros apps, em lotes (G)

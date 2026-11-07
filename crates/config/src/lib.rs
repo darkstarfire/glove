@@ -1,6 +1,7 @@
 //! Configuração do Glove (~/.config/glove/config.toml), compartilhada entre
 //! o compositor e os apps (Preferências, etc.).
 
+
 /// Traduções (ver o glove-i18n): a macro `tr!` com o texto em português.
 pub use glove_i18n::{idioma, tr, tr_dyn};
 
@@ -118,8 +119,8 @@ impl Default for Clock {
 impl Clock {
     /// Texto do relógio para (dia da semana 0=domingo, dia, mês 1-12, hora, minuto, segundo).
     pub fn text(&self, wday: u32, day: u32, month: u32, h: u32, m: u32, s: u32) -> String {
-        const DIAS: [&str; 7] = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-        const MESES: [&str; 12] = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+        let dias = [tr!("Dom"), tr!("Seg"), tr!("Ter"), tr!("Qua"), tr!("Qui"), tr!("Sex"), tr!("Sáb")];
+        let meses = [tr!("jan"), tr!("fev"), tr!("mar"), tr!("abr"), tr!("mai"), tr!("jun"), tr!("jul"), tr!("ago"), tr!("set"), tr!("out"), tr!("nov"), tr!("dez")];
         let colon = if self.blink && s % 2 == 1 { " " } else { ":" };
         let (hh, suffix) = if self.h24 {
             (format!("{h:02}"), "")
@@ -129,11 +130,12 @@ impl Clock {
         };
         let mut t = String::new();
         if self.weekday {
-            t.push_str(DIAS[(wday % 7) as usize]);
+            t.push_str(dias[(wday % 7) as usize]);
             t.push(' ');
         }
         if self.date {
-            t.push_str(&format!("{day} {} ", MESES[((month + 11) % 12) as usize]));
+            // {0} dia, {1} mês abreviado (cada idioma na sua ordem).
+            t.push_str(&tr!("{0} {1} ", day, meses[((month + 11) % 12) as usize]));
         }
         t.push_str(&format!("{hh}{colon}{m:02}"));
         if self.seconds {

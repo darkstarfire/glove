@@ -3,6 +3,7 @@
 //! Preferências e arquivos da pasta pessoal (índice leve feito numa thread).
 //! Enter abre o primeiro resultado.
 
+use glove_config::tr;
 use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -145,7 +146,10 @@ pub fn parse_desktop(text: &str) -> Option<App> {
         }
     }
     let val = |k: &str| get.get(k).map(String::as_str);
-    let localized = |k: &str| val(&format!("{k}[pt_BR]")).or(val(&format!("{k}[pt]"))).or(val(k));
+    // O texto no idioma em uso (Name[pt_BR], Name[en]…), senão o padrão.
+    let lang = glove_config::idioma();
+    let region = std::env::var("LANG").ok().and_then(|l| l.split('.').next().map(String::from)).unwrap_or_default();
+    let localized = |k: &str| val(&format!("{k}[{region}]")).or(val(&format!("{k}[{lang}]"))).or(val(k));
     if val("Type") != Some("Application") || val("NoDisplay") == Some("true") || val("Hidden") == Some("true") || val("Terminal") == Some("true") {
         return None;
     }
@@ -287,13 +291,13 @@ fn index_home() -> Vec<FileEntry> {
 
 fn file_kind(p: &Path, dir: bool) -> (&'static str, Icon) {
     if dir {
-        return ("Pastas", Icon::Folder);
+        return (tr!("Pastas"), Icon::Folder);
     }
     let ext = p.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     match ext.as_str() {
-        "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" => ("Imagens", Icon::Picture),
-        "txt" | "md" | "pdf" | "odt" | "doc" | "docx" | "rtf" | "csv" | "ods" | "xls" | "xlsx" => ("Documentos", Icon::Document),
-        _ => ("Outros", Icon::File),
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" => (tr!("Imagens"), Icon::Picture),
+        "txt" | "md" | "pdf" | "odt" | "doc" | "docx" | "rtf" | "csv" | "ods" | "xls" | "xlsx" => (tr!("Documentos"), Icon::Document),
+        _ => (tr!("Outros"), Icon::File),
     }
 }
 
@@ -372,7 +376,7 @@ impl Glove {
                 .collect();
             // Empate: os apps do Glove primeiro, depois o nome mais curto.
             apps.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.glove_id.is_some().cmp(&a.1.glove_id.is_some())).then(a.1.name.len().cmp(&b.1.name.len())));
-            let mut prefs: Vec<(u32, &(&str, &'static str))> = PREFS.iter().filter(|_| sp.prefs).map(|p| (score(&normalize(p.0), &q), p)).filter(|(s, _)| *s > 0).collect();
+            let mut prefs: Vec<(u32, &(&str, &'static str))> = PREFS.iter().filter(|_| sp.prefs).map(|p| (score(&normalize(&glove_config::tr_dyn(p.0)), &q), p)).filter(|(s, _)| *s > 0).collect();
             prefs.sort_by(|a, b| b.0.cmp(&a.0));
             // Arquivos: só quando o texto começa uma palavra do nome (menos ruído).
             let mut files: Vec<(u32, &FileEntry)> = self
@@ -387,12 +391,12 @@ impl Glove {
 
             // Melhor resultado: o app de nota mais alta (ou o melhor arquivo).
             for (_, a) in apps.iter().take(PER_SECTION) {
-                rows.push((row("Aplicativos", a.icon, &a.name), Target::App((*a).clone())));
+                rows.push((row(tr!("Aplicativos"), a.icon, &a.name), Target::App((*a).clone())));
             }
             for (_, (name, pane)) in prefs.iter().take(3) {
-                rows.push((row("Preferências", Icon::Settings, name), Target::Prefs(pane)));
+                rows.push((row(tr!("Preferências"), Icon::Settings, &glove_config::tr_dyn(name)), Target::Prefs(pane)));
             }
-            for sec in ["Pastas", "Documentos", "Imagens", "Outros"] {
+            for sec in [tr!("Pastas"), tr!("Documentos"), tr!("Imagens"), tr!("Outros")] {
                 let mut n = 0;
                 for (_, f) in &files {
                     let (s, icon) = file_kind(&f.path, f.dir);
@@ -536,7 +540,9 @@ mod tests {
     fn desktop() {
         let t = "[Desktop Entry]\nType=Application\nName=Text Editor\nName[pt_BR]=Editor de texto\nExec=gnome-text-editor %U\nKeywords=text;\n[Desktop Action new]\nName=Nova\n";
         let a = parse_desktop(t).unwrap();
-        assert_eq!((a.name.as_str(), a.exec.as_str()), ("Editor de texto", "gnome-text-editor"));
+        // O nome segue o idioma em uso (o dos testes é o do ambiente).
+        let nome = if glove_config::idioma() == "pt" { "Editor de texto" } else { "Text Editor" };
+        assert_eq!((a.name.as_str(), a.exec.as_str()), (nome, "gnome-text-editor"));
         assert!(parse_desktop("[Desktop Entry]\nType=Application\nName=X\nExec=x\nNoDisplay=true\n").is_none());
         assert!(parse_desktop("[Desktop Entry]\nType=Application\nName=X\nExec=x\nOnlyShowIn=GNOME;\n").is_none());
     }

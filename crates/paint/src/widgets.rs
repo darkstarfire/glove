@@ -5,6 +5,7 @@
 //! Cada desenho tem uma margem `M` em volta para a sombra; as funções de clique
 //! (`*_hit`) usam coordenadas do conteúdo (sem a margem).
 
+use glove_i18n::tr;
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 use tiny_skia::{Color, PathBuilder};
@@ -52,13 +53,13 @@ impl WidgetKind {
 
     pub fn name(self) -> &'static str {
         match self {
-            Self::Clock => "Relógio",
-            Self::Calendar => "Calendário",
-            Self::Calculator => "Calculadora",
-            Self::Weather => "Clima",
-            Self::Note => "Lembrete",
-            Self::Monitor => "Monitor",
-            Self::Dictionary => "Dicionário",
+            Self::Clock => tr!("Relógio"),
+            Self::Calendar => tr!("Calendário"),
+            Self::Calculator => tr!("Calculadora"),
+            Self::Weather => tr!("Clima"),
+            Self::Note => tr!("Lembrete"),
+            Self::Monitor => tr!("Monitor"),
+            Self::Dictionary => tr!("Dicionário"),
         }
     }
 
@@ -223,7 +224,7 @@ pub fn calendar(f: &Fonts, today: (i32, u32, u32), shown: (i32, u32), scale: f32
         let _ = k;
     }
     let wd = weekday(today.0, today.1, today.2);
-    f.draw(&mut c, WEEKDAYS[wd as usize], x + 15.0, ty + 30.0, 17.0, true, red);
+    f.draw(&mut c, glove_i18n::tr(WEEKDAYS[wd as usize]), x + 15.0, ty + 30.0, 17.0, true, red);
     f.draw(&mut c, MONTHS[(today.1 - 1) as usize], x + 15.0, ty + 56.0, 22.0, true, red);
     centered(&mut c, f, &today.2.to_string(), x + 17.0 + pw * 1.5, ty + 56.0, 42.0, true, red);
     // Grade do mês mostrado.
@@ -457,13 +458,13 @@ pub fn weather(f: &Fonts, v: &WeatherView, scale: f32) -> Option<Canvas> {
             f.draw(&mut c, &t2, x + 14.0, y + 26.0, 12.0, false, rgba(20, 20, 20, 255));
             let tw = f.measure(&t2, 12.0, false);
             c.fill_rect(x + 15.0 + tw, y + 15.0, 1.0, 14.0, &solid(rgba(20, 20, 20, 255)));
-            f.draw(&mut c, "Digite a cidade e Enter", x + 12.0, y + 46.0, 9.5, false, rgba(235, 242, 255, 230));
+            f.draw(&mut c, tr!("Digite a cidade e Enter"), x + 12.0, y + 46.0, 9.5, false, rgba(235, 242, 255, 230));
         }
         None => {
             let city = f.ellipsize(v.city, 13.0, true, 120.0);
             f.draw(&mut c, &city, x + 14.0, y + 28.0, 13.0, true, Color::WHITE);
             if let Some((hi, lo)) = v.hi_lo {
-                f.draw(&mut c, &format!("Máx {hi}°   Mín {lo}°"), x + 14.0, y + 46.0, 10.0, false, rgba(235, 242, 255, 240));
+                f.draw(&mut c, &tr!("Máx {}°   Mín {}°", hi, lo), x + 14.0, y + 46.0, 10.0, false, rgba(235, 242, 255, 240));
             }
         }
     }
@@ -488,7 +489,7 @@ pub fn weather(f: &Fonts, v: &WeatherView, scale: f32) -> Option<Canvas> {
     let cw = (w - 8.0) / n;
     for (i, (wd, code, max)) in v.days.iter().take(6).enumerate() {
         let cx = x + 4.0 + cw * (i as f32 + 0.5);
-        centered(&mut c, f, &WEEKDAYS[*wd as usize % 7].to_uppercase(), cx, by + 15.0, 10.0, true, Color::WHITE);
+        centered(&mut c, f, &glove_i18n::tr(WEEKDAYS[*wd as usize % 7]).to_uppercase(), cx, by + 15.0, 10.0, true, Color::WHITE);
         weather_icon(&mut c, cx - 13.0, by + 17.0, 26.0, *code);
         centered(&mut c, f, &format!("{max}°"), cx, by + 58.0, 12.0, true, Color::WHITE);
     }
@@ -519,7 +520,7 @@ pub fn note(f: &Fonts, text: &str, focused: bool, scale: f32) -> Option<Canvas> 
         lines.extend(crate::chrome::wrap_lines(f, para, px, false, max));
     }
     if text.is_empty() && !focused {
-        f.draw(&mut c, "Escreva aqui…", x + 12.0, y + 26.0, px, false, rgba(150, 140, 80, 255));
+        f.draw(&mut c, tr!("Escreva aqui…"), x + 12.0, y + 26.0, px, false, rgba(150, 140, 80, 255));
     }
     let shown = ((h - 24.0) / (px + 4.0)) as usize;
     let start = lines.len().saturating_sub(shown);
@@ -554,12 +555,12 @@ pub fn monitor(f: &Fonts, cpu: f32, mem: f32, mem_text: &str, scale: f32) -> Opt
         let fw = (bw * v.clamp(0.0, 1.0)).max(bh);
         c.fill(rrect(bx, by, fw, bh, 5.0), &vgrad(by, by + bh, &[(0.0, lighten(col, 0.35)), (1.0, col)]));
     };
-    f.draw(&mut c, "Processador", x + 14.0, y + 22.0, 11.0, true, Color::WHITE);
+    f.draw(&mut c, tr!("Processador"), x + 14.0, y + 22.0, 11.0, true, Color::WHITE);
     let t = format!("{:.0}%", cpu * 100.0);
     let tw = f.measure(&t, 11.0, false);
     f.draw(&mut c, &t, x + w - 14.0 - tw, y + 22.0, 11.0, false, rgba(220, 224, 230, 255));
     bar(&mut c, y + 28.0, cpu, rgba(60, 200, 80, 255));
-    f.draw(&mut c, "Memória", x + 14.0, y + 64.0, 11.0, true, Color::WHITE);
+    f.draw(&mut c, tr!("Memória"), x + 14.0, y + 64.0, 11.0, true, Color::WHITE);
     let tw = f.measure(mem_text, 11.0, false);
     f.draw(&mut c, mem_text, x + w - 14.0 - tw, y + 64.0, 11.0, false, rgba(220, 224, 230, 255));
     bar(&mut c, y + 70.0, mem, rgba(70, 140, 235, 255));
@@ -583,7 +584,7 @@ pub fn dictionary(f: &Fonts, text: &str, focused: bool, scale: f32) -> Option<Ca
     c.fill(rrect(fx, fy, fw, fh, fh / 2.0), &solid(Color::WHITE));
     c.stroke(rrect(fx + 0.5, fy + 0.5, fw - 1.0, fh - 1.0, fh / 2.0), &solid(rgba(40, 20, 6, 200)), 1.0);
     if text.is_empty() && !focused {
-        f.draw(&mut c, "Procurar palavra", fx + 12.0, fy + 15.5, 12.0, false, rgba(150, 150, 150, 255));
+        f.draw(&mut c, tr!("Procurar palavra"), fx + 12.0, fy + 15.5, 12.0, false, rgba(150, 150, 150, 255));
     } else {
         let t = f.ellipsize(text, 12.0, false, fw - 24.0);
         f.draw(&mut c, &t, fx + 12.0, fy + 15.5, 12.0, false, rgba(20, 20, 20, 255));

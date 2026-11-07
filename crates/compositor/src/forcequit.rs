@@ -1,6 +1,7 @@
 //! Forçar Encerrar: detecção de apps que não respondem (ping do xdg-shell), o
 //! cursor de espera sobre as janelas deles e o painel desenhado pelo compositor.
 
+use glove_config::tr;
 use std::time::{Duration, Instant};
 
 use glove_paint::{
@@ -220,7 +221,7 @@ impl Glove {
             return None;
         }
         let name = fq.rows.iter().find(|(p, _)| Some(*p) == fq.selected).map(|(_, r)| r.name.clone())?;
-        Some(format!("Deseja forçar o encerramento de “{name}”?"))
+        Some(tr!("Deseja forçar o encerramento de “{}”?", name))
     }
 
     pub fn prepare_force_quit(&mut self) {

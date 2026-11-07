@@ -156,14 +156,20 @@ pub fn idioma() -> &'static str {
     &catalogo().idioma
 }
 
-/// Tradução de um texto fixo (o que `tr!` usa).
+/// Tradução de um texto fixo (o que `tr!` usa). Uma chave pode levar contexto depois de
+/// `|` quando a mesma palavra tem dois sentidos ("Monitor" o app e "Monitor|tela"): sem
+/// tradução, mostra só o que vem antes do `|`.
 pub fn tr(texto: &'static str) -> &'static str {
-    catalogo().textos.get(texto).copied().unwrap_or(texto)
+    catalogo().textos.get(texto).copied().unwrap_or_else(|| sem_contexto(texto))
 }
 
 /// Tradução de um texto que não é fixo (vindo da configuração, por exemplo).
 pub fn tr_dyn(texto: &str) -> String {
-    catalogo().textos.get(texto).map(|s| s.to_string()).unwrap_or_else(|| texto.to_string())
+    catalogo().textos.get(texto).map(|s| s.to_string()).unwrap_or_else(|| sem_contexto(texto).to_string())
+}
+
+fn sem_contexto(texto: &str) -> &str {
+    texto.split_once('|').map_or(texto, |(t, _)| t)
 }
 
 /// Troca os `{}` (na ordem) e os `{0}`, `{1}`… pelos valores.
@@ -225,6 +231,12 @@ mod testes {
         assert!(p.contains(&("Abrir".into(), "Open".into())));
         assert!(p.contains(&("Linha dupla".into(), "Two lines".into())));
         assert!(!p.iter().any(|(k, _)| k == "X"));
+    }
+
+    #[test]
+    fn contexto() {
+        assert_eq!(sem_contexto("Monitor|tela"), "Monitor");
+        assert_eq!(sem_contexto("Abrir"), "Abrir");
     }
 
     #[test]

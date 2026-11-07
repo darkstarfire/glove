@@ -102,7 +102,7 @@ impl Glove {
         let progress = (t / DONE).clamp(0.0, 1.0);
         let key = (step, (progress * 200.0) as u32, tgen);
         if s.key != Some(key) {
-            s.tex = chrome::startup_panel(&self.fonts, &self.theme, STEPS[step].1, progress, sc).map(to_tex);
+            s.tex = chrome::startup_panel(&self.fonts, &self.theme, &glove_config::tr_dyn(STEPS[step].1), progress, sc).map(to_tex);
             s.key = Some(key);
         }
     }

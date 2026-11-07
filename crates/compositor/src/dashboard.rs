@@ -7,6 +7,7 @@
 //! só o Clima chama o `curl` (numa thread) para buscar a previsão no Open-Meteo.
 //! Os widgets e o que eles guardam ficam em `~/.config/glove/painel.toml`.
 
+use glove_config::tr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -141,7 +142,7 @@ fn parse_num(s: &str) -> f64 {
 /// Número no formato brasileiro, até 12 algarismos.
 fn fmt_num(v: f64) -> String {
     if !v.is_finite() {
-        return "Erro".into();
+        return tr!("Erro").into();
     }
     if v.abs() >= 1e12 {
         return format!("{v:.4e}").replace('.', ",");
@@ -184,7 +185,7 @@ impl Calc {
     pub fn key(&mut self, k: &'static str) {
         match k {
             "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
-                if self.fresh || self.display == "0" || self.display == "Erro" {
+                if self.fresh || self.display == "0" || self.display == tr!("Erro") {
                     self.display = k.into();
                     self.fresh = false;
                 } else if self.display.chars().filter(|c| c.is_ascii_digit()).count() < 12 {
@@ -192,7 +193,7 @@ impl Calc {
                 }
             }
             "," => {
-                if self.fresh || self.display == "Erro" {
+                if self.fresh || self.display == tr!("Erro") {
                     self.display = "0,".into();
                     self.fresh = false;
                 } else if !self.display.contains(',') {
@@ -261,16 +262,16 @@ fn fetch_weather(city: String, out: Arc<Mutex<Weather>>) {
             w.version += 1;
         };
         let Some(geo) = get(&format!("https://geocoding-api.open-meteo.com/v1/search?name={enc}&count=1&language=pt&format=json")) else {
-            return fail("Sem conexão");
+            return fail(tr!("Sem conexão"));
         };
         let Some(place) = geo["results"].get(0) else {
-            return fail("Cidade não achada");
+            return fail(tr!("Cidade não achada"));
         };
         let (lat, lon) = (place["latitude"].as_f64().unwrap_or(0.0), place["longitude"].as_f64().unwrap_or(0.0));
         let name = place["name"].as_str().unwrap_or(&city).to_string();
         let url = format!("https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=6");
         let Some(f) = get(&url) else {
-            return fail("Sem conexão");
+            return fail(tr!("Sem conexão"));
         };
         let num = |v: &serde_json::Value| v.as_f64().map(|x| x.round() as i32);
         let now = num(&f["current"]["temperature_2m"]).map(|t| (t, f["current"]["weather_code"].as_u64().unwrap_or(0) as u8));
@@ -291,7 +292,7 @@ fn fetch_weather(city: String, out: Arc<Mutex<Weather>>) {
         w.now = now;
         w.hi_lo = hi_lo;
         w.days = days;
-        w.status = if now.is_none() { Some("Sem dados".into()) } else { None };
+        w.status = if now.is_none() { Some(tr!("Sem dados").into()) } else { None };
         w.version += 1;
     });
 }
@@ -415,8 +416,12 @@ impl Glove {
                 let (total, avail) = (get("MemTotal:"), get("MemAvailable:"));
                 if total > 0.0 {
                     let used = total - avail;
-                    let gb = |k: f64| format!("{:.1}", k / 1024.0 / 1024.0).replace('.', ",");
-                    self.dashboard.mem = ((used / total) as f32, format!("{} de {} GB", gb(used), gb(total)));
+                    // Vírgula decimal em português, ponto nos outros idiomas.
+                    let gb = |k: f64| {
+                        let s = format!("{:.1}", k / 1024.0 / 1024.0);
+                        if glove_config::idioma() == "pt" { s.replace('.', ",") } else { s }
+                    };
+                    self.dashboard.mem = ((used / total) as f32, tr!("{} de {} GB", gb(used), gb(total)));
                 }
             }
         }
@@ -428,7 +433,7 @@ impl Glove {
                 {
                     let mut wd = self.dashboard.weather.lock().unwrap();
                     if wd.now.is_none() {
-                        wd.status = Some("Buscando…".into());
+                        wd.status = Some(tr!("Buscando…").into());
                         wd.version += 1;
                     }
                 }
@@ -700,7 +705,7 @@ impl Glove {
                     if let Some(w) = self.dashboard.widgets.get_mut(i).filter(|_| !text.is_empty()) {
                         w.city = text;
                         self.dashboard.weather_asked = None;
-                        *self.dashboard.weather.lock().unwrap() = Weather { status: Some("Buscando…".into()), ..Default::default() };
+                        *self.dashboard.weather.lock().unwrap() = Weather { status: Some(tr!("Buscando…").into()), ..Default::default() };
                         self.dash_save();
                         self.dash_tick();
                     }
@@ -793,7 +798,7 @@ mod tests {
         assert_eq!(run(&["7", "÷", "2", "="]), "3,5");
         assert_eq!(run(&["2", "×", "3", "+", "4", "="]), "10");
         assert_eq!(run(&["1", ",", "5", "×", "2", "="]), "3");
-        assert_eq!(run(&["1", "÷", "0", "="]), "Erro");
+        assert_eq!(run(&["1", "÷", "0", "="]), tr!("Erro"));
         assert_eq!(run(&["5", "m+", "C", "mr"]), "5");
     }
 

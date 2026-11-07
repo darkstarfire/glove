@@ -5,6 +5,7 @@
 //! bateria lida de /sys/class/power_supply. Tudo é relido uma vez por minuto
 //! (junto com o relógio) e na hora em que o Glove muda algo.
 
+use glove_config::tr;
 use std::{
     path::{Path, PathBuf},
     process::Command,
@@ -158,7 +159,7 @@ fn backlight() -> Option<(String, u32, u32)> {
 
 /// "Restam cerca de 2:05".
 fn format_left(min: u32) -> String {
-    format!("Restam cerca de {}:{:02}", min / 60, min % 60)
+    tr!("Restam cerca de {}:{}", min / 60, format!("{:02}", min % 60))
 }
 
 /// Resoluções distintas (a de maior frequência de cada uma), da maior para a menor.
@@ -322,10 +323,10 @@ impl Glove {
             v.push(MenuNode::new(item, action));
         }
         v.push(MenuNode::sep());
-        let login = MenuItem::item("Janela de Login…");
+        let login = MenuItem::item(tr!("Janela de Login…"));
         v.push(MenuNode::new(if self.nested { login.disabled() } else { login }, (!self.nested).then_some(MenuAction::LoginWindow)));
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Contas…"), Some(MenuAction::OpenPrefs("contas".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Contas…")), Some(MenuAction::OpenPrefs("contas".into()))));
         v
     }
 
@@ -366,20 +367,20 @@ impl Glove {
         let Some(b) = self.extras.battery.clone() else { return Vec::new() };
         let info = |t: String| MenuNode::new(MenuItem::item(t).disabled(), None);
         let mut v = vec![if b.full {
-            info("Bateria carregada".into())
+            info(tr!("Bateria carregada").into())
         } else if b.charging {
-            info(format!("Carregando: {}%", b.percent))
+            info(tr!("Carregando: {}%", b.percent))
         } else {
-            info(format!("Bateria: {}%", b.percent))
+            info(tr!("Bateria: {}%", b.percent))
         }];
         if let Some(m) = b.minutes_left {
             v.push(info(format_left(m)));
         }
-        v.push(info(format!("Fonte de energia: {}", if b.on_ac { "Adaptador" } else { "Bateria" })));
+        v.push(info(tr!("Fonte de energia: {}", if b.on_ac { tr!("Adaptador") } else { tr!("Bateria") })));
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::check("Mostrar porcentagem", self.config.battery_percent), Some(MenuAction::ToggleBatteryPercent)));
+        v.push(MenuNode::new(MenuItem::check(tr!("Mostrar porcentagem"), self.config.battery_percent), Some(MenuAction::ToggleBatteryPercent)));
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item("Abrir Economizador de Energia…"), Some(MenuAction::OpenPrefs("energia".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Economizador de Energia…")), Some(MenuAction::OpenPrefs("energia".into()))));
         v
     }
 
@@ -397,7 +398,7 @@ impl Glove {
             })
             .collect();
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Teclado…"), Some(MenuAction::OpenPrefs("entrada".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Teclado…")), Some(MenuAction::OpenPrefs("entrada".into()))));
         v
     }
 
@@ -417,18 +418,19 @@ impl Glove {
 
     /// Menu do relógio: a data por extenso, digital/analógico e o painel.
     fn clock_menu(&self) -> Vec<MenuNode> {
-        const DIAS: [&str; 7] = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
-        const MESES: [&str; 12] = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+        let dias = [tr!("domingo"), tr!("segunda-feira"), tr!("terça-feira"), tr!("quarta-feira"), tr!("quinta-feira"), tr!("sexta-feira"), tr!("sábado")];
+        let meses = [tr!("janeiro"), tr!("fevereiro"), tr!("março"), tr!("abril"), tr!("maio"), tr!("junho"), tr!("julho"), tr!("agosto"), tr!("setembro"), tr!("outubro"), tr!("novembro"), tr!("dezembro")];
         let (wd, d, mo, y, ..) = crate::shell::local_now();
-        let date = format!("{}, {d} de {} de {y}", DIAS[(wd % 7) as usize], MESES[((mo + 11) % 12) as usize]);
+        // {0} dia da semana, {1} dia, {2} mês, {3} ano (cada idioma põe na sua ordem).
+        let date = tr!("{0}, {1} de {2} de {3}", dias[(wd % 7) as usize], d, meses[((mo + 11) % 12) as usize], y);
         let analog = self.config.clock.analog;
         vec![
             MenuNode::new(MenuItem::item(date).disabled(), None),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::check("Ver como Digital", !analog), Some(MenuAction::ClockAnalog(false))),
-            MenuNode::new(MenuItem::check("Ver como Analógico", analog), Some(MenuAction::ClockAnalog(true))),
+            MenuNode::new(MenuItem::check(tr!("Ver como Digital"), !analog), Some(MenuAction::ClockAnalog(false))),
+            MenuNode::new(MenuItem::check(tr!("Ver como Analógico"), analog), Some(MenuAction::ClockAnalog(true))),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Abrir Data e Hora…"), Some(MenuAction::OpenPrefs("datahora".into()))),
+            MenuNode::new(MenuItem::item(tr!("Abrir Data e Hora…")), Some(MenuAction::OpenPrefs("datahora".into()))),
         ]
     }
 
@@ -436,22 +438,22 @@ impl Glove {
     fn wifi_menu(&self) -> Vec<MenuNode> {
         let info = |t: &str| MenuNode::new(MenuItem::item(t).disabled(), None);
         let on = self.extras.wifi.is_some_and(|w| w.0);
-        let mut v = vec![info(if on { "Wi-Fi: Ligado" } else { "Wi-Fi: Desligado" })];
-        v.push(MenuNode::new(MenuItem::item(if on { "Desligar Wi-Fi" } else { "Ligar Wi-Fi" }), Some(MenuAction::SetWifi(!on))));
+        let mut v = vec![info(if on { tr!("Wi-Fi: Ligado") } else { tr!("Wi-Fi: Desligado") })];
+        v.push(MenuNode::new(MenuItem::item(if on { tr!("Desligar Wi-Fi") } else { tr!("Ligar Wi-Fi") }), Some(MenuAction::SetWifi(!on))));
         if on {
             v.push(MenuNode::sep());
             let nets = glove_config::rede::wifi_list(false);
             if nets.is_empty() {
-                v.push(info("Nenhuma rede encontrada"));
+                v.push(info(tr!("Nenhuma rede encontrada")));
             }
             for n in nets.into_iter().take(12) {
                 v.push(MenuNode::new(MenuItem::check(n.ssid.clone(), n.in_use), Some(MenuAction::JoinWifi(n.ssid, n.secure))));
             }
             v.push(MenuNode::sep());
-            v.push(MenuNode::new(MenuItem::item("Entrar em Outra Rede…"), Some(MenuAction::OpenPrefs("rede".into()))));
+            v.push(MenuNode::new(MenuItem::item(tr!("Entrar em Outra Rede…")), Some(MenuAction::OpenPrefs("rede".into()))));
         }
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Rede…"), Some(MenuAction::OpenPrefs("rede".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Rede…")), Some(MenuAction::OpenPrefs("rede".into()))));
         v
     }
 
@@ -498,7 +500,7 @@ impl Glove {
                     if k > 0 {
                         v.push(MenuNode::sep());
                     }
-                    let name = if info.nested { "Janela do Glove".to_string() } else if o.description.is_empty() { o.name.clone() } else { o.description.clone() };
+                    let name = if info.nested { tr!("Janela do Glove").to_string() } else if o.description.is_empty() { o.name.clone() } else { o.description.clone() };
                     v.push(MenuNode::new(MenuItem::item(name).disabled(), None));
                     let current = glove_config::parse_mode(&o.current).map(|(w, h, _)| (w, h));
                     for (w, h, hz, mode) in distinct_modes(&o.modes).into_iter().take(if outs.len() > 1 { 8 } else { 12 }) {
@@ -511,10 +513,10 @@ impl Glove {
                     }
                 }
             }
-            None => v.push(MenuNode::new(MenuItem::item("Nenhum monitor").disabled(), None)),
+            None => v.push(MenuNode::new(MenuItem::item(tr!("Nenhum monitor")).disabled(), None)),
         }
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item("Abrir Preferências de Monitor…"), Some(MenuAction::OpenPrefs("monitor".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Monitor…")), Some(MenuAction::OpenPrefs("monitor".into()))));
         v
     }
 
@@ -701,7 +703,7 @@ mod tests {
         w("BAT0/power_now", "10000000\n");
         let b = read_battery(&dir).unwrap();
         assert_eq!((b.percent, b.charging, b.on_ac, b.minutes_left), (42, false, false, Some(120)));
-        assert_eq!(format_left(125), "Restam cerca de 2:05");
+        assert!(format_left(125).contains("2:05"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

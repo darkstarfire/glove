@@ -3,6 +3,7 @@
 //! Encerrar ou Abrir. E os apps abertos que não estão no Dock (aparecem depois
 //! dos fixos, como no Mac, e podem ser mantidos).
 
+use glove_config::tr;
 use std::path::PathBuf;
 
 use glove_paint::chrome::MenuItem;
@@ -60,10 +61,10 @@ impl Glove {
                 self.app_menu_nodes(id, false, None, &command)
             }
             DockAction::Trash => vec![
-                MenuNode::new(MenuItem::item("Abrir"), Some(MenuAction::DockRun(DockAction::Trash))),
+                MenuNode::new(MenuItem::item(tr!("Abrir")), Some(MenuAction::DockRun(DockAction::Trash))),
                 MenuNode::sep(),
                 MenuNode::new(
-                    if crate::shell::trash_count() > 0 { MenuItem::item("Esvaziar Lixeira…") } else { MenuItem::item("Esvaziar Lixeira…").disabled() },
+                    if crate::shell::trash_count() > 0 { MenuItem::item(tr!("Esvaziar Lixeira…")) } else { MenuItem::item(tr!("Esvaziar Lixeira…")).disabled() },
                     Some(MenuAction::EmptyTrash),
                 ),
             ],
@@ -99,21 +100,21 @@ impl Glove {
             v.push(MenuNode::sep());
         }
         let pid = wins.first().and_then(|w| self.window_pid(w));
-        v.push(MenuNode::new(MenuItem::check("Manter no Dock", pinned), Some(MenuAction::ToggleKeepInDock(app_id.to_string(), pid.unwrap_or(0)))));
-        let show = MenuItem::item("Mostrar no Arquivos");
+        v.push(MenuNode::new(MenuItem::check(tr!("Manter no Dock"), pinned), Some(MenuAction::ToggleKeepInDock(app_id.to_string(), pid.unwrap_or(0)))));
+        let show = MenuItem::item(tr!("Mostrar no Arquivos"));
         let show = if command.is_empty() { show.disabled() } else { show };
         v.push(MenuNode::new(show, Some(MenuAction::ShowInFiles(command.to_string()))));
         v.push(MenuNode::sep());
         // App aberto: abrir mais uma instância (o mesmo que Ctrl+clique no ícone).
         if pid.is_some() && !command.is_empty() {
-            v.push(MenuNode::new(MenuItem::item("Abrir Outra Instância"), Some(MenuAction::NewInstance(command.to_string(), app_id.to_string()))));
+            v.push(MenuNode::new(MenuItem::item(tr!("Abrir Outra Instância")), Some(MenuAction::NewInstance(command.to_string(), app_id.to_string()))));
         }
         match (pid, open) {
             (Some(pid), _) => {
-                v.push(MenuNode::new(MenuItem::item("Ocultar"), Some(MenuAction::HideApp(pid))));
-                v.push(MenuNode::new(MenuItem::item("Encerrar"), Some(MenuAction::QuitApp(pid))));
+                v.push(MenuNode::new(MenuItem::item(tr!("Ocultar")), Some(MenuAction::HideApp(pid))));
+                v.push(MenuNode::new(MenuItem::item(tr!("Encerrar")), Some(MenuAction::QuitApp(pid))));
             }
-            (None, Some(a)) => v.push(MenuNode::new(MenuItem::item("Abrir"), Some(MenuAction::DockRun(a)))),
+            (None, Some(a)) => v.push(MenuNode::new(MenuItem::item(tr!("Abrir")), Some(MenuAction::DockRun(a)))),
             (None, None) => {}
         }
         v

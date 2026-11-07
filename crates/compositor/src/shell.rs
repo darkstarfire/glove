@@ -150,32 +150,32 @@ pub fn app_display_name(w: &Window) -> String {
 pub(crate) fn pretty_app_name(app_id: &str) -> String {
     // Apps do próprio Glove têm nomes em português.
     match app_id {
-        "glove.Preferences" => return "Preferências".into(),
-        "glove.Calculator" => return "Calculadora".into(),
-        "glove.Clock" => return "Relógio".into(),
-        "glove.TextEditor" => return "Editor de Texto".into(),
-        "glove.Files" => return "Arquivos".into(),
-        "glove.Viewer" => return "Visualizador".into(),
-        "glove.Terminal" => return "Terminal".into(),
-        "glove.Notes" => return "Lembretes".into(),
-        "glove.Monitor" => return "Monitor".into(),
-        "glove.Shot" => return "Captura".into(),
-        "glove.Chars" => return "Caracteres".into(),
-        "glove.Find" => return "Busca".into(),
-        "glove.Disks" => return "Discos".into(),
-        "glove.Chess" => return "Xadrez".into(),
-        "glove.Arquivo" => return "Utilitário de Arquivo".into(),
-        "glove.Navegador" => return "Navegador".into(),
-        "glove.Musica" => return "Música".into(),
-        "glove.Contatos" => return "Contatos".into(),
-        "glove.Agenda" => return "Agenda".into(),
-        "glove.Video" => return "Vídeo".into(),
-        "glove.Registros" => return "Registros".into(),
-        "glove.Info" => return "Informações do Sistema".into(),
-        "glove.Ajuda" => return "Ajuda".into(),
-        "glove.Dicionario" => return "Dicionário".into(),
-        "glove.Fontes" => return "Livro de Fontes".into(),
-        "glove.Correio" => return "Correio".into(),
+        "glove.Preferences" => return tr!("Preferências").into(),
+        "glove.Calculator" => return tr!("Calculadora").into(),
+        "glove.Clock" => return tr!("Relógio").into(),
+        "glove.TextEditor" => return tr!("Editor de Texto").into(),
+        "glove.Files" => return tr!("Arquivos").into(),
+        "glove.Viewer" => return tr!("Visualizador").into(),
+        "glove.Terminal" => return tr!("Terminal").into(),
+        "glove.Notes" => return tr!("Lembretes").into(),
+        "glove.Monitor" => return tr!("Monitor").into(),
+        "glove.Shot" => return tr!("Captura").into(),
+        "glove.Chars" => return tr!("Caracteres").into(),
+        "glove.Find" => return tr!("Busca").into(),
+        "glove.Disks" => return tr!("Discos").into(),
+        "glove.Chess" => return tr!("Xadrez").into(),
+        "glove.Arquivo" => return tr!("Utilitário de Arquivo").into(),
+        "glove.Navegador" => return tr!("Navegador").into(),
+        "glove.Musica" => return tr!("Música").into(),
+        "glove.Contatos" => return tr!("Contatos").into(),
+        "glove.Agenda" => return tr!("Agenda").into(),
+        "glove.Video" => return tr!("Vídeo").into(),
+        "glove.Registros" => return tr!("Registros").into(),
+        "glove.Info" => return tr!("Informações do Sistema").into(),
+        "glove.Ajuda" => return tr!("Ajuda").into(),
+        "glove.Dicionario" => return tr!("Dicionário").into(),
+        "glove.Fontes" => return tr!("Livro de Fontes").into(),
+        "glove.Correio" => return tr!("Correio").into(),
         id if id.starts_with("glove.") => return "Glove".into(),
         _ => {}
     }
@@ -956,7 +956,7 @@ impl Glove {
                     .map(|a| a.name)
                     .unwrap_or_else(|| if app_id.is_empty() { title } else { pretty_app_name(&app_id) })
             }
-            None if self.desk_active() => "Arquivos".to_string(),
+            None if self.desk_active() => tr!("Arquivos").to_string(),
             None => "Glove".to_string(),
         }
     }
@@ -1054,35 +1054,35 @@ impl Glove {
     /// Forçar Encerrar, Repouso, Reiniciar, Desligar e Encerrar Sessão.
     pub fn open_main_menu(&mut self) {
         let item = |label: &str, a: MenuAction| MenuNode::new(MenuItem::item(label), Some(a));
-        let mag = if self.config.dock.magnification { "Desativar Ampliação" } else { "Ativar Ampliação" };
-        let hide = if self.config.dock.autohide { "Desativar Ocultação" } else { "Ativar Ocultação" };
+        let mag = if self.config.dock.magnification { tr!("Desativar Ampliação") } else { tr!("Ativar Ampliação") };
+        let hide = if self.config.dock.autohide { tr!("Desativar Ocultação") } else { tr!("Ativar Ocultação") };
         let pos = |label: &str, word: &str| MenuNode::new(MenuItem::check(label, self.config.dock.position == word || (word == "embaixo" && !matches!(self.config.dock.position.as_str(), "esquerda" | "direita"))), Some(MenuAction::SetDockSide(word.to_string())));
         let dock = vec![
             item(hide, MenuAction::DockAutohide),
             item(mag, MenuAction::DockMagnification),
             MenuNode::sep(),
-            pos("Posição à Esquerda", "esquerda"),
-            pos("Posição Embaixo", "embaixo"),
-            pos("Posição à Direita", "direita"),
+            pos(tr!("Posição à Esquerda"), "esquerda"),
+            pos(tr!("Posição Embaixo"), "embaixo"),
+            pos(tr!("Posição à Direita"), "direita"),
             MenuNode::sep(),
-            item("Preferências do Dock…", MenuAction::DockPreferences),
+            item(tr!("Preferências do Dock…"), MenuAction::DockPreferences),
         ];
-        let logout = if self.nested { "Sair do Glove…".to_string() } else { format!("Encerrar Sessão de {}…", user_full_name()) };
+        let logout = if self.nested { tr!("Sair do Glove…").to_string() } else { tr!("Encerrar Sessão de {}…", user_full_name()) };
         let nodes = vec![
-            item("Sobre o Glove", MenuAction::About),
-            item("Ajuda do Glove", MenuAction::Help),
+            item(tr!("Sobre o Glove"), MenuAction::About),
+            item(tr!("Ajuda do Glove"), MenuAction::Help),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Preferências…").with_shortcut(self.binding("preferences")), Some(MenuAction::Preferences)),
-            MenuNode::submenu("Dock", dock),
+            MenuNode::new(MenuItem::item(tr!("Preferências…")).with_shortcut(self.binding("preferences")), Some(MenuAction::Preferences)),
+            MenuNode::submenu(tr!("Dock"), dock),
             MenuNode::sep(),
-            MenuNode::submenu("Itens Recentes", self.recent_nodes()),
+            MenuNode::submenu(tr!("Itens Recentes"), self.recent_nodes()),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Forçar Encerrar…").with_shortcut(self.binding("force_quit")), Some(MenuAction::ForceQuit)),
+            MenuNode::new(MenuItem::item(tr!("Forçar Encerrar…")).with_shortcut(self.binding("force_quit")), Some(MenuAction::ForceQuit)),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item("Bloquear Tela").with_shortcut(self.binding("lock")), Some(MenuAction::Lock)),
-            item("Repouso", MenuAction::Sleep),
-            item("Reiniciar…", MenuAction::Restart),
-            item("Desligar…", MenuAction::ShutDown),
+            MenuNode::new(MenuItem::item(tr!("Bloquear Tela")).with_shortcut(self.binding("lock")), Some(MenuAction::Lock)),
+            item(tr!("Repouso"), MenuAction::Sleep),
+            item(tr!("Reiniciar…"), MenuAction::Restart),
+            item(tr!("Desligar…"), MenuAction::ShutDown),
             MenuNode::sep(),
             item(&logout, MenuAction::LogOut),
         ];
@@ -1098,8 +1098,8 @@ impl Glove {
     /// como na era), as listas e "Limpar Menu".
     fn recent_nodes(&self) -> Vec<MenuNode> {
         let header = |t: &str| MenuNode::new(MenuItem::item(t).disabled(), None);
-        let none = || MenuNode::new(MenuItem::item("Nenhum").disabled(), None);
-        let mut v = vec![header("Aplicativos")];
+        let none = || MenuNode::new(MenuItem::item(tr!("Nenhum")).disabled(), None);
+        let mut v = vec![header(tr!("Aplicativos"))];
         let apps: Vec<MenuNode> = self
             .recent
             .apps
@@ -1111,7 +1111,7 @@ impl Glove {
         let has_apps = !apps.is_empty();
         if has_apps { v.extend(apps) } else { v.push(none()) }
         v.push(MenuNode::sep());
-        v.push(header("Documentos"));
+        v.push(header(tr!("Documentos")));
         let docs: Vec<_> = self.recent.documents().into_iter().take(self.config.appearance.recent_docs as usize).collect();
         let has_docs = !docs.is_empty();
         for p in docs {
@@ -1122,7 +1122,7 @@ impl Glove {
             v.push(none());
         }
         v.push(MenuNode::sep());
-        let clear = MenuItem::item("Limpar Menu");
+        let clear = MenuItem::item(tr!("Limpar Menu"));
         v.push(MenuNode::new(if has_apps || has_docs { clear } else { clear.disabled() }, Some(MenuAction::ClearRecent)));
         v
     }
@@ -1636,7 +1636,7 @@ impl Glove {
         // Lixeira sempre no fim, do outro lado do separador.
         let trash_icon = if self.chrome.trash_full.0 > 0 { Icon::TrashFull(self.chrome.trash_full.0) } else { Icon::Trash };
         // Arrastando só discos da mesa: o Lixo vira Ejetar (como no Tiger).
-        let (trash_icon, trash_label) = if self.desk_dragging_disks() { (Icon::Eject, "Ejetar") } else { (trash_icon, "Lixeira") };
+        let (trash_icon, trash_label) = if self.desk_dragging_disks() { (Icon::Eject, tr!("Ejetar")) } else { (trash_icon, tr!("Lixeira")) };
         items.push(DockItem { icon: trash_icon, label: trash_label.into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
         actions.push(DockAction::Trash);
         (items, actions)

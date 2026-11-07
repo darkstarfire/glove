@@ -1,6 +1,7 @@
 //! Menu do app (o do nome em negrito) e menu Janela, montados pelo Glove para
 //! qualquer app, e o "Ocultar" (janelas escondidas, que não vão para o Dock).
 
+use glove_config::tr;
 use glove_paint::chrome::MenuItem;
 use smithay::{desktop::Window, reexports::wayland_server::Resource};
 
@@ -75,7 +76,7 @@ impl Glove {
         let own = self.focused_menus().into_iter().find(|m| m.title == APP_MENU).map(|m| m.items).unwrap_or_default();
         let own_about = own.iter().any(|e| e.id == "about");
         if !own_about && app_id.starts_with("glove.") && !matches!(app_id.as_str(), "glove.About" | "glove.Sair" | "glove.Navegador") {
-            nodes.push(MenuNode::new(MenuItem::item(format!("Sobre {}", with_article(&app))), Some(MenuAction::AboutApp(app_id.clone(), app.clone()))));
+            nodes.push(MenuNode::new(MenuItem::item(if glove_config::idioma() == "pt" { format!("Sobre {}", with_article(&app)) } else { tr!("Sobre {}", app) }), Some(MenuAction::AboutApp(app_id.clone(), app.clone()))));
         }
         if !own.is_empty() {
             if !nodes.is_empty() {
@@ -90,11 +91,11 @@ impl Glove {
         let has_window = focused.is_some();
         let others = self.space.elements().any(|w| self.window_pid(w) != Some(pid)) && has_window;
         let enable = |it: MenuItem, on: bool| if on { it } else { it.disabled() };
-        nodes.push(MenuNode::new(enable(MenuItem::item(format!("Ocultar {app}")).with_shortcut(self.binding("hide")), has_window), Some(MenuAction::HideApp(pid))));
-        nodes.push(MenuNode::new(enable(MenuItem::item("Ocultar Outros").with_shortcut(self.binding("hide_others")), others), Some(MenuAction::HideOthers(pid))));
-        nodes.push(MenuNode::new(enable(MenuItem::item("Mostrar Todos"), !self.hidden.is_empty()), Some(MenuAction::ShowAll)));
+        nodes.push(MenuNode::new(enable(MenuItem::item(tr!("Ocultar {}", app)).with_shortcut(self.binding("hide")), has_window), Some(MenuAction::HideApp(pid))));
+        nodes.push(MenuNode::new(enable(MenuItem::item(tr!("Ocultar Outros")).with_shortcut(self.binding("hide_others")), others), Some(MenuAction::HideOthers(pid))));
+        nodes.push(MenuNode::new(enable(MenuItem::item(tr!("Mostrar Todos")), !self.hidden.is_empty()), Some(MenuAction::ShowAll)));
         nodes.push(MenuNode::sep());
-        nodes.push(MenuNode::new(enable(MenuItem::item(format!("Encerrar {app}")), has_window), Some(MenuAction::QuitApp(pid))));
+        nodes.push(MenuNode::new(enable(MenuItem::item(tr!("Encerrar {}", app)), has_window), Some(MenuAction::QuitApp(pid))));
         self.show_menu(BarTarget::Title(0), nodes);
     }
 
@@ -104,10 +105,10 @@ impl Glove {
         let pid = self.focused_pid().unwrap_or(0);
         let enable = |it: MenuItem, on: bool| if on { it } else { it.disabled() };
         let mut nodes = vec![
-            MenuNode::new(enable(MenuItem::item("Minimizar").with_shortcut(self.binding("minimize")), focused.is_some()), focused.clone().map(MenuAction::MinimizeWindow)),
-            MenuNode::new(enable(MenuItem::item("Zoom"), focused.as_ref().is_some_and(|w| !fixed_size(w))), focused.clone().map(MenuAction::ZoomWindow)),
+            MenuNode::new(enable(MenuItem::item(tr!("Minimizar")).with_shortcut(self.binding("minimize")), focused.is_some()), focused.clone().map(MenuAction::MinimizeWindow)),
+            MenuNode::new(enable(MenuItem::item(tr!("Zoom")), focused.as_ref().is_some_and(|w| !fixed_size(w))), focused.clone().map(MenuAction::ZoomWindow)),
             MenuNode::sep(),
-            MenuNode::new(enable(MenuItem::item("Trazer Todas para a Frente"), focused.is_some()), Some(MenuAction::BringAllToFront(pid))),
+            MenuNode::new(enable(MenuItem::item(tr!("Trazer Todas para a Frente")), focused.is_some()), Some(MenuAction::BringAllToFront(pid))),
         ];
         if !extra.is_empty() {
             nodes.push(MenuNode::sep());

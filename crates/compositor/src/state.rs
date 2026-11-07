@@ -1,3 +1,4 @@
+use glove_config::tr;
 use std::{ffi::OsString, sync::Arc};
 
 use glove_paint::{Fonts, Theme, Variant};
@@ -334,7 +335,7 @@ impl Glove {
             let t = libc::time(std::ptr::null_mut());
             let mut tm: libc::tm = std::mem::zeroed();
             libc::localtime_r(&t, &mut tm);
-            format!("Captura de tela {}-{:02}-{:02} às {:02}.{:02}.{:02}.png", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec)
+            tr!("Captura de tela {} às {}.png", format!("{}-{:02}-{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday), format!("{:02}.{:02}.{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec))
         };
         self.screenshot_request = Some(dir.join(name));
         self.dirty = true;
@@ -480,7 +481,7 @@ impl Glove {
             nested: true,
             outputs: vec![glove_config::OutputInfo {
                 name: output.name(),
-                description: "Janela do Glove".into(),
+                description: tr!("Janela do Glove").into(),
                 size_mm: (0, 0),
                 active: true,
                 primary: true,

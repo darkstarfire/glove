@@ -2,6 +2,7 @@
 //! salvar), espera, mostra a tela de encerramento e então desliga, reinicia ou sai.
 //! Se um app não fecha, o encerramento é cancelado e o usuário é avisado.
 
+use glove_config::tr;
 use std::time::{Duration, Instant};
 
 use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
@@ -33,10 +34,10 @@ impl EndKind {
     }
     pub fn label(self, nested: bool) -> &'static str {
         match self {
-            Self::LogOut if nested => "Saindo do Glove…",
-            Self::LogOut => "Encerrando a sessão…",
-            Self::Restart => "Reiniciando…",
-            Self::ShutDown => "Desligando…",
+            Self::LogOut if nested => tr!("Saindo do Glove…"),
+            Self::LogOut => tr!("Encerrando a sessão…"),
+            Self::Restart => tr!("Reiniciando…"),
+            Self::ShutDown => tr!("Desligando…"),
         }
     }
 }
