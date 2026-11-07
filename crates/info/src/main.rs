@@ -17,7 +17,7 @@ fn cmd(c: &str, args: &[&str]) -> String {
 }
 
 fn gb(kb: u64) -> String {
-    format!("{:.1} GB", kb as f64 / 1024.0 / 1024.0).replace('.', ",")
+    format!("{:.1} GB", kb as f64 / 1024.0 / 1024.0).replace('.', glove_config::virgula())
 }
 
 /// (rótulo, valor) de cada seção; linhas com rótulo vazio são títulos.
@@ -29,7 +29,7 @@ pub fn section(i: usize) -> Vec<(String, String)> {
             let model = cpu.lines().find_map(|l| l.strip_prefix("model name")).map(|v| v.trim_start_matches([' ', '\t', ':']).to_string()).unwrap_or_default();
             let threads = cpu.lines().filter(|l| l.starts_with("processor")).count();
             let cores = cpu.lines().find_map(|l| l.strip_prefix("cpu cores")).map(|v| v.trim_start_matches([' ', '\t', ':']).to_string()).unwrap_or_default();
-            let mhz = read("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq").parse::<f64>().map(|k| format!("{:.2} GHz", k / 1e6).replace('.', ",")).unwrap_or_default();
+            let mhz = read("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq").parse::<f64>().map(|k| format!("{:.2} GHz", k / 1e6).replace('.', glove_config::virgula())).unwrap_or_default();
             let model_name = format!("{} {}", read("/sys/class/dmi/id/sys_vendor"), read("/sys/class/dmi/id/product_name")).trim().to_string();
             vec![
                 kv("Modelo", model_name),

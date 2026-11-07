@@ -3,6 +3,7 @@
 //! ftp, webdav… O Glove conversa com o `gio mount` e responde às perguntas dele
 //! (usuário, domínio, senha) com a própria janela de login, como no Tiger.
 
+use glove_config::tr;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -113,7 +114,7 @@ pub fn mount(uri: &str, creds: Option<&Creds>) -> Mounted {
         }
         _ => String::new(),
     };
-    let Some((mut ok, mut out, mut err)) = run_mount(&uri, guest, &input) else { return Mounted::Err("Não foi possível usar o gio (gvfs).".into()) };
+    let Some((mut ok, mut out, mut err)) = run_mount(&uri, guest, &input) else { return Mounted::Err(tr!("Não foi possível usar o gio (gvfs).").into()) };
     // "Não dá para conferir a identidade do computador" (sftp na primeira vez): entra mesmo assim.
     if !ok && out.to_lowercase().contains("choice") {
         if let Some(r) = run_mount(&uri, guest, &format!("1\n{input}")) {
@@ -123,7 +124,7 @@ pub fn mount(uri: &str, creds: Option<&Creds>) -> Mounted {
     if ok || err.to_lowercase().contains("already mounted") {
         return match local_path(&uri) {
             Some(p) => Mounted::Ok(p),
-            None => Mounted::Err("O servidor conectou, mas a pasta dele não apareceu.".into()),
+            None => Mounted::Err(tr!("O servidor conectou, mas a pasta dele não apareceu.").into()),
         };
     }
     // Pediu a senha: sem senha dada, ou perguntou de novo (a dada foi recusada).
@@ -138,7 +139,7 @@ pub fn mount(uri: &str, creds: Option<&Creds>) -> Mounted {
     if low.contains("permission") || low.contains("login") || low.contains("password") || low.contains("authentic") || low.contains("cancel") {
         return Mounted::NeedAuth { wrong: !input.is_empty() };
     }
-    Mounted::Err(if msg.is_empty() { "Não foi possível conectar ao servidor.".into() } else { msg })
+    Mounted::Err(if msg.is_empty() { tr!("Não foi possível conectar ao servidor.").into() } else { msg })
 }
 
 /// "smb://casa.local/fotos" → "casa.local".
@@ -167,7 +168,7 @@ pub fn connect_window(addr: Option<String>, auto: bool) {
     if auto && !app.addr.is_empty() {
         app.start(None);
     }
-    let opts = WindowOptions { title: "Conectar ao Servidor".into(), app_id: "glove.Files".into(), size: (480, 270), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Conectar ao Servidor").into(), app_id: "glove.Files".into(), size: (480, 270), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-files: {e}");
     }
@@ -243,10 +244,10 @@ impl App for Connect {
                     self.repaint = 3;
                 }
                 None => {
-                    ui.fonts.draw(ui.c, &format!("Conectando a “{}”…", host_of(&self.addr)), 20.0, 40.0, 13.0, true, rgba(20, 20, 20, 255));
+                    ui.fonts.draw(ui.c, &tr!("Conectando a “{}”…", host_of(&self.addr)), 20.0, 40.0, 13.0, true, rgba(20, 20, 20, 255));
                     ui.progress_in(Rect::new(20.0, 56.0, w - 40.0, 12.0), None);
                     ui.area(Rect::new(w - 110.0, h - 40.0, 92.0, 24.0), |ui| {
-                        if ui.button("Cancelar") {
+                        if ui.button(tr!("Cancelar")) {
                             self.stage = Stage::Form;
                         }
                     });
@@ -257,18 +258,18 @@ impl App for Connect {
         // Folha de login (como a do Tiger para servidores).
         if let Stage::Login { creds, wrong, first } = &mut self.stage {
             let smb = self.addr.starts_with("smb://");
-            ui.fonts.draw(ui.c, &format!("Digite seu nome e senha para o servidor “{}”.", host_of(&self.addr)), 20.0, 30.0, 13.0, true, rgba(20, 20, 20, 255));
+            ui.fonts.draw(ui.c, &tr!("Digite seu nome e senha para o servidor “{}”.", host_of(&self.addr)), 20.0, 30.0, 13.0, true, rgba(20, 20, 20, 255));
             if *wrong {
-                ui.fonts.draw(ui.c, "O nome ou a senha não foram aceitos. Tente de novo.", 20.0, 50.0, 11.0, false, rgba(170, 30, 30, 255));
+                ui.fonts.draw(ui.c, tr!("O nome ou a senha não foram aceitos. Tente de novo."), 20.0, 50.0, 11.0, false, rgba(170, 30, 30, 255));
             }
             let mut go = false;
             let mut cancel = false;
             ui.area(Rect::new(20.0, 62.0, w - 40.0, h - 70.0), |ui| {
                 let mut kind = creds.guest as usize;
                 ui.horizontal(|ui| {
-                    ui.label("Conectar como:");
+                    ui.label(tr!("Conectar como:"));
                     ui.spacing(10.0);
-                    if ui.radio_group(&mut kind, &["Usuário registrado", "Convidado"]) {
+                    if ui.radio_group(&mut kind, &[tr!("Usuário registrado"), tr!("Convidado")]) {
                         creds.guest = kind == 1;
                     }
                 });
@@ -280,14 +281,14 @@ impl App for Connect {
                     ui.fonts.draw(ui.c, label, x + lw - ui.text_width(label, 12.0, false), y + 15.0, 12.0, false, rgba(20, 20, 20, 255));
                     Rect::new(x + lw + 8.0, y, 240.0, 22.0)
                 };
-                let r = row(ui, "Nome:");
+                let r = row(ui, tr!("Nome:"));
                 go |= ui.text_field_in(r, &mut creds.user, *first && !creds.guest).1;
                 ui.alloc(10.0, 28.0);
-                let r = row(ui, "Senha:");
+                let r = row(ui, tr!("Senha:"));
                 go |= ui.password_field_in(r, &mut creds.password, false);
                 ui.alloc(10.0, 28.0);
                 if smb {
-                    let r = row(ui, "Domínio:");
+                    let r = row(ui, tr!("Domínio:"));
                     go |= ui.text_field_in(r, &mut creds.domain, false).1;
                     ui.alloc(10.0, 28.0);
                 }
@@ -296,9 +297,9 @@ impl App for Connect {
             *first = false;
             ui.area(Rect::new(w - 220.0, h - 40.0, 200.0, 24.0), |ui| {
                 ui.horizontal(|ui| {
-                    cancel = ui.button("Cancelar");
+                    cancel = ui.button(tr!("Cancelar"));
                     ui.spacing(10.0);
-                    go |= ui.default_button("Conectar");
+                    go |= ui.default_button(tr!("Conectar"));
                 });
             });
             if cancel {
@@ -310,7 +311,7 @@ impl App for Connect {
             return;
         }
         // Formulário: endereço, favoritos e botões.
-        ui.fonts.draw(ui.c, "Endereço do servidor:", 20.0, 28.0, 12.0, true, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, tr!("Endereço do servidor:"), 20.0, 28.0, 12.0, true, rgba(20, 20, 20, 255));
         let mut connect = false;
         let (_, enter) = ui.text_field_in(Rect::new(20.0, 36.0, w - 80.0, 22.0), &mut self.addr, self.first);
         connect |= enter;
@@ -325,7 +326,7 @@ impl App for Connect {
                 }
             }
         });
-        ui.fonts.draw(ui.c, "Servidores favoritos:", 20.0, 80.0, 12.0, true, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, tr!("Servidores favoritos:"), 20.0, 80.0, 12.0, true, rgba(20, 20, 20, 255));
         let mut rows: Vec<String> = self.config.files.servers.clone();
         // Os últimos usados, depois dos favoritos (em cinza não dá: vão com "↻").
         for r in &self.config.files.recent_servers {
@@ -350,7 +351,7 @@ impl App for Connect {
             ui.horizontal(|ui| {
                 let fav = self.fav.filter(|&i| i < self.config.files.servers.len());
                 ui.set_enabled(fav.is_some());
-                if ui.button("Remover") {
+                if ui.button(tr!("Remover")) {
                     if let Some(i) = fav {
                         self.config.files.servers.remove(i);
                         self.fav = None;
@@ -359,12 +360,12 @@ impl App for Connect {
                 }
                 ui.set_enabled(true);
                 ui.spacing(w - 40.0 - 90.0 - 200.0);
-                if ui.button("Navegar") {
+                if ui.button(tr!("Navegar")) {
                     let _ = super::launch(std::process::Command::new(std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).unwrap_or_else(|| "glove-files".into())).arg(ROOT));
                     ui.close = true;
                 }
                 ui.spacing(10.0);
-                connect |= ui.default_button("Conectar");
+                connect |= ui.default_button(tr!("Conectar"));
             });
         });
         if connect && !self.addr.trim().is_empty() {

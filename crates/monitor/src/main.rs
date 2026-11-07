@@ -88,7 +88,7 @@ fn disk_usage(path: &str) -> Option<(u64, u64)> {
 
 fn human_bytes(b: f64) -> String {
     let (v, u) = if b >= 1e9 { (b / 1e9, "GB") } else if b >= 1e6 { (b / 1e6, "MB") } else if b >= 1e3 { (b / 1e3, "KB") } else { (b, "B") };
-    format!("{v:.1} {u}").replace('.', ",")
+    format!("{v:.1} {u}").replace('.', glove_config::virgula())
 }
 
 #[derive(Clone)]
@@ -131,7 +131,7 @@ fn users() -> HashMap<u32, String> {
 
 fn human_kb(kb: u64) -> String {
     let mb = kb as f64 / 1024.0;
-    if mb >= 1024.0 { format!("{:.1} GB", mb / 1024.0).replace('.', ",") } else { format!("{mb:.1} MB").replace('.', ",") }
+    if mb >= 1024.0 { format!("{:.1} GB", mb / 1024.0).replace('.', glove_config::virgula()) } else { format!("{mb:.1} MB").replace('.', glove_config::virgula()) }
 }
 
 struct Monitor {
@@ -377,9 +377,9 @@ impl Monitor {
                         let (u, sy, id) = self.cpu_split;
                         let threads: u64 = self.procs.iter().map(|p| p.threads).sum();
                         Self::legend(ui, x0, y0 + 12.0, &[
-                            ("Usuário", format!("{:.1} %", u * 100.0).replace('.', ","), Some(green)),
-                            ("Sistema", format!("{:.1} %", sy * 100.0).replace('.', ","), Some(red)),
-                            ("Ocioso", format!("{:.1} %", id * 100.0).replace('.', ","), Some(rgba(30, 30, 34, 255))),
+                            ("Usuário", format!("{:.1} %", u * 100.0).replace('.', glove_config::virgula()), Some(green)),
+                            ("Sistema", format!("{:.1} %", sy * 100.0).replace('.', glove_config::virgula()), Some(red)),
+                            ("Ocioso", format!("{:.1} %", id * 100.0).replace('.', glove_config::virgula()), Some(rgba(30, 30, 34, 255))),
                             ("Processos", self.procs.len().to_string(), None),
                             ("Threads", threads.to_string(), None),
                         ]);
@@ -465,7 +465,7 @@ impl Monitor {
 
     /// Linhas visíveis, já ordenadas: (pid, linha da tabela).
     fn rows(&self) -> Vec<(i32, TableRow)> {
-        let cells = |p: &Proc| vec![p.name.clone(), p.pid.to_string(), p.user.clone(), format!("{:.1}", p.cpu).replace('.', ","), human_kb(p.mem_kb)];
+        let cells = |p: &Proc| vec![p.name.clone(), p.pid.to_string(), p.user.clone(), format!("{:.1}", p.cpu).replace('.', glove_config::virgula()), human_kb(p.mem_kb)];
         let mut out = Vec::new();
         if self.show == 2 && self.filter.trim().is_empty() {
             // Hierarquia: cada processo embaixo do pai, irmãos na ordem escolhida.

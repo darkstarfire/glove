@@ -500,7 +500,10 @@ com a tradução ou com outra coisa (o caminho, um identificador).
   listas fixas (painéis, idiomas, serviços, regiões) traduzidas onde são mostradas; nomes de apps dos
   .desktop no idioma em uso; `tools/i18n.py candidatos|aplicar` marca uma pasta inteira e separa os
   textos que também são chave da lógica
-- [ ] 9.15.4 Arquivos (M)
+- [x] 9.15.4 Arquivos (M) — v0.9.26: janelas, barra lateral, Obter Informações, transferências, Lixeira,
+  servidores e preferências; separador decimal do idioma (`virgula()`) em todos os apps; todos os apps
+  passam a depender do glove-config (para o `tr!`); `tools/i18n.py consertar` desfaz o `tr!` onde o
+  compilador não aceita (listas fixas e padrões de match)
 - [ ] 9.15.5 Os outros apps, em lotes (G)
 - [ ] 9.15.6 Nomes do Dock e dos apps (configuração), tela de login e boas-vindas (M)
 - [ ] 9.15.7 Instalador vira `glove-setup-tool.sh` em português e inglês; README em inglês (M)

@@ -156,6 +156,14 @@ pub fn idioma() -> &'static str {
     &catalogo().idioma
 }
 
+/// Separador decimal do idioma em uso: vírgula (pt, es, fr, de, it…) ou ponto (en, ja…).
+pub fn virgula() -> &'static str {
+    match idioma() {
+        "en" | "ja" | "zh" | "ko" | "he" | "th" => ".",
+        _ => ",",
+    }
+}
+
 /// Tradução de um texto fixo (o que `tr!` usa). Uma chave pode levar contexto depois de
 /// `|` quando a mesma palavra tem dois sentidos ("Monitor" o app e "Monitor|tela"): sem
 /// tradução, mostra só o que vem antes do `|`.

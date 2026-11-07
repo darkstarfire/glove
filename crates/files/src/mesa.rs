@@ -5,6 +5,7 @@
 //!   janela de progresso e o alerta de nome repetido (só aparece se demorar);
 //! - `glove-files --opcoes-mesa`: Opções de Visualização da mesa (Ctrl+J).
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -70,7 +71,7 @@ pub fn transfer(mv: bool, dest: PathBuf, srcs: Vec<PathBuf>) {
     } else {
         app.ask = Some((items, clashes));
     }
-    let title = if mv { "Mover" } else { "Copiar" };
+    let title = if mv { tr!("Mover") } else { tr!("Copiar") };
     let opts = WindowOptions { title: title.into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-files: {e}");
@@ -93,12 +94,12 @@ impl App for Transfer {
         use glove_kit::AlertKind;
         if let Some((_, names)) = &self.ask {
             let title = if names.len() == 1 {
-                format!("Já existe um item chamado “{}” nesta pasta.", names[0])
+                tr!("Já existe um item chamado “{}” nesta pasta.", names[0])
             } else {
-                format!("Já existem {} itens com esses nomes nesta pasta.", names.len())
+                tr!("Já existem {} itens com esses nomes nesta pasta.", names.len())
             };
-            let text = "Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora.";
-            match ui.alert_window(AlertKind::Caution, &title, text, &["Parar", "Manter os dois", "Substituir"]) {
+            let text = tr!("Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora.");
+            match ui.alert_window(AlertKind::Caution, &title, text, &[tr!("Parar"), tr!("Manter os dois"), tr!("Substituir")]) {
                 Some(0) => ui.close = true,
                 Some(c) => {
                     let (mut items, _) = self.ask.take().unwrap();
@@ -117,7 +118,7 @@ impl App for Transfer {
             let err = p.error.lock().unwrap().clone();
             match err {
                 Some(e) => {
-                    if ui.alert_window(AlertKind::Stop, "Não foi possível terminar.", &e, &["OK"]).is_some() {
+                    if ui.alert_window(AlertKind::Stop, tr!("Não foi possível terminar."), &e, &["OK"]).is_some() {
                         ui.close = true;
                     }
                 }
@@ -126,7 +127,7 @@ impl App for Transfer {
             return;
         }
         let w = ui.c.w;
-        let verb = if self.mv { "Movendo" } else { "Copiando" };
+        let verb = if self.mv { tr!("Movendo") } else { tr!("Copiando") };
         let label = format!("{verb} {} {}…", self.n, if self.n == 1 { "item" } else { "itens" });
         ui.fonts.draw(ui.c, &label, 20.0, 30.0, 13.0, true, glove_kit::paint::draw::rgba(20, 20, 20, 255));
         let cur = p.current.lock().unwrap().clone();
@@ -136,7 +137,7 @@ impl App for Transfer {
         let frac = if total == 0 { None } else { Some((p.done.load(Ordering::Relaxed) as f32 / total as f32).min(1.0)) };
         ui.progress_in(Rect::new(20.0, 66.0, w - 40.0, 12.0), frac);
         ui.area(Rect::new(w - 110.0, 92.0, 90.0, 24.0), |ui| {
-            if ui.button("Parar") {
+            if ui.button(tr!("Parar")) {
                 p.cancel.store(true, Ordering::Relaxed);
             }
         });
@@ -151,7 +152,7 @@ pub fn duplicate(paths: Vec<PathBuf>) {
         .map(|p| {
             let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
             let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
-            let mut dest = p.with_file_name(format!("{stem} cópia{ext}"));
+            let mut dest = p.with_file_name(tr!("{} cópia{}", stem, ext));
             if dest.exists() {
                 dest = ops::free_name(&dest);
             }
@@ -170,7 +171,7 @@ pub fn duplicate(paths: Vec<PathBuf>) {
     if p.finished.load(Ordering::Relaxed) && p.error.lock().unwrap().is_none() {
         return;
     }
-    let opts = WindowOptions { title: "Copiar".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Copiar").into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
     if let Err(e) = run(opts, Transfer { ask: None, job: Some(p), n, mv: false }) {
         eprintln!("glove-files: {e}");
     }
@@ -178,7 +179,7 @@ pub fn duplicate(paths: Vec<PathBuf>) {
 
 /// Opções de Visualização da mesa.
 pub fn view_options() {
-    let opts = WindowOptions { title: "Mesa".into(), app_id: "glove.Files".into(), size: (300, 362), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Mesa").into(), app_id: "glove.Files".into(), size: (300, 362), fixed: true, min_size: None };
     let config = glove_config::Config::load();
     if let Err(e) = run(opts, ViewOptions { config, pending: false }) {
         eprintln!("glove-files: {e}");
@@ -219,16 +220,16 @@ impl App for ViewOptions {
             ui.label(&format!("Tamanho dos ícones: {0} × {0} px", d.icon_size));
             ui.space(4.0);
             let mut size = d.icon_size as f32;
-            let t = Ticks { count: 7, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };
+            let t = Ticks { count: 7, labels: &[(0.0, tr!("Pequeno")), (1.0, tr!("Grande"))], snap: false };
             if ui.slider_ticks(&mut size, 32.0, 128.0, 250.0, &t, true) {
                 self.config.desk.icon_size = (size / 4.0).round() as u32 * 4;
                 self.save(ui);
             }
             ui.space(10.0);
             ui.horizontal(|ui| {
-                ui.label("Tamanho do texto:");
+                ui.label(tr!("Tamanho do texto:"));
                 ui.spacing(8.0);
-                let sizes: Vec<String> = (10..=16).map(|s| format!("{s} pt")).collect();
+                let sizes: Vec<String> = (10..=16).map(|s| tr!("{} pt", s)).collect();
                 let mut i = d.text_size.clamp(10, 16) as usize - 10;
                 if ui.popup(&mut i, &sizes, 80.0) {
                     self.config.desk.text_size = 10 + i as u32;
@@ -236,11 +237,11 @@ impl App for ViewOptions {
                 }
             });
             ui.space(10.0);
-            ui.label("Posição do nome:");
+            ui.label(tr!("Posição do nome:"));
             ui.horizontal(|ui| {
                 ui.spacing(14.0);
                 let mut pos = d.label_right as usize;
-                if ui.radio_group(&mut pos, &["Embaixo", "À direita"]) {
+                if ui.radio_group(&mut pos, &[tr!("Embaixo"), tr!("À direita")]) {
                     self.config.desk.label_right = pos == 1;
                     self.save(ui);
                 }
@@ -248,14 +249,14 @@ impl App for ViewOptions {
             ui.space(8.0);
             let mut keep = !d.arrange.is_empty();
             ui.horizontal(|ui| {
-                if ui.checkbox(&mut keep, "Manter organizado por") {
+                if ui.checkbox(&mut keep, tr!("Manter organizado por")) {
                     self.config.desk.arrange = if keep { "nome".into() } else { String::new() };
                     self.save(ui);
                 }
             });
             ui.indent(20.0, |ui| {
                 ui.set_enabled(keep);
-                let names: Vec<String> = ARRANGE.iter().map(|a| a.1.to_string()).collect();
+                let names: Vec<String> = ARRANGE.iter().map(|a| tr(a.1).to_string()).collect();
                 let mut i = ARRANGE.iter().position(|a| a.0 == d.arrange).unwrap_or(0);
                 if ui.popup(&mut i, &names, 180.0) && keep {
                     self.config.desk.arrange = ARRANGE[i].0.into();
@@ -266,14 +267,14 @@ impl App for ViewOptions {
             ui.space(8.0);
             ui.separator();
             ui.space(6.0);
-            ui.label("Mostrar na mesa:");
+            ui.label(tr!("Mostrar na mesa:"));
             let mut disks = d.show_disks;
-            if ui.checkbox(&mut disks, "Disco do sistema") {
+            if ui.checkbox(&mut disks, tr!("Disco do sistema")) {
                 self.config.desk.show_disks = disks;
                 self.save(ui);
             }
             let mut rem = d.show_removable;
-            if ui.checkbox(&mut rem, "Pendrives e discos externos") {
+            if ui.checkbox(&mut rem, tr!("Pendrives e discos externos")) {
                 self.config.desk.show_removable = rem;
                 self.save(ui);
             }
@@ -285,20 +286,20 @@ impl App for ViewOptions {
 /// Só abre janela se não der certo.
 pub fn eject(mount: PathBuf) {
     if let Err(e) = glove_config::discos::eject(&mount) {
-        let opts = WindowOptions { title: "Ejetar".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
-        let _ = run(opts, Notice { kind: glove_kit::AlertKind::Stop, title: "Não foi possível ejetar o disco.".into(), text: e });
+        let opts = WindowOptions { title: tr!("Ejetar").into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
+        let _ = run(opts, Notice { kind: glove_kit::AlertKind::Stop, title: tr!("Não foi possível ejetar o disco.").into(), text: e });
     }
 }
 
 /// Aviso de disco arrancado sem ejetar (como o do Tiger).
 pub fn eject_warning(name: String) {
-    let opts = WindowOptions { title: "Disco".into(), app_id: "glove.Files".into(), size: (460, 140), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Disco").into(), app_id: "glove.Files".into(), size: (460, 140), fixed: true, min_size: None };
     let _ = run(
         opts,
         Notice {
             kind: glove_kit::AlertKind::Caution,
-            title: format!("O disco “{name}” não foi ejetado corretamente."),
-            text: "Se possível, ejete o disco antes de desconectá-lo ou desligá-lo. Para ejetar, arraste o disco para o Lixo ou clique em ⏏ ao lado dele no Arquivos.".into(),
+            title: tr!("O disco “{}” não foi ejetado corretamente.", name),
+            text: tr!("Se possível, ejete o disco antes de desconectá-lo ou desligá-lo. Para ejetar, arraste o disco para o Lixo ou clique em ⏏ ao lado dele no Arquivos.").into(),
         },
     );
 }

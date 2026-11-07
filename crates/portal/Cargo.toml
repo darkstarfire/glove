@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+glove-config = { path = "../config" }
 glove-kit = { path = "../kit" }
 zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
 

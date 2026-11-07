@@ -2,6 +2,7 @@
 //! instalados (os .desktop do XDG) e os do Glove; os de sistema ficam em
 //! Aplicativos/Utilitários. Clique duplo abre o app.
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 
 use glove_kit::paint::icons::Icon;
@@ -27,9 +28,9 @@ pub fn is_virtual(p: &Path) -> bool {
 /// Nome para mostrar das pastas virtuais.
 pub fn display_name(p: &Path) -> Option<&'static str> {
     if p == apps_dir() {
-        Some("Aplicativos")
+        Some(tr!("Aplicativos"))
     } else if p == utils_dir() {
-        Some("Utilitários")
+        Some(tr!("Utilitários"))
     } else {
         None
     }
@@ -115,7 +116,7 @@ pub fn all() -> Vec<App> {
 pub fn open(path: &Path) -> Result<(), String> {
     if let Ok(id) = path.strip_prefix(GLOVE) {
         let id = id.to_string_lossy();
-        let app = glove_config::known_app(&[], &id).ok_or("app não encontrado")?;
+        let app = glove_config::known_app(&[], &id).ok_or(tr!("app não encontrado"))?;
         let first = app.command.split_whitespace().next().unwrap_or("");
         let cmd = app.command.replacen(first, &super::sibling(first).to_string_lossy(), 1);
         return super::launch(std::process::Command::new("sh").arg("-c").arg(cmd)).map_err(|e| e.to_string());

@@ -80,7 +80,7 @@ fn statvfs(p: &Path) -> Option<(u64, u64)> {
 
 fn gb(n: u64) -> String {
     let g = n as f64 / 1e9;
-    if g >= 100.0 { format!("{g:.0} GB") } else if g >= 1.0 { format!("{g:.1} GB").replace('.', ",") } else { format!("{:.0} MB", n as f64 / 1e6) }
+    if g >= 100.0 { format!("{g:.0} GB") } else if g >= 1.0 { format!("{g:.1} GB").replace('.', glove_config::virgula()) } else { format!("{:.0} MB", n as f64 / 1e6) }
 }
 
 fn sibling(name: &str) -> PathBuf {

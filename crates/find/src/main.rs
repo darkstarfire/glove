@@ -35,7 +35,7 @@ struct Shared {
 fn human_size(b: u64) -> String {
     let f = b as f64;
     let s = if f >= 1e9 { format!("{:.1} GB", f / 1e9) } else if f >= 1e6 { format!("{:.1} MB", f / 1e6) } else if f >= 1e3 { format!("{:.0} KB", f / 1e3) } else { format!("{b} bytes") };
-    s.replace('.', ",")
+    s.replace('.', glove_config::virgula())
 }
 
 /// "Hoje, 14:30", "Ontem, 09:05" ou "05/11/2026, 14:30".

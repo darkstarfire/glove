@@ -145,7 +145,7 @@ fn fmt_num(v: f64) -> String {
         return tr!("Erro").into();
     }
     if v.abs() >= 1e12 {
-        return format!("{v:.4e}").replace('.', ",");
+        return format!("{v:.4e}").replace('.', glove_config::virgula());
     }
     let mut s = format!("{v:.10}");
     if s.contains('.') {
@@ -163,7 +163,7 @@ fn fmt_num(v: f64) -> String {
             s = s.trim_end_matches('0').trim_end_matches('.').to_string();
         }
     }
-    s.replace('.', ",")
+    s.replace('.', glove_config::virgula())
 }
 
 impl Calc {
@@ -419,7 +419,7 @@ impl Glove {
                     // Vírgula decimal em português, ponto nos outros idiomas.
                     let gb = |k: f64| {
                         let s = format!("{:.1}", k / 1024.0 / 1024.0);
-                        if glove_config::idioma() == "pt" { s.replace('.', ",") } else { s }
+                        if glove_config::idioma() == "pt" { s.replace('.', glove_config::virgula()) } else { s }
                     };
                     self.dashboard.mem = ((used / total) as f32, tr!("{} de {} GB", gb(used), gb(total)));
                 }

@@ -1,6 +1,7 @@
 //! Copiar e mover arquivos numa thread, com progresso, cancelamento e o
 //! tratamento de nomes repetidos decidido antes de começar.
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -133,7 +134,7 @@ pub fn start(items: Vec<Item>, mv: bool) -> Arc<Progress> {
         let r = (|| -> Result<(), String> {
             for it in &items {
                 if inside(&it.dest, &it.src) && it.src.is_dir() {
-                    return Err(format!("Não dá para pôr “{}” dentro dela mesma.", it.src.file_name().unwrap_or_default().to_string_lossy()));
+                    return Err(tr!("Não dá para pôr “{}” dentro dela mesma.", it.src.file_name().unwrap_or_default().to_string_lossy()));
                 }
             }
             // Mover no mesmo disco é só renomear; o resto é copiado.

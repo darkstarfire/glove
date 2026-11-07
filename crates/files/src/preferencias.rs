@@ -3,6 +3,7 @@
 //! Tudo vai para o config.toml ([files] e [desk]); as janelas abertas e a
 //! mesa mudam na hora.
 
+use glove_config::tr;
 use glove_kit::{paint::draw::*, run, ui::Ticks, App, Rect, Ui, WindowOptions};
 
 /// Lugares da barra lateral: (id, nome).
@@ -25,7 +26,7 @@ const ARRANGE: [(&str, &str); 4] = [("nome", "Nome"), ("data", "Data de Modifica
 const BACKGROUNDS: [(&str, &str); 6] = [("", "Branco"), ("#e8eef8", "Azul-claro"), ("#eef4e6", "Verde-claro"), ("#f6efe2", "Bege"), ("#d8d8dc", "Cinza"), ("#2e3440", "Grafite")];
 
 pub fn preferences() {
-    let opts = WindowOptions { title: "Preferências do Arquivos".into(), app_id: "glove.Files".into(), size: (420, 380), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Preferências do Arquivos").into(), app_id: "glove.Files".into(), size: (420, 380), fixed: true, min_size: None };
     if let Err(e) = run(opts, Prefs { config: glove_config::Config::load(), tab: 0 }) {
         eprintln!("glove-files: {e}");
     }
@@ -45,29 +46,29 @@ impl App for Prefs {
         let mut save = false;
         ui.area(Rect::new(16.0, 14.0, ui.c.w - 32.0, ui.c.h - 28.0), |ui| {
             let mut tab = self.tab;
-            ui.tab_box(&mut tab, &["Geral", "Rótulos", "Barra Lateral", "Avançado"], ui.c.h - 40.0, |ui| {
+            ui.tab_box(&mut tab, &[tr!("Geral"), tr!("Rótulos"), tr!("Barra Lateral"), tr!("Avançado")], ui.c.h - 40.0, |ui| {
                 ui.indent(18.0, |ui| {
                     ui.space(14.0);
                     match self.tab {
                         0 => {
-                            ui.label("Mostrar estes itens na mesa:");
+                            ui.label(tr!("Mostrar estes itens na mesa:"));
                             ui.space(4.0);
                             let d = &mut self.config.desk;
-                            save |= ui.checkbox(&mut d.show_disks, "Disco do sistema");
-                            save |= ui.checkbox(&mut d.show_removable, "Pendrives e discos externos");
-                            save |= ui.checkbox(&mut self.config.files.servers_on_desk, "Servidores conectados");
+                            save |= ui.checkbox(&mut d.show_disks, tr!("Disco do sistema"));
+                            save |= ui.checkbox(&mut d.show_removable, tr!("Pendrives e discos externos"));
+                            save |= ui.checkbox(&mut self.config.files.servers_on_desk, tr!("Servidores conectados"));
                             ui.space(14.0);
-                            ui.label("Novas janelas do Arquivos abrem em:");
+                            ui.label(tr!("Novas janelas do Arquivos abrem em:"));
                             ui.space(4.0);
                             let f = &mut self.config.files;
                             let mut i = NEW_WINDOW.iter().position(|n| n.0 == f.new_window).unwrap_or(0);
-                            if ui.popup(&mut i, &NEW_WINDOW.iter().map(|n| n.1.to_string()).collect::<Vec<_>>(), 180.0) {
+                            if ui.popup(&mut i, &NEW_WINDOW.iter().map(|n| tr(n.1).to_string()).collect::<Vec<_>>(), 180.0) {
                                 f.new_window = NEW_WINDOW[i].0.into();
                                 save = true;
                             }
                         }
                         1 => {
-                            ui.label("Nomes dos rótulos:");
+                            ui.label(tr!("Nomes dos rótulos:"));
                             ui.space(6.0);
                             let f = &mut self.config.files;
                             while f.labels.len() < 7 {
@@ -87,12 +88,12 @@ impl App for Prefs {
                             }
                         }
                         2 => {
-                            ui.label("Mostrar na barra lateral:");
+                            ui.label(tr!("Mostrar na barra lateral:"));
                             ui.space(4.0);
                             let f = &mut self.config.files;
                             for (id, name) in PLACES {
                                 let mut on = !f.sidebar_hidden.iter().any(|h| h == id);
-                                if ui.checkbox(&mut on, name) {
+                                if ui.checkbox(&mut on, tr(name)) {
                                     f.sidebar_hidden.retain(|h| h != id);
                                     if !on {
                                         f.sidebar_hidden.push(id.into());
@@ -103,9 +104,9 @@ impl App for Prefs {
                         }
                         _ => {
                             let f = &mut self.config.files;
-                            save |= ui.checkbox(&mut f.show_extensions, "Mostrar todas as extensões dos arquivos");
+                            save |= ui.checkbox(&mut f.show_extensions, tr!("Mostrar todas as extensões dos arquivos"));
                             ui.space(4.0);
-                            save |= ui.checkbox(&mut f.warn_empty_trash, "Avisar antes de esvaziar o Lixo");
+                            save |= ui.checkbox(&mut f.warn_empty_trash, tr!("Avisar antes de esvaziar o Lixo"));
                         }
                     }
                 });
@@ -119,7 +120,7 @@ impl App for Prefs {
 }
 
 pub fn view_options() {
-    let opts = WindowOptions { title: "Opções de Visualização".into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Opções de Visualização").into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true, min_size: None };
     if let Err(e) = run(opts, ViewOptions { config: glove_config::Config::load(), pending: false }) {
         eprintln!("glove-files: {e}");
     }
@@ -146,22 +147,22 @@ impl App for ViewOptions {
         let mut save = false;
         let mut drag = false;
         ui.area(Rect::new(20.0, 16.0, ui.c.w - 40.0, ui.c.h - 30.0), |ui| {
-            ui.small("Vale para a vista de ícones de todas as janelas.");
+            ui.small(tr!("Vale para a vista de ícones de todas as janelas."));
             ui.space(8.0);
             let f = &mut self.config.files;
             ui.label(&format!("Tamanho dos ícones: {0} × {0} px", f.icon_size));
             ui.space(4.0);
             let mut size = f.icon_size as f32;
-            let t = Ticks { count: 7, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };
+            let t = Ticks { count: 7, labels: &[(0.0, tr!("Pequeno")), (1.0, tr!("Grande"))], snap: false };
             if ui.slider_ticks(&mut size, 32.0, 128.0, 250.0, &t, true) {
                 f.icon_size = (size / 4.0).round() as u32 * 4;
                 drag = true;
             }
             ui.space(10.0);
             ui.horizontal(|ui| {
-                ui.label("Tamanho do texto:");
+                ui.label(tr!("Tamanho do texto:"));
                 ui.spacing(8.0);
-                let sizes: Vec<String> = (10..=16).map(|s| format!("{s} pt")).collect();
+                let sizes: Vec<String> = (10..=16).map(|s| tr!("{} pt", s)).collect();
                 let mut i = f.text_size.clamp(10, 16) as usize - 10;
                 if ui.popup(&mut i, &sizes, 80.0) {
                     f.text_size = 10 + i as u32;
@@ -169,31 +170,31 @@ impl App for ViewOptions {
                 }
             });
             ui.space(10.0);
-            ui.label("Posição do nome:");
+            ui.label(tr!("Posição do nome:"));
             ui.horizontal(|ui| {
                 ui.spacing(14.0);
                 let mut pos = f.label_right as usize;
-                if ui.radio_group(&mut pos, &["Embaixo", "À direita"]) {
+                if ui.radio_group(&mut pos, &[tr!("Embaixo"), tr!("À direita")]) {
                     f.label_right = pos == 1;
                     save = true;
                 }
             });
             ui.space(10.0);
             ui.horizontal(|ui| {
-                ui.label("Organizar por:");
+                ui.label(tr!("Organizar por:"));
                 ui.spacing(8.0);
                 let mut i = ARRANGE.iter().position(|a| a.0 == f.arrange).unwrap_or(0);
-                if ui.popup(&mut i, &ARRANGE.iter().map(|a| a.1.to_string()).collect::<Vec<_>>(), 160.0) {
+                if ui.popup(&mut i, &ARRANGE.iter().map(|a| tr(a.1).to_string()).collect::<Vec<_>>(), 160.0) {
                     f.arrange = ARRANGE[i].0.into();
                     save = true;
                 }
             });
             ui.space(10.0);
             ui.horizontal(|ui| {
-                ui.label("Fundo:");
+                ui.label(tr!("Fundo:"));
                 ui.spacing(8.0);
                 let mut i = BACKGROUNDS.iter().position(|b| b.0 == f.background).unwrap_or(0);
-                if ui.popup(&mut i, &BACKGROUNDS.iter().map(|b| b.1.to_string()).collect::<Vec<_>>(), 140.0) {
+                if ui.popup(&mut i, &BACKGROUNDS.iter().map(|b| tr(b.1).to_string()).collect::<Vec<_>>(), 140.0) {
                     f.background = BACKGROUNDS[i].0.into();
                     save = true;
                 }

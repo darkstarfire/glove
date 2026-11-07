@@ -2339,3 +2339,453 @@ msgstr "Add to Toolbar"
 msgid "Tirar da Barra"
 msgstr "Remove from Toolbar"
 
+msgid "Utilitários"
+msgstr "Utilities"
+
+msgid "app não encontrado"
+msgstr "app not found"
+
+msgid "Ler e escrever"
+msgstr "Read & Write"
+
+msgid "Só ler"
+msgstr "Read only"
+
+msgid "Nenhum acesso"
+msgstr "No access"
+
+msgid "Já existe um item chamado “{}”."
+msgstr "An item named “{}” already exists."
+
+msgid "Não foi possível renomear: {}"
+msgstr "Couldn’t rename: {}"
+
+msgid "{} em {} itens"
+msgstr "{} in {} items"
+
+msgid "{} ({} bytes)"
+msgstr "{} ({} bytes)"
+
+msgid "Calculando…"
+msgstr "Calculating…"
+
+msgid "Informações de {}"
+msgstr "{} Info"
+
+msgid "Geral:"
+msgstr "General:"
+
+msgid "Tipo:"
+msgstr "Kind:"
+
+msgid "Tamanho:"
+msgstr "Size:"
+
+msgid "Onde:"
+msgstr "Where:"
+
+msgid "Criado:"
+msgstr "Created:"
+
+msgid "Modificado:"
+msgstr "Modified:"
+
+msgid "Atalho para:"
+msgstr "Alias to:"
+
+msgid "Nome e extensão:"
+msgstr "Name & Extension:"
+
+msgid "Abrir com:"
+msgstr "Open with:"
+
+msgid "Nenhum app instalado abre este tipo."
+msgstr "No installed app opens this kind."
+
+msgid "Tipo: {}"
+msgstr "Kind: {}"
+
+msgid "Permissões:"
+msgstr "Permissions:"
+
+msgid "Só o dono pode mudar as permissões."
+msgstr "Only the owner can change permissions."
+
+msgid "Grupo {}:"
+msgstr "Group {}:"
+
+msgid "Outros:"
+msgstr "Others:"
+
+msgid "Não foi possível mudar: {}"
+msgstr "Couldn’t change: {}"
+
+msgid "Comentários:"
+msgstr "Comments:"
+
+msgid "Pasta"
+msgstr "Folder"
+
+msgid "Documento de texto"
+msgstr "Text document"
+
+msgid "Código-fonte"
+msgstr "Source code"
+
+msgid "Áudio"
+msgstr "Audio"
+
+msgid "Arquivo compactado"
+msgstr "Archive"
+
+msgid "Documento PDF"
+msgstr "PDF document"
+
+msgid "Aplicativo"
+msgstr "Application"
+
+msgid "Servidor"
+msgstr "Server"
+
+msgid "Documento"
+msgstr "Document"
+
+msgid "Busca: {}"
+msgstr "Search: {}"
+
+msgid "{} bytes"
+msgstr "{} bytes"
+
+msgid "Hoje, {}"
+msgstr "Today, {}"
+
+msgid "Ontem, {}"
+msgstr "Yesterday, {}"
+
+msgid "Não foi possível abrir: {}"
+msgstr "Couldn’t open: {}"
+
+msgid "Esta pasta está em outro disco e não pode ir para a Lixeira."
+msgstr "This folder is on another disk and can’t go to the Trash."
+
+msgid "item inválido"
+msgstr "invalid item"
+
+msgid "Já existe um item chamado “{}” no lugar de origem."
+msgstr "An item named “{}” already exists in the original location."
+
+msgid "Não foi possível esvaziar a Lixeira."
+msgstr "Couldn’t empty the Trash."
+
+msgid "Tem certeza de que deseja apagar para sempre os itens da Lixeira?"
+msgstr "Are you sure you want to permanently erase the items in the Trash?"
+
+msgid "Esvaziar Lixeira"
+msgstr "Empty Trash"
+
+msgid "Movendo"
+msgstr "Moving"
+
+msgid "Copiando"
+msgstr "Copying"
+
+msgid "Já existe um item chamado “{}” nesta pasta."
+msgstr "An item named “{}” already exists in this folder."
+
+msgid "Já existem {} itens com esses nomes nesta pasta."
+msgstr "{} items with these names already exist in this folder."
+
+msgid "Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora."
+msgstr "Do you want to replace it with the one you’re copying? Replacing erases what’s there now."
+
+msgid "Parar"
+msgstr "Stop"
+
+msgid "Manter os dois"
+msgstr "Keep Both"
+
+msgid "Substituir"
+msgstr "Replace"
+
+msgid "Buscando “{}” em {}"
+msgstr "Searching “{}” in {}"
+
+msgid "Apagar Busca"
+msgstr "Clear Search"
+
+msgid "Busca salva: ela aparece na barra lateral."
+msgstr "Search saved: it appears in the sidebar."
+
+msgid "Ir para a pasta:"
+msgstr "Go to the folder:"
+
+msgid "A pasta “{}” não existe."
+msgstr "The folder “{}” doesn’t exist."
+
+msgid "Busca não encontrada."
+msgstr "Search not found."
+
+msgid "Nova pasta"
+msgstr "New folder"
+
+msgid "Devolver"
+msgstr "Put Back"
+
+msgid "Esconder arquivos ocultos"
+msgstr "Hide hidden files"
+
+msgid "Mostrar arquivos ocultos"
+msgstr "Show hidden files"
+
+msgid "Recortar"
+msgstr "Cut"
+
+msgid "Mover {} itens para a Lixeira"
+msgstr "Move {} Items to Trash"
+
+msgid "{} de {} selecionados"
+msgstr "{} of {} selected"
+
+msgid "1 de {} selecionado"
+msgstr "1 of {} selected"
+
+msgid " · somente leitura"
+msgstr " · read only"
+
+msgid ", {} disponíveis"
+msgstr ", {} available"
+
+msgid "Ajustar"
+msgstr "Fit"
+
+msgid "Data de modificação"
+msgstr "Date modified"
+
+msgid "Onde"
+msgstr "Where"
+
+msgid "{} cópia{}"
+msgstr "{} copy{}"
+
+msgid "Não foi possível abrir o Utilitário de Arquivo: {}"
+msgstr "Couldn’t open Archive Manager: {}"
+
+msgid "Não foi possível criar o atalho: {}"
+msgstr "Couldn’t make the alias: {}"
+
+msgid "“{}” voltou para {}"
+msgstr "“{}” went back to {}"
+
+msgid "Nova janela"
+msgstr "New window"
+
+msgid "Fechar janela"
+msgstr "Close window"
+
+msgid "Mostrar Barra de Ferramentas"
+msgstr "Show Toolbar"
+
+msgid "Ocultar Barra de Ferramentas"
+msgstr "Hide Toolbar"
+
+msgid "Avançar"
+msgstr "Forward"
+
+msgid "Pasta acima"
+msgstr "Enclosing Folder"
+
+msgid "Conectar ao Servidor…"
+msgstr "Connect to Server…"
+
+msgid "Pastas Recentes"
+msgstr "Recent Folders"
+
+msgid "Ir para a Pasta…"
+msgstr "Go to Folder…"
+
+msgid "Informações"
+msgstr "Info"
+
+msgid "Mover"
+msgstr "Move"
+
+msgid "Não foi possível terminar."
+msgstr "Couldn’t finish."
+
+msgid "Tamanho do texto:"
+msgstr "Text size:"
+
+msgid "Posição do nome:"
+msgstr "Label position:"
+
+msgid "À direita"
+msgstr "Right"
+
+msgid "Manter organizado por"
+msgstr "Keep arranged by"
+
+msgid "Mostrar na mesa:"
+msgstr "Show on the desktop:"
+
+msgid "Disco do sistema"
+msgstr "System disk"
+
+msgid "Pendrives e discos externos"
+msgstr "USB drives and external disks"
+
+msgid "Não foi possível ejetar o disco."
+msgstr "Couldn’t eject the disk."
+
+msgid "O disco “{}” não foi ejetado corretamente."
+msgstr "The disk “{}” wasn’t ejected properly."
+
+msgid "Se possível, ejete o disco antes de desconectá-lo ou desligá-lo. Para ejetar, arraste o disco para o Lixo ou clique em ⏏ ao lado dele no Arquivos."
+msgstr "If possible, eject the disk before disconnecting or turning it off. To eject, drag the disk to the Trash or click ⏏ next to it in Files."
+
+msgid "Não dá para pôr “{}” dentro dela mesma."
+msgstr "You can’t put “{}” inside itself."
+
+msgid "Pastas inteligentes"
+msgstr "Smart folders"
+
+msgid "Branco"
+msgstr "White"
+
+msgid "Azul-claro"
+msgstr "Light blue"
+
+msgid "Verde-claro"
+msgstr "Light green"
+
+msgid "Bege"
+msgstr "Beige"
+
+msgid "Cinza"
+msgstr "Gray"
+
+msgid "Preferências do Arquivos"
+msgstr "Files Preferences"
+
+msgid "Geral"
+msgstr "General"
+
+msgid "Rótulos"
+msgstr "Labels"
+
+msgid "Barra Lateral"
+msgstr "Sidebar"
+
+msgid "Avançado"
+msgstr "Advanced"
+
+msgid "Mostrar estes itens na mesa:"
+msgstr "Show these items on the desktop:"
+
+msgid "Servidores conectados"
+msgstr "Connected servers"
+
+msgid "Novas janelas do Arquivos abrem em:"
+msgstr "New Files windows open:"
+
+msgid "Nomes dos rótulos:"
+msgstr "Label names:"
+
+msgid "Mostrar na barra lateral:"
+msgstr "Show these items in the sidebar:"
+
+msgid "Mostrar todas as extensões dos arquivos"
+msgstr "Show all filename extensions"
+
+msgid "Avisar antes de esvaziar o Lixo"
+msgstr "Show warning before emptying the Trash"
+
+msgid "Opções de Visualização"
+msgstr "View Options"
+
+msgid "Vale para a vista de ícones de todas as janelas."
+msgstr "Applies to the icon view of all windows."
+
+msgid "Organizar por:"
+msgstr "Arrange by:"
+
+msgid "Fundo:"
+msgstr "Background:"
+
+msgid "Não foi possível usar o gio (gvfs)."
+msgstr "Couldn’t use gio (gvfs)."
+
+msgid "O servidor conectou, mas a pasta dele não apareceu."
+msgstr "The server connected, but its folder didn’t appear."
+
+msgid "Não foi possível conectar ao servidor."
+msgstr "Couldn’t connect to the server."
+
+msgid "Conectar ao Servidor"
+msgstr "Connect to Server"
+
+msgid "Digite seu nome e senha para o servidor “{}”."
+msgstr "Enter your name and password for the server “{}”."
+
+msgid "O nome ou a senha não foram aceitos. Tente de novo."
+msgstr "The name or password wasn’t accepted. Try again."
+
+msgid "Conectar como:"
+msgstr "Connect as:"
+
+msgid "Usuário registrado"
+msgstr "Registered user"
+
+msgid "Convidado"
+msgstr "Guest"
+
+msgid "Nome:"
+msgstr "Name:"
+
+msgid "Domínio:"
+msgstr "Domain:"
+
+msgid "Endereço do servidor:"
+msgstr "Server address:"
+
+msgid "Servidores favoritos:"
+msgstr "Favorite servers:"
+
+msgid "Navegar"
+msgstr "Browse"
+
+msgid "Vídeos"
+msgstr "Videos"
+
+msgid "{} {} na Lixeira. Esta ação não pode ser desfeita."
+msgstr "{} {} in the Trash. You can’t undo this action."
+
+msgid "item"
+msgstr "item"
+
+msgid "itens"
+msgstr "items"
+
+msgid "Não se sabe de onde este item veio."
+msgstr "It’s not known where this item came from."
+
+msgid "Recortado: cole (Ctrl+V) na pasta de destino."
+msgstr "Cut: paste (Ctrl+V) in the destination folder."
+
+msgid "Copiado."
+msgstr "Copied."
+
+msgid "como Ícones"
+msgstr "as Icons"
+
+msgid "como Lista"
+msgstr "as List"
+
+msgid "como Colunas"
+msgstr "as Columns"
+
+msgid "Este disco não guarda comentários ({})"
+msgstr "This disk doesn’t store comments ({})"
+
+msgid "Usar para todos deste tipo"
+msgstr "Use for all of this kind"
+

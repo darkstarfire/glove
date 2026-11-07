@@ -3,7 +3,7 @@
 
 
 /// Traduções (ver o glove-i18n): a macro `tr!` com o texto em português.
-pub use glove_i18n::{idioma, tr, tr_dyn};
+pub use glove_i18n::{idioma, tr, tr_dyn, virgula};
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

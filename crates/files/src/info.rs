@@ -2,6 +2,7 @@
 //! fecham — Geral, Nome e extensão, Abrir com, Permissões e Comentários.
 //! A janela muda de altura conforme as seções abertas.
 
+use glove_config::tr;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
@@ -64,7 +65,7 @@ fn apps_for(mime: &str) -> Vec<(String, String)> {
                     continue;
                 }
                 if let Some(v) = l.strip_prefix("Name=") { name.get_or_insert(v); }
-                if let Some(v) = l.strip_prefix("Name[pt_BR]=") { name_pt = Some(v); }
+                if let Some((loc, v)) = l.strip_prefix("Name[").and_then(|r| r.split_once("]=")) { if loc == glove_config::idioma() || loc.starts_with(&format!("{}_", glove_config::idioma())) { name_pt = Some(v); } }
                 if let Some(v) = l.strip_prefix("MimeType=") { mimes = v; }
                 // NoDisplay só tira dos menus: o app ainda abre arquivos (ex.: os do Glove).
                 if l == "Hidden=true" { hidden = true; }
@@ -116,7 +117,7 @@ fn set_comment(p: &Path, text: &str) -> Result<(), String> {
             libc::setxattr(path.as_ptr(), attr.as_ptr(), text.as_ptr() as *const _, text.len(), 0)
         }
     };
-    if r == 0 { Ok(()) } else { Err(format!("Este disco não guarda comentários ({})", std::io::Error::last_os_error())) }
+    if r == 0 { Ok(()) } else { Err(tr!("Este disco não guarda comentários ({})", std::io::Error::last_os_error())) }
 }
 
 /// Nome do usuário ou grupo pelo número (/etc/passwd, /etc/group).
@@ -183,12 +184,12 @@ impl Info {
             return;
         }
         if new.contains('/') {
-            self.message = Some("O nome não pode ter “/”.".into());
+            self.message = Some(tr!("O nome não pode ter “/”.").into());
             return;
         }
         let dest = self.path.with_file_name(&new);
         if dest.exists() {
-            self.message = Some(format!("Já existe um item chamado “{new}”."));
+            self.message = Some(tr!("Já existe um item chamado “{}”.", new));
             return;
         }
         match std::fs::rename(&self.path, &dest) {
@@ -196,7 +197,7 @@ impl Info {
                 self.path = dest;
                 self.message = None;
             }
-            Err(e) => self.message = Some(format!("Não foi possível renomear: {e}")),
+            Err(e) => self.message = Some(tr!("Não foi possível renomear: {}", e)),
         }
     }
 }
@@ -216,11 +217,11 @@ impl App for Info {
         let meta = std::fs::symlink_metadata(&self.path).ok();
         let is_dir = self.path.is_dir();
         let size_text = match self.size {
-            Some(s) if is_dir => format!("{} em {} itens", super::human_size(s), self.items),
-            Some(s) => format!("{} ({} bytes)", super::human_size(s), s),
-            None => "Calculando…".into(),
+            Some(s) if is_dir => tr!("{} em {} itens", super::human_size(s), self.items),
+            Some(s) => tr!("{} ({} bytes)", super::human_size(s), s),
+            None => tr!("Calculando…").into(),
         };
-        let title = format!("Informações de {}", self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "/".into()));
+        let title = tr!("Informações de {}", self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "/".into()));
         ui.set_title(&title);
 
         let w = ui.c.w;
@@ -239,28 +240,28 @@ impl App for Info {
             ui.fonts.draw(ui.c, &size_text, r.x + 58.0, r.y + 40.0, 11.0, false, glove_kit::paint::draw::rgba(80, 80, 80, 255));
             ui.separator();
 
-            if ui.disclosure(&mut self.open[0], "Geral:") {}
+            if ui.disclosure(&mut self.open[0], tr!("Geral:")) {}
             if self.open[0] {
-                ui.form_row("Tipo:", LW, |ui| ui.small(e.type_name()));
-                ui.form_row("Tamanho:", LW, |ui| ui.small(&size_text));
+                ui.form_row(tr!("Tipo:"), LW, |ui| ui.small(e.type_name()));
+                ui.form_row(tr!("Tamanho:"), LW, |ui| ui.small(&size_text));
                 let parent = self.path.parent().map(|p| p.display().to_string()).unwrap_or_default();
-                ui.form_row("Onde:", LW, |ui| {
+                ui.form_row(tr!("Onde:"), LW, |ui| {
                     let t = ui.fonts.ellipsize(&parent, 11.0, false, w - 28.0 - LW - 12.0);
                     ui.small(&t);
                 });
                 let full = std::fs::metadata(&self.path).ok();
-                ui.form_row("Criado:", LW, |ui| ui.small(&when(full.as_ref().and_then(|m| m.created().ok()))));
-                ui.form_row("Modificado:", LW, |ui| ui.small(&when(full.as_ref().and_then(|m| m.modified().ok()))));
+                ui.form_row(tr!("Criado:"), LW, |ui| ui.small(&when(full.as_ref().and_then(|m| m.created().ok()))));
+                ui.form_row(tr!("Modificado:"), LW, |ui| ui.small(&when(full.as_ref().and_then(|m| m.modified().ok()))));
                 if e.link {
                     let target = std::fs::read_link(&self.path).map(|t| t.display().to_string()).unwrap_or_default();
-                    ui.form_row("Atalho para:", LW, |ui| {
+                    ui.form_row(tr!("Atalho para:"), LW, |ui| {
                         let t = ui.fonts.ellipsize(&target, 11.0, false, w - 28.0 - LW - 12.0);
                         ui.small(&t);
                     });
                 }
             }
 
-            ui.disclosure(&mut self.open[1], "Nome e extensão:");
+            ui.disclosure(&mut self.open[1], tr!("Nome e extensão:"));
             if self.open[1] {
                 let mut name = self.name.clone();
                 ui.text_field(&mut name, w - 28.0);
@@ -271,17 +272,17 @@ impl App for Info {
             }
 
             if !is_dir {
-                ui.disclosure(&mut self.open[2], "Abrir com:");
+                ui.disclosure(&mut self.open[2], tr!("Abrir com:"));
                 if self.open[2] {
                     if self.apps.is_empty() {
-                        ui.small("Nenhum app instalado abre este tipo.");
+                        ui.small(tr!("Nenhum app instalado abre este tipo."));
                     } else {
                         let names: Vec<String> = self.apps.iter().map(|a| a.1.clone()).collect();
                         let mut i = self.app;
                         ui.popup(&mut i, &names, w - 28.0);
                         self.app = i;
-                        ui.small(&format!("Tipo: {}", self.mime));
-                        if self.app != self.default_app && ui.small_button("Usar para todos deste tipo") {
+                        ui.small(&tr!("Tipo: {}", self.mime));
+                        if self.app != self.default_app && ui.small_button(tr!("Usar para todos deste tipo")) {
                             let id = self.apps[self.app].0.clone();
                             run("xdg-mime", &["default", &id, &self.mime]);
                             self.default_app = self.app;
@@ -290,19 +291,19 @@ impl App for Info {
                 }
             }
 
-            ui.disclosure(&mut self.open[3], "Permissões:");
+            ui.disclosure(&mut self.open[3], tr!("Permissões:"));
             if self.open[3] {
                 if let Some(m) = &meta {
                     let mode = m.mode();
                     let me = unsafe { libc::getuid() };
                     let mine = m.uid() == me;
-                    let you = if !mine { "Só o dono pode mudar as permissões." } else { "" };
+                    let you = if !mine { tr!("Só o dono pode mudar as permissões.") } else { "" };
                     let mut changed = None;
                     let owner = format!("{}:", name_of("/etc/passwd", m.uid()));
-                    let group = format!("Grupo {}:", name_of("/etc/group", m.gid()));
-                    for (shown, shift) in [(owner, 6u32), (group, 3), ("Outros:".to_string(), 0)] {
+                    let group = tr!("Grupo {}:", name_of("/etc/group", m.gid()));
+                    for (shown, shift) in [(owner, 6u32), (group, 3), (tr!("Outros:").to_string(), 0)] {
                         let mut a = access(mode, shift);
-                        let opts: Vec<String> = ACCESS.iter().map(|s| s.to_string()).collect();
+                        let opts: Vec<String> = ACCESS.iter().map(|s| tr(s).to_string()).collect();
                         ui.form_row(&shown, LW, |ui| {
                             ui.set_enabled(mine);
                             if ui.popup(&mut a, &opts, w - 28.0 - LW - 12.0) {
@@ -317,13 +318,13 @@ impl App for Info {
                     if let Some((shift, a)) = changed {
                         let new = with_access(mode, shift, a);
                         if let Err(e) = std::fs::set_permissions(&self.path, std::fs::Permissions::from_mode(new & 0o7777)) {
-                            self.message = Some(format!("Não foi possível mudar: {e}"));
+                            self.message = Some(tr!("Não foi possível mudar: {}", e));
                         }
                     }
                 }
             }
 
-            ui.disclosure(&mut self.open[4], "Comentários:");
+            ui.disclosure(&mut self.open[4], tr!("Comentários:"));
             if self.open[4] {
                 let mut c = self.comment.clone();
                 if ui.text_field(&mut c, w - 28.0) {

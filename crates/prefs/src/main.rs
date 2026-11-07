@@ -156,7 +156,7 @@ const SCALES: [f64; 8] = [0.0, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 const CONFIRM_SECS: u64 = 15;
 
 fn scale_label(v: f64) -> String {
-    format!("{}×", format!("{v}").replace('.', ","))
+    format!("{}×", format!("{v}").replace('.', glove_config::virgula()))
 }
 
 /// "2256x1504@60" -> "2256 × 1504, 60 Hz".

@@ -37,7 +37,7 @@ fn fmt(v: f64) -> String {
         return "Erro".into();
     }
     if v != 0.0 && (v.abs() >= 1e12 || v.abs() < 1e-9) {
-        return format!("{v:.6e}").replace('.', ",");
+        return format!("{v:.6e}").replace('.', glove_config::virgula());
     }
     let int_digits = (v.abs().log10().floor() as i32 + 1).max(1);
     let dec = (12 - int_digits).clamp(0, 10) as usize;
@@ -48,7 +48,7 @@ fn fmt(v: f64) -> String {
     if s == "-0" {
         s = "0".into();
     }
-    s.replace('.', ",")
+    s.replace('.', glove_config::virgula())
 }
 
 impl Calc {

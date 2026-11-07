@@ -48,7 +48,7 @@ fn size_text(n: usize) -> String {
     } else if n < 1024 * 1024 {
         format!("{} KB", n / 1024)
     } else {
-        format!("{:.1} MB", n as f64 / 1048576.0).replace('.', ",")
+        format!("{:.1} MB", n as f64 / 1048576.0).replace('.', glove_config::virgula())
     }
 }
 

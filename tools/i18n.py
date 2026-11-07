@@ -107,7 +107,7 @@ def faltam():
     print(f"{len(falta)} sem tradução", file=sys.stderr)
 
 
-if __name__ == "__main__" and not (len(sys.argv) >= 3 and sys.argv[1] in ("candidatos", "aplicar")):
+if __name__ == "__main__" and not (len(sys.argv) >= 3 and sys.argv[1] in ("candidatos", "aplicar", "consertar")):
     if len(sys.argv) >= 4 and sys.argv[1] == "marcar":
         marcar(sys.argv[2], json.load(open(sys.argv[3], encoding="utf-8")))
     elif len(sys.argv) >= 2 and sys.argv[1] == "faltam":
@@ -318,3 +318,40 @@ if __name__ == "__main__" and len(sys.argv) >= 3 and sys.argv[1] in ("candidatos
         candidatos(pasta)
     else:
         aplicar(pasta, json.load(open(sys.argv[3], encoding="utf-8")))
+
+
+def consertar(pacote):
+    """Compila o pacote e desfaz tr!(…) nas linhas que o compilador recusa
+    (constantes e padrões de match). Lista o que foi desfeito."""
+    import subprocess
+    desfeitas = []
+    for _ in range(5):
+        r = subprocess.run(["nice", "-n", "10", "cargo", "build", "--release", "--offline", "-j", "4", "-p", pacote],
+                           cwd=RAIZ, capture_output=True, text=True)
+        alvos = set()
+        bloco = ""
+        for linha in r.stderr.split("\n"):
+            if linha.startswith("error"):
+                bloco = linha
+            m = re.match(r"\s*--> (\S+):(\d+):\d+", linha)
+            if m and ("E0015" in bloco or "E0532" in bloco or "E0658" in bloco or "pattern" in bloco):
+                alvos.add((m.group(1), int(m.group(2))))
+                bloco = ""
+        if not alvos:
+            break
+        for arq, n in alvos:
+            p = os.path.join(RAIZ, arq)
+            ls = open(p, encoding="utf-8").read().split("\n")
+            novo = re.sub(r'tr!\(("(?:[^"\\]|\\.)*")\)', r"\1", ls[n - 1])
+            if novo != ls[n - 1]:
+                desfeitas.append(f"{arq}:{n}: {novo.strip()[:140]}")
+                ls[n - 1] = novo
+                open(p, "w", encoding="utf-8").write("\n".join(ls))
+    erros = [l for l in r.stderr.split("\n") if l.startswith("error")]
+    for d in desfeitas:
+        print("desfeito:", d)
+    print("compilou" if r.returncode == 0 else f"ainda com {len(erros)} erros:\n" + "\n".join(erros[:10]))
+
+
+if __name__ == "__main__" and len(sys.argv) >= 3 and sys.argv[1] == "consertar":
+    consertar(sys.argv[2])

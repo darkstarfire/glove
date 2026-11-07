@@ -10,4 +10,5 @@ license.workspace = true
 path = "src/main.rs"
 
 [dependencies]
+glove-config = { path = "../config" }
 glove-kit = { path = "../kit" }

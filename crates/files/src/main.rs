@@ -1,5 +1,6 @@
 //! Arquivos: navegador de pastas do Glove (colunas, lista e ícones).
 
+use glove_config::tr;
 mod apps;
 mod info;
 mod mesa;
@@ -97,17 +98,17 @@ impl Entry {
     }
     fn type_name(&self) -> &'static str {
         match self.kind {
-            Kind::Folder => "Pasta",
-            Kind::Text => "Documento de texto",
-            Kind::Code => "Código-fonte",
-            Kind::Picture => "Imagem",
-            Kind::Audio => "Áudio",
-            Kind::Video => "Vídeo",
-            Kind::Archive => "Arquivo compactado",
-            Kind::Pdf => "Documento PDF",
-            Kind::App => "Aplicativo",
-            Kind::Server => "Servidor",
-            Kind::Other => "Documento",
+            Kind::Folder => tr!("Pasta"),
+            Kind::Text => tr!("Documento de texto"),
+            Kind::Code => tr!("Código-fonte"),
+            Kind::Picture => tr!("Imagem"),
+            Kind::Audio => tr!("Áudio"),
+            Kind::Video => tr!("Vídeo"),
+            Kind::Archive => tr!("Arquivo compactado"),
+            Kind::Pdf => tr!("Documento PDF"),
+            Kind::App => tr!("Aplicativo"),
+            Kind::Server => tr!("Servidor"),
+            Kind::Other => tr!("Documento"),
         }
     }
     /// Desenha o ícone (com a marca de atalho, se for um link).
@@ -183,19 +184,19 @@ fn display_name(p: &Path) -> String {
     }
     if smart::is_smart(p) {
         let n = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        return if p.starts_with("/:Busca/") { format!("Busca: {n}") } else { n };
+        return if p.starts_with("/:Busca/") { tr!("Busca: {}", n) } else { n };
     }
     if p == Path::new("/") {
-        return "Computador".into();
+        return tr!("Computador").into();
     }
     if p == home() {
-        return "Início".into();
+        return tr!("Início").into();
     }
     if p == trash_dir().join("files") {
-        return "Lixeira".into();
+        return tr!("Lixeira").into();
     }
     if p == Path::new(rede::ROOT) {
-        return "Rede".into();
+        return tr!("Rede").into();
     }
     // Servidor conectado (pasta do gvfs): "fotos em casa.local".
     if p.parent() == Some(glove_config::discos::gvfs_dir().as_path()) {
@@ -240,7 +241,7 @@ fn label_color(n: u8) -> Option<Color> {
 fn human_size(n: u64) -> String {
     let f = n as f64;
     let s = if n < 1024 {
-        format!("{n} bytes")
+        tr!("{} bytes", n)
     } else if f < 1024.0 * 1024.0 {
         format!("{:.0} KB", f / 1024.0)
     } else if f < 1024.0 * 1024.0 * 1024.0 {
@@ -248,7 +249,7 @@ fn human_size(n: u64) -> String {
     } else {
         format!("{:.1} GB", f / 1024.0 / 1024.0 / 1024.0)
     };
-    s.replace('.', ",")
+    s.replace('.', glove_config::virgula())
 }
 
 fn human_date(t: Option<SystemTime>) -> String {
@@ -265,9 +266,9 @@ fn human_date(t: Option<SystemTime>) -> String {
         let same = |a: &libc::tm| a.tm_year == tm.tm_year && a.tm_yday == tm.tm_yday;
         let hm = format!("{:02}:{:02}", tm.tm_hour, tm.tm_min);
         if same(&today) {
-            format!("Hoje, {hm}")
+            tr!("Hoje, {}", hm)
         } else if same(&yest) {
-            format!("Ontem, {hm}")
+            tr!("Ontem, {}", hm)
         } else {
             format!("{:02}/{:02}/{}, {hm}", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900)
         }
@@ -289,7 +290,7 @@ fn free_space(p: &Path) -> Option<u64> {
 }
 
 fn read_dir(dir: &Path, hidden: bool) -> Result<Vec<Entry>, String> {
-    let rd = std::fs::read_dir(dir).map_err(|e| format!("Não foi possível abrir: {e}"))?;
+    let rd = std::fs::read_dir(dir).map_err(|e| tr!("Não foi possível abrir: {}", e))?;
     let mut v: Vec<Entry> = rd
         .flatten()
         .filter_map(|e| {
@@ -346,7 +347,7 @@ fn move_to_trash(p: &Path) -> Result<(), String> {
             std::fs::remove_file(p).map_err(|e| e.to_string())?;
         } else {
             let _ = std::fs::remove_file(info.join(format!("{name}.trashinfo")));
-            return Err("Esta pasta está em outro disco e não pode ir para a Lixeira.".into());
+            return Err(tr!("Esta pasta está em outro disco e não pode ir para a Lixeira.").into());
         }
     }
     Ok(())
@@ -420,13 +421,13 @@ fn put_back(item: &Path) -> Result<PathBuf, String> {
 }
 
 fn put_back_in(t: &Path, item: &Path) -> Result<PathBuf, String> {
-    let name = item.file_name().ok_or("item inválido")?.to_string_lossy().into_owned();
+    let name = item.file_name().ok_or(tr!("item inválido"))?.to_string_lossy().into_owned();
     let info = t.join("info").join(format!("{name}.trashinfo"));
     let text = std::fs::read_to_string(&info).map_err(|_| "Não se sabe de onde este item veio.".to_string())?;
-    let orig = text.lines().find_map(|l| l.strip_prefix("Path=")).ok_or("Não se sabe de onde este item veio.")?;
+    let orig = text.lines().find_map(|l| l.strip_prefix("Path=")).ok_or(tr!("Não se sabe de onde este item veio."))?;
     let dest = PathBuf::from(percent_decode(orig));
     if dest.exists() {
-        return Err(format!("Já existe um item chamado “{}” no lugar de origem.", dest.file_name().unwrap_or_default().to_string_lossy()));
+        return Err(tr!("Já existe um item chamado “{}” no lugar de origem.", dest.file_name().unwrap_or_default().to_string_lossy()));
     }
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -463,13 +464,13 @@ impl App for EmptyTrash {
     fn ui(&mut self, ui: &mut Ui) {
         use glove_kit::AlertKind;
         if let Some(e) = self.error.clone() {
-            if ui.alert_window(AlertKind::Stop, "Não foi possível esvaziar a Lixeira.", &e, &["OK"]).is_some() {
+            if ui.alert_window(AlertKind::Stop, tr!("Não foi possível esvaziar a Lixeira."), &e, &["OK"]).is_some() {
                 ui.close = true;
             }
             return;
         }
-        let text = format!("{} {} na Lixeira. Esta ação não pode ser desfeita.", self.count, if self.count == 1 { "item" } else { "itens" });
-        match ui.alert_window(AlertKind::Caution, "Tem certeza de que deseja apagar para sempre os itens da Lixeira?", &text, &["Cancelar", "Esvaziar Lixeira"]) {
+        let text = tr!("{} {} na Lixeira. Esta ação não pode ser desfeita.", self.count, if self.count == 1 { tr!("item") } else { tr!("itens") });
+        match ui.alert_window(AlertKind::Caution, tr!("Tem certeza de que deseja apagar para sempre os itens da Lixeira?"), &text, &[tr!("Cancelar"), tr!("Esvaziar Lixeira")]) {
             Some(1) => match empty_trash() {
                 Ok(()) => ui.close = true,
                 Err(e) => self.error = Some(e),
@@ -714,7 +715,7 @@ impl Files {
 
     fn start_job(&mut self, items: Vec<ops::Item>, mv: bool) {
         let n = items.len();
-        self.job = Some((ops::start(items, mv), if mv { "Movendo" } else { "Copiando" }, n));
+        self.job = Some((ops::start(items, mv), if mv { tr!("Movendo") } else { tr!("Copiando") }, n));
         if mv {
             self.clip = None;
         }
@@ -724,12 +725,12 @@ impl Files {
     fn ask_sheet(&mut self, ui: &mut Ui) {
         let Some((_, names, _)) = &self.ask else { return };
         let title = if names.len() == 1 {
-            format!("Já existe um item chamado “{}” nesta pasta.", names[0])
+            tr!("Já existe um item chamado “{}” nesta pasta.", names[0])
         } else {
-            format!("Já existem {} itens com esses nomes nesta pasta.", names.len())
+            tr!("Já existem {} itens com esses nomes nesta pasta.", names.len())
         };
-        let text = "Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora.";
-        match ui.alert(glove_kit::AlertKind::Caution, &title, text, &["Parar", "Manter os dois", "Substituir"]) {
+        let text = tr!("Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora.");
+        match ui.alert(glove_kit::AlertKind::Caution, &title, text, &[tr!("Parar"), tr!("Manter os dois"), tr!("Substituir")]) {
             Some(0) => self.ask = None,
             Some(c) => {
                 let (mut items, _, mv) = self.ask.take().unwrap();
@@ -748,20 +749,20 @@ impl Files {
         let base = self.base.clone();
         let Some((q, scope)) = smart::query_of(&base, &self.search_scope) else { return area };
         let temp = base.starts_with("/:Busca/");
-        let text = format!("Buscando “{q}” em {}", display_name(&scope));
+        let text = tr!("Buscando “{}” em {}", q, display_name(&scope));
         let t = ui.fonts.ellipsize(&text, 12.0, false, area.w - 150.0);
         ui.fonts.draw(ui.c, &t, area.x + 12.0, area.y + 19.5, 12.0, false, rgba(40, 40, 40, 255));
         let mut clicked = false;
-        let label = if temp { "Salvar" } else { "Apagar Busca" };
+        let label = if temp { tr!("Salvar") } else { tr!("Apagar Busca") };
         ui.area(Rect::new(area.x + area.w - 126.0, area.y + 4.0, 116.0, 22.0), |ui| clicked = ui.small_button(label));
         if clicked {
             if temp {
                 match smart::save(&q, &q, &scope) {
                     Ok(p) => {
                         self.set_base(p);
-                        self.message = Some("Busca salva: ela aparece na barra lateral.".into());
+                        self.message = Some(tr!("Busca salva: ela aparece na barra lateral.").into());
                     }
-                    Err(e) => self.message = Some(format!("Não foi possível salvar: {e}")),
+                    Err(e) => self.message = Some(tr!("Não foi possível salvar: {}", e)),
                 }
             } else {
                 smart::delete(&base);
@@ -786,12 +787,12 @@ impl Files {
         ui.c.fill(rrect4(x, y, pw, ph, [0.0, 0.0, 6.0, 6.0]), &solid(ui.theme.body_b));
         ui.c.pinstripes(x, y, pw, ph - 6.0, ui.theme.body_a, ui.theme.body_b);
         ui.c.stroke(rrect4(x + 0.5, y, pw - 1.0, ph - 0.5, [0.0, 0.0, 6.0, 6.0]), &solid(rgba(0, 0, 0, 90)), 1.0);
-        ui.fonts.draw(ui.c, "Ir para a pasta:", x + 18.0, y + 24.0, 13.0, true, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, tr!("Ir para a pasta:"), x + 18.0, y + 24.0, 13.0, true, rgba(20, 20, 20, 255));
         let (_, enter) = ui.text_field_in(Rect::new(x + 18.0, y + 34.0, pw - 36.0, 22.0), &mut text, first || ui.keys().iter().any(|k| k.key == Key::Tab));
         let mut go = enter;
         let mut cancel = ui.keys().iter().any(|k| k.key == Key::Escape);
-        ui.area(Rect::new(x + pw - 210.0, y + 72.0, 90.0, 24.0), |ui| cancel |= ui.button("Cancelar"));
-        ui.area(Rect::new(x + pw - 110.0, y + 72.0, 90.0, 24.0), |ui| go |= ui.default_button("Ir"));
+        ui.area(Rect::new(x + pw - 210.0, y + 72.0, 90.0, 24.0), |ui| cancel |= ui.button(tr!("Cancelar")));
+        ui.area(Rect::new(x + pw - 110.0, y + 72.0, 90.0, 24.0), |ui| go |= ui.default_button(tr!("Ir")));
         if cancel {
             self.goto = None;
             return;
@@ -803,7 +804,7 @@ impl Files {
                 self.go(p);
                 return;
             }
-            self.message = Some(format!("A pasta “{}” não existe.", text.trim()));
+            self.message = Some(tr!("A pasta “{}” não existe.", text.trim()));
         }
         self.goto = Some((text, false));
     }
@@ -838,7 +839,7 @@ impl Files {
         ui.progress_in(Rect::new(x + 16.0, y + 54.0, pw - 130.0, 12.0), frac);
         let p2 = p.clone();
         ui.area(Rect::new(x + pw - 104.0, y + 50.0, 90.0, 22.0), |ui| {
-            if ui.button("Cancelar") {
+            if ui.button(tr!("Cancelar")) {
                 p2.cancel.store(true, Ordering::Relaxed);
             }
         });
@@ -916,9 +917,9 @@ impl Files {
     /// "Compactar “Fotos”" ou "Compactar 3 itens".
     fn compress_label(&self) -> String {
         match self.all_selected().as_slice() {
-            [] => "Compactar".into(),
-            [one] => format!("Compactar “{}”", short_name(&one.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), 24)),
-            v => format!("Compactar {} itens", v.len()),
+            [] => tr!("Compactar").into(),
+            [one] => tr!("Compactar “{}”", short_name(&one.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), 24)),
+            v => tr!("Compactar {} itens", v.len()),
         }
     }
 
@@ -1009,7 +1010,7 @@ impl Files {
             if let Some((_, _, v)) = self.cache.get(dir) {
                 return v.clone();
             }
-            let Some((q, scope)) = smart::query_of(dir, &self.search_scope) else { return Err("Busca não encontrada.".into()) };
+            let Some((q, scope)) = smart::query_of(dir, &self.search_scope) else { return Err(tr!("Busca não encontrada.").into()) };
             let mut v: Vec<Entry> = smart::search(&q, &scope)
                 .into_iter()
                 .map(|path| {
@@ -1056,7 +1057,7 @@ impl Files {
             let utils = *dir == apps::utils_dir();
             let mut v: Vec<Entry> = Vec::new();
             if !utils {
-                v.push(Entry { name: "Utilitários".into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None, label: 0 });
+                v.push(Entry { name: tr!("Utilitários").into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None, label: 0 });
             }
             v.extend(apps::all().into_iter().filter(|a| a.utility == utils).map(|a| Entry { name: a.name, path: a.path, kind: Kind::App, size: 0, modified: None, link: false, app_icon: Some(a.icon), label: 0 }));
             self.apps_cache.insert(dir.to_path_buf(), (std::time::Instant::now(), v.clone()));
@@ -1154,15 +1155,15 @@ impl Files {
             (View::Columns, Some(e)) if e.kind == Kind::Folder => e.path,
             _ => self.current(),
         };
-        let mut name = "Pasta sem título".to_string();
+        let mut name = tr!("Pasta sem título").to_string();
         let mut n = 2;
         while dir.join(&name).exists() {
-            name = format!("Pasta sem título {n}");
+            name = tr!("Pasta sem título {}", n);
             n += 1;
         }
         match std::fs::create_dir(dir.join(&name)) {
             Ok(()) => self.message = None,
-            Err(e) => self.message = Some(format!("Não foi possível criar a pasta: {e}")),
+            Err(e) => self.message = Some(tr!("Não foi possível criar a pasta: {}", e)),
         }
     }
 
@@ -1218,7 +1219,7 @@ impl Files {
         }
         // Busca em cápsula, à direita: abre a Busca já procurando nesta pasta.
         let sw = (w - gx - SEGMENT_W - 40.0).min(190.0);
-        if sw >= 90.0 && ui.search_field_in(Rect::new(w - 12.0 - sw, (TOOLBAR_H - SEARCH_H) / 2.0, sw, SEARCH_H), &mut self.search, "Buscar") {
+        if sw >= 90.0 && ui.search_field_in(Rect::new(w - 12.0 - sw, (TOOLBAR_H - SEARCH_H) / 2.0, sw, SEARCH_H), &mut self.search, tr!("Buscar")) {
             // Busca: os resultados aparecem como uma pasta (que pode ser salva).
             let q = self.search.trim().to_string();
             if !q.is_empty() {
@@ -1236,15 +1237,15 @@ impl Files {
     fn gear_items(&self) -> Vec<(&'static str, String, bool)> {
         let sel = self.selected.is_some();
         vec![
-            ("new-folder", "Nova pasta".into(), true),
-            ("open", "Abrir".into(), sel),
-            ("rename", "Renomear".into(), sel),
-            ("duplicate", "Duplicar".into(), sel && !self.in_trash()),
-            ("alias", "Criar Atalho".into(), sel && !self.in_trash()),
+            ("new-folder", tr!("Nova pasta").into(), true),
+            ("open", tr!("Abrir").into(), sel),
+            ("rename", tr!("Renomear").into(), sel),
+            ("duplicate", tr!("Duplicar").into(), sel && !self.in_trash()),
+            ("alias", tr!("Criar Atalho").into(), sel && !self.in_trash()),
             ("compress", self.compress_label(), sel && !self.in_trash()),
-            if self.in_trash() { ("put-back", "Devolver".into(), sel) } else { ("trash", "Mover para a Lixeira".into(), sel) },
+            if self.in_trash() { ("put-back", tr!("Devolver").into(), sel) } else { ("trash", tr!("Mover para a Lixeira").into(), sel) },
             ("", String::new(), false),
-            ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
+            ("hidden", if self.hidden { tr!("Esconder arquivos ocultos").into() } else { tr!("Mostrar arquivos ocultos").into() }, true),
         ]
     }
 
@@ -1348,32 +1349,32 @@ impl Files {
                 // para um fica apagado).
                 let n = self.all_selected().len();
                 let one = n <= 1;
-                let many = |t: &str| if one { t.to_string() } else { format!("{t} {n} itens") };
+                let many = |t: &str| if one { t.to_string() } else { tr!("{} {} itens", t, n) };
                 let file = one && self.selected.as_ref().is_some_and(|p| !apps::is_virtual(p) && p.is_file());
                 vec![
-                    ("open", many("Abrir"), true),
-                    ("sub:abrircom", "Abrir com".into(), file && !self.in_trash()),
+                    ("open", many(tr!("Abrir")), true),
+                    ("sub:abrircom", tr!("Abrir com").into(), file && !self.in_trash()),
                     ("", String::new(), false),
-                    ("info", "Obter Informações".into(), one),
-                    ("rename", "Renomear".into(), one),
-                    ("duplicate", "Duplicar".into(), one && !self.in_trash()),
-                    ("alias", "Criar Atalho".into(), one && !self.in_trash()),
+                    ("info", tr!("Obter Informações").into(), one),
+                    ("rename", tr!("Renomear").into(), one),
+                    ("duplicate", tr!("Duplicar").into(), one && !self.in_trash()),
+                    ("alias", tr!("Criar Atalho").into(), one && !self.in_trash()),
                     ("compress", self.compress_label(), !self.in_trash()),
                     ("", String::new(), false),
-                    ("copy", many("Copiar"), true),
-                    ("cut", many("Recortar"), true),
+                    ("copy", many(tr!("Copiar")), true),
+                    ("cut", many(tr!("Recortar")), true),
                     ("", String::new(), false),
-                    if self.in_trash() { ("put-back", many("Devolver"), true) } else { ("trash", if one { "Mover para a Lixeira".into() } else { format!("Mover {n} itens para a Lixeira") }, true) },
+                    if self.in_trash() { ("put-back", many("Devolver"), true) } else { ("trash", if one { "Mover para a Lixeira".into() } else { tr!("Mover {} itens para a Lixeira", n) }, true) },
                     ("", String::new(), false),
-                    ("sub:rotulo", "Rótulo".into(), !self.in_trash()),
+                    ("sub:rotulo", tr!("Rótulo").into(), !self.in_trash()),
                 ]
             }
             None => vec![
-                ("new-folder", "Nova pasta".into(), true),
-                ("paste", "Colar".into(), self.clip.is_some()),
+                ("new-folder", tr!("Nova pasta").into(), true),
+                ("paste", tr!("Colar").into(), self.clip.is_some()),
                 ("", String::new(), false),
-                ("hidden", if self.hidden { "Esconder arquivos ocultos".into() } else { "Mostrar arquivos ocultos".into() }, true),
-                ("view-options", "Mostrar Opções de Visualização".into(), true),
+                ("hidden", if self.hidden { tr!("Esconder arquivos ocultos").into() } else { tr!("Mostrar arquivos ocultos").into() }, true),
+                ("view-options", tr!("Mostrar Opções de Visualização").into(), true),
             ],
         }
     }
@@ -1393,7 +1394,7 @@ impl Files {
                 }
                 v.extend(apps.iter().filter(|a| Some(&a.0) != def.as_ref()).map(|(id, name)| (format!("openwith:{id}"), name.clone(), true)));
                 if v.is_empty() {
-                    v.push(("nada".into(), "Nenhum app encontrado".into(), false));
+                    v.push(("nada".into(), tr!("Nenhum app encontrado").into(), false));
                 }
                 v
             }
@@ -1402,7 +1403,7 @@ impl Files {
                 let labels: Vec<u8> = all.iter().map(|p| glove_config::arquivos::label_of(p)).collect();
                 let cur = labels.first().copied().filter(|l| labels.iter().all(|x| x == l));
                 let mark = |n: u8, t: String| if cur == Some(n) { format!("✓ {t}") } else { t };
-                let mut v = vec![(String::from("label:0"), mark(0, "Nenhum".into()), true), (String::new(), String::new(), false)];
+                let mut v = vec![(String::from("label:0"), mark(0, tr!("Nenhum").into()), true), (String::new(), String::new(), false)];
                 for n in 1..=7u8 {
                     v.push((format!("label:{n}"), mark(n, self.cfg.label_name(n)), true));
                 }
@@ -1514,12 +1515,12 @@ impl Files {
             return;
         }
         if name.contains('/') || name == "." || name == ".." {
-            self.message = Some("O nome não pode ter “/”.".into());
+            self.message = Some(tr!("O nome não pode ter “/”.").into());
             return;
         }
         let dest = path.with_file_name(name);
         if dest.exists() {
-            self.message = Some(format!("Já existe um item chamado “{name}” nesta pasta."));
+            self.message = Some(tr!("Já existe um item chamado “{}” nesta pasta.", name));
             return;
         }
         match std::fs::rename(path, &dest) {
@@ -1534,7 +1535,7 @@ impl Files {
                 }
                 self.cache.clear();
             }
-            Err(e) => self.message = Some(format!("Não foi possível renomear: {e}")),
+            Err(e) => self.message = Some(tr!("Não foi possível renomear: {}", e)),
         }
     }
 
@@ -1545,7 +1546,7 @@ impl Files {
         let shown = |id: &str| !hidden.iter().any(|h| h == id);
         let mut v = vec![];
         if shown("disco") {
-            v.push(Some(("Disco".to_string(), Icon::Disk, PathBuf::from("/"))));
+            v.push(Some((tr!("Disco").to_string(), Icon::Disk, PathBuf::from("/"))));
         }
         // Pendrives, discos externos e servidores conectados (com o ⏏), como no Tiger.
         for m in mounts {
@@ -1553,7 +1554,7 @@ impl Files {
             v.push(Some((m.name.clone(), icon, m.path.clone())));
         }
         if shown("rede") {
-            v.push(Some(("Rede".to_string(), Icon::Pref(icons::PrefKind::Network), PathBuf::from(rede::ROOT))));
+            v.push(Some((tr!("Rede").to_string(), Icon::Pref(icons::PrefKind::Network), PathBuf::from(rede::ROOT))));
         }
         if !v.is_empty() {
             v.push(None);
@@ -1579,7 +1580,7 @@ impl Files {
                 _ => "inicio",
             };
             if shown(id) && (p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p) || rede::is_rede(&p)) {
-                v.push(Some((name.to_string(), icon, p)));
+                v.push(Some((glove_config::tr_dyn(name), icon, p)));
             }
         };
         // Pastas do usuário como o sistema as define (nomes e caminhos variam por idioma).
@@ -1674,19 +1675,19 @@ impl Files {
         let n = self.list(&cur).map(|v| v.len()).unwrap_or(0);
         let chosen = self.all_selected().iter().filter(|s| s.parent() == Some(cur.as_path())).count();
         let mut text = if chosen > 1 {
-            format!("{chosen} de {n} selecionados")
+            tr!("{} de {} selecionados", chosen, n)
         } else if chosen == 1 {
-            format!("1 de {n} selecionado")
+            tr!("1 de {} selecionado", n)
         } else {
             format!("{n} {}", if n == 1 { "item" } else { "itens" })
         };
         // Pasta em que não se pode escrever (como o cadeado do Mac).
         if !apps::is_virtual(&cur) && !smart::is_smart(&cur) && !writable(&cur) {
-            text.push_str(" · somente leitura");
+            text.push_str(tr!(" · somente leitura"));
         }
         // Servidores (gvfs) não dizem o espaço livre de verdade (mostrariam "0 bytes").
         if let Some(free) = free_space(&cur).filter(|_| !cur.starts_with(glove_config::discos::gvfs_dir())) {
-            text.push_str(&format!(", {} disponíveis", human_size(free)));
+            text.push_str(&tr!(", {} disponíveis", human_size(free)));
         }
         if let Some(m) = &self.message {
             text = m.clone();
@@ -1901,7 +1902,7 @@ impl Files {
                             ui.spacing(4.0);
                             minus = ui.small_button("−");
                             plus = ui.small_button("+");
-                            fitb = ui.small_button("Ajustar");
+                            fitb = ui.small_button(tr!("Ajustar"));
                             ui.small(&pct);
                         });
                     });
@@ -1931,7 +1932,7 @@ impl Files {
         let tw = ui.text_width(&name, 13.0, true);
         ui.fonts.draw(ui.c, &name, cx - tw / 2.0, y, 13.0, true, rgba(20, 20, 20, 255));
         y += 26.0;
-        let mut rows = vec![("Tipo:", e.type_name().to_string()), ("Tamanho:", human_size(e.size)), ("Modificado:", human_date(e.modified))];
+        let mut rows = vec![(tr!("Tipo:"), e.type_name().to_string()), (tr!("Tamanho:"), human_size(e.size)), (tr!("Modificado:"), human_date(e.modified))];
         if let Some((w, h)) = dims {
             rows.push(("Dimensões:", format!("{w} × {h}")));
         }
@@ -1982,10 +1983,10 @@ impl Files {
         // Nas buscas, a última coluna diz onde cada item está (como no Tiger).
         let searching = smart::is_smart(&dir);
         let cols = [
-            Column::new("Nome", 0.45),
-            Column::new("Data de modificação", 0.25),
-            Column::new("Tamanho", 0.12).right(),
-            Column::new(if searching { "Onde" } else { "Tipo" }, 0.18),
+            Column::new(tr!("Nome"), 0.45),
+            Column::new(tr!("Data de modificação"), 0.25),
+            Column::new(tr!("Tamanho"), 0.12).right(),
+            Column::new(if searching { tr!("Onde") } else { tr!("Tipo") }, 0.18),
         ];
         let rows: Vec<TableRow> = flat
             .iter()
@@ -2313,7 +2314,7 @@ impl Files {
                     // para uma imagem, a imagem): colar em outro app cola o arquivo.
                     ui.copy_files(&all, a == "cut");
                     self.clip = Some((all, a == "cut"));
-                    self.message = Some(if a == "cut" { "Recortado: cole (Ctrl+V) na pasta de destino.".into() } else { "Copiado.".into() });
+                    self.message = Some(if a == "cut" { tr!("Recortado: cole (Ctrl+V) na pasta de destino.").into() } else { tr!("Copiado.").into() });
                 }
             }
             "rename" => {
@@ -2327,7 +2328,7 @@ impl Files {
                 if let Some(p) = self.selected.clone() {
                     let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
                     let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
-                    let mut dest = p.with_file_name(format!("{stem} cópia{ext}"));
+                    let mut dest = p.with_file_name(tr!("{} cópia{}", stem, ext));
                     if dest.exists() {
                         dest = ops::free_name(&dest);
                     }
@@ -2338,14 +2339,14 @@ impl Files {
                 let items = self.all_selected();
                 if !items.is_empty() {
                     if let Err(e) = launch(std::process::Command::new(sibling("glove-arquivo")).arg("compactar").args(&items)) {
-                        self.message = Some(format!("Não foi possível abrir o Utilitário de Arquivo: {e}"));
+                        self.message = Some(tr!("Não foi possível abrir o Utilitário de Arquivo: {}", e));
                     }
                 }
             }
             "alias" => {
                 if let Some(p) = self.selected.clone() {
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    let mut link = p.with_file_name(format!("{name} atalho"));
+                    let mut link = p.with_file_name(tr!("{} atalho", name));
                     if link.exists() {
                         link = ops::free_name(&link);
                     }
@@ -2354,7 +2355,7 @@ impl Files {
                             self.cache.clear();
                             self.selected = Some(link);
                         }
-                        Err(e) => self.message = Some(format!("Não foi possível criar o atalho: {e}")),
+                        Err(e) => self.message = Some(tr!("Não foi possível criar o atalho: {}", e)),
                     }
                 }
             }
@@ -2378,7 +2379,7 @@ impl Files {
                 if let Some(p) = self.selected.clone() {
                     match put_back(&p) {
                         Ok(dest) => {
-                            self.message = Some(format!("“{}” voltou para {}", display_name(&dest), dest.parent().map(display_name).unwrap_or_default()));
+                            self.message = Some(tr!("“{}” voltou para {}", display_name(&dest), dest.parent().map(display_name).unwrap_or_default()));
                             self.selected = None;
                             self.cache.clear();
                         }
@@ -2625,80 +2626,80 @@ impl App for Files {
 
     fn menus(&self) -> Vec<Menu> {
         let sel = self.selected.is_some();
-        let labels: Vec<MenuItem> = std::iter::once(MenuItem::new("label:0", "Nenhum", "").enabled(sel))
+        let labels: Vec<MenuItem> = std::iter::once(MenuItem::new("label:0", tr!("Nenhum"), "").enabled(sel))
             .chain((1..=7u8).map(|n| MenuItem::new(&format!("label:{n}"), &self.cfg.label_name(n), "").enabled(sel)))
             .collect();
         vec![
-            Menu::app(vec![MenuItem::new("prefs", "Preferências…", "Ctrl+comma")]),
+            Menu::app(vec![MenuItem::new("prefs", tr!("Preferências…"), "Ctrl+comma")]),
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("new-window", "Nova janela", "Ctrl+N"),
-                    MenuItem::new("new-folder", "Nova pasta", "Ctrl+Shift+N"),
-                    MenuItem::new("open", "Abrir", "Ctrl+O").enabled(sel),
+                    MenuItem::new("new-window", tr!("Nova janela"), "Ctrl+N"),
+                    MenuItem::new("new-folder", tr!("Nova pasta"), "Ctrl+Shift+N"),
+                    MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(sel),
                     MenuItem::Separator,
-                    MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(sel && !self.in_trash()),
-                    MenuItem::new("put-back", "Devolver", "").enabled(sel && self.in_trash()),
+                    MenuItem::new("trash", tr!("Mover para a Lixeira"), "Ctrl+BackSpace").enabled(sel && !self.in_trash()),
+                    MenuItem::new("put-back", tr!("Devolver"), "").enabled(sel && self.in_trash()),
                     MenuItem::Separator,
-                    MenuItem::new("info", "Obter Informações", "Ctrl+I"),
-                    MenuItem::new("rename", "Renomear", "F2").enabled(sel),
-                    MenuItem::new("duplicate", "Duplicar", "Ctrl+D").enabled(sel && !self.in_trash()),
-                    MenuItem::new("alias", "Criar Atalho", "Ctrl+L").enabled(sel && !self.in_trash()),
+                    MenuItem::new("info", tr!("Obter Informações"), "Ctrl+I"),
+                    MenuItem::new("rename", tr!("Renomear"), "F2").enabled(sel),
+                    MenuItem::new("duplicate", tr!("Duplicar"), "Ctrl+D").enabled(sel && !self.in_trash()),
+                    MenuItem::new("alias", tr!("Criar Atalho"), "Ctrl+L").enabled(sel && !self.in_trash()),
                     MenuItem::new("compress", &self.compress_label(), "").enabled(sel && !self.in_trash()),
-                    MenuItem::submenu("Rótulo", labels),
-                    MenuItem::new("eject", "Ejetar", "Ctrl+E").enabled(self.mounts.1.iter().any(|m| self.selected.clone().unwrap_or_else(|| self.current()).starts_with(&m.path))),
-                    MenuItem::new("empty-trash", "Esvaziar Lixeira…", "Ctrl+Shift+BackSpace"),
+                    MenuItem::submenu(tr!("Rótulo"), labels),
+                    MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(self.mounts.1.iter().any(|m| self.selected.clone().unwrap_or_else(|| self.current()).starts_with(&m.path))),
+                    MenuItem::new("empty-trash", tr!("Esvaziar Lixeira…"), "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar janela", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar janela"), "Ctrl+W"),
                 ],
             ),
             Menu::new(
-                "Editar",
+                tr!("Editar"),
                 vec![
-                    MenuItem::new("cut", "Recortar", "Ctrl+X").enabled(sel),
-                    MenuItem::new("copy", "Copiar", "Ctrl+C").enabled(sel),
-                    MenuItem::new("paste", "Colar", "Ctrl+V"),
+                    MenuItem::new("cut", tr!("Recortar"), "Ctrl+X").enabled(sel),
+                    MenuItem::new("copy", tr!("Copiar"), "Ctrl+C").enabled(sel),
+                    MenuItem::new("paste", tr!("Colar"), "Ctrl+V"),
                 ],
             ),
             Menu::new(
-                "Visualizar",
+                tr!("Visualizar"),
                 vec![
-                    MenuItem::new("view-icons", "como Ícones", "Ctrl+1").checked(self.view == View::Icons),
-                    MenuItem::new("view-list", "como Lista", "Ctrl+2").checked(self.view == View::List),
-                    MenuItem::new("view-columns", "como Colunas", "Ctrl+3").checked(self.view == View::Columns),
+                    MenuItem::new("view-icons", tr!("como Ícones"), "Ctrl+1").checked(self.view == View::Icons),
+                    MenuItem::new("view-list", tr!("como Lista"), "Ctrl+2").checked(self.view == View::List),
+                    MenuItem::new("view-columns", tr!("como Colunas"), "Ctrl+3").checked(self.view == View::Columns),
                     MenuItem::Separator,
-                    MenuItem::new("hidden", "Mostrar arquivos ocultos", "Ctrl+H").checked(self.hidden),
-                    MenuItem::new("toggle-toolbar", if self.bare { "Mostrar Barra de Ferramentas" } else { "Ocultar Barra de Ferramentas" }, "Ctrl+Alt+T"),
-                    MenuItem::new("view-options", "Mostrar Opções de Visualização", "Ctrl+J"),
+                    MenuItem::new("hidden", tr!("Mostrar arquivos ocultos"), "Ctrl+H").checked(self.hidden),
+                    MenuItem::new("toggle-toolbar", if self.bare { tr!("Mostrar Barra de Ferramentas") } else { tr!("Ocultar Barra de Ferramentas") }, "Ctrl+Alt+T"),
+                    MenuItem::new("view-options", tr!("Mostrar Opções de Visualização"), "Ctrl+J"),
                 ],
             ),
             Menu::new(
-                "Ir",
+                tr!("Ir"),
                 vec![
-                    MenuItem::new("back", "Voltar", "Ctrl+bracketleft").enabled(!self.back.is_empty()),
-                    MenuItem::new("forward", "Avançar", "Ctrl+bracketright").enabled(!self.forward.is_empty()),
-                    MenuItem::new("up", "Pasta acima", "Ctrl+Up"),
+                    MenuItem::new("back", tr!("Voltar"), "Ctrl+bracketleft").enabled(!self.back.is_empty()),
+                    MenuItem::new("forward", tr!("Avançar"), "Ctrl+bracketright").enabled(!self.forward.is_empty()),
+                    MenuItem::new("up", tr!("Pasta acima"), "Ctrl+Up"),
                     MenuItem::Separator,
-                    MenuItem::new("go-computer", "Computador", "Ctrl+Shift+C"),
-                    MenuItem::new("go-home", "Início", "Ctrl+Shift+H"),
-                    MenuItem::new("go-desktop", "Mesa", "Ctrl+Shift+D"),
-                    MenuItem::new("go-apps", "Aplicativos", "Ctrl+Shift+A"),
-                    MenuItem::new("go-utils", "Utilitários", "Ctrl+Shift+U"),
-                    MenuItem::new("go-documents", "Documentos", "Ctrl+Shift+O"),
-                    MenuItem::new("go-downloads", "Downloads", "Ctrl+Shift+L"),
-                    MenuItem::new("go-pictures", "Imagens", ""),
-                    MenuItem::new("go-trash", "Lixeira", ""),
-                    MenuItem::new("go-network", "Rede", "Ctrl+Shift+K"),
+                    MenuItem::new("go-computer", tr!("Computador"), "Ctrl+Shift+C"),
+                    MenuItem::new("go-home", tr!("Início"), "Ctrl+Shift+H"),
+                    MenuItem::new("go-desktop", tr!("Mesa"), "Ctrl+Shift+D"),
+                    MenuItem::new("go-apps", tr!("Aplicativos"), "Ctrl+Shift+A"),
+                    MenuItem::new("go-utils", tr!("Utilitários"), "Ctrl+Shift+U"),
+                    MenuItem::new("go-documents", tr!("Documentos"), "Ctrl+Shift+O"),
+                    MenuItem::new("go-downloads", tr!("Downloads"), "Ctrl+Shift+L"),
+                    MenuItem::new("go-pictures", tr!("Imagens"), ""),
+                    MenuItem::new("go-trash", tr!("Lixeira"), ""),
+                    MenuItem::new("go-network", tr!("Rede"), "Ctrl+Shift+K"),
                     MenuItem::Separator,
-                    MenuItem::new("connect", "Conectar ao Servidor…", "Ctrl+K"),
+                    MenuItem::new("connect", tr!("Conectar ao Servidor…"), "Ctrl+K"),
                     MenuItem::Separator,
                     if self.recent.len() > 1 {
-                        MenuItem::submenu("Pastas Recentes", self.recent.iter().enumerate().skip(1).map(|(i, p)| MenuItem::new(&format!("recent:{i}"), &display_name(p), "")).collect())
+                        MenuItem::submenu(tr!("Pastas Recentes"), self.recent.iter().enumerate().skip(1).map(|(i, p)| MenuItem::new(&format!("recent:{i}"), &display_name(p), "")).collect())
                     } else {
-                        MenuItem::submenu("Pastas Recentes", Vec::new()).enabled(false)
+                        MenuItem::submenu(tr!("Pastas Recentes"), Vec::new()).enabled(false)
                     },
                     MenuItem::Separator,
-                    MenuItem::new("go-folder", "Ir para a Pasta…", "Ctrl+Shift+G"),
+                    MenuItem::new("go-folder", tr!("Ir para a Pasta…"), "Ctrl+Shift+G"),
                 ],
             ),
         ]
@@ -2709,7 +2710,7 @@ pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(i) = args.iter().position(|a| a == "--info") {
         let Some(p) = args.get(i + 1).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok()) else { return };
-        let opts = WindowOptions { title: "Informações".into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true, min_size: None };
+        let opts = WindowOptions { title: tr!("Informações").into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true, min_size: None };
         if let Err(e) = run(opts, info::Info::new(p)) {
             eprintln!("glove-files: {e}");
         }
@@ -2750,7 +2751,7 @@ pub fn main() {
             }
             return;
         }
-        let opts = WindowOptions { title: "Esvaziar Lixeira".into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
+        let opts = WindowOptions { title: tr!("Esvaziar Lixeira").into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
         if let Err(e) = run(opts, EmptyTrash { count, error: None }) {
             eprintln!("glove-files: {e}");
         }
