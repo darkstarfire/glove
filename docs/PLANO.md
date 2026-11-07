@@ -437,7 +437,11 @@ material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar fo
   Editor (carta escrita com caneta-tinteiro); Xadrez (cavalo de madeira dourada com volume, colarinho e base bojuda, na casa da ponta de um tabuleiro 2×2 cinza e branco); Fontes ("F"
   serifado de metal com tipos móveis); Visualizador (fotos com uma lupa de vidro que aumenta o pedaço de baixo); Captura (câmera
   sobre fotos impressas); Dicionário em couro vinho com "Aa"
-- [ ] 9.12.3 Os ícones que ainda faltam no acabamento novo (Contatos, Correio, Agenda, painéis), em lotes (M)
+- [x] 9.12.3 Os que ainda não seguiam as referências (M) — v0.9.18: Xadrez com o cavalo como peça
+  torneada (pé, bojo e anel com as elipses na inclinação do tabuleiro; pescoço entrando no anel);
+  Contatos em couro marrom com costura e "@" dourado em relevo; Correio como selo picotado com
+  andorinha, valor e carimbo; na barra lateral do Arquivos, Início vira uma casinha e Aplicativos um
+  compasso de desenho em forma de "A" e Rede o globo de rede (os outros lugares já tinham ícone próprio)
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 

@@ -1553,7 +1553,7 @@ impl Files {
             v.push(Some((m.name.clone(), icon, m.path.clone())));
         }
         if shown("rede") {
-            v.push(Some(("Rede".to_string(), Icon::Globe, PathBuf::from(rede::ROOT))));
+            v.push(Some(("Rede".to_string(), Icon::Pref(icons::PrefKind::Network), PathBuf::from(rede::ROOT))));
         }
         if !v.is_empty() {
             v.push(None);
@@ -1589,8 +1589,8 @@ impl Files {
             }
         };
         add_user("Mesa", "DESKTOP", &mut add);
-        add(&user, Icon::SpecialFolder(icons::FolderKind::Home), home());
-        add("Aplicativos", Icon::SpecialFolder(icons::FolderKind::Applications), apps::apps_dir());
+        add(&user, Icon::House, home());
+        add("Aplicativos", Icon::AppsPlace, apps::apps_dir());
         add_user("Documentos", "DOCUMENTS", &mut add);
         add_user("Downloads", "DOWNLOAD", &mut add);
         add_user("Imagens", "PICTURES", &mut add);

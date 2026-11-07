@@ -964,82 +964,91 @@ pub(crate) fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(nib, &solid(rgba(90, 94, 104, 255)), u.lw(0.003));
 }
 
-/// Xadrez: cavalo de madeira dourada envernizada, com volume (luz na frente,
-/// sombra na nuca e nas bordas), colarinho em anel e base bojuda, na casa da
-/// ponta de um tabuleiro 2×2 cinza e branco em perspectiva.
+/// Xadrez: cavalo de madeira dourada envernizada na casa da ponta de um
+/// tabuleiro 2×2 cinza e branco. A base é uma peça torneada (pé, bojo e
+/// colarinho) com as elipses na mesma inclinação do tabuleiro; a cabeça tem
+/// luz na frente, sombra na nuca e as bordas escurecidas.
 pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    // Tabuleiro: losango com 2×2 casas, espessura e verniz.
-    let (t, r, b, l) = ((0.5, 0.5), (0.98, 0.7), (0.5, 0.9), (0.02, 0.7));
+    // Tabuleiro: losango com 2×2 casas e a espessura. Achatamento: 0,42.
+    let (t, r, b, l) = ((0.5, 0.52), (0.98, 0.72), (0.5, 0.92), (0.02, 0.72));
     let board = u.poly(&[t, r, b, l]);
     soft_shadow(pm, board.clone(), s, 0.9);
-    pm.fill(u.poly(&[l, b, (0.5, 0.95), (0.02, 0.75)]), &vgrad(u.py(0.7), u.py(0.95), &[(0.0, rgba(170, 172, 178, 255)), (1.0, rgba(110, 112, 118, 255))]));
-    pm.fill(u.poly(&[b, r, (0.98, 0.75), (0.5, 0.95)]), &vgrad(u.py(0.7), u.py(0.95), &[(0.0, rgba(130, 132, 138, 255)), (1.0, rgba(84, 86, 92, 255))]));
+    pm.fill(u.poly(&[l, b, (0.5, 0.97), (0.02, 0.77)]), &vgrad(u.py(0.72), u.py(0.97), &[(0.0, rgba(170, 172, 178, 255)), (1.0, rgba(110, 112, 118, 255))]));
+    pm.fill(u.poly(&[b, r, (0.98, 0.77), (0.5, 0.97)]), &vgrad(u.py(0.72), u.py(0.97), &[(0.0, rgba(130, 132, 138, 255)), (1.0, rgba(84, 86, 92, 255))]));
     let mid = |p: (f32, f32), q: (f32, f32)| ((p.0 + q.0) / 2.0, (p.1 + q.1) / 2.0);
     let c = mid(t, b);
     let (tr, rb, bl, lt) = (mid(t, r), mid(r, b), mid(b, l), mid(l, t));
-    let light = linear(u.px(0.2), u.py(0.5), u.px(0.8), u.py(0.9), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(222, 224, 228, 255))]);
-    let dark = linear(u.px(0.2), u.py(0.5), u.px(0.8), u.py(0.9), &[(0.0, rgba(176, 178, 184, 255)), (1.0, rgba(130, 132, 140, 255))]);
+    let light = linear(u.px(0.2), u.py(0.52), u.px(0.8), u.py(0.92), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(222, 224, 228, 255))]);
+    let dark = linear(u.px(0.2), u.py(0.52), u.px(0.8), u.py(0.92), &[(0.0, rgba(176, 178, 184, 255)), (1.0, rgba(130, 132, 140, 255))]);
     pm.fill(u.poly(&[t, tr, c, lt]), &light);
     pm.fill(u.poly(&[c, rb, b, bl]), &light);
     pm.fill(u.poly(&[tr, r, rb, c]), &dark);
     pm.fill(u.poly(&[lt, c, bl, l]), &dark);
     pm.stroke(board, &solid(rgba(110, 112, 120, 200)), u.lw(0.004));
 
-    // Peça em coordenadas próprias (0 a 1), em pé na casa da frente.
-    let (ox, oy, w, h) = (0.5 - 0.23, 0.1, 0.46, 0.76);
-    let q = |a: f32, bq: f32| (u.px(ox + a * w), u.py(oy + bq * h));
-    let gold = |x0: f32, x1: f32| linear(u.px(ox + x0 * w), 0.0, u.px(ox + x1 * w), 0.0, &[
-        (0.0, rgba(92, 58, 24, 255)),
-        (0.18, rgba(186, 138, 72, 255)),
-        (0.36, rgba(244, 214, 150, 255)),
-        (0.55, rgba(206, 158, 88, 255)),
-        (0.82, rgba(130, 86, 38, 255)),
-        (1.0, rgba(70, 42, 16, 255)),
+    let k = 0.42; // achatamento das elipses (o mesmo do tabuleiro)
+    let cx = 0.5;
+    let foot_y = mid(c, b).1; // centro da casa da frente
+    let gold = |rx: f32| linear(u.px(cx - rx), 0.0, u.px(cx + rx), 0.0, &[
+        (0.0, rgba(86, 54, 22, 255)),
+        (0.2, rgba(180, 132, 66, 255)),
+        (0.36, rgba(246, 218, 156, 255)),
+        (0.55, rgba(204, 156, 86, 255)),
+        (0.82, rgba(126, 84, 36, 255)),
+        (1.0, rgba(66, 40, 14, 255)),
     ]);
-    let edge = rgba(54, 32, 12, 230);
-    // Sombra da peça no tabuleiro.
-    let sh = q(0.5, 0.97);
-    pm.fill(oval(sh.0 - u.d(0.5 * w), sh.1 - u.d(0.02), u.d(1.1 * w), u.d(0.07)), &radial(sh.0 + u.d(0.05), sh.1 + u.d(0.01), u.d(0.6 * w), &[(0.0, rgba(0, 0, 0, 110)), (1.0, rgba(0, 0, 0, 0))]));
-    // Base bojuda: do colarinho ela abre em curva até o pé.
-    let base = {
+    let edge = rgba(54, 32, 12, 220);
+    let ell = |yc: f32, rx: f32| u.ov(cx - rx, yc - rx * k, rx * 2.0, rx * k * 2.0);
+    // Sólido de revolução entre duas alturas: lateral (curva) e a frente da elipse de baixo.
+    let turned = |pm: &mut Canvas, y0: f32, r0: f32, y1: f32, r1: f32, bulge: f32| {
         let mut pb = PathBuilder::new();
-        let (a0, a1) = (q(0.2, 0.8), q(0.8, 0.8));
-        let (f0, f1) = (q(0.04, 0.95), q(0.96, 0.95));
-        pb.move_to(a0.0, a0.1);
-        let c0 = q(0.02, 0.84);
-        pb.quad_to(c0.0, c0.1, f0.0, f0.1);
-        let bot = q(0.5, 1.02);
-        pb.quad_to(bot.0, bot.1, f1.0, f1.1);
-        let c1 = q(0.98, 0.84);
-        pb.quad_to(c1.0, c1.1, a1.0, a1.1);
+        pb.move_to(u.px(cx - r0), u.py(y0));
+        pb.quad_to(u.px(cx - r1.max(r0) - bulge), u.py((y0 + y1) / 2.0), u.px(cx - r1), u.py(y1));
+        let n = 20;
+        for i in 1..=n {
+            let a = std::f32::consts::PI - i as f32 / n as f32 * std::f32::consts::PI;
+            pb.line_to(u.px(cx + a.cos() * r1), u.py(y1 + a.sin() * r1 * k));
+        }
+        pb.quad_to(u.px(cx + r1.max(r0) + bulge), u.py((y0 + y1) / 2.0), u.px(cx + r0), u.py(y0));
         pb.close();
-        pb.finish()
+        let p = pb.finish();
+        let rr = r0.max(r1) + bulge;
+        pm.fill(p.clone(), &gold(rr));
+        pm.fill_clipped(p.clone(), &vgrad(u.py(y0), u.py(y1 + r1 * k), &[(0.0, rgba(0, 0, 0, 40)), (0.5, rgba(0, 0, 0, 0)), (1.0, rgba(0, 0, 0, 80))]), p.clone());
+        pm.stroke(p, &solid(edge), u.lw(0.004));
+        // Tampo (a elipse de cima, mais clara).
+        let top = ell(y0, r0);
+        pm.fill(top.clone(), &linear(u.px(cx - r0), u.py(y0 - r0 * k), u.px(cx + r0), u.py(y0 + r0 * k), &[(0.0, rgba(250, 228, 180, 255)), (1.0, rgba(190, 142, 78, 255))]));
+        pm.stroke(top, &solid(rgba(90, 56, 22, 160)), u.lw(0.003));
     };
-    pm.fill(base.clone(), &gold(0.04, 0.96));
-    pm.fill_clipped(base.clone(), &vgrad(u.py(oy + 0.8 * h), u.py(oy + 1.0 * h), &[(0.0, rgba(0, 0, 0, 70)), (0.35, rgba(0, 0, 0, 0)), (0.75, rgba(255, 240, 200, 40)), (1.0, rgba(0, 0, 0, 90))]), base.clone());
-    pm.stroke(base, &solid(edge), u.lw(0.005));
-    // Colarinho: anel com o brilho em cima.
-    let (k0, k1) = (q(0.14, 0.74), q(0.86, 0.84));
-    let collar = oval(k0.0, k0.1, k1.0 - k0.0, k1.1 - k0.1);
-    pm.fill(collar.clone(), &gold(0.14, 0.86));
-    pm.fill_clipped(collar.clone(), &vgrad(k0.1, k1.1, &[(0.0, rgba(255, 245, 210, 110)), (0.45, rgba(0, 0, 0, 0)), (1.0, rgba(0, 0, 0, 110))]), collar.clone());
-    pm.stroke(collar, &solid(edge), u.lw(0.005));
-    // Cabeça e pescoço (olhando para a esquerda).
+    // Sombra no tabuleiro
+    pm.fill(u.ov(cx - 0.2, foot_y - 0.05, 0.46, 0.13), &radial(u.px(cx + 0.03), u.py(foot_y + 0.01), u.d(0.24), &[(0.0, rgba(0, 0, 0, 110)), (1.0, rgba(0, 0, 0, 0))]));
+    // Pé, bojo e colarinho, de baixo para cima.
+    let neck_y = foot_y - 0.16;
+    turned(pm, foot_y - 0.03, 0.185, foot_y, 0.185, 0.0);
+    turned(pm, neck_y + 0.01, 0.1, foot_y - 0.03, 0.17, 0.035);
+
+    // Colarinho: um anel baixo; o pescoço entra nele.
+    turned(pm, neck_y - 0.012, 0.12, neck_y + 0.016, 0.122, 0.008);
+    // Cabeça e pescoço (olhando para a esquerda) em coordenadas da peça.
+    let (w, h) = (0.38, 0.52);
+    let (ox, oy) = (cx - 0.5 * w, neck_y - 0.97 * h);
+    let q = |a: f32, bq: f32| (u.px(ox + a * w), u.py(oy + bq * h));
     let head = {
         let mut pb = PathBuilder::new();
-        let m = q(0.78, 0.77);
+        let m = q(0.82, 1.0);
         pb.move_to(m.0, m.1);
         let seq: [[(f32, f32); 3]; 9] = [
-            [(0.86, 0.6), (0.88, 0.4), (0.78, 0.25)],
-            [(0.74, 0.19), (0.69, 0.13), (0.64, 0.07)],
-            [(0.61, 0.09), (0.58, 0.11), (0.53, 0.13)],
-            [(0.42, 0.13), (0.3, 0.2), (0.22, 0.29)],
-            [(0.15, 0.36), (0.06, 0.42), (0.03, 0.49)],
-            [(0.0, 0.55), (0.04, 0.6), (0.12, 0.6)],
-            [(0.18, 0.6), (0.24, 0.57), (0.3, 0.56)],
-            [(0.38, 0.57), (0.44, 0.56), (0.48, 0.52)],
-            [(0.42, 0.62), (0.28, 0.66), (0.24, 0.77)],
+            [(0.9, 0.78), (0.92, 0.52), (0.8, 0.32)],
+            [(0.75, 0.22), (0.7, 0.14), (0.66, 0.05)],
+            [(0.62, 0.09), (0.59, 0.12), (0.55, 0.14)],
+            [(0.43, 0.15), (0.3, 0.23), (0.21, 0.34)],
+            [(0.13, 0.43), (0.05, 0.5), (0.03, 0.58)],
+            [(0.01, 0.65), (0.05, 0.71), (0.13, 0.71)],
+            [(0.2, 0.71), (0.26, 0.68), (0.32, 0.67)],
+            [(0.4, 0.68), (0.46, 0.66), (0.5, 0.62)],
+            [(0.4, 0.75), (0.22, 0.84), (0.18, 1.0)],
         ];
         for c3 in seq {
             let (a, b2, d) = (q(c3[0].0, c3[0].1), q(c3[1].0, c3[1].1), q(c3[2].0, c3[2].1));
@@ -1048,50 +1057,195 @@ pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pb.close();
         pb.finish()
     };
-    // Corpo: tom médio, luz na frente da cara, sombra na nuca, bordas escurecidas.
+    pm.fill(shift(&head, u.d(0.01), u.d(0.008)), &solid(rgba(0, 0, 0, 45)));
     pm.fill(head.clone(), &solid(rgba(176, 128, 64, 255)));
-    let lit = q(0.32, 0.3);
+    let lit = q(0.32, 0.38);
     pm.fill_clipped(head.clone(), &radial(lit.0, lit.1, u.d(0.55 * w), &[(0.0, rgba(255, 236, 186, 255)), (0.45, rgba(226, 182, 112, 200)), (1.0, rgba(226, 182, 112, 0))]), head.clone());
-    pm.fill_clipped(head.clone(), &linear(u.px(ox + 0.5 * w), 0.0, u.px(ox + 0.9 * w), 0.0, &[(0.0, rgba(60, 34, 10, 0)), (1.0, rgba(60, 34, 10, 190))]), head.clone());
-    pm.fill_clipped(head.clone().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.05), line_join: tiny_skia::LineJoin::Round, ..Default::default() }, 1.0)), &solid(rgba(70, 40, 14, 90)), head.clone());
+    pm.fill_clipped(head.clone(), &linear(u.px(ox + 0.5 * w), 0.0, u.px(ox + 0.92 * w), 0.0, &[(0.0, rgba(60, 34, 10, 0)), (1.0, rgba(60, 34, 10, 190))]), head.clone());
+    pm.fill_clipped(head.clone().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.045), line_join: tiny_skia::LineJoin::Round, ..Default::default() }, 1.0)), &solid(rgba(70, 40, 14, 90)), head.clone());
     if s >= 28.0 {
-        // Sulco da mandíbula (escuro com o fio de luz), olho fundo, narina e boca.
-        let jaw = |dx: f32, dy: f32| {
+        let jaw = |dx: f32| {
             let mut pb = PathBuilder::new();
-            let (a, b2, d) = (q(0.5 + dx, 0.3 + dy), q(0.62 + dx, 0.46 + dy), q(0.47 + dx, 0.53 + dy));
+            let (a, b2, d) = (q(0.52 + dx, 0.36), q(0.64 + dx, 0.55), q(0.49 + dx, 0.63));
             pb.move_to(a.0, a.1);
             pb.quad_to(b2.0, b2.1, d.0, d.1);
             pb.finish()
         };
-        pm.fill_clipped(jaw(0.0, 0.0).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.012), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(80, 46, 16, 170)), head.clone());
-        pm.fill_clipped(jaw(-0.015, 0.0).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.006), ..Default::default() }, 1.0)), &solid(rgba(255, 236, 190, 150)), head.clone());
-        let e = q(0.33, 0.26);
-        pm.fill(oval(e.0 - u.d(0.03), e.1 - u.d(0.02), u.d(0.06), u.d(0.04)), &solid(rgba(90, 54, 20, 160)));
-        pm.fill(oval(e.0 - u.d(0.018), e.1 - u.d(0.01), u.d(0.036), u.d(0.022)), &solid(rgba(40, 20, 6, 255)));
-        let n = q(0.08, 0.5);
-        pm.fill(circle(n.0, n.1, u.d(0.012)), &solid(rgba(50, 26, 8, 230)));
-        let (m0, m1) = (q(0.06, 0.575), q(0.24, 0.575));
+        pm.fill_clipped(jaw(0.0).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.011), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(80, 46, 16, 170)), head.clone());
+        pm.fill_clipped(jaw(-0.02).and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.005), ..Default::default() }, 1.0)), &solid(rgba(255, 236, 190, 150)), head.clone());
+        let e = q(0.33, 0.33);
+        pm.fill(oval(e.0 - u.d(0.026), e.1 - u.d(0.017), u.d(0.052), u.d(0.034)), &solid(rgba(90, 54, 20, 160)));
+        pm.fill(oval(e.0 - u.d(0.016), e.1 - u.d(0.009), u.d(0.032), u.d(0.019)), &solid(rgba(40, 20, 6, 255)));
+        let n = q(0.08, 0.6);
+        pm.fill(circle(n.0, n.1, u.d(0.011)), &solid(rgba(50, 26, 8, 230)));
+        let (m0, m1) = (q(0.05, 0.675), q(0.24, 0.675));
         let mut mouth = PathBuilder::new();
         mouth.move_to(m0.0, m0.1);
         mouth.line_to(m1.0, m1.1);
-        pm.stroke(mouth.finish(), &solid(rgba(60, 32, 10, 200)), u.lw(0.005));
-        // Crina: sulcos ao longo da nuca.
+        pm.stroke(mouth.finish(), &solid(rgba(60, 32, 10, 200)), u.lw(0.004));
         let mut mane = PathBuilder::new();
-        for k in 0..5 {
-            let tt = k as f32 / 5.0;
-            let (a, d) = (q(0.78 + tt * 0.07, 0.24 + tt * 0.42), q(0.7 + tt * 0.07, 0.29 + tt * 0.42));
+        for i in 0..5 {
+            let tt = i as f32 / 5.0;
+            let (a, d) = (q(0.8 + tt * 0.06, 0.3 + tt * 0.5), q(0.71 + tt * 0.06, 0.35 + tt * 0.5));
             mane.move_to(a.0, a.1);
             mane.line_to(d.0, d.1);
         }
-        pm.fill_clipped(mane.finish().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.008), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(60, 34, 10, 150)), head.clone());
+        pm.fill_clipped(mane.finish().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.007), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(60, 34, 10, 150)), head.clone());
     }
-    // Verniz: reflexo na testa e no focinho.
     let mut gloss = PathBuilder::new();
-    let (a, b2, d) = (q(0.48, 0.16), q(0.3, 0.2), q(0.12, 0.4));
+    let (a, b2, d) = (q(0.5, 0.2), q(0.3, 0.26), q(0.12, 0.5));
     gloss.move_to(a.0, a.1);
     gloss.quad_to(b2.0, b2.1, d.0, d.1);
-    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.02), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 250, 230, 150)), head.clone());
-    pm.stroke(head, &solid(edge), u.lw(0.006));
+    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.018), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 250, 230, 150)), head.clone());
+    pm.stroke(head, &solid(edge), u.lw(0.005));
+    // Colarinho por cima da emenda do pescoço: um anel baixo.
+}
+
+/// Contatos: caderno de endereços de couro marrom, com a costura em volta da
+/// capa e um "@" grande em relevo dourado; as folhas creme aparecem do lado.
+pub(crate) fn contacts(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let t = Transform::from_rotate_at(5.0, u.px(0.5), u.py(0.5));
+    let tfp = |p: Option<Path>| crate::tiger::tf(p, t);
+    let cover = tfp(u.rr(0.17, 0.07, 0.64, 0.84, 0.035));
+    soft_shadow(pm, cover.clone(), s, 1.0);
+    pm.fill(tfp(u.rr(0.21, 0.1, 0.64, 0.83, 0.03)), &vgrad(u.py(0.1), u.py(0.93), &[(0.0, rgba(250, 244, 228, 255)), (1.0, rgba(222, 212, 190, 255))]));
+    if s >= 40.0 {
+        let mut pages = PathBuilder::new();
+        for i in 1..5 {
+            let xx = 0.81 + i as f32 * 0.008;
+            pages.move_to(u.px(xx), u.py(0.13));
+            pages.line_to(u.px(xx), u.py(0.9));
+        }
+        pm.stroke(tfp(pages.finish()), &solid(rgba(190, 178, 152, 200)), u.lw(0.003));
+    }
+    let leather = linear(u.px(0.17), u.py(0.07), u.px(0.81), u.py(0.91), &[(0.0, rgba(168, 112, 66, 255)), (0.55, rgba(124, 74, 38, 255)), (1.0, rgba(84, 46, 20, 255))]);
+    pm.fill(cover.clone(), &leather);
+    crate::tiger::leather_grain(pm, cover.clone(), u, 43);
+    // Lombada mais escura com o vinco.
+    pm.fill_clipped(tfp(u.rr(0.17, 0.07, 0.09, 0.84, 0.0)), &linear(u.px(0.17), 0.0, u.px(0.26), 0.0, &[(0.0, rgba(50, 26, 10, 255)), (1.0, rgba(100, 60, 30, 255))]), cover.clone());
+    pm.fill_clipped(tfp(u.rr(0.26, 0.07, 0.008, 0.84, 0.0)), &solid(rgba(220, 170, 120, 90)), cover.clone());
+    // Costura pontilhada em volta da capa.
+    if s >= 40.0 {
+        let st = tiny_skia::Stroke { width: u.lw(0.006), dash: tiny_skia::StrokeDash::new(vec![u.d(0.022), u.d(0.016)], 0.0), ..Default::default() };
+        let seam = tfp(u.rr(0.3, 0.11, 0.47, 0.76, 0.02));
+        pm.fill(seam.clone().and_then(|p| p.stroke(&st, 1.0)).and_then(|p| p.transform(Transform::from_translate(0.0, u.d(0.004)))), &solid(rgba(40, 20, 6, 160)));
+        pm.fill(seam.and_then(|p| p.stroke(&st, 1.0)), &solid(rgba(236, 210, 170, 220)));
+    }
+    pm.stroke(cover, &solid(rgba(50, 26, 10, 255)), u.lw(0.006));
+    // "@" dourado em relevo: sombra afundada, fio claro e o metal.
+    if s >= 20.0 {
+        let px = u.d(0.42);
+        let tw = fonts.measure("@", px, true);
+        let (ax, ay) = (u.px(0.54) - tw / 2.0, u.py(0.62));
+        fonts.draw(pm, "@", ax + u.d(0.006), ay + u.d(0.01), px, true, rgba(40, 20, 6, 200));
+        fonts.draw(pm, "@", ax - u.d(0.004), ay - u.d(0.005), px, true, rgba(255, 240, 200, 200));
+        fonts.draw(pm, "@", ax, ay, px, true, rgba(222, 176, 86, 255));
+    }
+    // Fita marcadora saindo embaixo.
+    pm.fill(tfp(u.poly(&[(0.62, 0.89), (0.67, 0.89), (0.67, 0.99), (0.645, 0.96), (0.62, 0.99)])), &solid(rgba(200, 160, 60, 255)));
+}
+
+/// Correio: selo grande picotado e um pouco inclinado, com uma andorinha
+/// voando no céu azul, o valor no canto e o carimbo ondulado por cima.
+pub(crate) fn mail(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let t = Transform::from_rotate_at(-8.0, u.px(0.5), u.py(0.5));
+    let tfp = |p: Option<Path>| crate::tiger::tf(p, t);
+    let (x0, y0, x1, y1) = (0.12, 0.1, 0.88, 0.9);
+    // Papel do selo com o picote: círculos tirados da borda (par/ímpar).
+    let mut pb = PathBuilder::new();
+    if let Some(r) = tiny_skia::Rect::from_ltrb(u.px(x0), u.py(y0), u.px(x1), u.py(y1)) {
+        pb.push_rect(r);
+    }
+    let holes = if s >= 40.0 { 9 } else { 5 };
+    let hr = (y1 - y0) / holes as f32 * 0.28;
+    for i in 0..=holes {
+        let f = i as f32 / holes as f32;
+        for (hx, hy) in [(x0 + f * (x1 - x0), y0), (x0 + f * (x1 - x0), y1), (x0, y0 + f * (y1 - y0)), (x1, y0 + f * (y1 - y0))] {
+            pb.push_circle(u.px(hx), u.py(hy), u.d(hr));
+        }
+    }
+    let paper = tfp(pb.finish());
+    let paper_fill = |pm: &mut Canvas, p: Option<Path>, paint: &Paint| {
+        if let Some(p) = p {
+            pm.fill_rule(Some(p), paint, tiny_skia::FillRule::EvenOdd);
+        }
+    };
+    soft_shadow(pm, tfp(u.rr(x0, y0, x1 - x0, y1 - y0, 0.0)), s, 0.9);
+    paper_fill(pm, paper.clone(), &solid(rgba(252, 250, 244, 255)));
+    // Imagem: céu azul, morros ao longe e a andorinha.
+    let (ix0, iy0, ix1, iy1) = (x0 + 0.07, y0 + 0.07, x1 - 0.07, y1 - 0.15);
+    let img = tfp(u.rr(ix0, iy0, ix1 - ix0, iy1 - iy0, 0.0));
+    pm.fill(img.clone(), &vgrad(u.py(iy0), u.py(iy1), &[(0.0, rgba(60, 120, 210, 255)), (0.7, rgba(150, 200, 245, 255)), (1.0, rgba(220, 236, 250, 255))]));
+    let hills = tfp(cubic(&[(ix0, iy1 - 0.08), (ix0 + 0.2, iy1 - 0.2), (ix0 + 0.35, iy1 - 0.02), (ix1, iy1 - 0.12)], u).and_then(|p| {
+        let mut pb = PathBuilder::new();
+        pb.push_path(&p);
+        pb.line_to(u.px(ix1), u.py(iy1));
+        pb.line_to(u.px(ix0), u.py(iy1));
+        pb.close();
+        pb.finish()
+    }));
+    pm.fill_clipped(hills, &vgrad(u.py(iy1 - 0.2), u.py(iy1), &[(0.0, rgba(110, 150, 190, 255)), (1.0, rgba(70, 110, 160, 255))]), img.clone());
+    // Andorinha: asas em arco, corpo e a cauda bifurcada.
+    let bird = {
+        let mut pb = PathBuilder::new();
+        let p = |a: f32, b: f32| (u.px(a), u.py(b));
+        let mv = |pb: &mut PathBuilder, a: (f32, f32)| { let q = p(a.0, a.1); pb.move_to(q.0, q.1); };
+        let qd = |pb: &mut PathBuilder, c: (f32, f32), e: (f32, f32)| { let (c, e) = (p(c.0, c.1), p(e.0, e.1)); pb.quad_to(c.0, c.1, e.0, e.1); };
+        let ln = |pb: &mut PathBuilder, a: (f32, f32)| { let q = p(a.0, a.1); pb.line_to(q.0, q.1); };
+        // De lado, voando para a direita: asa de trás para cima, a da frente
+        // para baixo, cauda bifurcada atrás, corpo e cabeça.
+        mv(&mut pb, (0.48, 0.45));
+        qd(&mut pb, (0.42, 0.3), (0.3, 0.2));
+        qd(&mut pb, (0.47, 0.27), (0.57, 0.44));
+        pb.close();
+        mv(&mut pb, (0.5, 0.5));
+        qd(&mut pb, (0.45, 0.64), (0.33, 0.73));
+        qd(&mut pb, (0.51, 0.66), (0.58, 0.5));
+        pb.close();
+        mv(&mut pb, (0.41, 0.46));
+        ln(&mut pb, (0.2, 0.4));
+        ln(&mut pb, (0.33, 0.49));
+        ln(&mut pb, (0.21, 0.58));
+        ln(&mut pb, (0.41, 0.51));
+        pb.close();
+        if let Some(b) = u.ov(0.38, 0.44, 0.28, 0.08) {
+            pb.push_path(&b);
+        }
+        pb.push_circle(u.px(0.66), u.py(0.465), u.d(0.038));
+        mv(&mut pb, (0.69, 0.45));
+        ln(&mut pb, (0.75, 0.47));
+        ln(&mut pb, (0.69, 0.48));
+        pb.close();
+        pb.finish()
+    };
+    pm.fill_rule(tfp(bird.clone()), &linear(u.px(0.3), u.py(0.3), u.px(0.6), u.py(0.6), &[(0.0, rgba(30, 40, 70, 255)), (1.0, rgba(10, 16, 30, 255))]), tiny_skia::FillRule::Winding);
+    glass_glare_soft(pm, img.clone(), u, iy0, iy1);
+    pm.stroke(img, &solid(rgba(40, 70, 120, 200)), u.lw(0.004));
+    // Valor no canto de baixo.
+    if s >= 40.0 {
+        let px = u.d(0.09);
+        fonts.draw(pm, "1,20", u.px(x0 + 0.08), u.py(y1 - 0.04), px, true, rgba(40, 60, 110, 255));
+    }
+    // Carimbo: círculo e ondas cinza por cima (fora do selo também).
+    let ink = solid(rgba(40, 44, 56, 150));
+    let st = |w: f32| tiny_skia::Stroke { width: u.lw(w), ..Default::default() };
+    pm.fill(tfp(u.circ(0.28, 0.24, 0.14)).and_then(|p| p.stroke(&st(0.012), 1.0)), &ink);
+    for i in 0..4 {
+        let yy = 0.16 + i as f32 * 0.05;
+        let mut w = PathBuilder::new();
+        w.move_to(u.px(0.44), u.py(yy));
+        for j in 1..=6 {
+            let xx = 0.44 + j as f32 * 0.08;
+            w.quad_to(u.px(xx - 0.04), u.py(yy + if j % 2 == 0 { 0.025 } else { -0.025 }), u.px(xx), u.py(yy));
+        }
+        pm.fill(tfp(w.finish()).and_then(|p| p.stroke(&st(0.01), 1.0)), &ink);
+    }
+}
+
+fn glass_glare_soft(pm: &mut Canvas, clip: Option<Path>, u: U, y0: f32, y1: f32) {
+    pm.fill_clipped(clip.clone(), &vgrad(u.py(y0), u.py(y1), &[(0.0, rgba(255, 255, 255, 50)), (0.5, rgba(255, 255, 255, 0))]), clip);
 }
 
 /// Fontes: um "F" serifado de metal escovado em relevo, com dois tipos móveis
@@ -1167,4 +1321,73 @@ pub(crate) fn viewer(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 pub(crate) fn capture(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     crate::tiger::picture(pm, x - s * 0.02, y + s * 0.3, s * 0.72);
     crate::tiger::camera(pm, x + s * 0.12, y - s * 0.06, s * 0.86);
+}
+
+// ---------------------------------------------------------------------------
+// Lugares da barra lateral
+// ---------------------------------------------------------------------------
+
+/// Início: casinha de paredes claras vista um pouco de lado, telhado de
+/// ardósia, chaminé, porta de madeira e a janela azul.
+pub(crate) fn house(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let front = u.poly(&[(0.1, 0.5), (0.36, 0.26), (0.62, 0.5), (0.62, 0.9), (0.1, 0.9)]);
+    let side = u.poly(&[(0.62, 0.5), (0.9, 0.44), (0.9, 0.84), (0.62, 0.9)]);
+    soft_shadow(pm, u.poly(&[(0.1, 0.5), (0.36, 0.26), (0.9, 0.2), (0.9, 0.84), (0.62, 0.9), (0.1, 0.9)]), s, 1.0);
+    pm.fill(front.clone(), &vgrad(u.py(0.26), u.py(0.9), &[(0.0, rgba(252, 250, 244, 255)), (1.0, rgba(220, 214, 200, 255))]));
+    pm.fill(side.clone(), &vgrad(u.py(0.44), u.py(0.9), &[(0.0, rgba(206, 200, 186, 255)), (1.0, rgba(170, 164, 150, 255))]));
+    // Chaminé
+    pm.fill(u.poly(&[(0.7, 0.14), (0.78, 0.13), (0.78, 0.3), (0.7, 0.32)]), &linear(u.px(0.7), 0.0, u.px(0.78), 0.0, &[(0.0, rgba(170, 80, 60, 255)), (1.0, rgba(120, 50, 36, 255))]));
+    // Telhado: a água de cima vai para trás (ardósia azul-acinzentada).
+    let roof = u.poly(&[(0.05, 0.53), (0.36, 0.2), (0.66, 0.14), (0.95, 0.44), (0.66, 0.5)]);
+    pm.fill(roof.clone(), &linear(u.px(0.3), u.py(0.2), u.px(0.8), u.py(0.5), &[(0.0, rgba(120, 132, 156, 255)), (1.0, rgba(60, 68, 88, 255))]));
+    let gable = u.poly(&[(0.05, 0.53), (0.36, 0.2), (0.67, 0.53), (0.62, 0.55), (0.36, 0.3), (0.1, 0.55)]);
+    pm.fill(gable, &vgrad(u.py(0.2), u.py(0.55), &[(0.0, rgba(90, 100, 124, 255)), (1.0, rgba(50, 56, 74, 255))]));
+    if s >= 32.0 {
+        let mut rows = PathBuilder::new();
+        for k in 1..4 {
+            let t = k as f32 / 4.0;
+            rows.move_to(u.px(0.36 + 0.3 * t * 1.0 - 0.0), u.py(0.2 + 0.0));
+            rows.move_to(u.px(0.36 + t * 0.29), u.py(0.2 + t * 0.32 - 0.06 * t));
+            rows.line_to(u.px(0.66 + t * 0.29), u.py(0.14 + t * 0.3));
+        }
+        pm.stroke(rows.finish(), &solid(rgba(40, 44, 60, 120)), u.lw(0.006));
+    }
+    pm.fill_clipped(u.poly(&[(0.36, 0.2), (0.66, 0.14), (0.7, 0.2), (0.4, 0.26)]), &solid(rgba(255, 255, 255, 60)), roof);
+    // Porta e janelas
+    pm.fill(u.rr(0.28, 0.64, 0.14, 0.26, 0.01), &vgrad(u.py(0.64), u.py(0.9), &[(0.0, rgba(150, 90, 50, 255)), (1.0, rgba(100, 56, 28, 255))]));
+    pm.fill(u.circ(0.39, 0.78, 0.01), &solid(rgba(240, 210, 120, 255)));
+    for (wx, wy, ww, wh) in [(0.15, 0.6, 0.1, 0.1), (0.7, 0.56, 0.12, 0.12)] {
+        pm.fill(u.rr(wx - 0.01, wy - 0.01, ww + 0.02, wh + 0.02, 0.0), &solid(rgba(250, 250, 248, 255)));
+        pm.fill(u.rr(wx, wy, ww, wh, 0.0), &linear(u.px(wx), u.py(wy), u.px(wx + ww), u.py(wy + wh), &[(0.0, rgba(170, 210, 250, 255)), (1.0, rgba(50, 100, 180, 255))]));
+    }
+    pm.stroke(front, &solid(rgba(120, 112, 98, 200)), u.lw(0.004));
+    pm.stroke(side, &solid(rgba(110, 104, 90, 200)), u.lw(0.004));
+}
+
+/// Aplicativos: compasso de desenho técnico de metal, aberto como um "A"
+/// (as duas pernas, a articulação com o pino em cima e a barra de ajuste).
+pub(crate) fn apps_place(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let leg = |x0: f32, x1: f32, tip: (f32, f32)| u.poly(&[(0.5 + x0, 0.2), (0.5 + x1, 0.22), (tip.0 + 0.04, tip.1 - 0.08), tip, (tip.0 - 0.04, tip.1 - 0.08)]);
+    let left = leg(-0.08, 0.0, (0.2, 0.92));
+    let right = leg(0.0, 0.08, (0.8, 0.92));
+    let steel = |x0: f32, x1: f32| linear(u.px(x0), 0.0, u.px(x1), 0.0, &[(0.0, rgba(90, 94, 106, 255)), (0.4, rgba(250, 251, 253, 255)), (0.7, rgba(170, 174, 184, 255)), (1.0, rgba(100, 104, 116, 255))]);
+    for p in [&left, &right] {
+        soft_shadow(pm, p.clone(), s, 0.6);
+    }
+    pm.fill(left.clone(), &steel(0.2, 0.5));
+    pm.fill(right.clone(), &steel(0.5, 0.8));
+    pm.stroke(left, &solid(rgba(40, 42, 52, 240)), u.lw(0.008));
+    pm.stroke(right, &solid(rgba(40, 42, 52, 240)), u.lw(0.008));
+    // Ponta de grafite numa perna e a agulha na outra.
+    pm.fill(u.poly(&[(0.76, 0.84), (0.82, 0.84), (0.8, 0.96)]), &solid(rgba(50, 50, 56, 255)));
+    // Barra de ajuste (o traço do "A") com a roda serrilhada no meio.
+    pm.fill(u.rr(0.29, 0.595, 0.42, 0.05, 0.025), &vgrad(u.py(0.6), u.py(0.64), &[(0.0, rgba(250, 251, 253, 255)), (1.0, rgba(120, 124, 134, 255))]));
+    pm.fill(u.circ(0.5, 0.62, 0.06), &radial(u.px(0.48), u.py(0.6), u.d(0.08), &[(0.0, rgba(250, 251, 253, 255)), (1.0, rgba(110, 114, 124, 255))]));
+    pm.stroke(u.circ(0.5, 0.62, 0.06), &solid(rgba(70, 72, 82, 220)), u.lw(0.006));
+    // Articulação e o pino de segurar.
+    pm.fill(u.rr(0.465, 0.04, 0.07, 0.12, 0.02), &linear(u.px(0.465), 0.0, u.px(0.535), 0.0, &[(0.0, rgba(30, 30, 34, 255)), (0.4, rgba(100, 100, 108, 255)), (1.0, rgba(20, 20, 24, 255))]));
+    pm.fill(u.circ(0.5, 0.2, 0.07), &radial(u.px(0.48), u.py(0.18), u.d(0.09), &[(0.0, rgba(255, 255, 255, 255)), (0.6, rgba(170, 174, 184, 255)), (1.0, rgba(90, 94, 106, 255))]));
+    pm.stroke(u.circ(0.5, 0.2, 0.07), &solid(rgba(60, 62, 72, 220)), u.lw(0.005));
 }

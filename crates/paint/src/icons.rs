@@ -40,7 +40,7 @@ pub enum Icon {
     Chess,
     /// Disco brilhante com uma nota musical (Música).
     Music,
-    /// Livro de capa marrom com abas e um @ (Contatos).
+    /// Caderno de couro marrom com um @ dourado (Contatos).
     Contacts,
     /// Folha de calendário com o dia de hoje (Agenda).
     Calendar,
@@ -58,7 +58,7 @@ pub enum Icon {
     FontBook,
     /// Clipe de papel (anexo).
     Clip,
-    /// Envelope com selo e carimbo (Correio).
+    /// Selo picotado com uma andorinha e o carimbo (Correio).
     Mail,
     /// Tela plana (preferência de Monitor).
     Display,
@@ -77,7 +77,11 @@ pub enum Icon {
     NetUtility,
     /// Visualizador: fotos com a lupa.
     Viewer,
-    /// Utilitário de Disco: o HD com a chave inglesa.
+    /// Casa (a pasta de início na barra lateral do Arquivos).
+    House,
+    /// Compasso de desenho em forma de "A" (Aplicativos na barra lateral).
+    AppsPlace,
+    /// Utilitário de Disco: o HD com o estetoscópio.
     DiskUtility,
     /// Utilitário de Arquivo: caixa de papelão com zíper.
     Archiver,
@@ -188,6 +192,8 @@ impl Icon {
             "viewer" => Icon::Viewer,
             "diskutil" => Icon::DiskUtility,
             "archiver" => Icon::Archiver,
+            "house" => Icon::House,
+            "apps-place" => Icon::AppsPlace,
             "document" => Icon::Document,
             "picture" | "image" => Icon::Picture,
             "file" => Icon::File,
@@ -239,6 +245,8 @@ impl Icon {
             Icon::Viewer => "image-viewer",
             Icon::DiskUtility => "gnome-disks",
             Icon::Archiver => "file-roller",
+            Icon::House => "user-home",
+            Icon::AppsPlace => "folder-applications",
             Icon::Document => "text-x-generic",
             Icon::Picture => "image-x-generic",
             Icon::File => "text-x-generic",
@@ -460,6 +468,8 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Viewer => crate::tiger_real::viewer(pm, x, y, s),
         Icon::DiskUtility => crate::tiger_real::disk_utility(pm, x, y, s),
         Icon::Archiver => crate::tiger_prefs::archiver(pm, x, y, s),
+        Icon::House => crate::tiger_real::house(pm, x, y, s),
+        Icon::AppsPlace => crate::tiger_real::apps_place(pm, x, y, s),
         Icon::Disk => crate::tiger_real::disk(pm, x, y, s),
         Icon::Document => crate::tiger::document(pm, x, y, s, true),
         Icon::File => crate::tiger::document(pm, x, y, s, false),
@@ -471,7 +481,7 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Monitor => crate::tiger_real::activity(pm, x, y, s),
         Icon::Chess => crate::tiger_real::chess(pm, x, y, s),
         Icon::Music => crate::tiger_real::music(pm, x, y, s),
-        Icon::Contacts => crate::tiger::contacts(pm, x, y, s),
+        Icon::Contacts => crate::tiger_real::contacts(pm, fonts, x, y, s),
         Icon::Calendar => {
             // Mês e dia de hoje no horário local.
             let (m, d) = unsafe {
@@ -490,7 +500,7 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Keychain => crate::tiger_prefs::keychain(pm, x, y, s),
         Icon::FontBook => crate::tiger_real::font_book(pm, fonts, x, y, s),
         Icon::Clip => crate::tiger_prefs::clip(pm, x, y, s),
-        Icon::Mail => crate::tiger::mail(pm, x, y, s),
+        Icon::Mail => crate::tiger_real::mail(pm, fonts, x, y, s),
         Icon::Display => crate::tiger::display_pref(pm, x, y, s),
         Icon::Mouse => crate::tiger_prefs::mouse(pm, x, y, s),
         Icon::Trackpad => crate::tiger_prefs::trackpad(pm, x, y, s),

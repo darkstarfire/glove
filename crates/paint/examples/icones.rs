@@ -22,7 +22,7 @@ fn main() {
         ("Aparência", Icon::Pref(PrefKind::Appearance)), ("Dock", Icon::Pref(PrefKind::Dock)), ("Som", Icon::Pref(PrefKind::Sound)), ("Energia", Icon::Pref(PrefKind::Energy)),
         ("Rede", Icon::Pref(PrefKind::Network)), ("Segurança", Icon::Pref(PrefKind::Security)), ("Impressão", Icon::Pref(PrefKind::Printer)), ("Contas", Icon::Pref(PrefKind::Accounts)),
         ("Pasta", Icon::Folder), ("Código", Icon::CodeFile), ("Pendrive", Icon::Removable), ("CD/DVD", Icon::Optical), ("Servidor", Icon::Server),
-        ("Downloads", Icon::SpecialFolder(FolderKind::Downloads)), ("Imagens", Icon::SpecialFolder(FolderKind::Pictures)), ("Músicas", Icon::SpecialFolder(FolderKind::Music)), ("Inteligente", Icon::SpecialFolder(FolderKind::Smart)),
+        ("Downloads", Icon::SpecialFolder(FolderKind::Downloads)), ("Imagens", Icon::SpecialFolder(FolderKind::Pictures)), ("Músicas", Icon::SpecialFolder(FolderKind::Music)), ("Casa", Icon::House), ("Apps lugar", Icon::AppsPlace), ("Inteligente", Icon::SpecialFolder(FolderKind::Smart)),
     ];
     // Terceiro argumento "prefs": a folha dos painéis das Preferências e dos ícones restantes.
     let list = if args.next().as_deref() == Some("prefs") {

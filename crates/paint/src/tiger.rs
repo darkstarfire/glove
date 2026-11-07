@@ -318,62 +318,6 @@ pub(crate) fn clock(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, h: u
 // Correio
 // ---------------------------------------------------------------------------
 
-/// Envelope inclinado com selo de borda picotada (um avião de papel) e carimbo.
-pub(crate) fn mail(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    // Inclinação do envelope: gira um pouco em torno do centro.
-    let t = Transform::from_rotate_at(-9.0, u.px(0.5), u.py(0.5));
-    let env = tf(u.rr(0.07, 0.22, 0.86, 0.58, 0.02), t);
-    soft_shadow(pm, env.clone(), s, 1.0);
-    pm.fill(env.clone(), &vgrad(u.py(0.22), u.py(0.8), &[(0.0, rgba(255, 254, 250, 255)), (1.0, rgba(226, 224, 216, 255))]));
-    // Dobras da aba (o V) e as de baixo.
-    let mut pb = PathBuilder::new();
-    pb.move_to(u.px(0.08), u.py(0.23));
-    pb.line_to(u.px(0.5), u.py(0.56));
-    pb.line_to(u.px(0.92), u.py(0.23));
-    pb.move_to(u.px(0.08), u.py(0.79));
-    pb.line_to(u.px(0.4), u.py(0.5));
-    pb.move_to(u.px(0.92), u.py(0.79));
-    pb.line_to(u.px(0.6), u.py(0.5));
-    pm.stroke(tf(pb.finish(), t), &solid(rgba(170, 166, 156, 200)), u.lw(0.008));
-    pm.fill_clipped(tf(u.poly(&[(0.07, 0.22), (0.93, 0.22), (0.5, 0.55)]), t), &vgrad(u.py(0.22), u.py(0.55), &[(0.0, rgba(255, 255, 255, 120)), (1.0, rgba(235, 232, 224, 0))]), env.clone());
-    pm.stroke(env, &solid(rgba(150, 146, 136, 255)), u.lw(0.008));
-    // Selo: picotado (bolinhas na borda), azul com o avião de papel.
-    let (sx, sy, sw, sh) = (0.62, 0.27, 0.24, 0.27);
-    let mut edge = PathBuilder::new();
-    edge.push_rect(tiny_skia::Rect::from_xywh(u.px(sx), u.py(sy), u.d(sw), u.d(sh)).unwrap());
-    pm.fill(tf(edge.finish(), t), &solid(rgba(252, 252, 250, 255)));
-    if s >= 40.0 {
-        let n = 6;
-        let mut holes = PathBuilder::new();
-        for k in 0..=n {
-            let f = k as f32 / n as f32;
-            for (hx, hy) in [(sx + f * sw, sy), (sx + f * sw, sy + sh), (sx, sy + f * sh), (sx + sw, sy + f * sh)] {
-                holes.push_circle(u.px(hx), u.py(hy), u.d(0.012));
-            }
-        }
-        pm.fill(tf(holes.finish(), t), &solid(rgba(244, 242, 236, 255)));
-    }
-    let inner = tf(u.rr(sx + 0.025, sy + 0.025, sw - 0.05, sh - 0.05, 0.0), t);
-    pm.fill(inner.clone(), &vgrad(u.py(sy), u.py(sy + sh), &[(0.0, rgba(120, 170, 235, 255)), (1.0, rgba(40, 90, 180, 255))]));
-    let plane = u.poly(&[(sx + 0.05, sy + 0.15), (sx + 0.2, sy + 0.07), (sx + 0.12, sy + 0.2), (sx + 0.1, sy + 0.16)]);
-    pm.fill(tf(plane, t), &solid(rgba(255, 255, 255, 240)));
-    // Carimbo: círculo e ondas cinza por cima do selo.
-    let gray = solid(rgba(90, 96, 110, 150));
-    pm.stroke(tf(u.circ(0.6, 0.44, 0.1), t), &gray, u.lw(0.01));
-    if s >= 40.0 {
-        for k in 0..3 {
-            let yy = 0.39 + k as f32 * 0.04;
-            let mut w = PathBuilder::new();
-            w.move_to(u.px(0.66), u.py(yy));
-            for i in 1..=4 {
-                let xx = 0.66 + i as f32 * 0.06;
-                w.quad_to(u.px(xx - 0.03), u.py(yy + if i % 2 == 0 { 0.02 } else { -0.02 }), u.px(xx), u.py(yy));
-            }
-            pm.stroke(tf(w.finish(), t), &gray, u.lw(0.008));
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Agenda
@@ -426,64 +370,6 @@ pub(crate) fn calendar(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, m
 // Contatos
 // ---------------------------------------------------------------------------
 
-/// Caderno de endereços de couro verde, inclinado, com a silhueta e o @ em
-/// relevo dourado, elástico e marcador de fita.
-pub(crate) fn contacts(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    let t = Transform::from_rotate_at(6.0, u.px(0.5), u.py(0.5));
-    let cover = tf(u.rr(0.18, 0.08, 0.62, 0.82, 0.04), t);
-    soft_shadow(pm, cover.clone(), s, 1.0);
-    // Folhas (a borda creme à direita e embaixo).
-    pm.fill(tf(u.rr(0.22, 0.11, 0.62, 0.82, 0.03), t), &solid(rgba(244, 238, 222, 255)));
-    if s >= 40.0 {
-        for k in 1..5 {
-            let xx = 0.8 + k as f32 * 0.008;
-            let mut pb = PathBuilder::new();
-            pb.move_to(u.px(xx), u.py(0.14));
-            pb.line_to(u.px(xx), u.py(0.9));
-            pm.stroke(tf(pb.finish(), t), &solid(rgba(200, 192, 172, 200)), u.lw(0.003));
-        }
-    }
-    // Capa de couro
-    pm.fill(cover.clone(), &linear(u.px(0.18), u.py(0.08), u.px(0.8), u.py(0.9), &[(0.0, rgba(76, 140, 96, 255)), (0.6, rgba(36, 96, 58, 255)), (1.0, rgba(22, 70, 40, 255))]));
-    leather_grain(pm, cover.clone(), u, 41);
-    // Lombada mais escura e o costura pontilhada.
-    pm.fill_clipped(tf(u.rr(0.18, 0.08, 0.1, 0.82, 0.0), t), &linear(u.px(0.18), 0.0, u.px(0.28), 0.0, &[(0.0, rgba(14, 50, 28, 255)), (1.0, rgba(30, 84, 50, 255))]), cover.clone());
-    if s >= 48.0 {
-        let mut dash = PathBuilder::new();
-        let mut yy = 0.12;
-        while yy < 0.86 {
-            dash.move_to(u.px(0.31), u.py(yy));
-            dash.line_to(u.px(0.31), u.py(yy + 0.025));
-            yy += 0.045;
-        }
-        pm.stroke(tf(dash.finish(), t), &solid(rgba(200, 220, 196, 120)), u.lw(0.006));
-    }
-    pm.stroke(cover.clone(), &solid(rgba(14, 44, 26, 255)), u.lw(0.008));
-    // Silhueta em relevo dourado (cabeça e ombros) e o @ embaixo.
-    let gold = linear(u.px(0.4), u.py(0.25), u.px(0.7), u.py(0.6), &[(0.0, rgba(255, 236, 160, 255)), (0.5, rgba(206, 156, 52, 255)), (1.0, rgba(250, 210, 110, 255))]);
-    let head = tf(u.circ(0.54, 0.33, 0.08), t);
-    let mut sh = PathBuilder::new();
-    sh.move_to(u.px(0.38), u.py(0.58));
-    sh.quad_to(u.px(0.38), u.py(0.43), u.px(0.54), u.py(0.43));
-    sh.quad_to(u.px(0.7), u.py(0.43), u.px(0.7), u.py(0.58));
-    sh.close();
-    let shoulders = tf(sh.finish(), t);
-    for p in [head.clone(), shoulders.clone()] {
-        pm.fill(p.clone().and_then(|p| p.transform(Transform::from_translate(0.0, u.d(0.008)))), &solid(rgba(10, 40, 20, 160)));
-        pm.fill(p, &gold);
-    }
-    // Etiqueta dourada em relevo embaixo (moldura e duas linhas, como um nome gravado).
-    if s >= 40.0 {
-        pm.stroke(tf(u.rr(0.38, 0.66, 0.32, 0.14, 0.02), t), &gold, u.lw(0.012));
-        for (ly, lw) in [(0.71, 0.22), (0.75, 0.15)] {
-            pm.fill(tf(u.rr(0.54 - lw / 2.0, ly, lw, 0.016, 0.008), t), &gold);
-        }
-    }
-    // Elástico preto à direita e a fita marcadora saindo embaixo.
-    pm.fill_clipped(tf(u.rr(0.7, 0.08, 0.04, 0.82, 0.0), t), &linear(u.px(0.7), 0.0, u.px(0.74), 0.0, &[(0.0, rgba(20, 20, 22, 255)), (0.5, rgba(70, 70, 76, 255)), (1.0, rgba(16, 16, 18, 255))]), cover);
-    pm.fill(tf(u.poly(&[(0.6, 0.88), (0.65, 0.88), (0.65, 0.98), (0.625, 0.95), (0.6, 0.98)]), t), &solid(rgba(196, 30, 36, 255)));
-}
 
 // ---------------------------------------------------------------------------
 // Lixo
