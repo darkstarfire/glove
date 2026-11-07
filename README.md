@@ -1,5 +1,7 @@
 # Glove
 
+*Read in English: [README.en.md](README.en.md)*
+
 Ambiente gráfico leve para Linux, escrito em Rust, com visual inspirado na era
 "gel" dos anos 2000: botões translúcidos, listras finas, metal escovado, sombras
 suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imagens).
@@ -7,7 +9,8 @@ suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imag
 ## Estado atual
 
 Base visual e de comportamento: **Mac OS X 10.4 Tiger** (com o tema Listras para o visual 10.0–10.2).
-Fases 1 a 9 do [plano](docs/PLANO.md) feitas; a 9.10 (o que ainda falta do Tiger) é a próxima.
+Fases 1 a 9 do [plano](docs/PLANO.md) feitas, incluindo as extras 9.10 a 9.15 (ícones realistas, leveza,
+instalador e pacotes, e a interface em **português e inglês**). A Fase 10 é a próxima.
 
 **Sistema (compositor `glove`)**
 
@@ -104,26 +107,26 @@ a própria barra de título; apps X11 usam a do Glove.
 
 ## Instalar no sistema
 
-O `instalador.sh` gera os pacotes e também instala direto, em qualquer Linux. O pacote traz
+O `glove-setup-tool.sh` gera os pacotes e também instala direto, em qualquer Linux. O pacote traz
 tudo: os programas, a sessão "Glove" na tela de login, a tela de login do Glove (serviço
 `glove-login`, sobre o greetd, que vem como dependência), o tema de ícones e a documentação.
 
 ```sh
-./instalador.sh                 # menu com todas as opções
-./instalador.sh deb             # pacotes/glove_VERSÃO_amd64.deb (Debian, Ubuntu, Zorin, Mint)
-./instalador.sh rpm             # Fedora/openSUSE (precisa do rpmbuild; sem ele, deixa o .spec)
-./instalador.sh arch            # Arch (.pkg.tar.zst e o PKGBUILD para o makepkg)
-./instalador.sh slackware       # Slackware (.tgz)
-./instalador.sh todos           # os quatro
-./instalador.sh instalar        # sem pacote: compila e instala em /usr/local
-./instalador.sh desinstalar     # o inverso do "instalar" (ou chama o gerenciador de pacotes)
-./instalador.sh dependencias    # o que falta para compilar (apt, dnf, pacman, zypper, xbps, apk)
+./glove-setup-tool.sh                 # menu com todas as opções
+./glove-setup-tool.sh deb             # pacotes/glove_VERSÃO_amd64.deb (Debian, Ubuntu, Zorin, Mint)
+./glove-setup-tool.sh rpm             # Fedora/openSUSE (precisa do rpmbuild; sem ele, deixa o .spec)
+./glove-setup-tool.sh arch            # Arch (.pkg.tar.zst e o PKGBUILD para o makepkg)
+./glove-setup-tool.sh slackware       # Slackware (.tgz)
+./glove-setup-tool.sh todos           # os quatro (em inglês: all)
+./glove-setup-tool.sh instalar        # sem pacote: compila e instala em /usr/local
+./glove-setup-tool.sh desinstalar     # o inverso do "instalar" (ou chama o gerenciador de pacotes)
+./glove-setup-tool.sh dependencias    # o que falta para compilar (apt, dnf, pacman, zypper, xbps, apk)
 ```
 
 Instalar o pacote (exemplo no Debian/Ubuntu/Zorin):
 
 ```sh
-sudo apt install ./pacotes/glove_0.9.21_amd64.deb
+sudo apt install ./pacotes/glove_VERSÃO_amd64.deb
 ```
 
 Depois, na tela de login de sempre (GDM, LightDM, SDDM…), escolha **Glove** na engrenagem.
@@ -135,9 +138,9 @@ sudo systemctl enable --force glove-login   # ativa (substitui o GDM/LightDM/SDD
 sudo systemctl enable --force gdm           # volta ao GDM (ou lightdm, sddm…)
 ```
 
-`./instalador.sh login` faz o mesmo que o primeiro comando, mas guarda qual era a tela de
+`./glove-setup-tool.sh login` faz o mesmo que o primeiro comando, mas guarda qual era a tela de
 login de antes e leva para a tela do Glove os seus ajustes de monitor, escala, teclado e
-tema; `./instalador.sh login remover` volta à de antes. O serviço usa uma configuração
+tema; `./glove-setup-tool.sh login remover` volta à de antes. O serviço usa uma configuração
 própria do greetd (não mexe em `/etc/greetd/config.toml`); para usar uma sua, crie
 `/etc/glove/greetd.toml`.
 
@@ -201,7 +204,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 
 O Glove tem tela de login própria (`glove --greeter` + `glove-login`), feita para o
 [greetd](https://sr.ht/~kennylevinsen/greetd/). Com o Glove instalado (pacote ou
-`./instalador.sh instalar`), ela é o serviço `glove-login`: veja "Instalar no sistema" acima
+`./glove-setup-tool.sh instalar`), ela é o serviço `glove-login`: veja "Instalar no sistema" acima
 (`sudo systemctl enable --force glove-login`).
 
 No modo de desenvolvimento (a sessão usa os programas do projeto):
@@ -224,6 +227,19 @@ Tema com fundo cinza claro, orbe e giratório, desenhado por código (`glove-art
 sudo ./data/instalar-plymouth.sh             # instala e ativa (refaz o initramfs)
 sudo ./data/instalar-plymouth.sh --remover   # volta ao tema anterior
 ```
+
+## Idiomas
+
+O Glove segue o idioma do sistema (`LANG`, que o painel Internacional grava); `GLOVE_LANG`
+força um. O texto em português fica no código e é a chave (`tr!("Abrir")`); as traduções ficam
+em `locales/<idioma>.po` (formato do gettext). Idioma sem tradução cai no inglês. Datas,
+separador decimal e nomes dos apps seguem o idioma; o `glove-setup-tool.sh` também fala os dois.
+
+Para acrescentar um idioma: copie `locales/en.po` para `locales/<código>.po` (ex.: `es.po`),
+traduza as linhas `msgstr` e ponha em `~/.local/share/glove/locales/` para testar sem
+recompilar; para vir junto com o Glove, acrescente em `EMBUTIDOS` no `crates/i18n/src/lib.rs`.
+`cargo test -p glove-i18n` falha se algum texto marcado ficar sem tradução em inglês, e
+`tools/i18n.py` ajuda a marcar textos novos.
 
 ## Configuração
 
@@ -248,6 +264,7 @@ O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serv
 
 ```
 crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones no estilo do Tiger (tiger.rs, tiger_prefs.rs e tiger_real.rs, guardados prontos por tamanho) e do sistema, texto, temas
+crates/i18n        traduções (tr!, locales/*.po)
 crates/config      configuração compartilhada (config.toml + aviso de mudança via inotify)
 crates/kit         toolkit dos apps (widgets, janela Wayland, Abrir/Salvar, arrastar e soltar)
 crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)

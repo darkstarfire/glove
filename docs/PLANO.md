@@ -459,7 +459,7 @@ Estudo completo em `docs/MEMORIA.md`.
   do arquivo (divididas entre todos os processos). Três apps abertos: 35,0 MB → 26,0 MB. O resto da
   memória do compositor é da Mesa (custo fixo do OpenGL); parado, o Glove usa 0,1% de um núcleo
 
-## Fase 9.14 — Instalação e pacotes (pedido de 07/11/2026)
+## Fase 9.14 — Instalação e pacotes (o `instalador.sh` virou `glove-setup-tool.sh` na 9.15.7) (pedido de 07/11/2026)
 
 - [x] 9.14.1 `instalador.sh` (M) — v0.9.21: menu ou comandos para instalar em qualquer Linux (instala o
   que falta para compilar pelo apt, dnf, pacman, zypper, xbps ou apk; compila; põe os programas, a
@@ -513,7 +513,10 @@ com a tradução ou com outra coisa (o caminho, um identificador).
 - [x] 9.15.6 Nomes do Dock e dos apps (configuração), tela de login e boas-vindas (M) — v0.9.27: os nomes
   gravados na configuração continuam em português e são traduzidos ao mostrar (Dock, barra de menu,
   Busca Rápida); atalhos, layouts de teclado, cores, rótulos e sons de alerta também
-- [ ] 9.15.7 Instalador vira `glove-setup-tool.sh` em português e inglês; README em inglês (M)
+- [x] 9.15.7 Instalador vira `glove-setup-tool.sh` em português e inglês; README em inglês (M) — v0.9.28:
+  mensagens, menu, perguntas ([S/n] ou [Y/n]) e ajuda no idioma do sistema; comandos também em
+  inglês (install, uninstall, deps, all, login remove, help); descrições dos pacotes e scripts dentro
+  deles em inglês; `README.en.md`
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 

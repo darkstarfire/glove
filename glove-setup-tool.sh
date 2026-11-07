@@ -1,20 +1,8 @@
 #!/bin/sh
-# Instalador do Glove para qualquer Linux: compila e instala no sistema, desinstala,
-# e gera os pacotes .deb (Debian/Ubuntu), .tgz (Slackware), .rpm (Fedora) e
-# .pkg.tar.zst (Arch).
-#
-#   ./instalador.sh                      menu
-#   ./instalador.sh instalar [PREFIXO]   compila e instala (padrão: /usr/local)
-#   ./instalador.sh desinstalar          o inverso de instalar
-#   ./instalador.sh deb|slackware|rpm|arch|todos   gera os pacotes em pacotes/
-#   ./instalador.sh dependencias         instala o que falta para compilar
-#   ./instalador.sh login [remover]      torna a tela de login do Glove a principal
-#                                        (= sudo systemctl enable --force glove-login)
-#
-# O pacote e o "instalar" trazem tudo, inclusive a tela de login (serviço
-# glove-login, sobre o greetd). Detalhes: README.md, seção "Instalar no sistema".
-#
-# Para testar sem instalar nada: ./instalar.sh (usa os programas do projeto).
+# Glove setup tool / ferramenta de instalação do Glove: compila e instala em qualquer
+# Linux, desinstala, gera os pacotes (.deb, .tgz do Slackware, .rpm, Arch) e ativa a
+# tela de login. Fala português quando o sistema está em português; senão, inglês.
+# Ajuda / help: ./glove-setup-tool.sh help
 set -e
 cd "$(dirname "$0")"
 raiz=$(pwd)
@@ -22,15 +10,20 @@ versao=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 arq=$(uname -m)
 saida="$raiz/pacotes"
 url="https://github.com/fabioaacarneiro/glove"
-resumo="Ambiente gráfico Wayland leve, inspirado no Mac OS X Tiger"
-descricao="Compositor Wayland com barra de menu global, Dock com ampliação, Exposé,
-Painel e apps próprios (Arquivos, Preferências, Terminal, Editor e outros),
-com arte própria desenhada por código no estilo dos anos 2000."
+resumo="Light Wayland desktop inspired by Mac OS X Tiger"
+descricao="Wayland compositor with a global menu bar, a magnifying Dock, Exposé,
+Dashboard and its own apps (Files, Preferences, Terminal, Text Editor and more),
+with original code-drawn artwork in the style of the 2000s."
 
 # --- utilidades ---------------------------------------------------------------
 
+# Idioma das mensagens: português se o sistema estiver em português, senão inglês.
+case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in pt*) idioma=pt ;; *) idioma=en ;; esac
+# t "texto em português" "text in English"
+t() { if [ "$idioma" = pt ]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+
 msg() { printf '\033[1m==>\033[0m %s\n' "$*"; }
-erro() { printf 'Erro: %s\n' "$*" >&2; exit 1; }
+erro() { printf '%s %s\n' "$(t 'Erro:' 'Error:')" "$*" >&2; exit 1; }
 tem() { command -v "$1" >/dev/null 2>&1; }
 
 # Pasta raiz do sistema onde instalar (só para testes: DESTDIR=/tmp/x).
@@ -41,15 +34,16 @@ root() {
     if [ "$(id -u)" = 0 ] || [ -n "$sistema" ]; then "$@"
     elif tem sudo; then sudo "$@"
     elif tem doas; then doas "$@"
-    else erro "precisa de root para: $*"; fi
+    else erro "$(t "precisa de root para: $*" "root is needed for: $*")"; fi
 }
 
 pergunta() {
-    if [ "$2" = s ]; then op="[S/n]"; else op="[s/N]"; fi
+    if [ "$idioma" = pt ]; then sim=S; nao=n; else sim=Y; nao=n; fi
+    if [ "$2" = s ]; then op="[$sim/n]"; else op="[$(echo $sim | tr SY sy)/N]"; fi
     printf '%s %s ' "$1" "$op"
     read -r r || r=""
     [ -z "$r" ] && r=$2
-    case "$r" in s|S|sim|y|Y) return 0 ;; *) return 1 ;; esac
+    case "$r" in s|S|sim|y|Y|yes) return 0 ;; *) return 1 ;; esac
 }
 
 # Distribuição pelo gerenciador de pacotes que existe.
@@ -68,7 +62,7 @@ distro() {
 
 dependencias() {
     d=$(distro)
-    msg "Instalando o que falta para compilar ($d)"
+    msg "$(t "Instalando o que falta para compilar ($d)" "Installing what’s missing to build ($d)")"
     case $d in
         debian) root apt-get install -y build-essential pkg-config libudev-dev libinput-dev libseat-dev \
                     libgbm-dev libdrm-dev libxkbcommon-dev libegl-dev libgles-dev fontconfig fonts-dejavu-core ;;
@@ -87,7 +81,7 @@ dependencias() {
     esac
     if ! tem cargo; then
         echo
-        echo "Falta o Rust (1.85 ou mais novo). O jeito mais simples, em qualquer distribuição:"
+        echo "$(t "Falta o Rust (1.85 ou mais novo). O jeito mais simples, em qualquer distribuição:" "Rust (1.85 or newer) is missing. The simplest way, on any distribution:")"
         echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
     fi
 }
@@ -95,8 +89,8 @@ dependencias() {
 # --- compilação -------------------------------------------------------------------
 
 compilar() {
-    tem cargo || erro "falta o Rust (cargo). Rode: ./instalador.sh dependencias"
-    msg "Compilando o Glove $versao (alguns minutos)"
+    tem cargo || erro "$(t "falta o Rust (cargo). Rode: ./glove-setup-tool.sh dependencias" "Rust (cargo) is missing. Run: ./glove-setup-tool.sh deps")"
+    msg "$(t "Compilando o Glove $versao (alguns minutos)" "Building Glove $versao (a few minutes)")"
     cargo build --release --locked
 }
 
@@ -155,18 +149,18 @@ pos_instalar_sh='command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload
 for t in /usr/share/icons/Glove /usr/local/share/icons/Glove; do
   [ -d "$t" ] && command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -f "$t" 2>/dev/null || true
 done
-echo "Glove instalado. Para usar a tela de login do Glove: sudo systemctl enable --force glove-login"
-echo "Para voltar à anterior (ex.: GDM): sudo systemctl enable --force gdm"'
+echo "Glove installed. To use the Glove login screen: sudo systemctl enable --force glove-login"
+echo "To go back to the previous one (e.g. GDM): sudo systemctl enable --force gdm"'
 
 # Antes de remover: se a tela de login do Glove for a principal, volta a anterior
-# (a guardada pelo "instalador.sh login" ou a primeira que estiver instalada),
+# (a guardada pelo "glove-setup-tool.sh login" ou a primeira que estiver instalada),
 # para o computador não ficar sem tela de login.
 pre_remover_sh='if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled glove-login >/dev/null 2>&1; then
   systemctl disable glove-login 2>/dev/null || true
   antes=$(cat /etc/glove/login/gerenciador-anterior 2>/dev/null || true)
   for d in $antes gdm gdm3 lightdm sddm lxdm greetd; do
     if systemctl cat "$d.service" >/dev/null 2>&1 && systemctl enable --force "$d.service" 2>/dev/null; then
-      echo "Glove: a tela de login volta a ser a do $d."
+      echo "Glove: the login screen goes back to $d."
       break
     fi
   done
@@ -181,63 +175,63 @@ lista_local() { echo "$1/share/glove/instalados.txt"; }
 
 instalar() {
     prefixo=${1:-/usr/local}
-    case "$prefixo" in /*) ;; *) erro "o prefixo precisa ser um caminho absoluto" ;; esac
-    if [ ! -x target/release/glove ] || pergunta "Compilar de novo antes de instalar?" n; then
+    case "$prefixo" in /*) ;; *) erro "$(t "o prefixo precisa ser um caminho absoluto" "the prefix must be an absolute path")" ;; esac
+    if [ ! -x target/release/glove ] || pergunta "$(t "Compilar de novo antes de instalar?" "Build again before installing?")" n; then
         if ! tem cargo || ! tem pkg-config; then
-            pergunta "Faltam ferramentas para compilar. Instalar agora?" s && dependencias
+            pergunta "$(t "Faltam ferramentas para compilar. Instalar agora?" "Build tools are missing. Install them now?")" s && dependencias
         fi
         compilar
     fi
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
     case $(distro) in debian) estilo=debian ;; *) estilo=outro ;; esac
-    msg "Montando a instalação em $prefixo"
+    msg "$(t "Montando a instalação em $prefixo" "Preparing the installation in $prefixo")"
     montar "$tmp" "$prefixo" "$estilo"
     # Lista do que foi instalado: é o que o "desinstalar" apaga.
     lista=$(lista_local "$prefixo")
     mkdir -p "$tmp$(dirname "$lista")"
     (cd "$tmp" && find . ! -type d | sed 's|^\.||' | sort) > "$tmp$lista"
     echo "$lista" >> "$tmp$lista"
-    msg "Copiando para o sistema (pede a senha)"
+    msg "$(t "Copiando para o sistema (pede a senha)" "Copying to the system (asks for your password)")"
     root mkdir -p "$sistema/"
     root cp -a "$tmp/." "$sistema/"
     if [ -z "$sistema" ]; then
         root sh -c "$pos_instalar_sh"
     fi
     echo
-    echo "Glove $versao instalado em $prefixo. Saia da sessão e escolha \"Glove\" na tela de login."
-    echo "Tela de login do Glove: ./instalador.sh login (ou sudo systemctl enable --force glove-login)."
+    echo "$(t "Glove $versao instalado em $prefixo. Saia da sessão e escolha \"Glove\" na tela de login." "Glove $versao installed in $prefixo. Log out and choose \"Glove\" on the login screen.")"
+    echo "$(t "Tela de login do Glove: ./glove-setup-tool.sh login (ou sudo systemctl enable --force glove-login)." "Glove login screen: ./glove-setup-tool.sh login (or sudo systemctl enable --force glove-login).")"
 }
 
 desinstalar() {
     # Instalado por pacote: quem remove é o gerenciador de pacotes.
     if [ -z "$sistema" ] && tem dpkg-query && dpkg-query -W glove >/dev/null 2>&1; then
-        pergunta "O Glove foi instalado pelo pacote .deb. Remover com o apt?" s && root apt-get remove -y glove; return
+        pergunta "$(t "O Glove foi instalado pelo pacote .deb. Remover com o apt?" "Glove was installed from the .deb package. Remove it with apt?")" s && root apt-get remove -y glove; return
     fi
     if [ -z "$sistema" ] && tem rpm && rpm -q glove >/dev/null 2>&1; then
-        pergunta "O Glove foi instalado pelo pacote .rpm. Remover?" s && root rpm -e glove; return
+        pergunta "$(t "O Glove foi instalado pelo pacote .rpm. Remover?" "Glove was installed from the .rpm package. Remove it?")" s && root rpm -e glove; return
     fi
     if [ -z "$sistema" ] && tem pacman && pacman -Q glove >/dev/null 2>&1; then
-        pergunta "O Glove foi instalado pelo pacote do Arch. Remover?" s && root pacman -R --noconfirm glove; return
+        pergunta "$(t "O Glove foi instalado pelo pacote do Arch. Remover?" "Glove was installed from the Arch package. Remove it?")" s && root pacman -R --noconfirm glove; return
     fi
     if [ -z "$sistema" ] && ls /var/log/packages/glove-[0-9]* >/dev/null 2>&1; then
-        pergunta "O Glove foi instalado pelo pacote do Slackware. Remover?" s && root removepkg glove; return
+        pergunta "$(t "O Glove foi instalado pelo pacote do Slackware. Remover?" "Glove was installed from the Slackware package. Remove it?")" s && root removepkg glove; return
     fi
     achou=""
     for p in /usr/local /usr /opt/glove "$1"; do
         [ -n "$p" ] && [ -f "$sistema$(lista_local "$p")" ] && achou="$achou $p"
     done
-    [ -n "$achou" ] || erro "não achei uma instalação do Glove feita por este instalador"
+    [ -n "$achou" ] || erro "$(t "não achei uma instalação do Glove feita por este instalador" "no Glove installation made by this tool was found")"
     for p in $achou; do
         lista="$sistema$(lista_local "$p")"
-        pergunta "Remover o Glove instalado em $p?" s || continue
+        pergunta "$(t "Remover o Glove instalado em $p?" "Remove the Glove installed in $p?")" s || continue
         [ -z "$sistema" ] && root sh -c "$pre_remover_sh"
-        msg "Removendo $(wc -l < "$lista") arquivos"
+        msg "$(t "Removendo $(wc -l < "$lista") arquivos" "Removing $(wc -l < "$lista") files")"
         # Apaga cada arquivo da lista e depois as pastas próprias do Glove.
         root sh -c 'while IFS= read -r f; do [ -n "$f" ] && rm -f "$2$f"; done < "$1"' sh "$lista" "$sistema" || true
         root sh -c 'for d in "$1/share/icons/Glove" "$1/share/doc/glove" "$1/share/glove"; do rm -rf "$d"; done' sh "$sistema$p"
     done
-    echo "Glove removido. Sua configuração pessoal (~/.config/glove) foi mantida."
+    echo "$(t "Glove removido. Sua configuração pessoal (~/.config/glove) foi mantida." "Glove removed. Your personal settings (~/.config/glove) were kept.")"
 }
 
 # --- pacotes ------------------------------------------------------------------------
@@ -251,7 +245,7 @@ deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-d
 opt_arch="xorg-xwayland:apps_X11 mpv:Vídeo poppler:PDF_no_Visualizador pipewire:som wireplumber:volume xdg-utils:Abrir_com desktop-file-utils:Abrir_com"
 
 pacote_deb() {
-    tem dpkg-deb || erro "falta o dpkg-deb (pacote dpkg)"
+    tem dpkg-deb || erro "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
     tmp=$(mktemp -d)
     montar "$tmp" /usr debian
     mkdir -p "$tmp/DEBIAN"
@@ -280,7 +274,7 @@ EOF
     f="$saida/glove_${versao}_$a.deb"
     dpkg-deb --root-owner-group -Zxz --build "$tmp" "$f" >/dev/null
     rm -rf "$tmp"
-    msg "Pacote Debian/Ubuntu: $f"
+    msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
 pacote_slackware() {
@@ -295,7 +289,7 @@ pacote_slackware() {
         echo "$descricao" | tr '\n' ' ' | fold -s -w 70 | sed 's/ *$//; s/^/glove: /'
         echo
         echo "glove:"
-        echo "glove: Precisa do seatd e do greetd (SlackBuilds.org)."
+        echo "glove: Needs seatd and greetd (SlackBuilds.org)."
         echo "glove: Site: $url"
         echo "glove:"
         echo "glove:"
@@ -312,7 +306,7 @@ EOF
     f="$saida/glove-$versao-$arq-1.tgz"
     (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -czf "$f" .)
     rm -rf "$tmp"
-    msg "Pacote Slackware: $f (instale com: installpkg $(basename "$f"))"
+    msg "$(t "Pacote Slackware: $f (instale com: installpkg $(basename "$f"))" "Slackware package: $f (install with: installpkg $(basename "$f"))")"
 }
 
 pacote_rpm() {
@@ -358,11 +352,11 @@ EOF
     if tem rpmbuild; then
         rpmbuild -bb --define "_topdir $tmp/rpm" --define "_raiz $tmp/raiz" "$spec" >/dev/null
         cp "$tmp"/rpm/RPMS/*/glove-*.rpm "$saida/"
-        msg "Pacote Fedora: $(ls "$saida"/glove-*.rpm | tail -1)"
+        msg "$(t "Pacote Fedora: $(ls "$saida"/glove-*.rpm | tail -1)" "Fedora package: $(ls "$saida"/glove-*.rpm | tail -1)")"
     else
-        msg "Sem o rpmbuild aqui: deixei a receita em $spec"
-        echo "  No Fedora: sudo dnf install rpm-build; no Debian/Ubuntu: sudo apt install rpm."
-        echo "  Depois rode de novo: ./instalador.sh rpm"
+        msg "$(t "Sem o rpmbuild aqui: deixei a receita em $spec" "No rpmbuild here: the recipe is in $spec")"
+        echo "$(t "  No Fedora: sudo dnf install rpm-build; no Debian/Ubuntu: sudo apt install rpm." "  On Fedora: sudo dnf install rpm-build; on Debian/Ubuntu: sudo apt install rpm.")"
+        echo "$(t "  Depois rode de novo: ./glove-setup-tool.sh rpm" "  Then run again: ./glove-setup-tool.sh rpm")"
     fi
     rm -rf "$tmp"
 }
@@ -378,7 +372,7 @@ pacote_arch() {
     } > "$saida/glove.install"
     # Receita para compilar no próprio Arch com o makepkg (o jeito do Arch).
     cat > "$saida/PKGBUILD" <<EOF
-# Receita do Glove para o Arch (gerada por instalador.sh).
+# Glove recipe for Arch (made by glove-setup-tool.sh).
 pkgname=glove
 pkgver=$versao
 pkgrel=1
@@ -405,16 +399,16 @@ build() {
 
 package() {
   cd glove
-  ./instalador.sh _montar "\$pkgdir" /usr outro
+  ./glove-setup-tool.sh _montar "\$pkgdir" /usr outro
 }
 EOF
     if tem makepkg; then
         (cd "$saida" && makepkg -f)
-        msg "Pacote Arch: $(ls "$saida"/glove-*.pkg.tar.zst | tail -1)"
+        msg "$(t "Pacote Arch: $(ls "$saida"/glove-*.pkg.tar.zst | tail -1)" "Arch package: $(ls "$saida"/glove-*.pkg.tar.zst | tail -1)")"
         return
     fi
     # Fora do Arch: monta o pacote direto (mesmo formato que o makepkg gera).
-    tem zstd || erro "falta o zstd"
+    tem zstd || erro "$(t "falta o zstd" "zstd is missing")"
     tmp=$(mktemp -d)
     montar "$tmp" /usr outro
     {
@@ -424,7 +418,7 @@ EOF
         echo "pkgdesc = $resumo"
         echo "url = $url"
         echo "builddate = $(date +%s)"
-        echo "packager = instalador.sh do Glove"
+        echo "packager = Glove glove-setup-tool.sh"
         echo "size = $(( $(tamanho_kb "$tmp") * 1024 ))"
         echo "arch = $arq"
         echo "license = GPL-3.0-or-later"
@@ -454,8 +448,8 @@ EOF
     f="$saida/glove-$versao-1-$arq.pkg.tar.zst"
     (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -cf - .PKGINFO .INSTALL .MTREE $(ls -A | grep -v '^\.PKGINFO$\|^\.MTREE$\|^\.INSTALL$') | zstd -19 -q -f -o "$f")
     rm -rf "$tmp"
-    msg "Pacote Arch: $f (instale com: sudo pacman -U $(basename "$f"))"
-    echo "  No Arch também dá para compilar lá: makepkg -si (com o PKGBUILD em $saida)"
+    msg "$(t "Pacote Arch: $f (instale com: sudo pacman -U $(basename "$f"))" "Arch package: $f (install with: sudo pacman -U $(basename "$f"))")"
+    echo "$(t "  No Arch também dá para compilar lá: makepkg -si (com o PKGBUILD em $saida)" "  On Arch you can also build it there: makepkg -si (with the PKGBUILD in $saida)")"
 }
 
 # --- tela de login (greetd) ----------------------------------------------------------
@@ -474,21 +468,21 @@ login() {
         mv /etc/greetd/config.toml.antes-do-glove /etc/greetd/config.toml
         systemctl disable greetd 2>/dev/null || true
     fi
-    if [ "${1:-}" = remover ]; then
+    if [ "${1:-}" = remover ] || [ "${1:-}" = remove ]; then
         antes=$(cat "$estado/gerenciador-anterior" 2>/dev/null || true)
         systemctl disable glove-login 2>/dev/null || true
         for d in $antes gdm gdm3 lightdm sddm lxdm greetd; do
             if systemctl cat "$d.service" >/dev/null 2>&1 && systemctl enable --force "$d.service" 2>/dev/null; then
-                echo "A tela de login volta a ser a do $d (vale no próximo boot)."
+                echo "$(t "A tela de login volta a ser a do $d (vale no próximo boot)." "The login screen goes back to $d (from the next boot).")"
                 break
             fi
         done
         rm -f "$estado/gerenciador-anterior"
         return
     fi
-    systemctl cat glove-login.service >/dev/null 2>&1 || erro "o Glove não está instalado (instale o pacote ou rode: ./instalador.sh instalar)"
+    systemctl cat glove-login.service >/dev/null 2>&1 || erro "$(t "o Glove não está instalado (instale o pacote ou rode: ./glove-setup-tool.sh instalar)" "Glove isn’t installed (install the package or run: ./glove-setup-tool.sh install)")"
     if ! tem greetd; then
-        msg "Instalando o greetd"
+        msg "$(t "Instalando o greetd" "Installing greetd")"
         case $(distro) in
             debian) apt-get install -y greetd ;;
             fedora) dnf install -y greetd ;;
@@ -496,7 +490,7 @@ login() {
             suse) zypper install -y greetd ;;
             void) xbps-install -Sy greetd ;;
             alpine) apk add greetd ;;
-            *) erro "instale o greetd pelo gerenciador de pacotes e rode de novo" ;;
+            *) erro "$(t "instale o greetd pelo gerenciador de pacotes e rode de novo" "install greetd with the package manager and run again")" ;;
         esac
     fi
     mkdir -p "$estado"
@@ -505,39 +499,73 @@ login() {
         casa=$(getent passwd "$SUDO_USER" | cut -d: -f6)
         if [ -f "$casa/.config/glove/config.toml" ]; then
             install -m 644 "$casa/.config/glove/config.toml" "$estado/config.toml"
-            echo "Tela de login com os ajustes de $SUDO_USER (monitor, escala, teclado e tema)."
+            echo "$(t "Tela de login com os ajustes de $SUDO_USER (monitor, escala, teclado e tema)." "Login screen with $SUDO_USER’s settings (display, scale, keyboard and theme).")"
         fi
     fi
     atual=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
     if [ "$atual" = glove-login ]; then
-        echo "A tela de login do Glove já é a principal."
+        echo "$(t "A tela de login do Glove já é a principal." "The Glove login screen is already the main one.")"
         return
     fi
-    echo "A tela de login atual é ${atual:-desconhecida}."
-    if pergunta "Trocar pela tela de login do Glove (vale a partir do próximo boot)?" s; then
+    echo "$(t "A tela de login atual é ${atual:-desconhecida}." "The current login screen is ${atual:-unknown}.")"
+    if pergunta "$(t "Trocar pela tela de login do Glove (vale a partir do próximo boot)?" "Switch to the Glove login screen (from the next boot)?")" s; then
         [ -n "$atual" ] && echo "$atual" > "$estado/gerenciador-anterior"
         systemctl enable --force glove-login
-        echo "Pronto: reinicie para ver a tela de login do Glove."
-        echo "Para voltar à do ${atual:-sistema}: ./instalador.sh login remover"
+        echo "$(t "Pronto: reinicie para ver a tela de login do Glove." "Done: restart to see the Glove login screen.")"
+        echo "$(t "Para voltar à do ${atual:-sistema}: ./glove-setup-tool.sh login remover" "To go back to ${atual:-the system’s}: ./glove-setup-tool.sh login remove")"
+    fi
+}
+
+ajuda() {
+    if [ "$idioma" = pt ]; then cat <<'FIM'
+Ferramenta de instalação do Glove (qualquer Linux)
+
+  ./glove-setup-tool.sh                      menu
+  ./glove-setup-tool.sh instalar [PREFIXO]   compila e instala (padrão: /usr/local)
+  ./glove-setup-tool.sh desinstalar          o inverso de instalar
+  ./glove-setup-tool.sh deb|slackware|rpm|arch|todos   gera os pacotes em pacotes/
+  ./glove-setup-tool.sh dependencias         instala o que falta para compilar
+  ./glove-setup-tool.sh login [remover]      torna a tela de login do Glove a principal
+                                             (= sudo systemctl enable --force glove-login)
+
+O pacote e o "instalar" trazem tudo, inclusive a tela de login (serviço glove-login,
+sobre o greetd). Detalhes: README.md, seção "Instalar no sistema".
+Para testar sem instalar nada: ./instalar.sh (usa os programas do projeto).
+FIM
+    else cat <<'FIM'
+Glove setup tool (any Linux)
+
+  ./glove-setup-tool.sh                      menu
+  ./glove-setup-tool.sh install [PREFIX]     build and install (default: /usr/local)
+  ./glove-setup-tool.sh uninstall            the reverse of install
+  ./glove-setup-tool.sh deb|slackware|rpm|arch|all   build packages into pacotes/
+  ./glove-setup-tool.sh deps                 install what's missing to build
+  ./glove-setup-tool.sh login [remove]       make the Glove login screen the main one
+                                             (= sudo systemctl enable --force glove-login)
+
+The package and "install" bring everything, including the login screen (the glove-login
+service, on top of greetd). Details: README.en.md, "Installing" section.
+To try it without installing anything: ./instalar.sh (uses the project's programs).
+FIM
     fi
 }
 
 # --- menu ---------------------------------------------------------------------------
 
 menu() {
-    echo "Glove $versao — instalador ($(distro), $arq)"
+    echo "$(t "Glove $versao — instalador ($(distro), $arq)" "Glove $versao — setup tool ($(distro), $arq)")"
     echo
-    echo "  1) Instalar (compila e instala em /usr/local)"
-    echo "  2) Desinstalar"
-    echo "  3) Pacote .deb (Debian, Ubuntu, Mint…)"
-    echo "  4) Pacote .tgz (Slackware)"
-    echo "  5) Pacote .rpm (Fedora, openSUSE…)"
-    echo "  6) Pacote do Arch (.pkg.tar.zst e PKGBUILD)"
-    echo "  7) Todos os pacotes"
-    echo "  8) Instalar o que falta para compilar"
-    echo "  9) Tela de login do Glove (greetd)"
-    echo "  0) Sair"
-    printf 'Escolha: '
+    echo "$(t "  1) Instalar (compila e instala em /usr/local)" "  1) Install (builds and installs in /usr/local)")"
+    echo "$(t "  2) Desinstalar" "  2) Uninstall")"
+    echo "$(t "  3) Pacote .deb (Debian, Ubuntu, Mint…)" "  3) .deb package (Debian, Ubuntu, Mint…)")"
+    echo "$(t "  4) Pacote .tgz (Slackware)" "  4) .tgz package (Slackware)")"
+    echo "$(t "  5) Pacote .rpm (Fedora, openSUSE…)" "  5) .rpm package (Fedora, openSUSE…)")"
+    echo "$(t "  6) Pacote do Arch (.pkg.tar.zst e PKGBUILD)" "  6) Arch package (.pkg.tar.zst and PKGBUILD)")"
+    echo "$(t "  7) Todos os pacotes" "  7) All packages")"
+    echo "$(t "  8) Instalar o que falta para compilar" "  8) Install what’s missing to build")"
+    echo "$(t "  9) Tela de login do Glove (greetd)" "  9) Glove login screen (greetd)")"
+    echo "$(t "  0) Sair" "  0) Quit")"
+    printf '%s ' "$(t 'Escolha:' 'Choose:')"
     read -r op || op=0
     case "$op" in
         1) instalar ;;
@@ -555,16 +583,16 @@ menu() {
 
 case "${1:-}" in
     "") menu ;;
-    instalar) instalar "$2" ;;
-    desinstalar|remover) desinstalar "$2" ;;
+    instalar|install) instalar "$2" ;;
+    desinstalar|remover|uninstall|remove) desinstalar "$2" ;;
     deb) pacote_deb ;;
     slackware|slack|tgz) pacote_slackware ;;
     rpm|fedora) pacote_rpm ;;
     arch|pacman) pacote_arch ;;
-    todos|pacotes) pacote_deb; pacote_slackware; pacote_rpm; pacote_arch ;;
-    dependencias) dependencias ;;
+    todos|pacotes|all|packages) pacote_deb; pacote_slackware; pacote_rpm; pacote_arch ;;
+    dependencias|deps|dependencies) dependencias ;;
     login) shift; login "$@" ;;
     _montar) montar "$2" "$3" "$4" ;;
-    -h|--help|ajuda) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *) erro "opção desconhecida: $1 (veja ./instalador.sh ajuda)" ;;
+    -h|--help|ajuda|help) ajuda ;;
+    *) erro "$(t "opção desconhecida: $1 (veja ./glove-setup-tool.sh ajuda)" "unknown option: $1 (see ./glove-setup-tool.sh help)")" ;;
 esac

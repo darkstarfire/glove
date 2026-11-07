@@ -4,7 +4,7 @@
 #   ./instalar.sh --remover  tira o Glove da tela de login (e devolve a anterior)
 # Os passos que mexem no sistema pedem a senha (sudo) só quando escolhidos.
 # Este é o modo de desenvolvimento (a sessão usa os programas do projeto). Para
-# instalar no sistema ou gerar pacotes .deb/.rpm/Slackware/Arch: ./instalador.sh
+# instalar no sistema ou gerar pacotes .deb/.rpm/Slackware/Arch: ./glove-setup-tool.sh
 set -e
 cd "$(dirname "$0")"
 raiz=$(pwd)
