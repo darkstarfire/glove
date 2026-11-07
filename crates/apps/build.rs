@@ -1,7 +1,7 @@
 //! Cria, ao lado do executável, os atalhos glove-files, glove-prefs… para o
 //! glove-apps (assim `target/release/glove-files` continua funcionando).
 
-const APPS: &[&str] = &["glove-about", "glove-agenda", "glove-ajuda", "glove-arquivo", "glove-boasvindas", "glove-calc", "glove-chars", "glove-chaves", "glove-chess", "glove-clock", "glove-contatos", "glove-copias", "glove-correio", "glove-dicionario", "glove-disks", "glove-edit", "glove-files", "glove-find", "glove-fontes", "glove-info", "glove-login", "glove-monitor", "glove-musica", "glove-navegador", "glove-notes", "glove-prefs", "glove-registros", "glove-sair", "glove-shot", "glove-term", "glove-utilrede", "glove-video", "glove-view"];
+const APPS: &[&str] = &["glove-about", "glove-agenda", "glove-ajuda", "glove-arquivo", "glove-boasvindas", "glove-calc", "glove-chars", "glove-chaves", "glove-chess", "glove-clock", "glove-contatos", "glove-central", "glove-copias", "glove-correio", "glove-dicionario", "glove-disks", "glove-edit", "glove-files", "glove-find", "glove-fontes", "glove-info", "glove-login", "glove-monitor", "glove-musica", "glove-navegador", "glove-notes", "glove-prefs", "glove-registros", "glove-sair", "glove-shot", "glove-term", "glove-utilrede", "glove-video", "glove-view"];
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");

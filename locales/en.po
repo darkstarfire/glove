@@ -4100,3 +4100,81 @@ msgstr "Last backup: {}"
 
 msgid "‹ Acima"
 msgstr "‹ Up"
+
+msgid "A operação não deu certo."
+msgstr "The operation did not succeed."
+
+msgid "Ativando o Flathub…"
+msgstr "Turning on Flathub…"
+
+msgid "Ativar o Flathub"
+msgstr "Turn On Flathub"
+
+msgid "Atualizando tudo…"
+msgstr "Updating everything…"
+
+msgid "Atualizar Tudo"
+msgstr "Update All"
+
+msgid "Atualizações"
+msgstr "Updates"
+
+msgid "Atualizações disponíveis."
+msgstr "Updates available."
+
+msgid "Descrição"
+msgstr "Description"
+
+msgid "Digite a sua senha"
+msgstr "Enter your password"
+
+msgid "Digite o nome de um app e pressione Enter."
+msgstr "Type the name of an app and press Enter."
+
+msgid "Escolha um app para abrir ou remover."
+msgstr "Choose an app to open or remove."
+
+msgid "Flatpak ({})"
+msgstr "Flatpak ({})"
+
+msgid "Instalado"
+msgstr "Installed"
+
+msgid "Instalados"
+msgstr "Installed"
+
+msgid "Instalando {}…"
+msgstr "Installing {}…"
+
+msgid "Loja"
+msgstr "Store"
+
+msgid "Nem o apt nem o Flatpak estão instalados neste sistema."
+msgstr "Neither apt nor Flatpak is installed on this system."
+
+msgid "Nome do app"
+msgstr "App name"
+
+msgid "Origem"
+msgstr "Source"
+
+msgid "Pacote do sistema (apt)"
+msgstr "System package (apt)"
+
+msgid "Procurando atualizações…"
+msgstr "Checking for updates…"
+
+msgid "Procurando…"
+msgstr "Searching…"
+
+msgid "Procurar Atualizações"
+msgstr "Check for Updates"
+
+msgid "Removendo {}…"
+msgstr "Removing {}…"
+
+msgid "Tudo em dia."
+msgstr "Everything is up to date."
+
+msgid "Versão"
+msgstr "Version"

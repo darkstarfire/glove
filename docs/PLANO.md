@@ -585,7 +585,12 @@ visual gel. Cada uma será detalhada antes de começar.
   A janela tem a linha do tempo à esquerda, o conteúdo da cópia escolhida (sem os ocultos), Restaurar
   (volta ao lugar de origem; se já existir, com "(restaurado)" no nome) e Mostrar no Arquivos. Ficam de
   fora caches e lixeiras (`~/.config/glove/copias.toml`).
-- [ ] 10.8 Central de apps (instalar e atualizar pelo apt/Flatpak) com cara da era
+- [x] 10.8 Central de Apps (G) — v0.10.8: app novo (`glove-central`). Abas Buscar (Flatpak e apt juntos;
+  no apt, o nome que começa com a busca primeiro e bibliotecas por último), Instalados (os apps com janela
+  do apt, pelos donos dos `.desktop`, e os Flatpaks) e Atualizações (apt e Flatpak, com Procurar
+  Atualizações e Atualizar Tudo). Instalar, Remover e Abrir no app escolhido; sem nenhum remoto do
+  Flatpak, Ativar o Flathub (na conta do usuário). O apt pede a senha numa folha da janela e roda com
+  `sudo -S` (o Glove não tem agente do polkit): a senha vai só para o sudo, nunca para a tela ou o disco.
 - [ ] 10.9 Apps de luxo: Fotos (biblioteca de imagens), gravador de som, Mensagens
 
 ## Fase 11 — Instalador do sistema e ISO Debian (depois da Fase 10; testada antes de fechar)

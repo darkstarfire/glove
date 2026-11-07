@@ -23,6 +23,7 @@ glove-chaves = { path = "../chaves" }
 glove-chess = { path = "../chess" }
 glove-clock = { path = "../clock" }
 glove-contatos = { path = "../contatos" }
+glove-central = { path = "../central" }
 glove-copias = { path = "../copias" }
 glove-correio = { path = "../correio" }
 glove-dicionario = { path = "../dicionario" }
