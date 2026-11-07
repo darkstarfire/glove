@@ -107,6 +107,10 @@ a própria barra de título; apps X11 usam a do Glove.
 ```sh
 cargo build --release
 ./instalar.sh                         # pergunta passo a passo: sessão, tela de login, Plymouth
+./instalador.sh                       # menu: instalar no sistema, desinstalar, pacotes
+./instalador.sh instalar [/usr/local] # compila e instala em qualquer Linux
+./instalador.sh desinstalar           # o inverso (ou pelo gerenciador, se veio de pacote)
+./instalador.sh deb|slackware|rpm|arch|todos   # pacotes em pacotes/
 sudo ./data/instalar-sessao.sh        # põe "Glove" na lista de sessões (usa os arquivos do projeto)
 ./target/release/glove --monitores    # mostra qual tela, resolução e escala a sessão vai usar
 ```

@@ -459,6 +459,16 @@ Estudo completo em `docs/MEMORIA.md`.
   do arquivo (divididas entre todos os processos). Três apps abertos: 35,0 MB → 26,0 MB. O resto da
   memória do compositor é da Mesa (custo fixo do OpenGL); parado, o Glove usa 0,1% de um núcleo
 
+## Fase 9.14 — Instalação e pacotes (pedido de 07/11/2026)
+
+- [x] 9.14.1 `instalador.sh` (M) — v0.9.21: menu ou comandos para instalar em qualquer Linux (instala o
+  que falta para compilar pelo apt, dnf, pacman, zypper, xbps ou apk; compila; põe os programas, a
+  sessão, o PAM do desbloqueio, o tema de ícones e a documentação no prefixo, com a lista do que foi
+  instalado), desinstalar (pela lista, ou pelo gerenciador quando veio de pacote) e gerar os pacotes
+  .deb (Debian/Ubuntu), .tgz (Slackware, com slack-desc), .rpm (receita; o pacote sai onde houver
+  rpmbuild) e Arch (.pkg.tar.zst com .PKGINFO e .MTREE, e o PKGBUILD para o makepkg). `DESTDIR=` testa
+  sem mexer no sistema. A licença GPL-3 passa a acompanhar o projeto (LICENSE)
+
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
 Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no
