@@ -125,6 +125,8 @@ pub struct Glove {
     /// Painel de Widgets (F12).
     pub dashboard: crate::dashboard::Dashboard,
     pub grade: crate::grade::Grade,
+    /// Gesto do touchpad em andamento.
+    pub gesto: Option<crate::gestos::Gesto>,
     /// Avisos (notificações) e a central.
     pub avisos: crate::avisos::Avisos,
     /// Mesas virtuais.
@@ -257,6 +259,7 @@ impl Glove {
             desk: Default::default(),
             dashboard: Default::default(),
             grade: Default::default(),
+            gesto: None,
             avisos: Default::default(),
             mesas: Default::default(),
             expose: None,

@@ -1364,6 +1364,17 @@ impl Prefs {
             }
         });
         ui.space(6.0);
+        ui.form_row(tr!("Vários dedos"), LW, |ui| {
+            let mut g = t.gestures;
+            if ui.checkbox(&mut g, tr!("Usar gestos com três e quatro dedos")) {
+                self.config.touchpad.gestures = g;
+                self.save();
+            }
+            ui.small(tr!("3 dedos para cima: Exposé · para baixo: janelas do app"));
+            ui.small(tr!("3 dedos para os lados: trocar de mesa virtual"));
+            ui.small(tr!("Pinçar com 4 dedos: Todos os Apps · abrir: mostrar a mesa"));
+        });
+        ui.space(6.0);
         let mut v = if t.two_finger_right_click { 0 } else { 1 };
         ui.form_row(tr!("Clique secundário"), LW, |ui| {
             if ui.radio_group(&mut v, &[tr!("Com dois dedos"), tr!("No canto inferior direito")]) {

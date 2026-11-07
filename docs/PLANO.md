@@ -562,7 +562,11 @@ visual gel. Cada uma será detalhada antes de começar.
   na barra de menu mostra quantos não foram lidos e abre a central, com os últimos 60 avisos, Não
   perturbe (sem balões, menos os críticos) e Limpar. Clicar num aviso responde ao app ("default") e traz o
   app à frente; o × dispensa. Se outro serviço já atende (dentro de outro desktop), o Glove não interfere.
-- [ ] 10.5 Gestos de trackpad com vários dedos (Exposé, trocar de mesa, voltar/avançar)
+- [x] 10.5 Gestos de trackpad com vários dedos (P) — v0.10.5: na sessão própria (libinput), 3 dedos para
+  cima abrem o Exposé e para baixo as janelas do app (com o Exposé aberto, voltam); 3 dedos para os lados
+  trocam de mesa virtual (o conteúdo acompanha os dedos; no Exposé, troca e continua nele); pinçar com 4
+  dedos abre Todos os Apps e abrir os 4 dedos mostra a mesa. Liga e desliga em Preferências ▸ Trackpad
+  (`gestos.rs`). Voltar/avançar com dois dedos fica com cada app (é rolagem horizontal).
 - [ ] 10.6 Abas no Arquivos, no Editor e no Terminal; janelas em tela cheia
 - [ ] 10.7 Cópias de segurança automáticas com linha do tempo (como o Time Machine)
 - [ ] 10.8 Central de apps (instalar e atualizar pelo apt/Flatpak) com cara da era

@@ -10,6 +10,7 @@ mod dockmenu;
 mod ending;
 mod expose;
 mod avisos;
+mod gestos;
 mod grade;
 mod mesas;
 mod lock;

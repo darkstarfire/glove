@@ -2,7 +2,7 @@
 
 use smithay::{
     backend::input::{
-        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent, KeyState,
+        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, GestureBeginEvent, GestureEndEvent, GesturePinchUpdateEvent, GestureSwipeUpdateEvent, InputBackend, InputEvent, KeyState,
         KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
     },
     input::{
@@ -329,6 +329,13 @@ impl Glove {
                 self.dirty = true;
             }
             InputEvent::PointerButton { event, .. } => self.on_button(event.button_code(), event.state(), event.time_msec()),
+            // Gestos do touchpad (sessão própria): somados até o fim e decididos ao soltar.
+            InputEvent::GestureSwipeBegin { event } => self.gesture_begin(crate::gestos::Kind::Swipe, event.fingers()),
+            InputEvent::GestureSwipeUpdate { event } => self.gesture_swipe(event.delta_x(), event.delta_y()),
+            InputEvent::GestureSwipeEnd { event } => self.gesture_end(event.cancelled()),
+            InputEvent::GesturePinchBegin { event } => self.gesture_begin(crate::gestos::Kind::Pinch, event.fingers()),
+            InputEvent::GesturePinchUpdate { event } => self.gesture_pinch(event.delta_x(), event.delta_y(), event.scale()),
+            InputEvent::GesturePinchEnd { event } => self.gesture_end(event.cancelled()),
             InputEvent::SwitchToggle { event } => {
                 use smithay::backend::input::{Switch, SwitchState, SwitchToggleEvent};
                 if event.switch() == Some(Switch::Lid) {

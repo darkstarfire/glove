@@ -3983,3 +3983,18 @@ msgstr "No notifications"
 
 msgid "Avisos|Limpar"
 msgstr "Clear"
+
+msgid "Vários dedos"
+msgstr "Multiple fingers"
+
+msgid "Usar gestos com três e quatro dedos"
+msgstr "Use three- and four-finger gestures"
+
+msgid "3 dedos para cima: Exposé · para baixo: janelas do app"
+msgstr "3 fingers up: Exposé · down: application windows"
+
+msgid "3 dedos para os lados: trocar de mesa virtual"
+msgstr "3 fingers sideways: switch desktop"
+
+msgid "Pinçar com 4 dedos: Todos os Apps · abrir: mostrar a mesa"
+msgstr "Pinch with 4 fingers: All Apps · spread: show desktop"
