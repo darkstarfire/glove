@@ -196,6 +196,18 @@ impl XwmHandler for Glove {
         }
     }
 
+    fn fullscreen_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        if let Some(w) = find(self, &window) {
+            self.set_fullscreen(&w, true);
+        }
+    }
+
+    fn unfullscreen_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        if let Some(w) = find(self, &window) {
+            self.set_fullscreen(&w, false);
+        }
+    }
+
     fn minimize_request(&mut self, _xwm: XwmId, window: X11Surface) {
         let w = self.space.elements().find(|w| w.x11_surface() == Some(&window)).cloned();
         if let Some(w) = w {
@@ -263,6 +275,12 @@ impl XwmHandler for CalloopData {
     }
     fn minimize_request(&mut self, xwm: XwmId, window: X11Surface) {
         self.state.minimize_request(xwm, window)
+    }
+    fn fullscreen_request(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.fullscreen_request(xwm, window)
+    }
+    fn unfullscreen_request(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.unfullscreen_request(xwm, window)
     }
     fn resize_request(&mut self, xwm: XwmId, window: X11Surface, button: u32, edge: X11ResizeEdge) {
         self.state.resize_request(xwm, window, button, edge)

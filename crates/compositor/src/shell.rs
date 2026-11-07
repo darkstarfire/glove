@@ -115,7 +115,18 @@ pub fn canonical_app_id(id: String) -> String {
 }
 
 /// A janela pediu (e recebeu) bordas desenhadas pelo Glove?
+/// Janela em tela cheia: guarda onde estava (sem a barra de título) para voltar.
+pub struct Fullscreen(pub RefCell<Option<Rectangle<i32, Logical>>>);
+
+pub fn is_fullscreen(w: &Window) -> bool {
+    w.user_data().get::<Fullscreen>().is_some_and(|f| f.0.borrow().is_some())
+}
+
 pub fn is_ssd(w: &Window) -> bool {
+    // Em tela cheia não há moldura.
+    if is_fullscreen(w) {
+        return false;
+    }
     // App X11: moldura do Glove, menos quando o app desenha a dele.
     if let Some(x) = w.x11_surface() {
         return !x.is_override_redirect() && !x.is_decorated();
@@ -238,6 +249,7 @@ pub enum MenuAction {
     ShowAll,
     MinimizeWindow(Window),
     ZoomWindow(Window),
+    FullscreenWindow(Window),
     BringAllToFront(u32),
     /// Janela escolhida na lista do menu Janela.
     FocusWindow(Window),
@@ -522,7 +534,8 @@ impl Glove {
             }
         }
         let (ow, _) = self.output_size();
-        if py >= 0.0 && py < MENUBAR_H as f64 && px >= 0.0 && px < ow as f64 {
+        let covered = self.fullscreen_cover();
+        if !covered && py >= 0.0 && py < MENUBAR_H as f64 && px >= 0.0 && px < ow as f64 {
             let (a, b) = self.chrome.logo_range;
             if px >= a as f64 && px < b as f64 {
                 return Hit::MenuBar { target: Some(BarTarget::Logo) };
@@ -537,7 +550,7 @@ impl Glove {
             let t = self.chrome.title_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64);
             return Hit::MenuBar { target: t.map(BarTarget::Title) };
         }
-        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| self.chrome.dock_hide < 0.5) {
+        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| self.chrome.dock_hide < 0.5 && !covered) {
             let d = self.chrome.dock_pos();
             let (lx, ly) = ((px - d.x as f64) as f32, (py - d.y as f64) as f32);
             if chrome::dock_contains(l, lx, ly) {
@@ -677,6 +690,65 @@ impl Glove {
             t.send_close();
         } else if let Some(x) = w.x11_surface() {
             let _ = x.close();
+        }
+    }
+
+    /// A janela de cima está em tela cheia: a barra de menu e o Dock saem de cena.
+    pub fn fullscreen_cover(&self) -> bool {
+        self.fullscreen_top() && !self.bar_peek
+    }
+
+    /// A janela de cima está em tela cheia (com ou sem a barra espiando).
+    pub fn fullscreen_top(&self) -> bool {
+        self.space.elements().last().is_some_and(is_fullscreen) && self.expose.is_none()
+    }
+
+    /// Entra ou sai da tela cheia (atalho, menu Janela ou pedido do app).
+    pub fn set_fullscreen(&mut self, w: &Window, on: bool) {
+        if on == is_fullscreen(w) {
+            return;
+        }
+        w.user_data().insert_if_missing(|| Fullscreen(RefCell::new(None)));
+        let cell = &w.user_data().get::<Fullscreen>().unwrap().0;
+        if on {
+            let Some(geo) = self.space.element_geometry(w) else { return };
+            // O monitor onde está o meio da janela.
+            let center: Point<f64, Logical> = ((geo.loc.x + geo.size.w / 2) as f64, (geo.loc.y + geo.size.h / 2) as f64).into();
+            let Some(out) = self.output_rect_at(center).or_else(|| self.primary().and_then(|o| self.space.output_geometry(o))) else { return };
+            *cell.borrow_mut() = Some(geo);
+            if let Some(x) = w.x11_surface() {
+                let _ = x.set_fullscreen(true);
+                let _ = x.configure(out);
+            } else if let Some(t) = w.toplevel() {
+                t.with_pending_state(|s| {
+                    s.states.set(xdg_toplevel::State::Fullscreen);
+                    s.size = Some(out.size);
+                });
+                t.send_pending_configure();
+            }
+            self.space.map_element(w.clone(), out.loc, true);
+            self.focus_window(Some(w.clone()));
+        } else {
+            let Some(prev) = cell.borrow_mut().take() else { return };
+            if let Some(x) = w.x11_surface() {
+                let _ = x.set_fullscreen(false);
+                let _ = x.configure(prev);
+            } else if let Some(t) = w.toplevel() {
+                t.with_pending_state(|s| {
+                    s.states.unset(xdg_toplevel::State::Fullscreen);
+                    s.size = Some(prev.size);
+                });
+                t.send_pending_configure();
+            }
+            self.space.map_element(w.clone(), prev.loc, true);
+        }
+        self.dirty = true;
+    }
+
+    pub fn toggle_fullscreen_focused(&mut self) {
+        if let Some(w) = self.focused_window().filter(|w| self.space.element_location(w).is_some()) {
+            let on = !is_fullscreen(&w);
+            self.set_fullscreen(&w, on);
         }
     }
 
@@ -1323,6 +1395,10 @@ impl Glove {
             }
             MenuAction::MinimizeWindow(w) => self.minimize_window(&w),
             MenuAction::ZoomWindow(w) => self.toggle_zoom(&w),
+            MenuAction::FullscreenWindow(w) => {
+                let on = !is_fullscreen(&w);
+                self.set_fullscreen(&w, on);
+            }
             MenuAction::BringAllToFront(pid) => self.bring_all_to_front(pid),
             MenuAction::FocusWindow(w) => self.bring_window(w),
             MenuAction::ToggleKeepInDock(id, pid) => self.toggle_keep_in_dock(&id, pid),

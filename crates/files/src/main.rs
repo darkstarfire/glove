@@ -1,6 +1,7 @@
 //! Arquivos: navegador de pastas do Glove (colunas, lista e ícones).
 
 use glove_config::tr;
+mod abas;
 mod apps;
 mod info;
 mod mesa;
@@ -622,6 +623,9 @@ struct Files {
     mounts: (Option<std::time::Instant>, Vec<glove_config::discos::Mount>),
     /// Olhada Rápida (Espaço).
     ql: quicklook::QuickLook,
+    /// Abas guardadas (vazio = uma aba só) e qual está na frente.
+    abas: Vec<abas::Aba>,
+    aba: usize,
 }
 
 impl Files {
@@ -669,6 +673,8 @@ impl Files {
             ctx_sub: None,
             mounts: (None, Vec::new()),
             ql: Default::default(),
+            abas: Vec::new(),
+            aba: 0,
             spring: None,
             bare: false,
             network: Arc::new(std::sync::Mutex::new((None, false, Vec::new()))),
@@ -1357,6 +1363,7 @@ impl Files {
                 let file = one && self.selected.as_ref().is_some_and(|p| !apps::is_virtual(p) && p.is_file());
                 vec![
                     ("open", many(tr!("Abrir")), true),
+                    ("open-tab", tr!("Abrir em Nova Aba").into(), one && self.selected.as_ref().is_some_and(|p| p.is_dir())),
                     ("sub:abrircom", tr!("Abrir com").into(), file && !self.in_trash()),
                     ("", String::new(), false),
                     ("info", tr!("Obter Informações").into(), one),
@@ -2269,6 +2276,9 @@ impl Files {
                 "Ctrl+Shift+L" => act.push("go-downloads"),
                 "Ctrl+Shift+G" => act.push("go-folder"),
                 "space" => act.push("quicklook"),
+                "Ctrl+T" => act.push("new-tab"),
+                "Ctrl+Page_Down" | "Ctrl+Next" => act.push("next-tab"),
+                "Ctrl+Page_Up" | "Ctrl+Prior" => act.push("prev-tab"),
                 _ => match k.key {
                     Key::Up => act.push("sel-up"),
                     Key::Down => act.push("sel-down"),
@@ -2401,7 +2411,21 @@ impl Files {
                     self.message = Some(e);
                 }
             }
-            "close" => ui.close = true,
+            "close" => {
+                // Com abas, fecha só a da frente.
+                let i = self.aba;
+                if !self.close_tab(i) {
+                    ui.close = true;
+                }
+            }
+            "new-tab" => self.new_tab(None),
+            "open-tab" => {
+                if let Some(p) = self.selected.clone().filter(|p| p.is_dir()) {
+                    self.new_tab(Some(p));
+                }
+            }
+            "next-tab" => self.step_tab(1),
+            "prev-tab" => self.step_tab(-1),
             "connect" => {
                 let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--conectar"));
             }
@@ -2566,10 +2590,11 @@ impl App for Files {
         let cur = self.current();
         ui.set_document((!apps::is_virtual(&cur) && !smart::is_smart(&cur) && !rede::is_rede(&cur)).then_some(cur.as_path()));
         // Sem barra de ferramentas (pílula do título): só o conteúdo, como no Tiger.
-        let top = if self.bare { 0.0 } else { TOOLBAR_H };
+        let mut top = if self.bare { 0.0 } else { TOOLBAR_H };
         if !self.bare {
             self.toolbar(ui);
         }
+        top += self.tab_bar(ui, top);
         let body_h = h - top - BOTTOM_H;
         // Metal em volta: a lateral e o conteúdo são painéis brancos encaixados (Tiger).
         // Só as faixas que aparecem (o metal é calculado pixel a pixel; o resto
@@ -2652,6 +2677,7 @@ impl App for Files {
                 tr!("Arquivo"),
                 vec![
                     MenuItem::new("new-window", tr!("Nova janela"), "Ctrl+N"),
+                    MenuItem::new("new-tab", tr!("Nova aba"), "Ctrl+T"),
                     MenuItem::new("new-folder", tr!("Nova pasta"), "Ctrl+Shift+N"),
                     MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(sel),
                     MenuItem::new("quicklook", tr!("Olhada Rápida"), "Ctrl+Y").enabled(sel),
@@ -2668,7 +2694,9 @@ impl App for Files {
                     MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(self.mounts.1.iter().any(|m| self.selected.clone().unwrap_or_else(|| self.current()).starts_with(&m.path))),
                     MenuItem::new("empty-trash", tr!("Esvaziar Lixeira…"), "Ctrl+Shift+BackSpace"),
                     MenuItem::Separator,
-                    MenuItem::new("close", tr!("Fechar janela"), "Ctrl+W"),
+                    MenuItem::new("next-tab", tr!("Próxima aba"), "Ctrl+Page_Down").enabled(self.tab_count() > 1),
+                    MenuItem::new("prev-tab", tr!("Aba anterior"), "Ctrl+Page_Up").enabled(self.tab_count() > 1),
+                    MenuItem::new("close", if self.tab_count() > 1 { tr!("Fechar aba") } else { tr!("Fechar janela") }, "Ctrl+W"),
                 ],
             ),
             Menu::new(

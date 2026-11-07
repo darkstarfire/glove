@@ -88,6 +88,8 @@ enum KeyAction {
     GradeKey(crate::grade::GradeKey),
     /// Fecha a central de avisos.
     AvisosClose,
+    /// Ctrl+Super+F: tela cheia da janela da frente.
+    Fullscreen,
     /// Mesas virtuais: (direção, levar a janela da frente).
     VirtualDesk(i32, bool),
 }
@@ -117,6 +119,7 @@ impl KeyAction {
             "expose_desktop" => Self::ExposeDesktop,
             "dashboard" => Self::Dashboard,
             "grade" => Self::Grade,
+            "fullscreen" => Self::Fullscreen,
             "desk_prev" => Self::VirtualDesk(-1, false),
             "desk_next" => Self::VirtualDesk(1, false),
             "desk_move_prev" => Self::VirtualDesk(-1, true),
@@ -672,6 +675,7 @@ impl Glove {
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
             Some(KeyAction::Grade) => self.toggle_grade(),
             Some(KeyAction::AvisosClose) => self.toggle_avisos_center(),
+            Some(KeyAction::Fullscreen) => self.toggle_fullscreen_focused(),
             Some(KeyAction::VirtualDesk(d, carry)) => self.step_desk(d, carry),
             Some(KeyAction::GradeKey(k)) => self.grade_key(k),
             Some(KeyAction::CycleWindows) => self.cycle_app_windows(),
@@ -815,6 +819,16 @@ impl Glove {
         // Com zoom, a tela acompanha o mouse.
         if self.config.access.zoom {
             self.dirty = true;
+        }
+        // Tela cheia: encostar no alto mostra a barra de menu (até sair dela, sem menu aberto).
+        if self.fullscreen_top() {
+            let peek = if pos.y <= 1.0 { true } else if pos.y > (glove_paint::theme::MENUBAR_H + 6) as f64 && self.chrome.menu.is_none() { false } else { self.bar_peek };
+            if peek != self.bar_peek {
+                self.bar_peek = peek;
+                self.dirty = true;
+            }
+        } else if self.bar_peek {
+            self.bar_peek = false;
         }
         if !self.locked() && !self.greeter {
             self.hot_corner(pos);

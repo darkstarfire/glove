@@ -567,7 +567,15 @@ visual gel. Cada uma será detalhada antes de começar.
   trocam de mesa virtual (o conteúdo acompanha os dedos; no Exposé, troca e continua nele); pinçar com 4
   dedos abre Todos os Apps e abrir os 4 dedos mostra a mesa. Liga e desliga em Preferências ▸ Trackpad
   (`gestos.rs`). Voltar/avançar com dois dedos fica com cada app (é rolagem horizontal).
-- [ ] 10.6 Abas no Arquivos, no Editor e no Terminal; janelas em tela cheia
+- [x] 10.6 Abas no Arquivos, no Editor e no Terminal; janelas em tela cheia (G) — v0.10.6:
+  - **Tela cheia**: Ctrl+Super+F ou Janela ▸ Entrar em Tela Cheia (e o pedido dos apps, como o F11 do
+    Firefox ou o vídeo): a janela ocupa o monitor sem barra de título; a barra de menu e o Dock saem
+    de cena e aparecem quando o mouse encosta no alto. O mesmo atalho volta ao tamanho de antes.
+  - **Abas**: faixa de abas da glove-ui (`ui.tab_strip`, com × e +), que só aparece com mais de uma.
+    Terminal (Ctrl+Shift+T, cada aba com o seu shell; a glove-ui observa vários descritores com
+    `ui.watch_fd`), Editor (Ctrl+Shift+T; Abrir… abre numa aba nova; fechar uma aba com alterações
+    pergunta antes) e Arquivos (Ctrl+T na mesma pasta, "Abrir em Nova Aba" no menu de uma pasta; cada aba
+    com a sua navegação). Ctrl+Page Up/Down trocam e o Fechar fecha a aba.
 - [ ] 10.7 Cópias de segurança automáticas com linha do tempo (como o Time Machine)
 - [ ] 10.8 Central de apps (instalar e atualizar pelo apt/Flatpak) com cara da era
 - [ ] 10.9 Apps de luxo: Fotos (biblioteca de imagens), gravador de som, Mensagens

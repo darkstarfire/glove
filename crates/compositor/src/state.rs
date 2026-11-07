@@ -125,6 +125,8 @@ pub struct Glove {
     /// Painel de Widgets (F12).
     pub dashboard: crate::dashboard::Dashboard,
     pub grade: crate::grade::Grade,
+    /// Tela cheia: o mouse encostou no alto e a barra de menu apareceu.
+    pub bar_peek: bool,
     /// Gesto do touchpad em andamento.
     pub gesto: Option<crate::gestos::Gesto>,
     /// Avisos (notificações) e a central.
@@ -259,6 +261,7 @@ impl Glove {
             desk: Default::default(),
             dashboard: Default::default(),
             grade: Default::default(),
+            bar_peek: false,
             gesto: None,
             avisos: Default::default(),
             mesas: Default::default(),

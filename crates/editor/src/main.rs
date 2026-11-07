@@ -72,6 +72,10 @@ struct Editor {
     ruler: bool,
     find: Option<Find>,
     fonts: FontPanel,
+    /// Onde o documento começa (abaixo da faixa de abas).
+    tab_top: f32,
+    /// Arquivo aberto pelo Abrir…: vai para uma aba nova.
+    open_in_tab: Option<PathBuf>,
 }
 
 fn home() -> PathBuf {
@@ -92,7 +96,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>) -> Self {
-        let mut ed = Self { buf: TextBuffer::new(""), path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new("", 13.0) };
+        let mut ed = Self { buf: TextBuffer::new(""), path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new("", 13.0), tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match std::fs::read_to_string(&p) {
                 Ok(t) => {
@@ -135,7 +139,7 @@ impl Editor {
             self.buf = TextBuffer::new(t);
             self.path = Some(p);
         } else {
-            spawn_self(Some(&p));
+            self.open_in_tab = Some(p);
         }
         Ok(())
     }
@@ -425,7 +429,7 @@ fn spawn_self(path: Option<&Path>) {
     let _ = cmd.spawn();
 }
 
-impl App for Editor {
+impl Editor {
     fn ui(&mut self, ui: &mut Ui) {
         let sheet_open = !matches!(self.sheet, Sheet::None);
 
@@ -488,7 +492,7 @@ impl App for Editor {
         // Régua e barra de Localizar no alto; o resto é o documento.
         ui.set_enabled(!sheet_open);
         let (w, h) = (ui.c.w, ui.c.h);
-        let mut top = 0.0;
+        let mut top = self.tab_top;
         if self.ruler {
             self.draw_ruler(ui, top);
             top += RULER_H;
@@ -513,16 +517,20 @@ impl App for Editor {
         self.sheet(ui);
     }
 
-    fn menus(&self) -> Vec<Menu> {
+    fn menus(&self, tabs: usize) -> Vec<Menu> {
         let sel = self.buf.has_selection();
         vec![
             Menu::new(
                 tr!("Arquivo"),
                 vec![
                     MenuItem::new("new", tr!("Novo"), "Ctrl+N"),
+                    MenuItem::new("new-tab", tr!("Nova aba"), "Ctrl+Shift+T"),
                     MenuItem::new("open", tr!("Abrir…"), "Ctrl+O"),
                     MenuItem::Separator,
-                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
+                    MenuItem::new("next-tab", tr!("Próxima aba"), "Ctrl+Page_Down").enabled(tabs > 1),
+                    MenuItem::new("prev-tab", tr!("Aba anterior"), "Ctrl+Page_Up").enabled(tabs > 1),
+                    MenuItem::Separator,
+                    MenuItem::new("close", if tabs > 1 { tr!("Fechar aba") } else { tr!("Fechar") }, "Ctrl+W"),
                     MenuItem::new("save", tr!("Salvar"), "Ctrl+S"),
                     MenuItem::new("save-as", tr!("Salvar como…"), "Ctrl+Shift+S"),
                     MenuItem::Separator,
@@ -574,12 +582,94 @@ impl App for Editor {
         ]
     }
 
+}
+
+/// A janela do Editor: um ou mais documentos em abas.
+struct Tabs {
+    docs: Vec<Editor>,
+    cur: usize,
+}
+
+impl Tabs {
+    fn close_tab(&mut self, i: usize) {
+        self.docs.remove(i);
+        if self.cur >= self.docs.len() || self.cur > i {
+            self.cur = self.cur.saturating_sub(1).min(self.docs.len() - 1);
+        }
+    }
+}
+
+impl App for Tabs {
+    fn ui(&mut self, ui: &mut Ui) {
+        let n = self.docs.len();
+        let sheet_open = !matches!(self.docs[self.cur].sheet, Sheet::None);
+        if !sheet_open {
+            for k in ui.keys().to_vec() {
+                match k.combo.as_str() {
+                    "Ctrl+Shift+T" => {
+                        self.docs.push(Editor::new(None));
+                        self.cur = self.docs.len() - 1;
+                    }
+                    "Ctrl+Page_Down" | "Ctrl+Next" => self.cur = (self.cur + 1) % n,
+                    "Ctrl+Page_Up" | "Ctrl+Prior" => self.cur = (self.cur + n - 1) % n,
+                    _ => {}
+                }
+            }
+        }
+        self.cur = self.cur.min(self.docs.len() - 1);
+        let w = ui.c.w;
+        let top = if self.docs.len() > 1 { glove_ui::TAB_STRIP_H } else { 0.0 };
+        if top > 0.0 {
+            let titles: Vec<String> = self.docs.iter().map(|d| if d.buf.modified { format!("{} •", d.name()) } else { d.name() }).collect();
+            ui.set_enabled(!sheet_open);
+            match ui.tab_strip(Rect::new(0.0, 0.0, w, top), &titles, self.cur) {
+                Some(glove_ui::TabAction::Select(i)) => self.cur = i,
+                Some(glove_ui::TabAction::Close(i)) => {
+                    // Com alterações: pergunta na aba dela antes de fechar.
+                    if self.docs[i].buf.modified {
+                        self.cur = i;
+                        self.docs[i].sheet = Sheet::AskSave;
+                    } else {
+                        self.close_tab(i);
+                    }
+                }
+                Some(glove_ui::TabAction::New) => {
+                    self.docs.push(Editor::new(None));
+                    self.cur = self.docs.len() - 1;
+                }
+                None => {}
+            }
+            ui.set_enabled(true);
+        }
+        let cur = self.cur;
+        self.docs[cur].tab_top = top;
+        self.docs[cur].ui(ui);
+        // "Fechar" num documento com outras abas: fecha só a aba.
+        if ui.close && self.docs.len() > 1 {
+            ui.close = false;
+            self.close_tab(cur);
+            ui.redraw = true;
+        }
+        if let Some(p) = self.docs.get_mut(cur).and_then(|d| d.open_in_tab.take()) {
+            self.docs.push(Editor::new(Some(p)));
+            self.cur = self.docs.len() - 1;
+            ui.redraw = true;
+        }
+    }
+
+    fn menus(&self) -> Vec<Menu> {
+        self.docs[self.cur.min(self.docs.len() - 1)].menus(self.docs.len())
+    }
+
     fn close_requested(&mut self) -> bool {
-        if self.buf.modified {
-            self.sheet = Sheet::AskSave;
-            false
-        } else {
-            true
+        // A primeira aba com alterações pergunta; as outras esperam a próxima vez.
+        match self.docs.iter().position(|d| d.buf.modified) {
+            Some(i) => {
+                self.cur = i;
+                self.docs[i].sheet = Sheet::AskSave;
+                false
+            }
+            None => true,
         }
     }
 }
@@ -589,7 +679,7 @@ pub fn main() {
     let ed = Editor::new(path);
     let title = ed.name();
     let opts = WindowOptions { title, app_id: "glove.TextEditor".into(), size: (640, 480), fixed: false, min_size: None };
-    if let Err(e) = run(opts, ed) {
+    if let Err(e) = run(opts, Tabs { docs: vec![ed], cur: 0 }) {
         eprintln!("glove-edit: {e}");
     }
 }

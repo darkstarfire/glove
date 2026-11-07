@@ -69,7 +69,7 @@ fn indexed(pal: &[(u8, u8, u8); 16], i: u8) -> (u8, u8, u8) {
     }
 }
 
-struct Terminal {
+struct Session {
     /// Tema de cores (Preferências ▸ Terminal), trocado na hora.
     theme: glove_config::TermTheme,
     term: Term<Listener>,
@@ -92,7 +92,7 @@ struct Terminal {
 }
 
 /// Abre um pseudoterminal e inicia o shell nele.
-fn spawn_shell(cols: u16, rows: u16) -> std::io::Result<(OwnedFd, std::process::Child)> {
+fn spawn_shell(cols: u16, rows: u16, first: bool) -> std::io::Result<(OwnedFd, std::process::Child)> {
     use std::os::unix::process::CommandExt;
     let (mut master, mut slave) = (0, 0);
     let ws = libc::winsize { ws_row: rows, ws_col: cols, ws_xpixel: 0, ws_ypixel: 0 };
@@ -110,7 +110,7 @@ fn spawn_shell(cols: u16, rows: u16) -> std::io::Result<(OwnedFd, std::process::
     let mut cmd = std::process::Command::new(&shell);
     // "glove-term -e COMANDO": roda o comando e depois fica no shell (para ver o resultado).
     let args: Vec<String> = std::env::args().collect();
-    if let Some(c) = args.iter().position(|a| a == "-e").and_then(|i| args.get(i + 1)) {
+    if let Some(c) = args.iter().position(|a| a == "-e").and_then(|i| args.get(i + 1)).filter(|_| first) {
         cmd.arg("-c").arg(format!("{c}; printf '\\n[Terminou. Pode fechar esta janela.]\\n'; exec \"{shell}\""));
     }
     cmd.env("TERM", "xterm-256color")
@@ -133,10 +133,10 @@ fn spawn_shell(cols: u16, rows: u16) -> std::io::Result<(OwnedFd, std::process::
     Ok((master, child))
 }
 
-impl Terminal {
-    fn new() -> std::io::Result<Self> {
+impl Session {
+    fn new(first: bool) -> std::io::Result<Self> {
         let (cols, lines) = (80, 24);
-        let (pty, child) = spawn_shell(cols as u16, lines as u16)?;
+        let (pty, child) = spawn_shell(cols as u16, lines as u16, first)?;
         let events = Rc::new(RefCell::new(Vec::new()));
         let config = Config { scrolling_history: 5000, ..Default::default() };
         let term = Term::new(config, &Size { cols, lines }, Listener(events.clone()));
@@ -476,7 +476,7 @@ impl Terminal {
     }
 }
 
-impl Drop for Terminal {
+impl Drop for Session {
     fn drop(&mut self) {
         // Encerra o shell junto com a janela.
         unsafe { libc::kill(self.child.id() as i32, libc::SIGHUP) };
@@ -484,17 +484,9 @@ impl Drop for Terminal {
     }
 }
 
-impl App for Terminal {
-    /// Preferências mudaram: o tema de cores vale na hora, nesta janela também.
-    fn config_changed(&mut self) {
-        self.theme = glove_config::term_theme(&glove_config::Config::load().terminal_theme);
-    }
-
-    fn watch_fd(&self) -> Option<RawFd> {
-        Some(self.pty.as_raw_fd())
-    }
-
-    fn fd_ready(&mut self) -> bool {
+impl Session {
+    /// Lê o que o shell escreveu. Falso quando ele terminou.
+    fn read_pty(&mut self) -> bool {
         let mut buf = [0u8; 65536];
         loop {
             let n = unsafe { libc::read(self.pty.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len()) };
@@ -519,10 +511,11 @@ impl App for Terminal {
         true
     }
 
-    fn ui(&mut self, ui: &mut Ui) {
-        let (w, h) = (ui.c.w, ui.c.h);
+    /// Desenha a sessão abaixo de `top` (a faixa de abas) e trata as teclas e o mouse.
+    fn ui(&mut self, ui: &mut Ui, top: f32) {
+        let (w, h) = (ui.c.w, ui.c.h - top);
         self.resize(w, h);
-        let area = Rect::new(0.0, 0.0, w - 15.0, h);
+        let area = Rect::new(0.0, top, w - 15.0, h);
 
         // Colar que chegou
         if let Some(t) = ui.take_paste() {
@@ -543,6 +536,10 @@ impl App for Terminal {
         }
         let keys: Vec<_> = ui.keys().to_vec();
         for k in &keys {
+            // Teclas das abas: são da janela, não do shell.
+            if TAB_KEYS.contains(&k.combo.as_str()) {
+                continue;
+            }
             match k.combo.as_str() {
                 "Ctrl+Shift+C" => {
                     if let Some(t) = self.term.selection_to_string() {
@@ -556,10 +553,6 @@ impl App for Terminal {
                 }
                 "Ctrl+Shift+N" => {
                     let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-term".into())).spawn();
-                    continue;
-                }
-                "Ctrl+Shift+W" => {
-                    ui.close = true;
                     continue;
                 }
                 "Ctrl+Shift+equal" | "Ctrl+Shift+plus" | "Ctrl+equal" => {
@@ -606,6 +599,7 @@ impl App for Terminal {
 
         let resp = ui.hit(area);
         let (px, py) = ui.pointer();
+        let py = py - top;
         let mode = *self.term.mode();
         let wheel = ui.scroll_in(area);
         let to_program = mode.intersects(TermMode::MOUSE_MODE) && !ui.mods().shift;
@@ -673,7 +667,7 @@ impl App for Terminal {
         self.draw(ui.c, fonts, area, accent);
 
         // Barra de rolagem (indica a posição no histórico)
-        let sb = Rect::new(w - 15.0, 0.0, 15.0, h - 15.0);
+        let sb = Rect::new(w - 15.0, top, 15.0, h - 15.0);
         ui.c.fill_rect(sb.x, sb.y, sb.w, sb.h, &linear(sb.x, 0.0, sb.x + sb.w, 0.0, &[(0.0, rgba(210, 210, 214, 255)), (0.5, rgba(240, 240, 242, 255)), (1.0, rgba(220, 220, 224, 255))]));
         ui.c.vline(sb.x, sb.y, sb.h, rgba(150, 150, 156, 255));
         let hist = self.term.grid().history_size();
@@ -686,11 +680,120 @@ impl App for Terminal {
         }
     }
 
+}
+
+/// Teclas das abas (tratadas pela janela antes do shell).
+const TAB_KEYS: &[&str] = &["Ctrl+Shift+T", "Ctrl+Shift+W", "Ctrl+Page_Down", "Ctrl+Next", "Ctrl+Page_Up", "Ctrl+Prior", "Ctrl+Tab", "Ctrl+Shift+ISO_Left_Tab", "Ctrl+Shift+Tab"];
+
+/// A janela do Terminal: uma ou mais abas, cada uma com o seu shell.
+struct Terminal {
+    tabs: Vec<Session>,
+    cur: usize,
+}
+
+impl Terminal {
+    fn new_tab(&mut self, ui: &mut Ui) {
+        match Session::new(false) {
+            Ok(mut s) => {
+                s.px = self.tabs[self.cur].px;
+                ui.watch_fd(s.pty.as_raw_fd());
+                self.tabs.push(s);
+                self.cur = self.tabs.len() - 1;
+            }
+            Err(e) => eprintln!("glove-term: {e}"),
+        }
+    }
+
+    fn close_tab(&mut self, i: usize, ui: &mut Ui) {
+        if self.tabs.len() <= 1 {
+            ui.close = true;
+            return;
+        }
+        self.tabs.remove(i);
+        if self.cur >= self.tabs.len() || self.cur > i {
+            self.cur = self.cur.saturating_sub(1).min(self.tabs.len() - 1);
+        }
+    }
+}
+
+impl App for Terminal {
+    /// Preferências mudaram: o tema de cores vale na hora, em todas as abas.
+    fn config_changed(&mut self) {
+        let theme = glove_config::term_theme(&glove_config::Config::load().terminal_theme);
+        for t in &mut self.tabs {
+            t.theme = theme.clone();
+        }
+    }
+
+    fn watch_fd(&self) -> Option<RawFd> {
+        self.tabs.first().map(|t| t.pty.as_raw_fd())
+    }
+
+    fn fd_ready_on(&mut self, fd: RawFd) -> bool {
+        match self.tabs.iter_mut().find(|t| t.pty.as_raw_fd() == fd) {
+            Some(t) => t.read_pty(),
+            // A aba já fechou.
+            None => false,
+        }
+    }
+
+    fn ui(&mut self, ui: &mut Ui) {
+        let n = self.tabs.len();
+        for k in ui.keys().to_vec() {
+            match k.combo.as_str() {
+                "Ctrl+Shift+T" => self.new_tab(ui),
+                "Ctrl+Shift+W" => {
+                    let c = self.cur;
+                    self.close_tab(c, ui);
+                }
+                "Ctrl+Page_Down" | "Ctrl+Next" | "Ctrl+Tab" => self.cur = (self.cur + 1) % n.max(1),
+                "Ctrl+Page_Up" | "Ctrl+Prior" | "Ctrl+Shift+ISO_Left_Tab" | "Ctrl+Shift+Tab" => self.cur = (self.cur + n.max(1) - 1) % n.max(1),
+                _ => {}
+            }
+            if ui.close {
+                return;
+            }
+        }
+        self.cur = self.cur.min(self.tabs.len() - 1);
+        let w = ui.c.w;
+        let top = if self.tabs.len() > 1 { glove_ui::TAB_STRIP_H } else { 0.0 };
+        if top > 0.0 {
+            let titles: Vec<String> = self.tabs.iter().map(|t| t.title.clone()).collect();
+            match ui.tab_strip(Rect::new(0.0, 0.0, w, top), &titles, self.cur) {
+                Some(glove_ui::TabAction::Select(i)) => self.cur = i,
+                Some(glove_ui::TabAction::Close(i)) => self.close_tab(i, ui),
+                Some(glove_ui::TabAction::New) => self.new_tab(ui),
+                None => {}
+            }
+            if ui.close {
+                return;
+            }
+        }
+        let cur = self.cur.min(self.tabs.len() - 1);
+        self.tabs[cur].ui(ui, top);
+        // Tamanho da fonte vale para todas as abas.
+        let px = self.tabs[cur].px;
+        for t in &mut self.tabs {
+            t.px = px;
+        }
+    }
+
     fn menus(&self) -> Vec<Menu> {
-        let sel = self.term.selection.is_some();
+        let sel = self.tabs[self.cur.min(self.tabs.len() - 1)].term.selection.is_some();
         vec![
             Menu::app(vec![MenuItem::new("prefs", tr!("Preferências…"), "")]),
-            Menu::new("Shell", vec![MenuItem::new("new", tr!("Nova janela"), "Ctrl+Shift+N"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+Shift+W")]),
+            Menu::new(
+                "Shell",
+                vec![
+                    MenuItem::new("new", tr!("Nova janela"), "Ctrl+Shift+N"),
+                    MenuItem::new("new-tab", tr!("Nova aba"), "Ctrl+Shift+T"),
+                    MenuItem::Separator,
+                    MenuItem::new("next-tab", tr!("Próxima aba"), "Ctrl+Page_Down").enabled(self.tabs.len() > 1),
+                    MenuItem::new("prev-tab", tr!("Aba anterior"), "Ctrl+Page_Up").enabled(self.tabs.len() > 1),
+                    MenuItem::Separator,
+                    MenuItem::new("close", if self.tabs.len() > 1 { tr!("Fechar aba") } else { tr!("Fechar") }, "Ctrl+Shift+W"),
+                ],
+            ),
             Menu::new(
                 tr!("Editar"),
                 vec![
@@ -706,7 +809,7 @@ impl App for Terminal {
 }
 
 pub fn main() {
-    let term = match Terminal::new() {
+    let term = match Session::new(true) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("glove-term: não consegui abrir o terminal: {e}");
@@ -716,7 +819,7 @@ pub fn main() {
     let (cw, ch) = term.cell();
     let size = ((80.0 * cw + 2.0 * PAD + 15.0).ceil() as u32, (24.0 * ch + 2.0 * PAD).ceil() as u32);
     let opts = WindowOptions { title: tr!("Terminal").into(), app_id: "glove.Terminal".into(), size, fixed: false, min_size: None };
-    if let Err(e) = run(opts, term) {
+    if let Err(e) = run(opts, Terminal { tabs: vec![term], cur: 0 }) {
         eprintln!("glove-term: {e}");
     }
 }

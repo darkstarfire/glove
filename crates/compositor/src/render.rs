@@ -453,7 +453,8 @@ impl Glove {
                 out.extend(mem(renderer, (fq.origin.x - m, fq.origin.y - m).into(), t, sc));
             }
         }
-        if let Some(b) = &c.menubar {
+        let covered = self.fullscreen_cover();
+        if let Some(b) = c.menubar.as_ref().filter(|_| !covered) {
             out.extend(mem(renderer, (0, 0).into(), b, sc));
         }
         // Menus e dicas de apps X11: por cima das janelas, na posição que o app escolheu.
@@ -484,7 +485,7 @@ impl Glove {
                 self.push_scaled_window(renderer, w, r, sc, &mut out);
             }
         }
-        if let Some(b) = &c.dock {
+        if let Some(b) = c.dock.as_ref().filter(|_| !covered) {
             out.extend(mem(renderer, c.dock_pos(), b, sc));
         }
 

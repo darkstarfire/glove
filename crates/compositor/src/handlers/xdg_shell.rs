@@ -73,6 +73,25 @@ impl XdgShellHandler for Glove {
         }
     }
 
+    fn fullscreen_request(&mut self, surface: ToplevelSurface, _output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>) {
+        match self.window_for(&surface) {
+            Some(w) => self.set_fullscreen(&w, true),
+            // Antes de aparecer: só marca (o primeiro tamanho já vem cheio na próxima).
+            None => surface.with_pending_state(|s| {
+                s.states.set(xdg_toplevel::State::Fullscreen);
+            }),
+        }
+        if surface.is_initial_configure_sent() {
+            surface.send_pending_configure();
+        }
+    }
+
+    fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
+        if let Some(w) = self.window_for(&surface) {
+            self.set_fullscreen(&w, false);
+        }
+    }
+
     fn minimize_request(&mut self, surface: ToplevelSurface) {
         if let Some(w) = self.window_for(&surface) {
             self.minimize_window(&w);

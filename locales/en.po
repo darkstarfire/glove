@@ -3998,3 +3998,24 @@ msgstr "3 fingers sideways: switch desktop"
 
 msgid "Pinçar com 4 dedos: Todos os Apps · abrir: mostrar a mesa"
 msgstr "Pinch with 4 fingers: All Apps · spread: show desktop"
+
+msgid "Entrar em Tela Cheia"
+msgstr "Enter Full Screen"
+
+msgid "Sair da Tela Cheia"
+msgstr "Exit Full Screen"
+
+msgid "Nova aba"
+msgstr "New Tab"
+
+msgid "Próxima aba"
+msgstr "Next Tab"
+
+msgid "Aba anterior"
+msgstr "Previous Tab"
+
+msgid "Fechar aba"
+msgstr "Close Tab"
+
+msgid "Abrir em Nova Aba"
+msgstr "Open in New Tab"

@@ -107,6 +107,10 @@ impl Glove {
         let mut nodes = vec![
             MenuNode::new(enable(MenuItem::item(tr!("Minimizar")).with_shortcut(self.binding("minimize")), focused.is_some()), focused.clone().map(MenuAction::MinimizeWindow)),
             MenuNode::new(enable(MenuItem::item(tr!("Zoom")), focused.as_ref().is_some_and(|w| !fixed_size(w))), focused.clone().map(MenuAction::ZoomWindow)),
+            MenuNode::new(
+                enable(MenuItem::item(if focused.as_ref().is_some_and(crate::shell::is_fullscreen) { tr!("Sair da Tela Cheia") } else { tr!("Entrar em Tela Cheia") }).with_shortcut(self.binding("fullscreen")), focused.as_ref().is_some_and(|w| !fixed_size(w))),
+                focused.clone().map(MenuAction::FullscreenWindow),
+            ),
             MenuNode::sep(),
             MenuNode::new(enable(MenuItem::item(tr!("Trazer Todas para a Frente")), focused.is_some()), Some(MenuAction::BringAllToFront(pid))),
         ];
