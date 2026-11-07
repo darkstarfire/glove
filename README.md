@@ -10,7 +10,7 @@ suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imag
 
 Base visual e de comportamento: **Mac OS X 10.4 Tiger** (com o tema Listras para o visual 10.0–10.2).
 Fases 1 a 9 do [plano](docs/PLANO.md) feitas, incluindo as extras 9.10 a 9.15 (ícones realistas, leveza,
-instalador e pacotes, e a interface em **português e inglês**). A Fase 10 está em andamento.
+instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (além da era) também. Como usar cada recurso: [docs/USO.md](docs/USO.md).
 
 **Sistema (compositor `glove`)**
 
@@ -35,6 +35,9 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 est�
   pasta Utilitários
 - **Mesas virtuais** (Ctrl+Super+setas; com Shift a janela vai junto), também na faixa do Exposé, onde dá
   para arrastar janelas de uma mesa para outra
+- **Central de avisos**: balões das notificações dos apps (o serviço padrão do Linux, o do `notify-send`),
+  a central no balãozinho da barra de menu e Não perturbe
+- **Tela cheia** (Ctrl+Super+F) e **gestos** de três e quatro dedos no touchpad
 - **Busca Rápida** (Super+Espaço): apps instalados, Preferências e arquivos
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
@@ -71,6 +74,13 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 est�
 | Monitor, Registros, Informações do Sistema, Discos | Processos e gráficos, logs do journal, hardware, discos e pendrives |
 | Busca, Captura, Utilitário de Arquivo | Achar arquivos, capturar a tela, compactar/expandir |
 | Calculadora, Relógio, Xadrez, Ajuda, Sobre o Glove | Calculadora científica, relógio no Dock, xadrez com 3 níveis, ajuda com busca |
+| Cópias de Segurança | Cópias de hora em hora da pasta pessoal num disco externo, linha do tempo e Restaurar |
+| Central de Apps | Procurar, instalar, remover e atualizar pelo apt e pelo Flatpak (Flathub) |
+| Fotos | A pasta Imagens em miniaturas por mês, álbuns pelas subpastas e apresentação |
+| Gravador | Grava a voz em WAV com nível e onda; ouvir, apagar |
+| Mensagens | Bate-papo no IRC (Libera.Chat por padrão, com TLS) em balões |
+
+O Arquivos, o Editor e o Terminal têm **abas**; o Arquivos tem a **Olhada Rápida** (Espaço).
 
 ## Leveza
 

@@ -13,7 +13,7 @@ languages are added with a `.po` file — see [Languages](#languages).
 ## Current state
 
 Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for the
-10.0–10.2 look). Phases 1 to 9 of the [plan](docs/PLANO.md) (in Portuguese) are done; phase 10 (beyond the era) is under way.
+10.0–10.2 look). Phases 1 to 10 of the [plan](docs/PLANO.md) (in Portuguese) are done. How to use each feature: [docs/USAGE.md](docs/USAGE.md).
 
 **System (the `glove` compositor)**
 
@@ -38,6 +38,9 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
   Utilities folder
 - **Desktops** (Ctrl+Super+arrows; with Shift the window comes along), also in a strip in Exposé,
   where windows can be dragged from one desktop to another
+- **Notification center**: bubbles for app notifications (the standard Linux service, the one
+  `notify-send` uses), the center in the menu bar and Do Not Disturb
+- **Full screen** (Ctrl+Super+F) and three- and four-finger touchpad **gestures**
 - **Quick Search** (Super+Space): installed apps, Preferences panes and files
 - **Screenshots** of the whole screen, an area or a window, on any display
 - Force Quit that detects unresponsive apps; screen lock (PAM), screen blanking, laptop lid,
@@ -74,6 +77,13 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
 | System Monitor, Logs, System Information, Disks | Processes and graphs, journal logs, hardware, disks and USB drives |
 | Search, Screenshot, Archive Manager | Find files, capture the screen, compress/expand |
 | Calculator, Clock, Chess, Help, About Glove | Scientific calculator, clock in the Dock, chess with 3 levels, searchable help |
+| Backups | Hourly backups of the home folder to an external disk, timeline and Restore |
+| App Center | Search, install, remove and update with apt and Flatpak (Flathub) |
+| Photos | The Pictures folder as thumbnails by month, albums from subfolders and slideshow |
+| Recorder | Records voice to WAV with level and waveform; play, delete |
+| Messages | IRC chat (Libera.Chat by default, with TLS) in bubbles |
+
+Files, Text Editor and Terminal have **tabs**; Files has **Quick Look** (Space).
 
 ## Lightness
 

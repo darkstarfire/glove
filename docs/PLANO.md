@@ -591,7 +591,15 @@ visual gel. Cada uma será detalhada antes de começar.
   Atualizações e Atualizar Tudo). Instalar, Remover e Abrir no app escolhido; sem nenhum remoto do
   Flatpak, Ativar o Flathub (na conta do usuário). O apt pede a senha numa folha da janela e roda com
   `sudo -S` (o Glove não tem agente do polkit): a senha vai só para o sudo, nunca para a tela ou o disco.
-- [ ] 10.9 Apps de luxo: Fotos (biblioteca de imagens), gravador de som, Mensagens
+- [x] 10.9 Fotos, Gravador e Mensagens (G) — v0.10.9: três apps novos, com ícones próprios.
+  - **Fotos** (`glove-fotos`): a pasta Imagens em miniaturas por mês (feitas em duas threads; só as que
+    aparecem ficam na memória), álbuns pelas subpastas, tamanho das miniaturas, a foto grande com setas,
+    Apresentação (Espaço) e Abrir no Visualizador.
+  - **Gravador** (`glove-gravador`): grava em WAV pelo `pw-record` (ou `parecord`/`arecord`) em Música ▸
+    Gravações, com o tempo, os LEDs de nível e a onda; ouvir, mover para a Lixeira, mostrar no Arquivos.
+  - **Mensagens** (`glove-mensagens`): IRC (Libera.Chat por padrão, com TLS), conversas na lateral com as
+    não lidas, balões (os seus em azul), /join, /part, /msg, /me, /nick; mensagem particular ou com o seu
+    apelido, com a janela no fundo, vira aviso na central.
 
 ## Fase 11 — Instalador do sistema e ISO Debian (depois da Fase 10; testada antes de fechar)
 

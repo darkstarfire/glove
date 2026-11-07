@@ -1,0 +1,15 @@
+[package]
+name = "glove-gravador"
+# Vira biblioteca: o executável é o glove-apps (um só para todos os apps).
+autobins = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/main.rs"
+
+[dependencies]
+glove-config = { path = "../../ui/crates/config" }
+glove-ui = { path = "../../ui/crates/ui" }
+libc = "0.2.191"

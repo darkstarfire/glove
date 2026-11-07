@@ -4178,3 +4178,126 @@ msgstr "Everything is up to date."
 
 msgid "Versão"
 msgstr "Version"
+
+msgid "Clique no botão vermelho para gravar"
+msgstr "Click the red button to record"
+
+msgid "Gravador|Duração"
+msgstr "Duration"
+
+msgid "Gravador|Gravação"
+msgstr "Recording"
+
+msgid "Gravando…"
+msgstr "Recording…"
+
+msgid "Gravar"
+msgstr "Record"
+
+msgid "Nenhum programa de gravação encontrado (pw-record, parecord ou arecord)."
+msgstr "No recording program found (pw-record, parecord or arecord)."
+
+msgid "Nenhuma gravação ainda."
+msgstr "No recordings yet."
+
+msgid "Não foi possível gravar."
+msgstr "Could not record."
+
+msgid "Ouvir / Parar"
+msgstr "Play / Stop"
+
+msgid "Parar de Gravar"
+msgstr "Stop Recording"
+
+msgid "Gravador|Gravações"
+msgstr "Recordings"
+
+msgid "Apresentação"
+msgstr "Slideshow"
+
+msgid "BIBLIOTECA"
+msgstr "LIBRARY"
+
+msgid "Nenhuma foto em {}."
+msgstr "No photos in {}."
+
+msgid "Parar Apresentação"
+msgstr "Stop Slideshow"
+
+msgid "Procurando fotos…"
+msgstr "Looking for photos…"
+
+msgid "Procurar Fotos Novas"
+msgstr "Look for New Photos"
+
+msgid "{0} de {1}"
+msgstr "{0} {1}"
+
+msgid "{} fotos"
+msgstr "{} photos"
+
+msgid "ÁLBUNS"
+msgstr "ALBUMS"
+
+msgid "‹ Biblioteca"
+msgstr "‹ Library"
+
+msgid "Apelido:"
+msgstr "Nickname:"
+
+msgid "Canais:"
+msgstr "Channels:"
+
+msgid "Canal (#nome) ou apelido de alguém:"
+msgstr "Channel (#name) or someone's nickname:"
+
+msgid "Conectado como {}"
+msgstr "Connected as {}"
+
+msgid "Conectando…"
+msgstr "Connecting…"
+
+msgid "Conexão segura (TLS)"
+msgstr "Secure connection (TLS)"
+
+msgid "Conta de bate-papo (IRC)"
+msgstr "Chat account (IRC)"
+
+msgid "Conta…"
+msgstr "Account…"
+
+msgid "Conversa"
+msgstr "Conversation"
+
+msgid "Desconectado"
+msgstr "Disconnected"
+
+msgid "Desconectado: {}"
+msgstr "Disconnected: {}"
+
+msgid "Fechar Conversa"
+msgstr "Close Conversation"
+
+msgid "Mensagens do servidor aparecem aqui."
+msgstr "Messages from the server appear here."
+
+msgid "Nenhuma mensagem ainda."
+msgstr "No messages yet."
+
+msgid "Nova Conversa…"
+msgstr "New Conversation…"
+
+msgid "O Libera.Chat é aberto e gratuito; escolha um apelido."
+msgstr "Libera.Chat is open and free; pick a nickname."
+
+msgid "Porta:"
+msgstr "Port:"
+
+msgid "Reconectar"
+msgstr "Reconnect"
+
+msgid "Servidor:"
+msgstr "Server:"
+
+msgid "Você entrou em {}."
+msgstr "You joined {}."
