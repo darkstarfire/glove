@@ -102,16 +102,55 @@ cargo build --release
 Todos os apps do Dock são do próprio Glove. Apps GTK/Qt abertos dentro dele podem desenhar
 a própria barra de título; apps X11 usam a do Glove.
 
+## Instalar no sistema
+
+O `instalador.sh` gera os pacotes e também instala direto, em qualquer Linux. O pacote traz
+tudo: os programas, a sessão "Glove" na tela de login, a tela de login do Glove (serviço
+`glove-login`, sobre o greetd, que vem como dependência), o tema de ícones e a documentação.
+
+```sh
+./instalador.sh                 # menu com todas as opções
+./instalador.sh deb             # pacotes/glove_VERSÃO_amd64.deb (Debian, Ubuntu, Zorin, Mint)
+./instalador.sh rpm             # Fedora/openSUSE (precisa do rpmbuild; sem ele, deixa o .spec)
+./instalador.sh arch            # Arch (.pkg.tar.zst e o PKGBUILD para o makepkg)
+./instalador.sh slackware       # Slackware (.tgz)
+./instalador.sh todos           # os quatro
+./instalador.sh instalar        # sem pacote: compila e instala em /usr/local
+./instalador.sh desinstalar     # o inverso do "instalar" (ou chama o gerenciador de pacotes)
+./instalador.sh dependencias    # o que falta para compilar (apt, dnf, pacman, zypper, xbps, apk)
+```
+
+Instalar o pacote (exemplo no Debian/Ubuntu/Zorin):
+
+```sh
+sudo apt install ./pacotes/glove_0.9.21_amd64.deb
+```
+
+Depois, na tela de login de sempre (GDM, LightDM, SDDM…), escolha **Glove** na engrenagem.
+
+**Tela de login do Glove como a principal** (vale a partir do próximo boot):
+
+```sh
+sudo systemctl enable --force glove-login   # ativa (substitui o GDM/LightDM/SDDM)
+sudo systemctl enable --force gdm           # volta ao GDM (ou lightdm, sddm…)
+```
+
+`./instalador.sh login` faz o mesmo que o primeiro comando, mas guarda qual era a tela de
+login de antes e leva para a tela do Glove os seus ajustes de monitor, escala, teclado e
+tema; `./instalador.sh login remover` volta à de antes. O serviço usa uma configuração
+própria do greetd (não mexe em `/etc/greetd/config.toml`); para usar uma sua, crie
+`/etc/glove/greetd.toml`.
+
+**Remover:** `sudo apt remove glove` (ou `rpm -e`, `pacman -R`, `removepkg`). Se a tela de
+login do Glove era a principal, a remoção volta sozinha à anterior (GDM, LightDM, SDDM…),
+para o computador não ficar sem tela de login. A configuração pessoal (`~/.config/glove`)
+fica.
+
 ## Sessão própria (escolher "Glove" na tela de login)
 
 ```sh
 cargo build --release
 ./instalar.sh                         # pergunta passo a passo: sessão, tela de login, Plymouth
-./instalador.sh                       # menu: instalar no sistema, desinstalar, pacotes
-./instalador.sh instalar [/usr/local] # compila e instala em qualquer Linux
-./instalador.sh desinstalar           # o inverso (ou pelo gerenciador, se veio de pacote)
-./instalador.sh deb|slackware|rpm|arch|todos   # pacotes em pacotes/
-./instalador.sh login [remover]       # tela de login do Glove (greetd) para o Glove instalado
 sudo ./data/instalar-sessao.sh        # põe "Glove" na lista de sessões (usa os arquivos do projeto)
 ./target/release/glove --monitores    # mostra qual tela, resolução e escala a sessão vai usar
 ```
@@ -161,7 +200,11 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 ## Tela de login (opcional, greetd)
 
 O Glove tem tela de login própria (`glove --greeter` + `glove-login`), feita para o
-[greetd](https://sr.ht/~kennylevinsen/greetd/):
+[greetd](https://sr.ht/~kennylevinsen/greetd/). Com o Glove instalado (pacote ou
+`./instalador.sh instalar`), ela é o serviço `glove-login`: veja "Instalar no sistema" acima
+(`sudo systemctl enable --force glove-login`).
+
+No modo de desenvolvimento (a sessão usa os programas do projeto):
 
 ```sh
 cargo build --release
@@ -169,9 +212,8 @@ sudo ./data/instalar-login.sh            # guarda a configuração atual do gree
 sudo ./data/instalar-login.sh --remover  # devolve a configuração anterior
 ```
 
-O instalador nunca troca o gerenciador de login sozinho; se o greetd não estiver ativo, ele
-mostra os comandos para trocar e para voltar. Para ver a tela numa janela, sem instalar:
-`glove --greeter -c "glove-login --fake"` (senha de teste: `glove`).
+Para ver a tela numa janela, sem instalar: `glove --greeter -c "glove-login --fake"` (senha de
+teste: `glove`).
 
 ## Tela de início do sistema (opcional, Plymouth)
 

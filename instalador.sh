@@ -8,8 +8,11 @@
 #   ./instalador.sh desinstalar          o inverso de instalar
 #   ./instalador.sh deb|slackware|rpm|arch|todos   gera os pacotes em pacotes/
 #   ./instalador.sh dependencias         instala o que falta para compilar
-#   ./instalador.sh login [remover]      tela de login do Glove (greetd) para o Glove
-#                                        instalado (pelo pacote ou pelo instalar)
+#   ./instalador.sh login [remover]      torna a tela de login do Glove a principal
+#                                        (= sudo systemctl enable --force glove-login)
+#
+# O pacote e o "instalar" trazem tudo, inclusive a tela de login (serviço
+# glove-login, sobre o greetd). Detalhes: README.md, seção "Instalar no sistema".
 #
 # Para testar sem instalar nada: ./instalar.sh (usa os programas do projeto).
 set -e
@@ -117,6 +120,12 @@ montar() {
         ln -sf glove-apps "$bin/$a"
     done
     install -m 755 data/glove-session "$bin/glove-session"
+    # Tela de login: o serviço glove-login (greetd com a configuração do Glove).
+    # Ativar: sudo systemctl enable --force glove-login
+    mkdir -p "$destino$prefixo/lib/glove" "$destino$prefixo/lib/systemd/system"
+    install -m 755 data/glove-login-greetd "$destino$prefixo/lib/glove/glove-login-greetd"
+    sed "s|@PREFIXO@|$prefixo|" data/glove-login.service > "$destino$prefixo/lib/systemd/system/glove-login.service"
+    chmod 644 "$destino$prefixo/lib/systemd/system/glove-login.service"
     # Sessão na tela de login (todas as telas de login leem /usr/share/wayland-sessions).
     mkdir -p "$destino/usr/share/wayland-sessions"
     sed "s|^Exec=.*|Exec=$prefixo/bin/glove-session|" data/glove.desktop > "$destino/usr/share/wayland-sessions/glove.desktop"
@@ -139,6 +148,29 @@ montar() {
     find "$destino" -type d -exec chmod 755 {} +
     find "$destino" -type f -exec chmod go-w {} +
 }
+
+# Depois de instalar (pacotes e "instalar"): o systemd passa a ver o serviço da
+# tela de login e o tema de ícones é indexado.
+pos_instalar_sh='command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true
+for t in /usr/share/icons/Glove /usr/local/share/icons/Glove; do
+  [ -d "$t" ] && command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -f "$t" 2>/dev/null || true
+done
+echo "Glove instalado. Para usar a tela de login do Glove: sudo systemctl enable --force glove-login"
+echo "Para voltar à anterior (ex.: GDM): sudo systemctl enable --force gdm"'
+
+# Antes de remover: se a tela de login do Glove for a principal, volta a anterior
+# (a guardada pelo "instalador.sh login" ou a primeira que estiver instalada),
+# para o computador não ficar sem tela de login.
+pre_remover_sh='if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled glove-login >/dev/null 2>&1; then
+  systemctl disable glove-login 2>/dev/null || true
+  antes=$(cat /etc/glove/login/gerenciador-anterior 2>/dev/null || true)
+  for d in $antes gdm gdm3 lightdm sddm lxdm greetd; do
+    if systemctl cat "$d.service" >/dev/null 2>&1 && systemctl enable --force "$d.service" 2>/dev/null; then
+      echo "Glove: a tela de login volta a ser a do $d."
+      break
+    fi
+  done
+fi'
 
 # Tamanho em KB de uma pasta montada.
 tamanho_kb() { du -sk "$1" | cut -f1; }
@@ -169,11 +201,12 @@ instalar() {
     msg "Copiando para o sistema (pede a senha)"
     root mkdir -p "$sistema/"
     root cp -a "$tmp/." "$sistema/"
-    root sh -c 'command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -f "$1" 2>/dev/null || true' sh "$sistema$prefixo/share/icons/Glove"
+    if [ -z "$sistema" ]; then
+        root sh -c "$pos_instalar_sh"
+    fi
     echo
     echo "Glove $versao instalado em $prefixo. Saia da sessão e escolha \"Glove\" na tela de login."
-    echo "Extras opcionais (rodam a partir do projeto): ./instalar.sh oferece a tela de login"
-    echo "(greetd) e a tela de início (Plymouth)."
+    echo "Tela de login do Glove: ./instalador.sh login (ou sudo systemctl enable --force glove-login)."
 }
 
 desinstalar() {
@@ -198,6 +231,7 @@ desinstalar() {
     for p in $achou; do
         lista="$sistema$(lista_local "$p")"
         pergunta "Remover o Glove instalado em $p?" s || continue
+        [ -z "$sistema" ] && root sh -c "$pre_remover_sh"
         msg "Removendo $(wc -l < "$lista") arquivos"
         # Apaga cada arquivo da lista e depois as pastas próprias do Glove.
         root sh -c 'while IFS= read -r f; do [ -n "$f" ] && rm -f "$2$f"; done < "$1"' sh "$lista" "$sistema" || true
@@ -209,12 +243,12 @@ desinstalar() {
 # --- pacotes ------------------------------------------------------------------------
 
 # Pacotes de que o Glove precisa para rodar e os que melhoram (por distribuição).
-deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core"
+deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core, greetd"
 rec_deb="xwayland, mpv, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin"
-deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts"
+deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts greetd"
 rec_rpm="xorg-x11-server-Xwayland mpv poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils"
-deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu"
-opt_arch="xorg-xwayland:apps_X11 mpv:Vídeo poppler:PDF_no_Visualizador pipewire:som wireplumber:volume xdg-utils:Abrir_com desktop-file-utils:Abrir_com greetd:tela_de_login"
+deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu greetd"
+opt_arch="xorg-xwayland:apps_X11 mpv:Vídeo poppler:PDF_no_Visualizador pipewire:som wireplumber:volume xdg-utils:Abrir_com desktop-file-utils:Abrir_com"
 
 pacote_deb() {
     tem dpkg-deb || erro "falta o dpkg-deb (pacote dpkg)"
@@ -230,19 +264,18 @@ Maintainer: Fabio Carneiro <$(git config user.email 2>/dev/null || echo glove@lo
 Installed-Size: $(tamanho_kb "$tmp")
 Depends: $deps_deb
 Recommends: $rec_deb
-Suggests: greetd, plymouth
+Suggests: plymouth
 Section: x11
 Priority: optional
 Homepage: $url
 Description: $resumo
 $(echo "$descricao" | sed 's/^/ /')
 EOF
-    cat > "$tmp/DEBIAN/postinst" <<'EOF'
-#!/bin/sh
-set -e
-command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -f /usr/share/icons/Glove || true
-EOF
-    chmod 755 "$tmp/DEBIAN/postinst"
+    printf '#!/bin/sh\nset -e\n%s\n' "$pos_instalar_sh" > "$tmp/DEBIAN/postinst"
+    # Só na remoção de verdade (não numa atualização).
+    printf '#!/bin/sh\nset -e\nif [ "$1" = remove ] || [ "$1" = purge ]; then\n%s\nfi\n' "$pre_remover_sh" > "$tmp/DEBIAN/prerm"
+    printf '#!/bin/sh\nset -e\ncommand -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true\n' > "$tmp/DEBIAN/postrm"
+    chmod 755 "$tmp/DEBIAN/postinst" "$tmp/DEBIAN/prerm" "$tmp/DEBIAN/postrm"
     mkdir -p "$saida"
     f="$saida/glove_${versao}_$a.deb"
     dpkg-deb --root-owner-group -Zxz --build "$tmp" "$f" >/dev/null
@@ -262,7 +295,7 @@ pacote_slackware() {
         echo "$descricao" | tr '\n' ' ' | fold -s -w 70 | sed 's/ *$//; s/^/glove: /'
         echo
         echo "glove:"
-        echo "glove: Precisa do seatd (libseat), do SlackBuilds.org."
+        echo "glove: Precisa do seatd e do greetd (SlackBuilds.org)."
         echo "glove: Site: $url"
         echo "glove:"
         echo "glove:"
@@ -271,6 +304,9 @@ pacote_slackware() {
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   /usr/bin/gtk-update-icon-cache -q -f usr/share/icons/Glove >/dev/null 2>&1
 fi
+# Tela de login: com systemd, sudo systemctl enable --force glove-login; sem systemd
+# (o padrão do Slackware), rode /usr/lib/glove/glove-login-greetd no lugar do
+# gerenciador de login (em /etc/rc.d/rc.4).
 EOF
     mkdir -p "$saida"
     f="$saida/glove-$versao-$arq-1.tgz"
@@ -304,7 +340,15 @@ $descricao
 cp -a %{_raiz}/. %{buildroot}/
 
 %post
-gtk-update-icon-cache -q -f /usr/share/icons/Glove 2>/dev/null || :
+$pos_instalar_sh
+
+%preun
+if [ \$1 -eq 0 ]; then
+$pre_remover_sh
+fi
+
+%postun
+systemctl daemon-reload 2>/dev/null || :
 
 %files
 EOF
@@ -325,6 +369,13 @@ EOF
 
 pacote_arch() {
     mkdir -p "$saida"
+    # Passos do pacman ao instalar, atualizar e remover.
+    {
+        echo "post_install() {"; echo "$pos_instalar_sh"; echo "}"
+        echo "post_upgrade() {"; echo "  command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true"; echo "}"
+        echo "pre_remove() {"; echo "$pre_remover_sh"; echo "}"
+        echo "post_remove() {"; echo "  command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true"; echo "}"
+    } > "$saida/glove.install"
     # Receita para compilar no próprio Arch com o makepkg (o jeito do Arch).
     cat > "$saida/PKGBUILD" <<EOF
 # Receita do Glove para o Arch (gerada por instalador.sh).
@@ -338,6 +389,7 @@ license=('GPL-3.0-or-later')
 depends=($(echo "$deps_arch" | sed "s/[^ ]*/'&'/g"))
 optdepends=($(echo "$opt_arch" | tr ' ' '\n' | sed "s/_/ /g; s/^/'/; s/\$/'/; s/:/: /" | tr '\n' ' '))
 makedepends=('cargo' 'pkgconf')
+install=glove.install
 source=("git+$url.git#tag=v$versao")
 sha256sums=('SKIP')
 
@@ -379,12 +431,13 @@ EOF
         for d in $deps_arch; do echo "depend = $d"; done
         for d in $opt_arch; do echo "optdepend = $(echo "$d" | sed 's/_/ /g; s/:/: /')"; done
     } > "$tmp/.PKGINFO"
+    cp "$saida/glove.install" "$tmp/.INSTALL"
     # .MTREE: a lista de arquivos que o pacman usa para conferir a instalação.
     (
         cd "$tmp"
         echo "#mtree"
         echo "/set type=file uid=0 gid=0 mode=644"
-        find . -mindepth 1 ! -name .PKGINFO | sort | while IFS= read -r p; do
+        find . -mindepth 1 ! -name .PKGINFO ! -name .INSTALL | sort | while IFS= read -r p; do
             t=$(date -r "$p" +%s 2>/dev/null || echo 0)
             if [ -L "$p" ]; then
                 echo "$p time=$t.0 mode=777 type=link link=$(readlink "$p")"
@@ -397,9 +450,9 @@ EOF
         done
     ) | gzip -9n > "$tmp/.MTREE.tmp"
     mv "$tmp/.MTREE.tmp" "$tmp/.MTREE"
-    chmod 644 "$tmp/.PKGINFO" "$tmp/.MTREE"
+    chmod 644 "$tmp/.PKGINFO" "$tmp/.MTREE" "$tmp/.INSTALL"
     f="$saida/glove-$versao-1-$arq.pkg.tar.zst"
-    (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -cf - .PKGINFO .MTREE $(ls -A | grep -v '^\.PKGINFO$\|^\.MTREE$') | zstd -19 -q -f -o "$f")
+    (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -cf - .PKGINFO .INSTALL .MTREE $(ls -A | grep -v '^\.PKGINFO$\|^\.MTREE$\|^\.INSTALL$') | zstd -19 -q -f -o "$f")
     rm -rf "$tmp"
     msg "Pacote Arch: $f (instale com: sudo pacman -U $(basename "$f"))"
     echo "  No Arch também dá para compilar lá: makepkg -si (com o PKGBUILD em $saida)"
@@ -407,29 +460,33 @@ EOF
 
 # --- tela de login (greetd) ----------------------------------------------------------
 
-# Tela de login do Glove para o Glove instalado no sistema (pacote ou "instalar"):
-# o greetd abre o Glove em modo login. Guarda a configuração e o gerenciador de
-# antes; "login remover" devolve os dois.
+# Torna a tela de login do Glove (o serviço glove-login, que vem na instalação e nos
+# pacotes) a tela de login principal, guardando qual era a de antes; "login remover"
+# devolve a anterior. É o mesmo que: sudo systemctl enable --force glove-login
 login() {
     if [ "$(id -u)" != 0 ]; then
         exec sudo "$0" login "$@"
     fi
-    conf=/etc/greetd/config.toml
-    backup=/etc/greetd/config.toml.antes-do-glove
     estado=/etc/glove/login
-    if [ "${1:-}" = remover ]; then
-        [ -f "$backup" ] && mv "$backup" "$conf" && echo "Configuração anterior do greetd devolvida."
-        antes=$(cat "$estado/gerenciador-anterior" 2>/dev/null || echo gdm)
+    # Versões antigas deste instalador trocavam a configuração do próprio greetd:
+    # devolve a original (o serviço glove-login usa uma configuração só dele).
+    if [ -f /etc/greetd/config.toml.antes-do-glove ]; then
+        mv /etc/greetd/config.toml.antes-do-glove /etc/greetd/config.toml
         systemctl disable greetd 2>/dev/null || true
-        systemctl enable --force "$antes" && echo "$antes volta a ser o gerenciador de login (vale no próximo boot)."
-        rm -rf "$estado"
+    fi
+    if [ "${1:-}" = remover ]; then
+        antes=$(cat "$estado/gerenciador-anterior" 2>/dev/null || true)
+        systemctl disable glove-login 2>/dev/null || true
+        for d in $antes gdm gdm3 lightdm sddm lxdm greetd; do
+            if systemctl cat "$d.service" >/dev/null 2>&1 && systemctl enable --force "$d.service" 2>/dev/null; then
+                echo "A tela de login volta a ser a do $d (vale no próximo boot)."
+                break
+            fi
+        done
+        rm -f "$estado/gerenciador-anterior"
         return
     fi
-    prefixo=""
-    for p in /usr /usr/local; do
-        if [ -x "$p/bin/glove" ] && [ -e "$p/bin/glove-login" ]; then prefixo=$p; break; fi
-    done
-    [ -n "$prefixo" ] || erro "o Glove não está instalado (instale o pacote ou rode: ./instalador.sh instalar)"
+    systemctl cat glove-login.service >/dev/null 2>&1 || erro "o Glove não está instalado (instale o pacote ou rode: ./instalador.sh instalar)"
     if ! tem greetd; then
         msg "Instalando o greetd"
         case $(distro) in
@@ -442,26 +499,7 @@ login() {
             *) erro "instale o greetd pelo gerenciador de pacotes e rode de novo" ;;
         esac
     fi
-    # Usuário que roda a tela de login: _greetd (Debian/Ubuntu) ou greeter (outros).
-    if id _greetd >/dev/null 2>&1; then greeter=_greetd; else greeter=greeter; fi
-    mkdir -p /etc/greetd "$estado"
-    if [ -f "$conf" ] && [ ! -f "$backup" ]; then
-        cp "$conf" "$backup"
-        echo "Configuração anterior do greetd guardada em $backup"
-    fi
-    # Mantém o console (vt) da configuração original.
-    vt=$(sed -n 's/^vt *= *//p' "$backup" 2>/dev/null | head -1)
-    cat > "$conf" <<EOF
-# Tela de login do Glove (gerada por instalador.sh). Volta ao de antes com:
-# ./instalador.sh login remover
-[terminal]
-vt = ${vt:-7}
-
-[default_session]
-command = "env GLOVE_SESSION=$prefixo/bin/glove-session $prefixo/bin/glove --greeter"
-user = "$greeter"
-EOF
-    chmod 644 "$conf"
+    mkdir -p "$estado"
     # A tela de login usa os ajustes de quem instalou (monitor, escala, teclado e tema).
     if [ -n "${SUDO_USER:-}" ]; then
         casa=$(getent passwd "$SUDO_USER" | cut -d: -f6)
@@ -470,17 +508,17 @@ EOF
             echo "Tela de login com os ajustes de $SUDO_USER (monitor, escala, teclado e tema)."
         fi
     fi
-    msg "Tela de login do Glove configurada (usa o Glove de $prefixo)"
-    if ! systemctl is-enabled greetd >/dev/null 2>&1; then
-        atual=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
-        echo "O gerenciador de login atual é ${atual:-desconhecido}."
-        if pergunta "Trocar pelo greetd (vale a partir do próximo boot)?" s; then
-            [ -n "$atual" ] && [ "$atual" != greetd ] && echo "$atual" > "$estado/gerenciador-anterior"
-            [ -n "$atual" ] && systemctl disable "$atual" 2>/dev/null || true
-            systemctl enable --force greetd
-            echo "Pronto: reinicie para ver a tela de login do Glove."
-            echo "Para voltar ao ${atual:-anterior}: ./instalador.sh login remover"
-        fi
+    atual=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
+    if [ "$atual" = glove-login ]; then
+        echo "A tela de login do Glove já é a principal."
+        return
+    fi
+    echo "A tela de login atual é ${atual:-desconhecida}."
+    if pergunta "Trocar pela tela de login do Glove (vale a partir do próximo boot)?" s; then
+        [ -n "$atual" ] && echo "$atual" > "$estado/gerenciador-anterior"
+        systemctl enable --force glove-login
+        echo "Pronto: reinicie para ver a tela de login do Glove."
+        echo "Para voltar à do ${atual:-sistema}: ./instalador.sh login remover"
     fi
 }
 
@@ -527,6 +565,6 @@ case "${1:-}" in
     dependencias) dependencias ;;
     login) shift; login "$@" ;;
     _montar) montar "$2" "$3" "$4" ;;
-    -h|--help|ajuda) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+    -h|--help|ajuda) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) erro "opção desconhecida: $1 (veja ./instalador.sh ajuda)" ;;
 esac

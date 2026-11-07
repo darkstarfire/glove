@@ -467,9 +467,14 @@ Estudo completo em `docs/MEMORIA.md`.
   instalado), desinstalar (pela lista, ou pelo gerenciador quando veio de pacote) e gerar os pacotes
   .deb (Debian/Ubuntu), .tgz (Slackware, com slack-desc), .rpm (receita; o pacote sai onde houver
   rpmbuild) e Arch (.pkg.tar.zst com .PKGINFO e .MTREE, e o PKGBUILD para o makepkg). `DESTDIR=` testa
-  sem mexer no sistema. A licença GPL-3 passa a acompanhar o projeto (LICENSE); `login [remover]` põe a
-  tela de login do Glove no greetd usando o Glove instalado (pacote ou instalar) e troca o
-  gerenciador de login com confirmação, guardando o anterior
+  sem mexer no sistema. A licença GPL-3 passa a acompanhar o projeto (LICENSE); os pacotes e o
+  `instalar` trazem tudo, inclusive a tela de login como o serviço `glove-login` (greetd com
+  configuração própria; o greetd vira dependência): ativar com `sudo systemctl enable --force
+  glove-login` ou `./instalador.sh login` (guarda a anterior; `login remover` volta); ao remover o
+  pacote com ela ativa, volta sozinha a tela de login anterior. Documentado no README
+- [x] 9.14.2 Pacotes completos (P) — v0.9.22: a tela de login entra em todos os formatos (serviço
+  `glove-login` + `lib/glove/glove-login-greetd`), com os passos de pós-instalação e pré-remoção de
+  cada formato (deb, rpm, Arch `.INSTALL`, Slackware `doinst.sh`)
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 

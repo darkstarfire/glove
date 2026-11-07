@@ -1,0 +1,22 @@
+#!/bin/sh
+# Inicia o greetd com a tela de login do Glove (usado pelo glove-login.service).
+# A configuração é montada a cada início (o usuário da tela de login muda de uma
+# distribuição para outra). Para usar uma sua, crie /etc/glove/greetd.toml.
+if [ -f /etc/glove/greetd.toml ]; then
+    exec greetd --config /etc/glove/greetd.toml
+fi
+bin=$(cd "$(dirname "$(readlink -f "$0")")/../../bin" && pwd)
+user=greeter
+for u in _greetd greetd greeter; do
+    if id "$u" >/dev/null 2>&1; then user=$u; break; fi
+done
+mkdir -p /run/glove
+cat > /run/glove/greetd.toml <<FIM
+[terminal]
+vt = 7
+
+[default_session]
+command = "env GLOVE_SESSION=$bin/glove-session $bin/glove --greeter"
+user = "$user"
+FIM
+exec greetd --config /run/glove/greetd.toml
