@@ -578,3 +578,495 @@ pub(crate) fn files_app(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.fill_clipped(u.ov(0.1, 0.62, 0.8, 0.4), &radial(u.px(0.5), u.py(0.95), u.d(0.4), &[(0.0, rgba(180, 230, 255, 90)), (1.0, rgba(180, 230, 255, 0))]), tile.clone());
     pm.stroke(tile, &solid(rgba(20, 50, 120, 200)), u.lw(0.006));
 }
+
+// ---------------------------------------------------------------------------
+// Segundo lote realista (9.12.2)
+// ---------------------------------------------------------------------------
+
+fn cubic(pts: &[(f32, f32)], u: U) -> Option<Path> {
+    // Primeiro ponto e depois trios (controle, controle, fim).
+    let mut pb = PathBuilder::new();
+    pb.move_to(u.px(pts[0].0), u.py(pts[0].1));
+    for c in pts[1..].chunks(3) {
+        if c.len() == 3 {
+            pb.cubic_to(u.px(c[0].0), u.py(c[0].1), u.px(c[1].0), u.py(c[1].1), u.px(c[2].0), u.py(c[2].1));
+        }
+    }
+    pb.finish()
+}
+
+/// Aço escovado escuro com faixas de reflexo na diagonal (engrenagens, metal de peças).
+fn steel(u: U, x0: f32, y0: f32, x1: f32, y1: f32) -> Paint<'static> {
+    linear(u.px(x0), u.py(y0), u.px(x1), u.py(y1), &[
+        (0.0, rgba(214, 218, 226, 255)),
+        (0.3, rgba(156, 160, 170, 255)),
+        (0.5, rgba(112, 116, 126, 255)),
+        (0.68, rgba(176, 180, 190, 255)),
+        (1.0, rgba(78, 82, 92, 255)),
+    ])
+}
+
+/// Preferências: placa de alumínio escovado com um poço redondo e, dentro,
+/// uma engrenagem grande de cinco raios.
+pub(crate) fn settings(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let tile = u.rr(0.07, 0.08, 0.86, 0.84, 0.1);
+    soft_shadow(pm, tile.clone(), s, 1.0);
+    pm.fill(tile.clone(), &vgrad(u.py(0.08), u.py(0.92), &[(0.0, rgba(222, 226, 232, 255)), (0.5, rgba(178, 182, 190, 255)), (1.0, rgba(120, 124, 132, 255))]));
+    crate::tiger::brush_streaks(pm, tile.clone(), u, 13, false);
+    pm.fill_clipped(u.rr(0.07, 0.08, 0.86, 0.012, 0.0), &solid(rgba(255, 255, 255, 170)), tile.clone());
+    pm.stroke(tile, &solid(rgba(84, 88, 96, 220)), u.lw(0.005));
+    // Poço: quina clara embaixo, sombra em cima, fundo escuro.
+    let (cx, cy) = (0.5, 0.5);
+    pm.fill(u.circ(cx, cy, 0.385), &vgrad(u.py(0.115), u.py(0.885), &[(0.0, rgba(80, 84, 92, 255)), (1.0, rgba(246, 247, 250, 255))]));
+    let well = u.circ(cx, cy, 0.37);
+    pm.fill(well.clone(), &radial(u.px(cx), u.py(cy + 0.04), u.d(0.4), &[(0.0, rgba(86, 90, 98, 255)), (0.75, rgba(56, 59, 66, 255)), (1.0, rgba(32, 34, 40, 255))]));
+    pm.fill_clipped(well.clone(), &vgrad(u.py(0.13), u.py(0.3), &[(0.0, rgba(0, 0, 0, 120)), (1.0, rgba(0, 0, 0, 0))]), well.clone());
+    // Engrenagem: dentes trapezoidais em volta de um aro; raios e cubo.
+    let (ro, rr, rh) = (0.335, 0.285, 0.215);
+    let teeth = if s >= 40.0 { 22 } else { 14 };
+    let mut pb = PathBuilder::new();
+    let step = std::f32::consts::TAU / teeth as f32;
+    let at = |a: f32, r: f32| (u.px(cx) + a.cos() * u.d(r), u.py(cy) + a.sin() * u.d(r));
+    for i in 0..teeth {
+        let a0 = i as f32 * step;
+        for (k, (da, r)) in [(0.0, rr), (0.14, ro), (0.42, ro), (0.56, rr)].iter().enumerate() {
+            let p = at(a0 + da * step, *r);
+            if i == 0 && k == 0 { pb.move_to(p.0, p.1) } else { pb.line_to(p.0, p.1) }
+        }
+    }
+    pb.close();
+    pb.push_circle(u.px(cx), u.py(cy), u.d(rh));
+    let rim = pb.finish();
+    let spokes = {
+        let mut sp = PathBuilder::new();
+        for k in 0..5 {
+            let a = -std::f32::consts::FRAC_PI_2 + k as f32 * std::f32::consts::TAU / 5.0;
+            let (dx, dy) = (a.cos(), a.sin());
+            let (nx, ny) = (-dy, dx);
+            let w0 = 0.032;
+            let w1 = 0.022;
+            let p = |along: f32, side: f32| (u.px(cx + dx * along + nx * side), u.py(cy + dy * along + ny * side));
+            let q = [p(0.05, -w0), p(rh + 0.02, -w1), p(rh + 0.02, w1), p(0.05, w0)];
+            sp.move_to(q[0].0, q[0].1);
+            for v in &q[1..] {
+                sp.line_to(v.0, v.1);
+            }
+            sp.close();
+        }
+        sp.push_circle(u.px(cx), u.py(cy), u.d(0.08));
+        sp.finish()
+    };
+    // Sombra da engrenagem no fundo do poço.
+    for p in [&rim, &spokes] {
+        pm.fill_rule(shift(p, u.d(0.008), u.d(0.025)), &solid(rgba(0, 0, 0, 110)), tiny_skia::FillRule::EvenOdd);
+    }
+    let face = steel(u, cx - ro, cy - ro, cx + ro, cy + ro);
+    pm.fill_rule(spokes.clone(), &face, tiny_skia::FillRule::Winding);
+    pm.fill_rule(rim.clone(), &face, tiny_skia::FillRule::EvenOdd);
+    crate::tiger::spun_metal(pm, u.circ(cx, cy, ro), u, cx, cy, ro, 5);
+    // Chanfros: claro em cima à esquerda, escuro embaixo à direita.
+    let bevel = linear(u.px(cx - ro), u.py(cy - ro), u.px(cx + ro), u.py(cy + ro), &[(0.0, rgba(255, 255, 255, 200)), (0.5, rgba(255, 255, 255, 30)), (1.0, rgba(0, 0, 0, 120))]);
+    pm.stroke(u.circ(cx, cy, rr - 0.02), &bevel, u.lw(0.008));
+    pm.stroke(rim, &solid(rgba(30, 32, 38, 200)), u.lw(0.005));
+    pm.stroke(spokes, &solid(rgba(30, 32, 38, 160)), u.lw(0.004));
+    // Cubo abaulado com o furo do eixo.
+    pm.fill(u.circ(cx, cy, 0.06), &radial(u.px(cx - 0.02), u.py(cy - 0.025), u.d(0.08), &[(0.0, rgba(250, 251, 253, 255)), (0.6, rgba(150, 154, 164, 255)), (1.0, rgba(90, 94, 104, 255))]));
+    pm.fill(u.circ(cx, cy, 0.018), &solid(rgba(30, 32, 38, 255)));
+}
+
+/// Utilitário de Disco: o HD com um estetoscópio em cima (a campânula no prato,
+/// o tubo de borracha preta e as hastes cromadas com as olivas).
+pub(crate) fn disk_utility(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    disk(pm, x, y + s * 0.1, s * 0.86);
+    let (hx, hy) = (0.378, 0.467);
+    // Tubo de borracha: preto com o brilho fino de cilindro.
+    let tube = cubic(&[(hx, hy - 0.1), (hx - 0.03, 0.12), (0.62, 0.06), (0.66, 0.34), (0.69, 0.56), (0.76, 0.72), (0.84, 0.64)], u);
+    let stroke = |w: f32| tiny_skia::Stroke { width: u.lw(w), line_cap: tiny_skia::LineCap::Round, ..Default::default() };
+    pm.fill(tube.clone().and_then(|p| p.stroke(&stroke(0.05), 1.0)).and_then(|p| p.transform(Transform::from_translate(u.d(0.01), u.d(0.025)))), &solid(rgba(0, 0, 0, 60)));
+    pm.fill(tube.clone().and_then(|p| p.stroke(&stroke(0.046), 1.0)), &solid(rgba(18, 18, 20, 255)));
+    pm.fill(shift(&tube.and_then(|p| p.stroke(&stroke(0.01), 1.0)), -u.d(0.007), -u.d(0.008)), &solid(rgba(130, 132, 140, 200)));
+    // Hastes cromadas do junção até as olivas pretas.
+    for arm in [cubic(&[(0.84, 0.64), (0.72, 0.5), (0.62, 0.3), (0.66, 0.1)], u), cubic(&[(0.86, 0.64), (0.98, 0.48), (0.98, 0.28), (0.9, 0.1)], u)] {
+        pm.fill(arm.clone().and_then(|p| p.stroke(&stroke(0.03), 1.0)), &solid(rgba(70, 72, 80, 255)));
+        pm.fill(arm.clone().and_then(|p| p.stroke(&stroke(0.018), 1.0)), &solid(rgba(226, 228, 234, 255)));
+        pm.fill(shift(&arm.and_then(|p| p.stroke(&stroke(0.006), 1.0)), -u.d(0.004), -u.d(0.003)), &solid(rgba(255, 255, 255, 230)));
+    }
+    for (ex, ey, ang) in [(0.66, 0.085, -10.0f32), (0.9, 0.085, 20.0)] {
+        let t = Transform::from_rotate_at(ang, u.px(ex), u.py(ey));
+        let tip = crate::tiger::tf(u.ov(ex - 0.04, ey - 0.03, 0.08, 0.05), t);
+        pm.fill(tip.clone(), &radial(u.px(ex - 0.015), u.py(ey - 0.015), u.d(0.06), &[(0.0, rgba(110, 112, 120, 255)), (0.5, rgba(30, 30, 34, 255)), (1.0, rgba(10, 10, 12, 255))]));
+    }
+    // Junção (o "Y") em metal.
+    pm.fill(u.circ(0.85, 0.645, 0.025), &radial(u.px(0.84), u.py(0.635), u.d(0.035), &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(110, 114, 124, 255))]));
+    // Campânula deitada no prato: disco, haste e o topo com a membrana.
+    let chrome = |x0: f32, x1: f32| linear(u.px(x0), 0.0, u.px(x1), 0.0, &[(0.0, rgba(110, 114, 124, 255)), (0.3, rgba(250, 251, 253, 255)), (0.6, rgba(170, 174, 184, 255)), (1.0, rgba(96, 100, 110, 255))]);
+    let base = u.ov(hx - 0.13, hy - 0.05, 0.26, 0.1);
+    soft_shadow(pm, base.clone(), s, 0.6);
+    pm.fill(u.ov(hx - 0.13, hy - 0.035, 0.26, 0.1), &solid(rgba(90, 94, 104, 255)));
+    pm.fill(base, &chrome(hx - 0.13, hx + 0.13));
+    pm.fill(u.rr(hx - 0.035, hy - 0.1, 0.07, 0.1, 0.0), &chrome(hx - 0.035, hx + 0.035));
+    let top = u.ov(hx - 0.075, hy - 0.13, 0.15, 0.06);
+    pm.fill(top.clone(), &chrome(hx - 0.075, hx + 0.075));
+    pm.fill(u.ov(hx - 0.055, hy - 0.122, 0.11, 0.044), &solid(rgba(36, 36, 40, 255)));
+    pm.fill(u.ov(hx - 0.04, hy - 0.116, 0.08, 0.032), &vgrad(u.py(hy - 0.116), u.py(hy - 0.084), &[(0.0, rgba(200, 202, 210, 255)), (1.0, rgba(250, 250, 252, 255))]));
+    pm.fill(u.circ(hx, hy - 0.1, 0.008), &solid(rgba(30, 30, 34, 255)));
+}
+
+/// Lixo: cesto de tela preta em losangos (vazado: vê-se a tela de trás), aro
+/// de tubo cromado na boca e a cinta cromada no pé. `papers` bolas de papel
+/// vão enchendo de baixo para cima; com `TRASH_FULL_AT` passam da borda.
+pub(crate) fn trash(pm: &mut Canvas, x: f32, y: f32, s: f32, papers: u8) {
+    use crate::tiger::{paper_ball, TRASH_FULL_AT};
+    let u = U { x, y, s };
+    let (top, bot) = (0.13f32, 0.8f32);
+    let rx = |t: f32| 0.39 - 0.07 * t;
+    let ry = |t: f32| 0.08 - 0.015 * t;
+    let cy = |t: f32| top + (bot - top) * t;
+    let at = |t: f32, a: f32| (u.px(0.5 + rx(t) * a.cos()), u.py(cy(t) + ry(t) * a.sin()));
+    let base_h = 0.075;
+    let (bx0, bx1) = (0.5 - rx(1.0), 0.5 + rx(1.0));
+    // Sombra no chão e o interior: um véu claro (a tela é vazada) e o fundo escuro espelhado.
+    soft_shadow(pm, u.ov(bx0, cy(1.0) + base_h - ry(1.0), rx(1.0) * 2.0, ry(1.0) * 2.0), s, 1.4);
+    let silhouette = {
+        let mut pb = PathBuilder::new();
+        let n = 24;
+        for k in 0..=n {
+            let (px, py) = at(0.0, std::f32::consts::PI + k as f32 / n as f32 * std::f32::consts::PI);
+            if k == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+        }
+        for k in 0..=n {
+            let (px, py) = at(1.0, k as f32 / n as f32 * std::f32::consts::PI);
+            pb.line_to(px, py);
+        }
+        pb.close();
+        pb.finish()
+    };
+    pm.fill(silhouette, &vgrad(u.py(top), u.py(bot), &[(0.0, rgba(250, 251, 253, 70)), (1.0, rgba(200, 204, 214, 40))]));
+    pm.fill(u.ov(bx0, cy(1.0) - ry(1.0), rx(1.0) * 2.0, ry(1.0) * 2.0), &linear(u.px(bx0), u.py(cy(1.0) - ry(1.0)), u.px(bx1), u.py(cy(1.0) + ry(1.0)), &[(0.0, rgba(30, 30, 36, 255)), (0.45, rgba(110, 114, 130, 255)), (1.0, rgba(24, 24, 28, 255))]));
+    // Tela: hélices nos dois sentidos (losangos). Separa a parte de trás e a da frente.
+    let n = if s < 28.0 { 12 } else if s < 64.0 { 20 } else { 28 };
+    let twist = 1.7f32;
+    let (mut back, mut front) = (PathBuilder::new(), PathBuilder::new());
+    let (mut last_b, mut last_f): (Option<(f32, f32)>, Option<(f32, f32)>) = (None, None);
+    for sign in [1.0f32, -1.0] {
+        for k in 0..n {
+            let a0 = k as f32 / n as f32 * std::f32::consts::TAU;
+            let m = 28;
+            let mut prev = at(0.0, a0);
+            for j in 1..=m {
+                let t = j as f32 / m as f32;
+                let a = a0 + sign * twist * t;
+                let cur = at(t, a);
+                let mid = a - sign * twist * 0.5 / m as f32;
+                let (pb, last) = if mid.sin() > 0.0 { (&mut front, &mut last_f) } else { (&mut back, &mut last_b) };
+                if *last != Some(prev) {
+                    pb.move_to(prev.0, prev.1);
+                }
+                pb.line_to(cur.0, cur.1);
+                *last = Some(cur);
+                prev = cur;
+            }
+            last_b = None;
+            last_f = None;
+        }
+    }
+    pm.stroke(back.finish(), &solid(rgba(44, 44, 50, 220)), u.lw(0.007));
+    // Papéis: fileiras de baixo para cima, dentro do cesto.
+    let caps = [3u8, 3, 4, 4, 3, 3];
+    let mut left = papers.min(TRASH_FULL_AT);
+    let r = 0.08;
+    'rows: for (j, cap) in caps.iter().enumerate() {
+        let yy = 0.73 - j as f32 * 0.1;
+        let tt = ((yy + r * 0.6 - top) / (bot - top)).clamp(0.0, 1.0);
+        let w = rx(tt) - r * 1.05;
+        for k in 0..*cap {
+            if left == 0 {
+                break 'rows;
+            }
+            left -= 1;
+            let order: &[f32] = if *cap == 3 { &[0.5, 0.0, 1.0] } else { &[0.33, 0.67, 0.0, 1.0] };
+            let f = order[k as usize];
+            let jit = (hash(j as u32 * 17 + k as u32) & 0xff) as f32 / 255.0 - 0.5;
+            paper_ball(pm, u, 0.5 - w + f * w * 2.0 + jit * 0.03, yy + jit * 0.025, r, (j * 7 + k as usize) as u32 + 1);
+        }
+    }
+    let full = papers >= TRASH_FULL_AT;
+    if full {
+        paper_ball(pm, u, 0.36, 0.13, 0.09, 51);
+        paper_ball(pm, u, 0.63, 0.12, 0.095, 57);
+        paper_ball(pm, u, 0.5, 0.085, 0.08, 63);
+    }
+    // Tela da frente: arame preto com um fio de brilho.
+    let fr = front.finish();
+    pm.stroke(fr.clone(), &solid(rgba(14, 14, 16, 255)), u.lw(0.012));
+    if s >= 48.0 {
+        pm.stroke(shift(&fr, -u.d(0.002), -u.d(0.003)), &solid(rgba(150, 152, 162, 150)), u.lw(0.003));
+    }
+    // Cinta cromada do pé (um cilindro curto).
+    let band = {
+        let mut pb = PathBuilder::new();
+        let k = 24;
+        for i in 0..=k {
+            let (px, py) = at(1.0, std::f32::consts::PI + i as f32 / k as f32 * std::f32::consts::PI);
+            if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+        }
+        for i in 0..=k {
+            let (px, py) = at(1.0, i as f32 / k as f32 * std::f32::consts::PI);
+            pb.line_to(px, py + u.d(base_h) * if i == 0 || i == k { 1.0 } else { 1.0 });
+        }
+        pb.close();
+        pb.finish()
+    };
+    let chrome_h = |x0: f32, x1: f32| linear(u.px(x0), 0.0, u.px(x1), 0.0, &[(0.0, rgba(86, 88, 96, 255)), (0.18, rgba(226, 228, 234, 255)), (0.32, rgba(255, 255, 255, 255)), (0.55, rgba(160, 164, 174, 255)), (0.8, rgba(224, 226, 232, 255)), (1.0, rgba(92, 94, 102, 255))]);
+    pm.fill(band.clone(), &chrome_h(bx0, bx1));
+    pm.fill_clipped(band.clone(), &vgrad(u.py(cy(1.0)), u.py(cy(1.0) + base_h + ry(1.0)), &[(0.0, rgba(255, 255, 255, 40)), (0.6, rgba(0, 0, 0, 0)), (1.0, rgba(0, 0, 0, 70))]), band.clone());
+    pm.stroke(band, &solid(rgba(60, 62, 70, 200)), u.lw(0.004));
+    // Aro de tubo cromado na boca.
+    let ring = {
+        let mut pb = PathBuilder::new();
+        let k = 40;
+        let span = if full { std::f32::consts::PI } else { std::f32::consts::TAU };
+        for i in 0..=k {
+            let (px, py) = at(0.0, i as f32 / k as f32 * span);
+            if i == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
+        }
+        if !full {
+            pb.close();
+        }
+        pb.finish()
+    };
+    pm.stroke(ring.clone(), &solid(rgba(56, 58, 66, 255)), u.lw(0.046));
+    pm.stroke(ring.clone(), &chrome_h(0.5 - rx(0.0), 0.5 + rx(0.0)), u.lw(0.036));
+    pm.stroke(shift(&ring, 0.0, -u.d(0.008)), &solid(rgba(255, 255, 255, 170)), u.lw(0.008));
+}
+
+/// Música: CD com o arco-íris e uma nota dupla de vidro verde na frente.
+pub(crate) fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    crate::tiger::optical(pm, x - s * 0.06, y, s * 0.94);
+    let (n1, n2) = ((0.56, 0.78), (0.86, 0.7));
+    let note = {
+        let mut pb = PathBuilder::new();
+        for (cx, cy) in [n1, n2] {
+            // Cabeça oval inclinada.
+            let t = Transform::from_rotate_at(-22.0, u.px(cx), u.py(cy));
+            if let Some(p) = u.ov(cx - 0.085, cy - 0.06, 0.17, 0.12).and_then(|p| p.transform(t)) {
+                pb.push_path(&p);
+            }
+        }
+        let (s1, s2) = (n1.0 + 0.065, n2.0 + 0.065);
+        for (sx, y0, y1) in [(s1, 0.3, n1.1 - 0.02), (s2, 0.22, n2.1 - 0.02)] {
+            if let Some(r) = tiny_skia::Rect::from_ltrb(u.px(sx - 0.028), u.py(y0), u.px(sx), u.py(y1)) {
+                pb.push_rect(r);
+            }
+        }
+        pb.move_to(u.px(s1 - 0.028), u.py(0.3));
+        pb.line_to(u.px(s2), u.py(0.2));
+        pb.line_to(u.px(s2), u.py(0.3));
+        pb.line_to(u.px(s1 - 0.028), u.py(0.4));
+        pb.close();
+        pb.finish()
+    };
+    soft_shadow(pm, note.clone(), s, 0.9);
+    pm.fill(shift(&note, u.d(0.006), u.d(0.012)), &solid(rgba(10, 70, 20, 255)));
+    pm.fill(note.clone(), &linear(u.px(0.5), u.py(0.2), u.px(0.9), u.py(0.85), &[(0.0, rgba(170, 240, 120, 255)), (0.5, rgba(70, 190, 60, 255)), (1.0, rgba(20, 120, 30, 255))]));
+    pm.fill_clipped(u.rr(0.4, 0.15, 0.6, 0.2, 0.0), &vgrad(u.py(0.18), u.py(0.36), &[(0.0, rgba(255, 255, 255, 160)), (1.0, rgba(255, 255, 255, 0))]), note.clone());
+    pm.stroke(note, &solid(rgba(14, 90, 24, 220)), u.lw(0.005));
+}
+
+/// Editor: folha de carta com o texto escrito e uma caneta-tinteiro preta com
+/// anel e pena prateados, na diagonal.
+pub(crate) fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let t = Transform::from_rotate_at(-6.0, u.px(0.45), u.py(0.5));
+    let sheet = crate::tiger::tf(u.rr(0.14, 0.07, 0.6, 0.82, 0.006), t);
+    soft_shadow(pm, sheet.clone(), s, 0.9);
+    pm.fill(crate::tiger::tf(u.rr(0.17, 0.09, 0.6, 0.82, 0.006), t), &solid(rgba(222, 222, 218, 255)));
+    pm.fill(sheet.clone(), &linear(u.px(0.14), u.py(0.07), u.px(0.74), u.py(0.89), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(236, 236, 232, 255))]));
+    if s >= 28.0 {
+        // Saudação, parágrafos e a assinatura (linhas de texto em cinza-escuro).
+        let mut txt = PathBuilder::new();
+        let mut line = |x0: f32, w: f32, yy: f32| {
+            if let Some(r) = tiny_skia::Rect::from_xywh(u.px(x0), u.py(yy), u.d(w), u.d(0.014)) {
+                txt.push_rect(r);
+            }
+        };
+        line(0.21, 0.18, 0.15);
+        let mut yy = 0.22;
+        for k in 0..9u32 {
+            if k == 4 {
+                yy += 0.03;
+            }
+            let w = if k == 3 || k == 8 { 0.22 } else { 0.4 + (hash(k + 3) & 0x3f) as f32 / 63.0 * 0.06 };
+            line(if k == 0 || k == 4 { 0.25 } else { 0.21 }, w, yy);
+            yy += 0.045;
+        }
+        pm.fill(crate::tiger::tf(txt.finish(), t), &solid(rgba(70, 70, 78, 220)));
+        let sig = cubic(&[(0.42, 0.8), (0.46, 0.74), (0.5, 0.84), (0.54, 0.78), (0.57, 0.74), (0.6, 0.82), (0.66, 0.78)], u);
+        pm.stroke(crate::tiger::tf(sig, t), &solid(rgba(20, 40, 120, 220)), u.lw(0.008));
+    }
+    pm.stroke(sheet, &solid(rgba(160, 160, 156, 255)), u.lw(0.004));
+    // Caneta-tinteiro: corpo de laca preta, anel prateado, pena com fenda.
+    let pt = Transform::from_rotate_at(-48.0, u.px(0.62), u.py(0.58));
+    let body = crate::tiger::tf(u.rr(0.44, 0.545, 0.48, 0.075, 0.035), pt);
+    pm.fill(crate::tiger::tf(u.rr(0.45, 0.57, 0.48, 0.075, 0.035), pt), &solid(rgba(0, 0, 0, 70)));
+    let lacquer = crate::tiger::tpaint(vgrad(u.py(0.545), u.py(0.62), &[(0.0, rgba(110, 112, 122, 255)), (0.3, rgba(30, 30, 36, 255)), (0.7, rgba(10, 10, 12, 255)), (1.0, rgba(50, 50, 56, 255))]), pt);
+    pm.fill(body, &lacquer);
+    let silver = crate::tiger::tpaint(vgrad(u.py(0.545), u.py(0.62), &[(0.0, rgba(250, 251, 253, 255)), (0.5, rgba(150, 154, 164, 255)), (1.0, rgba(220, 222, 228, 255))]), pt);
+    pm.fill(crate::tiger::tf(u.rr(0.6, 0.542, 0.035, 0.081, 0.004), pt), &silver);
+    pm.fill(crate::tiger::tf(u.rr(0.82, 0.565, 0.1, 0.012, 0.004), pt), &silver);
+    // Seção e pena
+    pm.fill(crate::tiger::tf(u.poly(&[(0.44, 0.553), (0.44, 0.612), (0.38, 0.6), (0.38, 0.565)]), pt), &lacquer);
+    let nib = crate::tiger::tf(u.poly(&[(0.38, 0.565), (0.38, 0.6), (0.27, 0.585), (0.26, 0.582)]), pt);
+    pm.fill(nib.clone(), &silver);
+    pm.stroke(crate::tiger::tf(u.poly(&[(0.37, 0.582), (0.3, 0.583)]), pt), &solid(rgba(40, 40, 46, 255)), u.lw(0.004));
+    pm.stroke(nib, &solid(rgba(90, 94, 104, 255)), u.lw(0.003));
+}
+
+/// Xadrez: cavalo de estanho polido sobre o tabuleiro em perspectiva.
+pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let board = u.poly(&[(0.5, 0.56), (0.97, 0.75), (0.5, 0.95), (0.03, 0.75)]);
+    soft_shadow(pm, board.clone(), s, 0.8);
+    // Espessura do tabuleiro
+    pm.fill(u.poly(&[(0.03, 0.75), (0.5, 0.95), (0.97, 0.75), (0.97, 0.78), (0.5, 0.98), (0.03, 0.78)]), &solid(rgba(70, 44, 26, 255)));
+    pm.fill(board.clone(), &solid(rgba(232, 222, 200, 255)));
+    let n = 6;
+    let mut dark = PathBuilder::new();
+    for i in 0..n {
+        for j in 0..n {
+            if (i + j) % 2 == 0 {
+                continue;
+            }
+            let p = |a: f32, b: f32| (0.5 + (a - b) * 0.47 / n as f32, 0.56 + (a + b) * 0.195 / n as f32);
+            let (a, b) = (i as f32, j as f32);
+            let q = [p(a, b), p(a + 1.0, b), p(a + 1.0, b + 1.0), p(a, b + 1.0)];
+            dark.move_to(u.px(q[0].0), u.py(q[0].1));
+            for k in &q[1..] {
+                dark.line_to(u.px(k.0), u.py(k.1));
+            }
+            dark.close();
+        }
+    }
+    pm.fill_clipped(dark.finish(), &solid(rgba(110, 72, 44, 255)), board.clone());
+    pm.fill_clipped(board.clone(), &linear(u.px(0.2), u.py(0.6), u.px(0.8), u.py(0.95), &[(0.0, rgba(255, 255, 255, 60)), (1.0, rgba(0, 0, 0, 40))]), board);
+    // Cavalo: base torneada, colarinho e a cabeça (olhando para a esquerda).
+    let pewter = |x0: f32, x1: f32| linear(u.px(x0), 0.0, u.px(x1), 0.0, &[(0.0, rgba(70, 74, 84, 255)), (0.25, rgba(200, 204, 212, 255)), (0.4, rgba(250, 251, 253, 255)), (0.65, rgba(140, 144, 154, 255)), (0.88, rgba(196, 200, 208, 255)), (1.0, rgba(90, 94, 104, 255))]);
+    let base = u.ov(0.29, 0.66, 0.42, 0.12);
+    pm.fill(shift(&base, 0.0, u.d(0.02)), &solid(rgba(50, 52, 60, 255)));
+    pm.fill(base, &pewter(0.29, 0.71));
+    pm.fill(u.rr(0.33, 0.62, 0.34, 0.08, 0.03), &pewter(0.33, 0.67));
+    let head = {
+        let mut pb = PathBuilder::new();
+        let p = |a: f32, b: f32| (u.px(a), u.py(b));
+        let m = p(0.37, 0.64);
+        pb.move_to(m.0, m.1);
+        let l = p(0.41, 0.5);
+        pb.line_to(l.0, l.1);
+        let c = [(0.36, 0.47), (0.3, 0.47), (0.26, 0.44), (0.23, 0.42), (0.23, 0.37), (0.27, 0.35), (0.31, 0.3), (0.35, 0.25), (0.4, 0.22)];
+        for ch in c.chunks(3) {
+            let (a, b, d) = (p(ch[0].0, ch[0].1), p(ch[1].0, ch[1].1), p(ch[2].0, ch[2].1));
+            pb.cubic_to(a.0, a.1, b.0, b.1, d.0, d.1);
+        }
+        let e1 = p(0.43, 0.12);
+        pb.line_to(e1.0, e1.1);
+        let e2 = p(0.48, 0.19);
+        pb.line_to(e2.0, e2.1);
+        let c2 = [(0.6, 0.2), (0.68, 0.32), (0.66, 0.46), (0.65, 0.54), (0.63, 0.6), (0.63, 0.64)];
+        for ch in c2.chunks(3) {
+            let (a, b, d) = (p(ch[0].0, ch[0].1), p(ch[1].0, ch[1].1), p(ch[2].0, ch[2].1));
+            pb.cubic_to(a.0, a.1, b.0, b.1, d.0, d.1);
+        }
+        pb.close();
+        pb.finish()
+    };
+    soft_shadow(pm, head.clone(), s, 0.5);
+    pm.fill(head.clone(), &pewter(0.23, 0.68));
+    // Crina em relevo e os detalhes do rosto.
+    if s >= 32.0 {
+        let mut mane = PathBuilder::new();
+        for k in 0..5 {
+            let t = k as f32 / 5.0;
+            let (mx, my) = (0.52 + t * 0.12, 0.22 + t * 0.32);
+            mane.move_to(u.px(mx), u.py(my));
+            mane.line_to(u.px(mx - 0.05), u.py(my + 0.04));
+        }
+        pm.stroke(mane.finish(), &solid(rgba(60, 64, 74, 150)), u.lw(0.008));
+        pm.fill(u.ov(0.37, 0.28, 0.045, 0.03), &solid(rgba(30, 32, 40, 230)));
+        pm.fill(u.circ(0.255, 0.39, 0.01), &solid(rgba(30, 32, 40, 200)));
+    }
+    pm.stroke(head, &solid(rgba(50, 54, 64, 200)), u.lw(0.004));
+}
+
+/// Fontes: um "F" serifado de metal escovado em relevo, com dois tipos móveis
+/// (blocos com a letra) na frente.
+pub(crate) fn font_book(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    let f = [(0.14, 0.1), (0.74, 0.1), (0.74, 0.3), (0.7, 0.3), (0.66, 0.22), (0.36, 0.22), (0.36, 0.42), (0.54, 0.42), (0.57, 0.36), (0.61, 0.36), (0.61, 0.57), (0.57, 0.57), (0.54, 0.51), (0.36, 0.51), (0.36, 0.76), (0.46, 0.76), (0.46, 0.82), (0.1, 0.82), (0.1, 0.76), (0.2, 0.76), (0.2, 0.16), (0.14, 0.16)];
+    let face = u.poly(&f);
+    soft_shadow(pm, shift(&face, u.d(0.03), u.d(0.03)), s, 1.0);
+    // Espessura: o F repetido para trás e para baixo, em metal escuro.
+    for k in (1..=8).rev() {
+        let d = k as f32 * 0.005;
+        pm.fill(shift(&face, u.d(d), u.d(d)), &solid(rgba((70 + k * 4) as u8, (72 + k * 4) as u8, (80 + k * 4) as u8, 255)));
+    }
+    pm.fill(face.clone(), &linear(u.px(0.1), u.py(0.1), u.px(0.74), u.py(0.82), &[(0.0, rgba(250, 251, 253, 255)), (0.4, rgba(200, 203, 210, 255)), (0.6, rgba(170, 174, 182, 255)), (1.0, rgba(130, 134, 144, 255))]));
+    crate::tiger::brush_streaks(pm, face.clone(), u, 37, true);
+    pm.stroke(shift(&face, -u.d(0.003), -u.d(0.003)), &solid(rgba(255, 255, 255, 120)), u.lw(0.004));
+    pm.stroke(face, &solid(rgba(80, 84, 94, 220)), u.lw(0.004));
+    // Tipos móveis: bloco de madeira escura com a letra em cima, visto de lado.
+    for (bx, by, w, letter) in [(0.56, 0.66, 0.18, "a"), (0.76, 0.7, 0.16, "g")] {
+        let h = w * 0.9;
+        let topf = u.poly(&[(bx, by), (bx + w, by), (bx + w + 0.05, by - 0.04), (bx + 0.05, by - 0.04)]);
+        let front = u.rr(bx, by, w, h, 0.0);
+        let side = u.poly(&[(bx + w, by), (bx + w + 0.05, by - 0.04), (bx + w + 0.05, by + h - 0.04), (bx + w, by + h)]);
+        soft_shadow(pm, front.clone(), s, 0.6);
+        pm.fill(front.clone(), &vgrad(u.py(by), u.py(by + h), &[(0.0, rgba(196, 160, 110, 255)), (1.0, rgba(140, 100, 60, 255))]));
+        pm.fill(side, &solid(rgba(110, 76, 44, 255)));
+        pm.fill(topf, &solid(rgba(226, 200, 156, 255)));
+        pm.stroke(front.clone(), &solid(rgba(90, 60, 30, 200)), u.lw(0.004));
+        if s >= 48.0 {
+            let px = u.d(w * 0.8);
+            let tw = fonts.measure(letter, px, true);
+            fonts.draw(pm, letter, u.px(bx + w / 2.0) - tw / 2.0, u.py(by + h * 0.72), px, true, rgba(60, 36, 16, 230));
+        }
+    }
+}
+
+/// Visualizador: as fotos e uma lupa de joalheiro (cilindro preto com a lente)
+/// deitada em cima delas.
+pub(crate) fn viewer(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    let u = U { x, y, s };
+    crate::tiger::picture(pm, x - s * 0.05, y - s * 0.06, s * 0.92);
+    let (cx, cy) = (0.66, 0.66);
+    let (rx, ry, h) = (0.2, 0.09, 0.14);
+    // Corpo: cilindro preto fosco que estreita para cima.
+    let body = {
+        let mut pb = PathBuilder::new();
+        pb.move_to(u.px(cx - rx), u.py(cy + h));
+        pb.line_to(u.px(cx - rx * 0.85), u.py(cy));
+        pb.line_to(u.px(cx + rx * 0.85), u.py(cy));
+        pb.line_to(u.px(cx + rx), u.py(cy + h));
+        pb.close();
+        if let Some(p) = u.ov(cx - rx, cy + h - ry, rx * 2.0, ry * 2.0) {
+            pb.push_path(&p);
+        }
+        pb.finish()
+    };
+    soft_shadow(pm, u.ov(cx - rx, cy + h - ry, rx * 2.0, ry * 2.0), s, 1.0);
+    pm.fill(body, &linear(u.px(cx - rx), 0.0, u.px(cx + rx), 0.0, &[(0.0, rgba(20, 20, 24, 255)), (0.3, rgba(90, 92, 100, 255)), (0.45, rgba(40, 40, 46, 255)), (1.0, rgba(12, 12, 14, 255))]));
+    // Aro cromado e a lente com o reflexo do céu.
+    let rim = u.ov(cx - rx * 0.85, cy - ry * 0.85, rx * 1.7, ry * 1.7);
+    pm.fill(rim, &linear(u.px(cx - rx), 0.0, u.px(cx + rx), 0.0, &[(0.0, rgba(120, 124, 134, 255)), (0.35, rgba(255, 255, 255, 255)), (1.0, rgba(110, 114, 124, 255))]));
+    let lens = u.ov(cx - rx * 0.74, cy - ry * 0.72, rx * 1.48, ry * 1.44);
+    pm.fill(lens.clone(), &linear(u.px(cx - rx), u.py(cy - ry), u.px(cx + rx), u.py(cy + ry), &[(0.0, rgba(190, 220, 250, 255)), (0.5, rgba(80, 120, 180, 255)), (1.0, rgba(20, 30, 60, 255))]));
+    pm.fill_clipped(u.ov(cx - rx * 0.6, cy - ry * 0.7, rx * 0.8, ry * 0.7), &solid(rgba(255, 255, 255, 150)), lens);
+}
+
+/// Captura: câmera compacta prateada em cima de fotos impressas.
+pub(crate) fn capture(pm: &mut Canvas, x: f32, y: f32, s: f32) {
+    crate::tiger::picture(pm, x - s * 0.02, y + s * 0.3, s * 0.72);
+    crate::tiger::camera(pm, x + s * 0.12, y - s * 0.06, s * 0.86);
+}

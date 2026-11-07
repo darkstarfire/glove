@@ -492,123 +492,6 @@ pub(crate) fn contacts(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 /// Bolas de papel com que o Lixo fica cheio (um papel por item).
 pub const TRASH_FULL_AT: u8 = 20;
 
-/// Lixo: cesto de tela de arame cromado, vazado (vê-se o fundo e o lado de trás
-/// da tela). `papers` bolas de papel vão enchendo de baixo para cima; com
-/// `TRASH_FULL_AT` ele fica cheio e alguns papéis passam da borda.
-pub(crate) fn trash(pm: &mut Canvas, x: f32, y: f32, s: f32, papers: u8) {
-    let u = U { x, y, s };
-    // Cesto: elipse de cima (boca) e de baixo (fundo), interpoladas pela altura.
-    let (top, bot) = (0.2f32, 0.88f32);
-    let rx = |t: f32| 0.37 - 0.1 * t;
-    let ry = |t: f32| 0.075 - 0.025 * t;
-    let cy = |t: f32| top + (bot - top) * t;
-    let at = |t: f32, a: f32| (u.px(0.5 + rx(t) * a.cos()), u.py(cy(t) + ry(t) * a.sin()));
-    let silhouette = {
-        let mut pb = PathBuilder::new();
-        let n = 24;
-        for k in 0..=n {
-            let a = std::f32::consts::PI + k as f32 / n as f32 * std::f32::consts::PI;
-            let (px, py) = at(0.0, a);
-            if k == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-        }
-        for k in 0..=n {
-            let a = k as f32 / n as f32 * std::f32::consts::PI;
-            let (px, py) = at(1.0, a);
-            pb.line_to(px, py);
-        }
-        pb.close();
-        pb.finish()
-    };
-    // Sombra só embaixo (o cesto é vazado) e o fundo de metal.
-    soft_shadow(pm, u.ov(0.5 - rx(1.0), cy(1.0) - ry(1.0), rx(1.0) * 2.0, ry(1.0) * 2.0), s, 1.6);
-    // Interior na sombra: dá volume e contraste para os papéis.
-    pm.fill(silhouette.clone(), &vgrad(u.py(top), u.py(bot), &[(0.0, rgba(40, 44, 56, 90)), (1.0, rgba(40, 44, 56, 30))]));
-    pm.fill(u.ov(0.5 - rx(1.0), cy(1.0) - ry(1.0), rx(1.0) * 2.0, ry(1.0) * 2.0), &vgrad(u.py(cy(1.0) - ry(1.0)), u.py(cy(1.0) + ry(1.0)), &[(0.0, rgba(110, 114, 124, 255)), (1.0, rgba(170, 174, 184, 255))]));
-    let small = s < 28.0;
-    let verticals = if small { 10 } else { 16 };
-    let rings = if small { 3 } else { 5 };
-    // Tela de trás (vista através da da frente): mais fina e clara.
-    let wires = |front: bool| {
-        let mut pb = PathBuilder::new();
-        for k in 0..verticals {
-            let a = k as f32 / verticals as f32 * std::f32::consts::TAU + 0.07;
-            if (a.sin() > 0.0) != front {
-                continue;
-            }
-            let (x0, y0) = at(0.0, a);
-            let (x1, y1) = at(1.0, a);
-            pb.move_to(x0, y0);
-            pb.line_to(x1, y1);
-        }
-        for r in 1..=rings {
-            let tt = r as f32 / (rings + 1) as f32;
-            let n = 20;
-            for k in 0..=n {
-                let a = if front { k as f32 / n as f32 * std::f32::consts::PI } else { std::f32::consts::PI + k as f32 / n as f32 * std::f32::consts::PI };
-                let (px, py) = at(tt, a);
-                if k == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-            }
-        }
-        pb.finish()
-    };
-    pm.stroke(wires(false), &solid(rgba(120, 124, 136, 200)), u.lw(0.008));
-    // Papéis: fileiras de baixo para cima, dentro do cesto.
-    let caps = [3u8, 3, 4, 4, 3, 3];
-    let mut left = papers.min(TRASH_FULL_AT);
-    let r = 0.085;
-    'rows: for (j, cap) in caps.iter().enumerate() {
-        let yy = 0.8 - j as f32 * 0.105;
-        // Largura do cesto na parte de baixo da bola (ele afina para baixo).
-        let tt = ((yy + r * 0.6 - top) / (bot - top)).clamp(0.0, 1.0);
-        let w = rx(tt) - r * 1.05;
-        for k in 0..*cap {
-            if left == 0 {
-                break 'rows;
-            }
-            left -= 1;
-            // Do meio para os lados: o primeiro papel cai no centro.
-            let order: &[f32] = if *cap == 3 { &[0.5, 0.0, 1.0] } else { &[0.33, 0.67, 0.0, 1.0] };
-            let f = order[k as usize];
-            let jit = (hash(j as u32 * 17 + k as u32) & 0xff) as f32 / 255.0 - 0.5;
-            let bx = 0.5 - w + f * w * 2.0 + jit * 0.03;
-            let by = yy + jit * 0.025;
-            paper_ball(pm, u, bx, by, r, (j * 7 + k as usize) as u32 + 1);
-        }
-    }
-    if papers >= TRASH_FULL_AT {
-        paper_ball(pm, u, 0.36, 0.17, 0.1, 51);
-        paper_ball(pm, u, 0.62, 0.15, 0.11, 57);
-        paper_ball(pm, u, 0.5, 0.1, 0.09, 63);
-    }
-    // Tela da frente: arame redondo (traço escuro e o brilho claro por cima).
-    let front = wires(true);
-    pm.stroke(front.clone(), &solid(rgba(64, 68, 80, 255)), u.lw(0.014));
-    pm.stroke(front, &solid(rgba(236, 238, 244, 255)), u.lw(0.005));
-    // Aros de tubo cromado: a boca e o fundo.
-    let ring = |pm: &mut Canvas, tt: f32, w: f32, all: bool| {
-        let mut pb = PathBuilder::new();
-        let n = 32;
-        let (a0, span) = if all { (0.0, std::f32::consts::TAU) } else { (0.0, std::f32::consts::PI) };
-        for k in 0..=n {
-            let (px, py) = at(tt, a0 + k as f32 / n as f32 * span);
-            if k == 0 { pb.move_to(px, py) } else { pb.line_to(px, py) }
-        }
-        if all {
-            pb.close();
-        }
-        let p = pb.finish();
-        let chrome = linear(u.px(0.5 - rx(tt)), 0.0, u.px(0.5 + rx(tt)), 0.0, &[(0.0, rgba(120, 124, 134, 255)), (0.3, rgba(255, 255, 255, 255)), (0.6, rgba(170, 174, 184, 255)), (1.0, rgba(100, 104, 114, 255))]);
-        pm.stroke(p.clone(), &solid(rgba(60, 62, 72, 255)), u.lw(w + 0.01));
-        pm.stroke(p, &chrome, u.lw(w));
-    };
-    ring(pm, 1.0, 0.022, false);
-    if papers >= TRASH_FULL_AT {
-        // Cheio: os papéis de cima ficam na frente da parte de trás da boca.
-        ring(pm, 0.0, 0.03, false);
-    } else {
-        ring(pm, 0.0, 0.03, true);
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Segundo lote (9.11.3)
@@ -701,48 +584,6 @@ pub(crate) fn display_pref(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     screen_glare(pm, u, screen);
 }
 
-/// Editor: bloco de papel pautado inclinado com um lápis amarelo apontado.
-pub(crate) fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    let t = Transform::from_rotate_at(-7.0, u.px(0.45), u.py(0.5));
-    let sheet = tf(u.rr(0.12, 0.08, 0.62, 0.8, 0.01), t);
-    soft_shadow(pm, sheet.clone(), s, 0.9);
-    pm.fill(tf(u.rr(0.15, 0.1, 0.62, 0.8, 0.01), t), &solid(rgba(226, 226, 222, 255)));
-    pm.fill(sheet.clone(), &vgrad(u.py(0.08), u.py(0.88), &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(238, 238, 234, 255))]));
-    if s >= 28.0 {
-        let mut lines = PathBuilder::new();
-        let mut yy = 0.2;
-        while yy < 0.84 {
-            lines.move_to(u.px(0.15), u.py(yy));
-            lines.line_to(u.px(0.71), u.py(yy));
-            yy += 0.055;
-        }
-        pm.stroke(tf(lines.finish(), t), &solid(rgba(150, 180, 220, 160)), u.lw(0.004));
-        pm.stroke(tf(u.poly(&[(0.22, 0.08), (0.22, 0.88)]), t), &solid(rgba(230, 120, 120, 150)), u.lw(0.004));
-        // Texto: tracinhos cinza como linhas escritas.
-        let mut text = PathBuilder::new();
-        let mut yy = 0.195;
-        let mut k = 0u32;
-        while yy < 0.7 {
-            let w = 0.3 + (hash(k) & 0xff) as f32 / 255.0 * 0.18;
-            text.move_to(u.px(0.26), u.py(yy - 0.012));
-            text.line_to(u.px(0.26 + w), u.py(yy - 0.012));
-            yy += 0.055;
-            k += 1;
-        }
-        pm.stroke(tf(text.finish(), t), &solid(rgba(60, 60, 70, 200)), u.lw(0.012));
-    }
-    pm.stroke(sheet, &solid(rgba(150, 150, 146, 255)), u.lw(0.006));
-    // Lápis em diagonal: corpo amarelo sextavado, ponta de madeira, grafite, borracha.
-    let pt = Transform::from_rotate_at(-40.0, u.px(0.62), u.py(0.56));
-    let body = tf(u.rr(0.36, 0.52, 0.5, 0.08, 0.0), pt);
-    pm.fill(tf(u.rr(0.37, 0.54, 0.5, 0.08, 0.0), pt), &solid(rgba(0, 0, 0, 60)));
-    pm.fill(body.clone(), &tpaint(linear(0.0, u.py(0.52), 0.0, u.py(0.6), &[(0.0, rgba(255, 228, 90, 255)), (0.5, rgba(240, 180, 20, 255)), (1.0, rgba(190, 120, 10, 255))]), pt));
-    pm.fill(tf(u.poly(&[(0.36, 0.52), (0.36, 0.6), (0.26, 0.56)]), pt), &solid(rgba(232, 196, 150, 255)));
-    pm.fill(tf(u.poly(&[(0.3, 0.538), (0.3, 0.582), (0.26, 0.56)]), pt), &solid(rgba(50, 50, 56, 255)));
-    pm.fill(tf(u.rr(0.86, 0.52, 0.04, 0.08, 0.0), pt), &tpaint(linear(0.0, u.py(0.52), 0.0, u.py(0.6), &[(0.0, rgba(230, 232, 236, 255)), (1.0, rgba(140, 142, 150, 255))]), pt));
-    pm.fill(tf(u.rr(0.9, 0.52, 0.05, 0.08, 0.02), pt), &solid(rgba(236, 120, 130, 255)));
-}
 
 /// Lembretes: três notas adesivas coloridas, a de cima com rabisco e um alfinete.
 pub(crate) fn notes(pm: &mut Canvas, x: f32, y: f32, s: f32) {
@@ -857,53 +698,6 @@ pub(crate) fn camera(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(u.rr(0.14, 0.31, 0.16, 0.07, 0.01), &solid(rgba(120, 122, 130, 255)), u.lw(0.005));
 }
 
-/// Xadrez: torre de madeira escura envernizada sobre um tabuleiro inclinado.
-pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    // Tabuleiro em perspectiva (losango achatado) com casas.
-    let board = u.poly(&[(0.5, 0.56), (0.96, 0.74), (0.5, 0.94), (0.04, 0.74)]);
-    soft_shadow(pm, board.clone(), s, 0.8);
-    pm.fill(board.clone(), &solid(rgba(236, 226, 206, 255)));
-    let n = 4;
-    let mut dark = PathBuilder::new();
-    for i in 0..n {
-        for j in 0..n {
-            if (i + j) % 2 == 0 {
-                continue;
-            }
-            let p = |a: f32, b: f32| (0.5 + (a - b) * 0.46 / n as f32, 0.56 + (a + b) * 0.19 / n as f32);
-            let (a, b) = (i as f32, j as f32);
-            let q = [p(a, b), p(a + 1.0, b), p(a + 1.0, b + 1.0), p(a, b + 1.0)];
-            dark.move_to(u.px(q[0].0), u.py(q[0].1));
-            for k in &q[1..] {
-                dark.line_to(u.px(k.0), u.py(k.1));
-            }
-            dark.close();
-        }
-    }
-    pm.fill_clipped(dark.finish(), &solid(rgba(120, 80, 50, 255)), board.clone());
-    pm.stroke(board, &solid(rgba(90, 60, 36, 255)), u.lw(0.008));
-    // Torre: base, corpo, ameias
-    let wood = linear(u.px(0.34), 0.0, u.px(0.66), 0.0, &[(0.0, rgba(40, 24, 14, 255)), (0.35, rgba(130, 84, 50, 255)), (0.55, rgba(70, 42, 24, 255)), (1.0, rgba(24, 14, 8, 255))]);
-    let shapes = [
-        u.ov(0.3, 0.68, 0.4, 0.1),
-        u.rr(0.32, 0.62, 0.36, 0.1, 0.03),
-        u.poly(&[(0.38, 0.62), (0.62, 0.62), (0.58, 0.3), (0.42, 0.3)]),
-        u.rr(0.36, 0.22, 0.28, 0.1, 0.02),
-    ];
-    for p in shapes {
-        pm.fill(p.clone(), &wood);
-        pm.stroke(p, &solid(rgba(20, 10, 4, 255)), u.lw(0.006));
-    }
-    let mut cren = PathBuilder::new();
-    for k in 0..3 {
-        let xx = 0.37 + k as f32 * 0.1;
-        cren.push_rect(tiny_skia::Rect::from_xywh(u.px(xx), u.py(0.15), u.d(0.06), u.d(0.08)).unwrap());
-    }
-    pm.fill(cren.finish(), &wood);
-    // Verniz: brilho vertical
-    pm.fill(u.rr(0.44, 0.26, 0.04, 0.42, 0.02), &solid(rgba(255, 230, 200, 60)));
-}
 
 /// Vídeo: claquete de cinema com listras, dobradiça e o topo um pouco aberto.
 pub(crate) fn video(pm: &mut Canvas, x: f32, y: f32, s: f32) {
@@ -1027,48 +821,22 @@ fn book(pm: &mut Canvas, u: U, cover: Color, ang: f32) -> (Option<Path>, Transfo
     (c, t)
 }
 
-/// Dicionário: livro azul-marinho com "Az" dourado e fita.
+/// Dicionário: livro de couro vinho com "Aa" dourado, moldura dupla e fita.
 pub(crate) fn dictionary(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    let (_, t) = book(pm, u, rgba(30, 50, 110, 255), -4.0);
+    let (_, t) = book(pm, u, rgba(130, 22, 28, 255), -4.0);
     let gold = rgba(240, 200, 100, 255);
     pm.stroke(tf(u.rr(0.34, 0.2, 0.38, 0.3, 0.02), t), &solid(gold), u.lw(0.01));
+    pm.stroke(tf(u.rr(0.32, 0.18, 0.42, 0.34, 0.025), t), &solid(gold), u.lw(0.004));
+    pm.stroke(tf(u.rr(0.3, 0.6, 0.46, 0.012, 0.0), t), &solid(gold), u.lw(0.004));
     if s >= 24.0 {
         let px = u.d(0.2);
-        let tw = fonts.measure("Az", px, true);
-        fonts.draw(pm, "Az", u.px(0.53) - tw / 2.0, u.py(0.42), px, true, gold);
+        let tw = fonts.measure("Aa", px, true);
+        fonts.draw(pm, "Aa", u.px(0.53) - tw / 2.0, u.py(0.42), px, true, gold);
     }
     pm.fill(tf(u.poly(&[(0.6, 0.9), (0.65, 0.9), (0.65, 0.99), (0.625, 0.96), (0.6, 0.99)]), t), &solid(rgba(200, 160, 40, 255)));
 }
 
-/// Livro de Fontes: livro aberto com letras de estilos diferentes nas páginas.
-pub(crate) fn font_book(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    let left = u.poly(&[(0.06, 0.24), (0.5, 0.3), (0.5, 0.86), (0.06, 0.8)]);
-    let right = u.poly(&[(0.5, 0.3), (0.94, 0.24), (0.94, 0.8), (0.5, 0.86)]);
-    let cover = u.poly(&[(0.03, 0.26), (0.5, 0.33), (0.97, 0.26), (0.97, 0.84), (0.5, 0.91), (0.03, 0.84)]);
-    soft_shadow(pm, cover.clone(), s, 1.0);
-    pm.fill(cover, &solid(rgba(120, 40, 30, 255)));
-    for (p, l) in [(left, true), (right, false)] {
-        let (x0, x1) = if l { (u.px(0.06), u.px(0.5)) } else { (u.px(0.94), u.px(0.5)) };
-        pm.fill(p.clone(), &linear(x0, 0.0, x1, 0.0, &[(0.0, rgba(255, 252, 244, 255)), (0.85, rgba(240, 234, 220, 255)), (1.0, rgba(200, 192, 176, 255))]));
-        pm.stroke(p, &solid(rgba(170, 160, 140, 255)), u.lw(0.005));
-    }
-    if s >= 28.0 {
-        let px = u.d(0.26);
-        fonts.draw(pm, "A", u.px(0.16), u.py(0.66), px, true, rgba(40, 36, 32, 255));
-        fonts.draw(pm, "g", u.px(0.62), u.py(0.62), px * 0.9, false, rgba(150, 30, 26, 255));
-        let mut lines = PathBuilder::new();
-        for k in 0..3 {
-            let yy = 0.7 + k as f32 * 0.04;
-            lines.move_to(u.px(0.14), u.py(yy));
-            lines.line_to(u.px(0.42), u.py(yy + 0.012));
-            lines.move_to(u.px(0.58), u.py(yy + 0.012));
-            lines.line_to(u.px(0.86), u.py(yy));
-        }
-        pm.stroke(lines.finish(), &solid(rgba(150, 144, 130, 200)), u.lw(0.006));
-    }
-}
 
 /// Metal torneado (aço polido): anéis concêntricos finos claros e escuros dentro de `clip`.
 pub(crate) fn spun_metal(pm: &mut Canvas, clip: Option<Path>, u: U, cx: f32, cy: f32, r: f32, seed: u32) {
@@ -1093,63 +861,6 @@ pub(crate) fn spun_metal(pm: &mut Canvas, clip: Option<Path>, u: U, cx: f32, cy:
     }
 }
 
-/// Preferências: duas engrenagens de aço polido engatadas, com chanfro nos dentes,
-/// reflexo forte em faixas e o cubo torneado.
-pub(crate) fn gears(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    let gear = |pm: &mut Canvas, cx: f32, cy: f32, r: f32, teeth: usize, rot: f32, seed: u32| {
-        // Dentes trapezoidais (mais largos na base).
-        let mut pb = PathBuilder::new();
-        let step = std::f32::consts::TAU / teeth as f32;
-        let at = |a: f32, rr: f32| (u.px(cx) + a.cos() * u.d(rr), u.py(cy) + a.sin() * u.d(rr));
-        for i in 0..teeth {
-            let a0 = rot + i as f32 * step;
-            let pts = [at(a0, r * 0.8), at(a0 + step * 0.12, r), at(a0 + step * 0.42, r), at(a0 + step * 0.54, r * 0.8)];
-            for (k, p) in pts.iter().enumerate() {
-                if i == 0 && k == 0 {
-                    pb.move_to(p.0, p.1);
-                } else {
-                    pb.line_to(p.0, p.1);
-                }
-            }
-        }
-        pb.close();
-        // Furo do meio
-        pb.push_circle(u.px(cx), u.py(cy), u.d(r * 0.22));
-        let g = pb.finish();
-        soft_shadow(pm, g.clone(), u.s, 0.9);
-        // Espessura: a mesma forma deslocada para baixo, em aço escuro.
-        if let Some(side) = g.clone().and_then(|p| p.transform(Transform::from_translate(0.0, u.d(0.035)))) {
-            pm.fill_rule(Some(side), &vgrad(u.py(cy - r), u.py(cy + r), &[(0.0, rgba(110, 114, 124, 255)), (1.0, rgba(54, 56, 64, 255))]), tiny_skia::FillRule::EvenOdd);
-        }
-        // Face: aço com faixas de reflexo (claro, escuro, claro) na diagonal.
-        let face = linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[
-            (0.0, rgba(255, 255, 255, 255)),
-            (0.22, rgba(196, 200, 210, 255)),
-            (0.4, rgba(120, 124, 136, 255)),
-            (0.52, rgba(236, 238, 244, 255)),
-            (0.62, rgba(250, 251, 253, 255)),
-            (0.8, rgba(140, 144, 156, 255)),
-            (1.0, rgba(92, 96, 108, 255)),
-        ]);
-        pm.fill_rule(g.clone(), &face, tiny_skia::FillRule::EvenOdd);
-        let face_clip = u.circ(cx, cy, r * 1.02);
-        spun_metal(pm, face_clip, u, cx, cy, r * 0.78, seed);
-        // Chanfro: aro claro em cima à esquerda, escuro embaixo à direita.
-        let ring = u.circ(cx, cy, r * 0.72);
-        pm.stroke(ring.clone(), &linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[(0.0, rgba(255, 255, 255, 200)), (0.5, rgba(255, 255, 255, 0)), (1.0, rgba(0, 0, 0, 90))]), u.lw(0.012));
-        pm.stroke(g, &solid(rgba(56, 58, 68, 255)), u.lw(0.007));
-        // Cubo polido com o aro e o furo.
-        let hub = u.circ(cx, cy, r * 0.38);
-        pm.fill(hub.clone(), &linear(u.px(cx + r * 0.4), u.py(cy + r * 0.4), u.px(cx - r * 0.4), u.py(cy - r * 0.4), &[(0.0, rgba(252, 252, 254, 255)), (0.5, rgba(160, 164, 176, 255)), (1.0, rgba(232, 234, 240, 255))]));
-        pm.stroke(hub, &solid(rgba(80, 82, 92, 200)), u.lw(0.006));
-        let hole = u.circ(cx, cy, r * 0.2);
-        pm.fill(hole.clone(), &radial(u.px(cx), u.py(cy - r * 0.08), u.d(r * 0.3), &[(0.0, rgba(70, 72, 82, 255)), (1.0, rgba(24, 24, 30, 255))]));
-        pm.fill(u.ov(cx - r * 0.12, cy + r * 0.12, r * 0.24, r * 0.06), &solid(rgba(255, 255, 255, 90)));
-    };
-    gear(pm, 0.62, 0.6, 0.31, 11, 0.1, 3);
-    gear(pm, 0.32, 0.32, 0.25, 9, 0.32, 9);
-}
 
 // ---------------------------------------------------------------------------
 // Terceiro lote (9.11.4): documentos, tipos de arquivo, discos e servidores

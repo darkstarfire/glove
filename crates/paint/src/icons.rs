@@ -163,8 +163,8 @@ pub enum FolderKind {
 impl Icon {
     /// Já redesenhado na linguagem do Tiger (Fase 9.11): traz a própria sombra.
     pub fn tiger_style(self) -> bool {
-        // Todos, menos os dos temas do sistema e a Música (aprovada como estava).
-        !matches!(self, Icon::System(_) | Icon::Music)
+        // Todos, menos os dos temas do sistema.
+        !matches!(self, Icon::System(_))
     }
 
     pub fn from_name(s: &str) -> Self {
@@ -443,22 +443,22 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Folder => folder(pm, x, y, s),
         Icon::Files => crate::tiger_real::files_app(pm, x, y, s),
         Icon::Globe => crate::tiger_real::compass(pm, fonts, x, y, s),
-        Icon::TextEditor => crate::tiger::editor(pm, x, y, s),
+        Icon::TextEditor => crate::tiger_real::editor(pm, x, y, s),
         Icon::Calculator => crate::tiger::calculator(pm, fonts, x, y, s),
-        Icon::Settings => crate::tiger::gears(pm, x, y, s),
+        Icon::Settings => crate::tiger_real::settings(pm, x, y, s),
         Icon::Window => crate::tiger_prefs::window(pm, fonts, x, y, s, letter),
         Icon::System(_) => window(pm, fonts, x, y, s, letter),
         Icon::Generic => crate::tiger_prefs::generic(pm, fonts, x, y, s, letter),
         Icon::Clock(h, m) => crate::tiger::clock(pm, fonts, x, y, s, h, m),
-        Icon::Trash => crate::tiger::trash(pm, x, y, s, 0),
-        Icon::TrashFull(n) => crate::tiger::trash(pm, x, y, s, n),
+        Icon::Trash => crate::tiger_real::trash(pm, x, y, s, 0),
+        Icon::TrashFull(n) => crate::tiger_real::trash(pm, x, y, s, n),
         Icon::Eject => crate::tiger::eject(pm, x, y, s),
         Icon::Removable => crate::tiger::removable(pm, x, y, s),
         Icon::Optical => crate::tiger::optical(pm, x, y, s),
         Icon::Server => crate::tiger::server(pm, x, y, s),
         Icon::NetUtility => crate::tiger_prefs::net_utility(pm, x, y, s),
-        Icon::Viewer => crate::tiger_prefs::viewer(pm, x, y, s),
-        Icon::DiskUtility => crate::tiger_prefs::disk_utility(pm, x, y, s),
+        Icon::Viewer => crate::tiger_real::viewer(pm, x, y, s),
+        Icon::DiskUtility => crate::tiger_real::disk_utility(pm, x, y, s),
         Icon::Archiver => crate::tiger_prefs::archiver(pm, x, y, s),
         Icon::Disk => crate::tiger_real::disk(pm, x, y, s),
         Icon::Document => crate::tiger::document(pm, x, y, s, true),
@@ -467,10 +467,10 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Notes => crate::tiger::notes(pm, x, y, s),
         Icon::Search => crate::tiger::search(pm, x, y, s),
         Icon::Chars => crate::tiger::chars(pm, fonts, x, y, s),
-        Icon::Camera => crate::tiger::camera(pm, x, y, s),
+        Icon::Camera => crate::tiger_real::capture(pm, x, y, s),
         Icon::Monitor => crate::tiger_real::activity(pm, x, y, s),
-        Icon::Chess => crate::tiger::chess(pm, x, y, s),
-        Icon::Music => music(pm, x, y, s),
+        Icon::Chess => crate::tiger_real::chess(pm, x, y, s),
+        Icon::Music => crate::tiger_real::music(pm, x, y, s),
         Icon::Contacts => crate::tiger::contacts(pm, x, y, s),
         Icon::Calendar => {
             // Mês e dia de hoje no horário local.
@@ -488,7 +488,7 @@ fn draw_raw(pm: &mut Canvas, fonts: &Fonts, icon: Icon, x: f32, y: f32, s: f32, 
         Icon::Help => crate::tiger::help(pm, fonts, x, y, s),
         Icon::Dictionary => crate::tiger::dictionary(pm, fonts, x, y, s),
         Icon::Keychain => crate::tiger_prefs::keychain(pm, x, y, s),
-        Icon::FontBook => crate::tiger::font_book(pm, fonts, x, y, s),
+        Icon::FontBook => crate::tiger_real::font_book(pm, fonts, x, y, s),
         Icon::Clip => crate::tiger_prefs::clip(pm, x, y, s),
         Icon::Mail => crate::tiger::mail(pm, x, y, s),
         Icon::Display => crate::tiger::display_pref(pm, x, y, s),
@@ -916,34 +916,6 @@ fn pref_icon(pm: &mut Canvas, fonts: &Fonts, k: PrefKind, x: f32, y: f32, s: f32
         PrefKind::Expose => p::expose(pm, x, y, s),
     }
 }
-
-/// Disco prateado com reflexo de arco-íris e uma nota azul na frente.
-fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let lw = (s / 64.0).max(1.0);
-    let (cx, cy, r) = (x + s * 0.46, y + s * 0.5, s * 0.4);
-    pm.fill(circle(cx + s * 0.01, cy + s * 0.03, r), &solid(rgba(0, 0, 0, 50)));
-    pm.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(250, 250, 252, 255)), (0.3, rgba(200, 220, 250, 255)), (0.5, rgba(250, 230, 200, 255)), (0.7, rgba(210, 240, 220, 255)), (1.0, rgba(190, 196, 210, 255))]));
-    pm.stroke(circle(cx, cy, r), &solid(rgba(130, 134, 146, 255)), lw);
-    pm.fill(circle(cx, cy, r * 0.28), &solid(rgba(215, 218, 226, 255)));
-    pm.stroke(circle(cx, cy, r * 0.28), &solid(rgba(150, 154, 164, 255)), lw);
-    pm.fill(circle(cx, cy, r * 0.1), &solid(rgba(255, 255, 255, 255)));
-    // Nota (colcheia dupla) em azul.
-    let ink = solid(rgba(30, 90, 200, 255));
-    let (nx, ny) = (x + s * 0.58, y + s * 0.5);
-    pm.fill(oval(nx - s * 0.02, ny + s * 0.24, s * 0.16, s * 0.12), &ink);
-    pm.fill(oval(nx + s * 0.22, ny + s * 0.18, s * 0.16, s * 0.12), &ink);
-    pm.fill_rect(nx + s * 0.12, ny - s * 0.12, s * 0.04, s * 0.42, &ink);
-    pm.fill_rect(nx + s * 0.36, ny - s * 0.18, s * 0.04, s * 0.42, &ink);
-    let mut pb = PathBuilder::new();
-    pb.move_to(nx + s * 0.12, ny - s * 0.12);
-    pb.line_to(nx + s * 0.4, ny - s * 0.18);
-    pb.line_to(nx + s * 0.4, ny - s * 0.08);
-    pb.line_to(nx + s * 0.12, ny - s * 0.02);
-    pb.close();
-    pm.fill(pb.finish(), &ink);
-}
-
-
 
 /// Ícone de um arquivo pela extensão (o mesmo critério do Arquivos); pastas = `Folder`.
 pub fn file_icon(path: &std::path::Path, is_dir: bool) -> Icon {

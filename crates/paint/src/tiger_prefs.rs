@@ -770,45 +770,7 @@ pub(crate) fn net_utility(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(scr, &solid(rgba(30, 30, 36, 255)), u.lw(0.007));
 }
 
-/// Visualizador: duas fotos e a lupa de vidro em cima.
-pub(crate) fn viewer(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    crate::tiger::picture(pm, x - s * 0.04, y - s * 0.06, s * 0.9);
-    let (cx, cy, r) = (0.66, 0.62, 0.17);
-    let t = Transform::from_rotate_at(45.0, u.px(0.82), u.py(0.82));
-    let handle = tf(u.rr(0.74, 0.78, 0.24, 0.08, 0.04), t);
-    soft_shadow(pm, handle.clone(), s, 0.8);
-    pm.fill(handle, &solid(rgba(30, 30, 36, 255)));
-    pm.fill(u.circ(cx, cy, r + 0.035), &linear(u.px(cx - r), u.py(cy - r), u.px(cx + r), u.py(cy + r), &[(0.0, rgba(255, 255, 255, 255)), (0.5, rgba(140, 144, 154, 255)), (1.0, rgba(220, 222, 228, 255))]));
-    let lens = u.circ(cx, cy, r);
-    pm.fill(lens.clone(), &radial(u.px(cx), u.py(cy), u.d(r), &[(0.0, rgba(236, 246, 255, 90)), (0.8, rgba(170, 205, 245, 150)), (1.0, rgba(60, 90, 150, 220))]));
-    let mut moon = PathBuilder::new();
-    moon.push_circle(u.px(cx), u.py(cy), u.d(r * 0.9));
-    moon.push_circle(u.px(cx + r * 0.2), u.py(cy + r * 0.24), u.d(r * 0.86));
-    pm.fill_rule(moon.finish(), &solid(rgba(255, 255, 255, 200)), tiny_skia::FillRule::EvenOdd);
-    pm.stroke(lens, &solid(rgba(50, 54, 66, 255)), u.lw(0.007));
-}
 
-/// Utilitário de Disco: o HD com a chave inglesa cromada atravessada.
-pub(crate) fn disk_utility(pm: &mut Canvas, x: f32, y: f32, s: f32) {
-    let u = U { x, y, s };
-    crate::tiger_real::disk(pm, x, y, s);
-    let t = Transform::from_rotate_at(-40.0, u.px(0.5), u.py(0.5));
-    let mut pb = PathBuilder::new();
-    if let Some(r) = rect(u, 0.22, 0.46, 0.52, 0.08) {
-        pb.push_rect(r);
-    }
-    pb.push_circle(u.px(0.2), u.py(0.5), u.d(0.12));
-    pb.push_circle(u.px(0.8), u.py(0.5), u.d(0.1));
-    let body = tf(pb.finish(), t);
-    soft_shadow(pm, body.clone(), s, 1.0);
-    pm.fill(body.clone(), &tpaint(vgrad(u.py(0.38), u.py(0.62), &[(0.0, rgba(255, 255, 255, 255)), (0.45, rgba(170, 174, 184, 255)), (1.0, rgba(100, 104, 114, 255))]), t));
-    pm.stroke(body, &solid(rgba(60, 62, 72, 255)), u.lw(0.007));
-    // Bocas da chave (os cortes)
-    for (cx, w) in [(0.12, 0.1), (0.88, 0.08)] {
-        pm.fill(tf(u.rr(cx - w / 2.0, 0.47, w, 0.06, 0.0), t), &solid(rgba(236, 236, 236, 255)));
-    }
-}
 
 /// Utilitário de Arquivo: caixa de papelão com o zíper de metal na tampa.
 pub(crate) fn archiver(pm: &mut Canvas, x: f32, y: f32, s: f32) {

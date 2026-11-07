@@ -430,7 +430,14 @@ material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar fo
   rosto em dois tons do Arquivos (perfil com nariz olhando para a direita, olhos redondos, sem traço
   preto). Correção: a janela que o app pede para abrir maximizada (porque fechou assim) agora ocupa a
   área útil certinha, e "restaurar" a devolve a 2/3 da tela, centralizada
-- [ ] 9.12.2 O mesmo acabamento nos outros ícones, em lotes (M)
+- [x] 9.12.2 Segundo lote, pelas referências do Tiger e do Mac (M) — v0.9.17: Preferências (placa de
+  alumínio escovado com o poço e a engrenagem de cinco raios); Utilitário de Disco (o HD com um
+  estetoscópio; os discos nas outras telas continuam só o HD); Lixo de tela preta em losangos com aro e
+  cinta cromados (o enchimento de papéis continua igual); Música (CD com a nota de vidro verde);
+  Editor (carta escrita com caneta-tinteiro); Xadrez (cavalo de estanho no tabuleiro); Fontes ("F"
+  serifado de metal com tipos móveis); Visualizador (fotos com a lupa de joalheiro); Captura (câmera
+  sobre fotos impressas); Dicionário em couro vinho com "Aa"
+- [ ] 9.12.3 Os ícones que ainda faltam no acabamento novo (Contatos, Correio, Agenda, painéis), em lotes (M)
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
