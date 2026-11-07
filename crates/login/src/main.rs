@@ -5,6 +5,7 @@
 //! `glove-login --fake` simula o greetd (senha "glove"), para testar numa janela.
 //! O comando da sessão vem de $GLOVE_SESSION (padrão: glove-session).
 
+use glove_config::tr;
 mod greetd;
 mod sessoes;
 mod users;
@@ -82,7 +83,7 @@ impl Login {
             let r = if fake {
                 std::thread::sleep(Duration::from_millis(700));
                 eprintln!("glove-login (--fake): sessão {cmd:?} {env:?}");
-                if password == "glove" { Ok(()) } else { Err("Senha incorreta.".into()) }
+                if password == "glove" { Ok(()) } else { Err(tr!("Senha incorreta.").into()) }
             } else {
                 greetd::log_in(&user, &password, &cmd, &env)
             };
@@ -193,7 +194,7 @@ impl App for Login {
                         }
                         None => {
                             picture(ui, None, r.x + 8.0, r.y + 6.0, 32.0);
-                            "Outro…".to_string()
+                            tr!("Outro…").to_string()
                         }
                     };
                     ui.fonts.draw(ui.c, &name, r.x + 52.0, r.y + 27.0, 14.0, true, text_c);
@@ -221,7 +222,7 @@ impl App for Login {
                         y += 106.0;
                     }
                     None => {
-                        { let lw = ui.text_width("Nome:", 13.0, false); ui.fonts.draw(ui.c, "Nome:", cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
+                        { let lw = ui.text_width(tr!("Nome:"), 13.0, false); ui.fonts.draw(ui.c, tr!("Nome:"), cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
                         let mut name = std::mem::take(&mut self.other_name);
                         ui.area(Rect::new(cx - 100.0, y, 250.0, 24.0), |ui| {
                             ui.text_field(&mut name, 250.0);
@@ -230,7 +231,7 @@ impl App for Login {
                         y += 40.0;
                     }
                 }
-                { let lw = ui.text_width("Senha:", 13.0, false); ui.fonts.draw(ui.c, "Senha:", cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
+                { let lw = ui.text_width(tr!("Senha:"), 13.0, false); ui.fonts.draw(ui.c, tr!("Senha:"), cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
                 ui.set_enabled(!busy);
                 let focus = std::mem::take(&mut self.focus_password);
                 let mut pw = std::mem::take(&mut self.password);
@@ -242,7 +243,7 @@ impl App for Login {
                 y += 34.0;
                 // Ambiente gráfico (só aparece com mais de um instalado).
                 if self.sessions.len() > 1 {
-                    { let lw = ui.text_width("Sessão:", 13.0, false); ui.fonts.draw(ui.c, "Sessão:", cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
+                    { let lw = ui.text_width(tr!("Sessão:"), 13.0, false); ui.fonts.draw(ui.c, tr!("Sessão:"), cx - 108.0 - lw, y + 16.0, 13.0, false, ink); }
                     let names: Vec<String> = self.sessions.iter().map(|s| s.name.clone()).collect();
                     let mut i = self.session_idx;
                     ui.area(Rect::new(cx - 100.0, y, 250.0, 24.0), |ui| {
@@ -257,12 +258,12 @@ impl App for Login {
                 if busy {
                     ui.set_enabled(true);
                     ui.spinner_at(cx - 60.0, y + 44.0, 16.0);
-                    ui.fonts.draw(ui.c, "Entrando…", cx - 46.0, y + 48.0, 13.0, false, ink);
+                    ui.fonts.draw(ui.c, tr!("Entrando…"), cx - 46.0, y + 48.0, 13.0, false, ink);
                 } else {
                     let mut back = false;
                     let mut go = enter;
-                    ui.area(Rect::new(cx - 100.0, y + 30.0, 110.0, 24.0), |ui| back = ui.button("Voltar"));
-                    ui.area(Rect::new(cx + 30.0, y + 30.0, 120.0, 24.0), |ui| go |= ui.default_button("Entrar"));
+                    ui.area(Rect::new(cx - 100.0, y + 30.0, 110.0, 24.0), |ui| back = ui.button(tr!("Voltar")));
+                    ui.area(Rect::new(cx + 30.0, y + 30.0, 120.0, 24.0), |ui| go |= ui.default_button(tr!("Entrar")));
                     if back || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
                         self.screen = Screen::List;
                         self.password.clear();
@@ -276,7 +277,7 @@ impl App for Login {
         }
 
         // Repouso, Reiniciar e Desligar (botões redondos com nome embaixo).
-        let labels = [("Repouso", "suspend"), ("Reiniciar", "reboot"), ("Desligar", "poweroff")];
+        let labels = [(tr!("Repouso"), "suspend"), (tr!("Reiniciar"), "reboot"), (tr!("Desligar"), "poweroff")];
         let by = H - 74.0;
         for (k, (label, verb)) in labels.iter().enumerate() {
             let bx = w / 2.0 + (k as f32 - 1.0) * 96.0;
@@ -359,7 +360,7 @@ pub fn main() {
     let sessions = sessoes::list(&session);
     let session_idx = sessoes::last().and_then(|(id, x11)| sessions.iter().position(|s| s.id == id && s.x11 == x11)).unwrap_or(0);
     let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session, sessions, session_idx };
-    let opts = WindowOptions { title: "Entrar".into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Entrar").into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-login: {e}");
         std::process::exit(1);

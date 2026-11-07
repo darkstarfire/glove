@@ -1,6 +1,7 @@
 //! "Sobre o Glove": logotipo, versão, memória e processador, como o "Sobre este computador"
 //! do 10.2/10.3. "Mais informações…" abre o Monitor.
 
+use glove_config::tr;
 use glove_kit::{paint::draw::*, run, ui::Key, App, Rect, Ui, WindowOptions};
 
 const W: f32 = 300.0;
@@ -26,17 +27,17 @@ impl App for About {
         };
         center(ui, "Glove", 150.0, 30.0, true, rgba(20, 20, 20, 255));
         center(ui, concat!("Versão ", env!("CARGO_PKG_VERSION")), 170.0, 11.0, false, rgba(60, 60, 60, 255));
-        center(ui, &format!("Memória: {}", self.memory), 202.0, 13.0, false, rgba(20, 20, 20, 255));
-        center(ui, &format!("Processador: {}", self.processor), 221.0, 13.0, false, rgba(20, 20, 20, 255));
+        center(ui, &tr!("Memória: {}", self.memory), 202.0, 13.0, false, rgba(20, 20, 20, 255));
+        center(ui, &tr!("Processador: {}", self.processor), 221.0, 13.0, false, rgba(20, 20, 20, 255));
 
-        let label = "Mais informações…";
+        let label = tr!("Mais informações…");
         let bw = (ui.text_width(label, 13.0, false) + 32.0).ceil();
         ui.area(Rect::new(((w - bw) / 2.0).round(), 240.0, bw, 24.0), |ui| {
             if ui.button(label) {
                 let _ = std::process::Command::new(sibling("glove-monitor")).spawn();
             }
         });
-        center(ui, "Software livre · GPL-3.0 ou posterior", 292.0, 10.0, false, rgba(70, 70, 70, 255));
+        center(ui, tr!("Software livre · GPL-3.0 ou posterior"), 292.0, 10.0, false, rgba(70, 70, 70, 255));
         if ui.keys().iter().any(|k| matches!(k.key, Key::Escape | Key::Enter)) {
             ui.close = true;
         }
@@ -71,14 +72,14 @@ fn memory_mib() -> Option<u64> {
 fn format_memory(mib: u64) -> String {
     let mib = mib.div_ceil(256) * 256;
     if mib < 1024 {
-        return format!("{mib} MB");
+        return tr!("{} MB", mib);
     }
     // O sistema reserva uma parte; a partir de 4 GB mostra o valor inteiro da placa.
     if mib >= 4096 {
         return format!("{} GB", mib.div_ceil(1024));
     }
     let tenths = (mib * 10 + 512) / 1024;
-    if tenths % 10 == 0 { format!("{} GB", tenths / 10) } else { format!("{},{} GB", tenths / 10, tenths % 10) }
+    if tenths % 10 == 0 { format!("{} GB", tenths / 10) } else { format!("{}{}{} GB", tenths / 10, glove_config::virgula(), tenths % 10) }
 }
 
 /// Nome do processador sem as marcas registradas e sem a frequência (que vem à parte).
@@ -105,7 +106,7 @@ fn format_freq(khz: u64) -> String {
         return format!("{mhz} MHz");
     }
     let tenths = (mhz + 50) / 100;
-    if tenths % 10 == 0 { format!("{} GHz", tenths / 10) } else { format!("{},{} GHz", tenths / 10, tenths % 10) }
+    if tenths % 10 == 0 { format!("{} GHz", tenths / 10) } else { format!("{}{}{} GHz", tenths / 10, glove_config::virgula(), tenths % 10) }
 }
 
 fn processor() -> String {
@@ -141,8 +142,8 @@ impl App for AppAbout {
         };
         center(ui, &self.name.clone(), 116.0, 14.0, true, rgba(20, 20, 20, 255));
         center(ui, concat!("Versão ", env!("CARGO_PKG_VERSION")), 136.0, 11.0, false, rgba(60, 60, 60, 255));
-        center(ui, "Parte do Glove", 166.0, 11.0, false, rgba(60, 60, 60, 255));
-        center(ui, "Software livre · GPL-3.0 ou posterior", 182.0, 10.0, false, rgba(90, 90, 90, 255));
+        center(ui, tr!("Parte do Glove"), 166.0, 11.0, false, rgba(60, 60, 60, 255));
+        center(ui, tr!("Software livre · GPL-3.0 ou posterior"), 182.0, 10.0, false, rgba(90, 90, 90, 255));
         if ui.keys().iter().any(|k| matches!(k.key, Key::Escape | Key::Enter)) {
             ui.close = true;
         }
@@ -162,7 +163,7 @@ pub fn main() {
         return;
     }
     let about = About { memory: memory_mib().map(format_memory).unwrap_or_else(|| "—".into()), processor: processor() };
-    let opts = WindowOptions { title: "Sobre o Glove".into(), app_id: "glove.About".into(), size: (W as u32, 310), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Sobre o Glove").into(), app_id: "glove.About".into(), size: (W as u32, 310), fixed: true, min_size: None };
     if let Err(e) = run(opts, about) {
         eprintln!("glove-about: {e}");
     }
@@ -177,7 +178,7 @@ mod tests {
         assert_eq!(format_memory(32640), "32 GB");
         assert_eq!(format_memory(31805), "32 GB");
         assert_eq!(format_memory(7820), "8 GB");
-        assert_eq!(format_memory(1536), "1,5 GB");
+        assert_eq!(format_memory(1536), format!("1{}5 GB", glove_config::virgula()));
         assert_eq!(format_memory(480), "512 MB");
     }
 
@@ -187,7 +188,7 @@ mod tests {
         assert_eq!(clean_cpu_name("Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz"), "Intel Core i5-8250U");
         assert_eq!(clean_cpu_name("AMD Ryzen 7 5800H with Radeon Graphics"), "AMD Ryzen 7 5800H");
         assert_eq!(clean_cpu_name("AMD Ryzen 5 3600 6-Core Processor"), "AMD Ryzen 5 3600");
-        assert_eq!(format_freq(4_600_000), "4,6 GHz");
+        assert_eq!(format_freq(4_600_000), format!("4{}6 GHz", glove_config::virgula()));
         assert_eq!(format_freq(2_000_000), "2 GHz");
         assert_eq!(format_freq(700_000), "700 MHz");
     }

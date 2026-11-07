@@ -2,6 +2,7 @@
 //! partições (lsblk), à direita as informações da escolhida, o espaço usado e
 //! os botões Abrir, Montar e Ejetar (udisksctl, sem precisar de root).
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -90,17 +91,17 @@ fn sibling(name: &str) -> PathBuf {
 /// Nome para a lista: rótulo, modelo ou o "Sistema" do disco do /.
 fn display(d: &Dev) -> String {
     if d.mount == "/" {
-        return "Sistema".into();
+        return tr!("Sistema").into();
     }
     if !d.label.is_empty() {
         return d.label.clone();
     }
     if d.kind == "disk" {
         let size = gb(d.size);
-        return if d.model.is_empty() { format!("Disco de {size}") } else { format!("{size} {}", d.model) };
+        return if d.model.is_empty() { tr!("Disco de {}", size) } else { format!("{size} {}", d.model) };
     }
     if d.mount == "/boot/efi" {
-        return "Partição EFI".into();
+        return tr!("Partição EFI").into();
     }
     d.name.clone()
 }
@@ -110,8 +111,8 @@ fn connection(t: &str) -> &str {
         "usb" => "USB",
         "sata" | "ata" => "SATA",
         "nvme" => "NVMe",
-        "mmc" => "Cartão / eMMC",
-        "" => "Interna",
+        "mmc" => tr!("Cartão / eMMC"),
+        "" => tr!("Interna"),
         o => o,
     }
 }
@@ -133,9 +134,9 @@ impl Disks {
             Ok(o) => {
                 let e = String::from_utf8_lossy(&o.stderr);
                 let e = e.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string();
-                self.message = Some(if e.contains("NotAuthorized") { "O sistema pediu permissão de administrador e ela não foi dada.".into() } else { format!("Não deu certo: {e}") });
+                self.message = Some(if e.contains("NotAuthorized") { "O sistema pediu permissão de administrador e ela não foi dada.".into() } else { tr!("Não deu certo: {}", e) });
             }
-            Err(e) => self.message = Some(format!("Não foi possível usar o udisksctl: {e}")),
+            Err(e) => self.message = Some(tr!("Não foi possível usar o udisksctl: {}", e)),
         }
         self.devs = read_devs();
     }
@@ -173,32 +174,32 @@ impl Disks {
     /// Painel da direita: informações, espaço e botões.
     fn details(&mut self, ui: &mut Ui, r: Rect) {
         let Some(d) = self.current() else {
-            ui.fonts.draw(ui.c, "Escolha um disco ou uma partição à esquerda.", r.x + 20.0, r.y + 40.0, 13.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Escolha um disco ou uma partição à esquerda."), r.x + 20.0, r.y + 40.0, 13.0, false, rgba(110, 110, 116, 255));
             return;
         };
         let icon = if d.removable { Icon::Disk } else { Icon::Disk };
         icons::draw(ui.c, ui.fonts, icon, r.x + 16.0, r.y + 14.0, 56.0, None);
         ui.fonts.draw(ui.c, &display(&d), r.x + 84.0, r.y + 38.0, 15.0, true, rgba(20, 20, 24, 255));
-        let sub = if d.kind == "disk" { format!("Disco de {}", gb(d.size)) } else { format!("Partição de {}", gb(d.size)) };
+        let sub = if d.kind == "disk" { tr!("Disco de {}", gb(d.size)) } else { tr!("Partição de {}", gb(d.size)) };
         ui.fonts.draw(ui.c, &sub, r.x + 84.0, r.y + 56.0, 11.0, false, rgba(90, 90, 96, 255));
         // Tabela "rótulo: valor".
-        let mut rows: Vec<(&str, String)> = vec![("Dispositivo", format!("/dev/{}", d.name)), ("Capacidade", gb(d.size))];
+        let mut rows: Vec<(&str, String)> = vec![(tr!("Dispositivo"), format!("/dev/{}", d.name)), (tr!("Capacidade"), gb(d.size))];
         if d.kind == "disk" {
-            rows.push(("Conexão", connection(&d.tran).to_string()));
+            rows.push((tr!("Conexão"), connection(&d.tran).to_string()));
             if !d.model.is_empty() {
-                rows.push(("Modelo", d.model.clone()));
+                rows.push((tr!("Modelo"), d.model.clone()));
             }
-            rows.push(("Removível", if d.removable { "Sim".into() } else { "Não".into() }));
+            rows.push((tr!("Removível"), if d.removable { tr!("Sim").into() } else { tr!("Não").into() }));
             let n = self.devs.iter().filter(|x| x.parent == d.name).count();
-            rows.push(("Partições", n.to_string()));
+            rows.push((tr!("Partições"), n.to_string()));
         } else {
-            rows.push(("Formato", if d.fstype.is_empty() { "—".into() } else { d.fstype.clone() }));
-            rows.push(("Montado em", if d.mount.is_empty() { "Não montado".into() } else { d.mount.clone() }));
+            rows.push((tr!("Formato"), if d.fstype.is_empty() { "—".into() } else { d.fstype.clone() }));
+            rows.push((tr!("Montado em"), if d.mount.is_empty() { tr!("Não montado").into() } else { d.mount.clone() }));
         }
         let usage = (!d.mount.is_empty()).then(|| statvfs(Path::new(&d.mount))).flatten();
         if let Some((total, free)) = usage {
-            rows.push(("Disponível", gb(free)));
-            rows.push(("Usado", gb(total.saturating_sub(free))));
+            rows.push((tr!("Disponível"), gb(free)));
+            rows.push((tr!("Usado"), gb(total.saturating_sub(free))));
         }
         let mut y = r.y + 92.0;
         for (k, v) in &rows {
@@ -218,7 +219,7 @@ impl Disks {
             if used > 0.02 {
                 gel_rect(ui.c, bar.x, bar.y, (bar.w * used).max(bar.h), bar.h, 8.0, if used > 0.9 { rgba(230, 70, 60, 255) } else { ui.theme.accent });
             }
-            let t = format!("{} livres de {}", gb(free), gb(total));
+            let t = tr!("{} livres de {}", gb(free), gb(total));
             ui.fonts.draw(ui.c, &t, bar.x, bar.y + 32.0, 11.0, false, rgba(60, 60, 66, 255));
         }
         // Botões.
@@ -230,11 +231,11 @@ impl Disks {
         ui.area(Rect::new(r.x + 16.0, by, r.w - 32.0, 26.0), |ui| {
             ui.horizontal(|ui| {
                 ui.set_active(mounted);
-                open = ui.button("Abrir");
+                open = ui.button(tr!("Abrir"));
                 ui.set_active(can_mount);
                 mount = ui.button("Montar");
                 ui.set_active(can_eject);
-                eject = ui.default_button("Ejetar");
+                eject = ui.default_button(tr!("Ejetar"));
                 ui.set_active(true);
             });
         });
@@ -296,7 +297,7 @@ impl App for Disks {
             icons::draw(ui.c, ui.fonts, Icon::Disk, 8.0 + indent, y + 4.0, 28.0, None);
             let name = ui.fonts.ellipsize(&display(d), 12.0, indent == 0.0, LIST_W - 50.0 - indent);
             ui.fonts.draw(ui.c, &name, 42.0 + indent, y + 16.0, 12.0, indent == 0.0, ink);
-            let sub = if d.kind == "disk" { gb(d.size) } else if d.mount.is_empty() { format!("{} · não montado", gb(d.size)) } else { gb(d.size) };
+            let sub = if d.kind == "disk" { gb(d.size) } else if d.mount.is_empty() { tr!("{} · não montado", gb(d.size)) } else { gb(d.size) };
             ui.fonts.draw(ui.c, &sub, 42.0 + indent, y + 30.0, 10.0, false, if on { Color::WHITE } else { rgba(100, 100, 106, 255) });
             let resp = ui.hit(rr);
             if resp.pressed {
@@ -337,13 +338,13 @@ impl App for Disks {
     fn menus(&self) -> Vec<Menu> {
         let d = self.current();
         vec![Menu::new(
-            "Disco",
+            tr!("Disco"),
             vec![
-                MenuItem::new("open", "Abrir", "Ctrl+O").enabled(d.as_ref().is_some_and(|d| !d.mount.is_empty())),
+                MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(d.as_ref().is_some_and(|d| !d.mount.is_empty())),
                 MenuItem::new("mount", "Montar", "").enabled(d.as_ref().is_some_and(|d| d.kind == "part" && d.mount.is_empty())),
-                MenuItem::new("eject", "Ejetar", "Ctrl+E").enabled(d.is_some()),
+                MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(d.is_some()),
                 MenuItem::Separator,
-                MenuItem::new("close", "Fechar", "Ctrl+W"),
+                MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
             ],
         )]
     }
@@ -353,7 +354,7 @@ pub fn main() {
     let devs = read_devs();
     // Começa no disco do sistema.
     let selected = devs.iter().position(|d| d.mount == "/");
-    let opts = WindowOptions { title: "Discos".into(), app_id: "glove.Disks".into(), size: (640, 440), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Discos").into(), app_id: "glove.Disks".into(), size: (640, 440), fixed: false, min_size: None };
     if let Err(e) = run(opts, Disks { devs, selected, message: None }) {
         eprintln!("glove-disks: {e}");
     }

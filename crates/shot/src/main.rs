@@ -1,6 +1,7 @@
 //! Captura: tira uma foto da tela inteira (na hora ou com atraso).
 //! A janela fecha antes da foto; o Glove salva em ~/Imagens.
 
+use glove_config::tr;
 use glove_kit::{
     paint::{draw::*, icons::{self, Icon}},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
@@ -60,32 +61,32 @@ impl App for Shot {
         }
 
         icons::draw(ui.c, ui.fonts, Icon::Camera, 20.0, 18.0, 64.0, None);
-        ui.fonts.draw(ui.c, "Captura de tela", 100.0, 38.0, 15.0, true, rgba(20, 20, 20, 255));
-        ui.fonts.draw(ui.c, "Fotografa a tela, uma área ou uma janela", 100.0, 58.0, 12.0, false, rgba(70, 70, 70, 255));
-        ui.fonts.draw(ui.c, "e salva na sua pasta Imagens.", 100.0, 74.0, 12.0, false, rgba(70, 70, 70, 255));
+        ui.fonts.draw(ui.c, tr!("Captura de tela"), 100.0, 38.0, 15.0, true, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, tr!("Fotografa a tela, uma área ou uma janela"), 100.0, 58.0, 12.0, false, rgba(70, 70, 70, 255));
+        ui.fonts.draw(ui.c, tr!("e salva na sua pasta Imagens."), 100.0, 74.0, 12.0, false, rgba(70, 70, 70, 255));
 
         ui.area(Rect::new(24.0, 100.0, w - 48.0, 110.0), |ui| {
             ui.horizontal(|ui| {
-                ui.label_right("O quê:", 70.0);
-                let opts = vec!["Tela inteira".to_string(), "Uma área (arraste)".to_string(), "Uma janela (clique)".to_string()];
+                ui.label_right(tr!("O quê:"), 70.0);
+                let opts = vec![tr!("Tela inteira").to_string(), tr!("Uma área (arraste)").to_string(), tr!("Uma janela (clique)").to_string()];
                 ui.popup(&mut self.what, &opts, 180.0);
             });
             ui.space(2.0);
             ui.horizontal(|ui| {
-                ui.label_right("Quando:", 70.0);
-                let opts: Vec<String> = DELAYS.iter().map(|(_, l)| l.to_string()).collect();
+                ui.label_right(tr!("Quando:"), 70.0);
+                let opts: Vec<String> = DELAYS.iter().map(|(_, l)| tr(l).to_string()).collect();
                 ui.set_active(self.what == 0);
                 ui.popup(&mut self.delay, &opts, 180.0);
                 ui.set_active(true);
             });
             ui.space(2.0);
             ui.indent(78.0, |ui| {
-                ui.checkbox(&mut self.open, "Abrir no Visualizador");
+                ui.checkbox(&mut self.open, tr!("Abrir no Visualizador"));
             });
         });
         let mut go = false;
         ui.area(Rect::new(w - 150.0, 212.0, 130.0, 24.0), |ui| {
-            go = ui.default_button("Capturar");
+            go = ui.default_button(tr!("Capturar"));
         });
         if go {
             let d = DELAYS[self.delay].0;
@@ -95,21 +96,21 @@ impl App for Shot {
 
     fn menus(&self) -> Vec<Menu> {
         vec![Menu::new(
-            "Captura",
+            tr!("Captura"),
             vec![
-                MenuItem::new("shoot", "Tela inteira", "Ctrl+Z"),
-                MenuItem::new("shoot-5", "Tela inteira em 5 segundos", "Ctrl+Shift+Z"),
-                MenuItem::new("shoot-area", "Uma área…", "Ctrl+Shift+A"),
-                MenuItem::new("shoot-window", "Uma janela…", "Ctrl+Shift+J"),
+                MenuItem::new("shoot", tr!("Tela inteira"), "Ctrl+Z"),
+                MenuItem::new("shoot-5", tr!("Tela inteira em 5 segundos"), "Ctrl+Shift+Z"),
+                MenuItem::new("shoot-area", tr!("Uma área…"), "Ctrl+Shift+A"),
+                MenuItem::new("shoot-window", tr!("Uma janela…"), "Ctrl+Shift+J"),
                 MenuItem::Separator,
-                MenuItem::new("close", "Fechar", "Ctrl+W"),
+                MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
             ],
         )]
     }
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Captura".into(), app_id: "glove.Shot".into(), size: (380, 252), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Captura").into(), app_id: "glove.Shot".into(), size: (380, 252), fixed: true, min_size: None };
     if let Err(e) = run(opts, Shot { open: true, delay: 0, what: 0 }) {
         eprintln!("glove-shot: {e}");
     }

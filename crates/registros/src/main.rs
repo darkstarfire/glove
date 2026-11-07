@@ -2,6 +2,7 @@
 //! Glove, o sistema e o kernel pelo journalctl) e as linhas à direita, com
 //! filtro e atualização a cada poucos segundos.
 
+use glove_config::tr;
 use std::process::Command;
 use std::time::Duration;
 
@@ -48,7 +49,7 @@ fn load(source: usize) -> Vec<String> {
         v.drain(..v.len() - MAX_LINES);
     }
     if v.is_empty() {
-        v.push("Sem linhas (talvez falte permissão para ler o registro do sistema).".into());
+        v.push(tr!("Sem linhas (talvez falte permissão para ler o registro do sistema).").into());
     }
     v
 }
@@ -86,14 +87,14 @@ impl App for Registros {
         let bar = 40.0;
         ui.c.fill_rect(0.0, 0.0, w, bar, &vgrad(0.0, bar, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(206, 206, 210, 255))]));
         ui.c.hline(0.0, bar - 1.0, w, rgba(140, 140, 146, 255));
-        ui.search_field_in(Rect::new(w - 230.0, (bar - SEARCH_H) / 2.0, 216.0, SEARCH_H), &mut self.filter, "Filtrar");
+        ui.search_field_in(Rect::new(w - 230.0, (bar - SEARCH_H) / 2.0, 216.0, SEARCH_H), &mut self.filter, tr!("Filtrar"));
         let mut follow = self.follow;
         ui.area(Rect::new(12.0, 10.0, 220.0, 22.0), |ui| {
-            ui.checkbox(&mut follow, "Acompanhar o fim");
+            ui.checkbox(&mut follow, tr!("Acompanhar o fim"));
         });
         self.follow = follow;
         // Fontes.
-        let names: Vec<String> = SOURCES.iter().map(|s| s.to_string()).collect();
+        let names: Vec<String> = SOURCES.iter().map(|s| tr(s).to_string()).collect();
         let before = self.source;
         ui.area(Rect::new(8.0, bar + 8.0, 190.0, h - bar - 16.0), |ui| {
             ui.list(&mut self.source, &names, 190.0, h - bar - 16.0);
@@ -145,15 +146,15 @@ impl App for Registros {
 
     fn menus(&self) -> Vec<Menu> {
         vec![Menu::new(
-            "Arquivo",
-            vec![MenuItem::new("reload", "Recarregar", "Ctrl+R"), MenuItem::new("clear-filter", "Limpar Filtro", "Ctrl+K"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")],
+            tr!("Arquivo"),
+            vec![MenuItem::new("reload", tr!("Recarregar"), "Ctrl+R"), MenuItem::new("clear-filter", tr!("Limpar Filtro"), "Ctrl+K"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")],
         )]
     }
 }
 
 pub fn main() {
     let app = Registros { source: Some(2), lines: load(2), filter: String::new(), scroll: f32::MAX, follow: true };
-    let opts = WindowOptions { title: "Registros".into(), app_id: "glove.Registros".into(), size: (820, 500), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Registros").into(), app_id: "glove.Registros".into(), size: (820, 500), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-registros: {e}");
     }

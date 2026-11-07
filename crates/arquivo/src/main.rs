@@ -10,6 +10,7 @@
 //! O trabalho pesado é do `zip`, `unzip`, `tar` e companhia; aqui só contamos
 //! as linhas que eles escrevem para saber o andamento.
 
+use glove_config::tr;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -89,7 +90,7 @@ fn count_items(p: &Path) -> usize {
 
 /// Roda o comando contando as linhas da saída; para no pedido do usuário.
 fn run_counting(mut cmd: Command, shared: &Arc<Mutex<Progress>>, counts: impl Fn(&str) -> bool) -> Result<bool, String> {
-    let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| format!("Não foi possível iniciar: {e}"))?;
+    let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| tr!("Não foi possível iniciar: {}", e))?;
     let out = child.stdout.take().unwrap();
     let err = child.stderr.take().unwrap();
     let errs = std::thread::spawn(move || {
@@ -127,7 +128,7 @@ fn run_counting(mut cmd: Command, shared: &Arc<Mutex<Progress>>, counts: impl Fn
     }
     if !status.success() {
         let msg = errs.join().unwrap_or_default();
-        let msg = msg.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("o programa falhou").trim().to_string();
+        let msg = msg.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or(tr!("o programa falhou")).trim().to_string();
         return Err(msg);
     }
     Ok(true)
@@ -140,7 +141,7 @@ fn compress(items: &[PathBuf], shared: &Arc<Mutex<Progress>>) -> Result<Option<P
     // O zip escreve numa pasta escondida (o arquivo pela metade e os temporários
     // dele não aparecem no Arquivos) e só no fim o .zip vai para o lugar.
     let tmp = free_name(&dir, &format!(".glove-compactando-{}", std::process::id()), "");
-    std::fs::create_dir(&tmp).map_err(|e| format!("Não foi possível escrever em “{}”: {e}", dir.display()))?;
+    std::fs::create_dir(&tmp).map_err(|e| tr!("Não foi possível escrever em “{}”: {}", dir.display(), e))?;
     let part = tmp.join("a.zip");
     let mut cmd = Command::new("zip");
     // -r: pastas inteiras; -y: atalhos como atalhos; -b: temporários na pasta escondida.
@@ -171,11 +172,11 @@ fn list_count(fmt: Format, archive: &Path) -> usize {
 }
 
 fn expand(archive: &Path, shared: &Arc<Mutex<Progress>>) -> Result<Option<PathBuf>, String> {
-    let (fmt, stem) = format_of(archive).ok_or("Este tipo de arquivo não pode ser expandido.")?;
+    let (fmt, stem) = format_of(archive).ok_or(tr!("Este tipo de arquivo não pode ser expandido."))?;
     let dir = archive.parent().unwrap_or(Path::new("/")).to_path_buf();
     // Expande numa pasta escondida e só no fim põe no lugar (Parar não deixa restos).
     let tmp = free_name(&dir, &format!(".glove-expandindo-{}", std::process::id()), "");
-    std::fs::create_dir(&tmp).map_err(|e| format!("Não foi possível escrever em “{}”: {e}", dir.display()))?;
+    std::fs::create_dir(&tmp).map_err(|e| tr!("Não foi possível escrever em “{}”: {}", dir.display(), e))?;
     shared.lock().unwrap().total = list_count(fmt, archive).max(1);
     let r = match fmt {
         Format::Zip => {
@@ -195,10 +196,10 @@ fn expand(archive: &Path, shared: &Arc<Mutex<Progress>>) -> Result<Option<PathBu
             let out = std::fs::File::create(tmp.join(&stem)).map_err(|e| e.to_string())?;
             let mut c = Command::new(prog);
             c.arg("-dc").arg(archive);
-            let mut child = c.stdout(out).stderr(Stdio::piped()).spawn().map_err(|e| format!("Não foi possível iniciar “{prog}”: {e}"))?;
+            let mut child = c.stdout(out).stderr(Stdio::piped()).spawn().map_err(|e| tr!("Não foi possível iniciar “{}”: {}", prog, e))?;
             let ok = child.wait().map_err(|e| e.to_string())?.success();
             shared.lock().unwrap().done = 1;
-            if ok { Ok(true) } else { Err(format!("“{prog}” não conseguiu descomprimir o arquivo")) }
+            if ok { Ok(true) } else { Err(tr!("“{}” não conseguiu descomprimir o arquivo", prog)) }
         }
     };
     let done = match r {
@@ -237,8 +238,8 @@ impl App for Arquivo {
         };
         if let Some(Err(e)) = &result {
             let title = match self.op {
-                Op::Compress => format!("Não foi possível compactar “{}”.", self.what),
-                Op::Expand => format!("Não foi possível expandir “{}”.", self.what),
+                Op::Compress => tr!("Não foi possível compactar “{}”.", self.what),
+                Op::Expand => tr!("Não foi possível expandir “{}”.", self.what),
             };
             if ui.alert_window(AlertKind::Caution, &title, e, &["OK"]).is_some() {
                 ui.close = true;
@@ -263,10 +264,10 @@ impl App for Arquivo {
         ui.fonts.draw(ui.c, &shown, 60.0, 26.0, 13.0, true, glove_kit::paint::draw::rgba(20, 20, 20, 255));
         let value = (total > 0).then(|| done as f32 / total as f32);
         ui.progress_in(glove_kit::Rect::new(60.0, 36.0, w - 140.0, 12.0), value);
-        let detail = if total > 0 { format!("{done} de {total} itens") } else { "Preparando…".into() };
+        let detail = if total > 0 { tr!("{} de {} itens", done, total) } else { "Preparando…".into() };
         ui.fonts.draw(ui.c, &detail, 60.0, 66.0, 11.0, false, glove_kit::paint::draw::rgba(90, 90, 90, 255));
         ui.area(glove_kit::Rect::new(w - 72.0, 30.0, 60.0, h), |ui| {
-            if ui.small_button("Parar") {
+            if ui.small_button(tr!("Parar")) {
                 self.shared.lock().unwrap().stop = true;
             }
         });
@@ -290,7 +291,7 @@ pub fn main() {
         std::process::exit(2);
     }
     let name = |p: &PathBuf| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string());
-    let what = if paths.len() == 1 { name(&paths[0]) } else { format!("{} itens", paths.len()) };
+    let what = if paths.len() == 1 { name(&paths[0]) } else { tr!("{} itens", paths.len()) };
     let shared = Arc::new(Mutex::new(Progress::default()));
     {
         let shared = shared.clone();
@@ -302,7 +303,7 @@ pub fn main() {
             shared.lock().unwrap().result = Some(r);
         });
     }
-    let opts = WindowOptions { title: "Utilitário de Arquivo".into(), app_id: "glove.Arquivo".into(), size: (420, 84), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Utilitário de Arquivo").into(), app_id: "glove.Arquivo".into(), size: (420, 84), fixed: true, min_size: None };
     if let Err(e) = run(opts, Arquivo { op, what, shared }) {
         eprintln!("glove-arquivo: {e}");
     }

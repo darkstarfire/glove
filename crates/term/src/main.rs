@@ -1,6 +1,7 @@
 //! Terminal do Glove: o núcleo de terminal do Alacritty (sequências de escape,
 //! grade, histórico) desenhado com o toolkit do Glove.
 
+use glove_config::tr;
 mod blocks;
 
 use std::cell::RefCell;
@@ -140,7 +141,7 @@ impl Terminal {
         let config = Config { scrolling_history: 5000, ..Default::default() };
         let term = Term::new(config, &Size { cols, lines }, Listener(events.clone()));
         let cfg = glove_config::Config::load();
-        let mono = Fonts::load_family(&cfg.terminal_font).ok_or_else(|| std::io::Error::other("sem fonte monoespaçada"))?;
+        let mono = Fonts::load_family(&cfg.terminal_font).ok_or_else(|| std::io::Error::other(tr!("sem fonte monoespaçada")))?;
         let px = if cfg.terminal_font_size >= 6.0 { cfg.terminal_font_size } else { DEFAULT_PX };
         Ok(Self {
             theme: glove_config::term_theme(&cfg.terminal_theme),
@@ -154,7 +155,7 @@ impl Terminal {
             px,
             cols,
             lines,
-            title: "Terminal".into(),
+            title: tr!("Terminal").into(),
             last_title: String::new(),
             selecting: false,
             mouse_down: None,
@@ -196,7 +197,7 @@ impl Terminal {
             match e {
                 Event::PtyWrite(s) => self.write(s.as_bytes()),
                 Event::Title(t) => self.title = t,
-                Event::ResetTitle => self.title = "Terminal".into(),
+                Event::ResetTitle => self.title = tr!("Terminal").into(),
                 Event::ClipboardStore(_, text) => self.pending_copy = Some(text),
                 Event::ColorRequest(i, f) => {
                     let (r, g, b) = if i == 256 + 0 { self.theme.fg } else if i < 256 { indexed(&self.theme.palette, i as u8) } else { self.theme.bg };
@@ -467,7 +468,7 @@ impl Terminal {
             }
         }
         if self.exited {
-            let msg = "[Processo concluído]";
+            let msg = tr!("[Processo concluído]");
             let tw = fonts_ui.measure(msg, 12.0, true);
             c.fill(rrect(area.x + area.w - tw - 30.0, area.y + area.h - 30.0, tw + 20.0, 22.0, 11.0), &solid(rgba(0, 0, 0, 150)));
             fonts_ui.draw(c, msg, area.x + area.w - tw - 20.0, area.y + area.h - 14.0, 12.0, true, Color::WHITE);
@@ -688,18 +689,18 @@ impl App for Terminal {
     fn menus(&self) -> Vec<Menu> {
         let sel = self.term.selection.is_some();
         vec![
-            Menu::app(vec![MenuItem::new("prefs", "Preferências…", "")]),
-            Menu::new("Shell", vec![MenuItem::new("new", "Nova janela", "Ctrl+Shift+N"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+Shift+W")]),
+            Menu::app(vec![MenuItem::new("prefs", tr!("Preferências…"), "")]),
+            Menu::new("Shell", vec![MenuItem::new("new", tr!("Nova janela"), "Ctrl+Shift+N"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+Shift+W")]),
             Menu::new(
-                "Editar",
+                tr!("Editar"),
                 vec![
-                    MenuItem::new("copy", "Copiar", "Ctrl+Shift+C").enabled(sel),
-                    MenuItem::new("paste", "Colar", "Ctrl+Shift+V"),
+                    MenuItem::new("copy", tr!("Copiar"), "Ctrl+Shift+C").enabled(sel),
+                    MenuItem::new("paste", tr!("Colar"), "Ctrl+Shift+V"),
                     MenuItem::Separator,
-                    MenuItem::new("clear", "Limpar histórico", "Ctrl+Shift+K"),
+                    MenuItem::new("clear", tr!("Limpar histórico"), "Ctrl+Shift+K"),
                 ],
             ),
-            Menu::new("Fonte", vec![MenuItem::new("bigger", "Aumentar", "Ctrl+equal"), MenuItem::new("smaller", "Diminuir", "Ctrl+minus")]),
+            Menu::new(tr!("Fonte"), vec![MenuItem::new("bigger", tr!("Aumentar"), "Ctrl+equal"), MenuItem::new("smaller", tr!("Diminuir"), "Ctrl+minus")]),
         ]
     }
 }
@@ -714,7 +715,7 @@ pub fn main() {
     };
     let (cw, ch) = term.cell();
     let size = ((80.0 * cw + 2.0 * PAD + 15.0).ceil() as u32, (24.0 * ch + 2.0 * PAD).ceil() as u32);
-    let opts = WindowOptions { title: "Terminal".into(), app_id: "glove.Terminal".into(), size, fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Terminal").into(), app_id: "glove.Terminal".into(), size, fixed: false, min_size: None };
     if let Err(e) = run(opts, term) {
         eprintln!("glove-term: {e}");
     }

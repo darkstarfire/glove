@@ -1,5 +1,6 @@
 //! Busca: encontra arquivos e pastas pelo nome, em segundo plano.
 
+use glove_config::tr;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -53,9 +54,9 @@ fn human_date(t: Option<std::time::SystemTime>) -> String {
     let same = |x: &libc::tm, z: &libc::tm| x.tm_year == z.tm_year && x.tm_yday == z.tm_yday;
     let hm = format!("{:02}:{:02}", a.tm_hour, a.tm_min);
     if same(&a, &n) {
-        format!("Hoje, {hm}")
+        tr!("Hoje, {}", hm)
     } else if same(&a, &y) {
-        format!("Ontem, {hm}")
+        tr!("Ontem, {}", hm)
     } else {
         format!("{:02}/{:02}/{}, {hm}", a.tm_mday, a.tm_mon + 1, a.tm_year + 1900)
     }
@@ -63,17 +64,17 @@ fn human_date(t: Option<std::time::SystemTime>) -> String {
 
 fn kind_name(h: &Hit) -> &'static str {
     if h.dir {
-        return "Pasta";
+        return tr!("Pasta");
     }
     match h.path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref() {
-        Some("png" | "jpg" | "jpeg" | "gif" | "webp" | "svg") => "Imagem",
-        Some("txt" | "md") => "Documento de texto",
-        Some("rs" | "py" | "c" | "h" | "js" | "sh" | "toml" | "json") => "Código",
+        Some("png" | "jpg" | "jpeg" | "gif" | "webp" | "svg") => tr!("Imagem"),
+        Some("txt" | "md") => tr!("Documento de texto"),
+        Some("rs" | "py" | "c" | "h" | "js" | "sh" | "toml" | "json") => tr!("Código"),
         Some("pdf") => "PDF",
-        Some("mp3" | "ogg" | "flac" | "wav") => "Áudio",
-        Some("mp4" | "mkv" | "webm" | "avi") => "Vídeo",
-        Some("zip" | "gz" | "xz" | "tar" | "7z") => "Arquivo compactado",
-        _ => "Documento",
+        Some("mp3" | "ogg" | "flac" | "wav") => tr!("Áudio"),
+        Some("mp4" | "mkv" | "webm" | "avi") => tr!("Vídeo"),
+        Some("zip" | "gz" | "xz" | "tar" | "7z") => tr!("Arquivo compactado"),
+        _ => tr!("Documento"),
     }
 }
 
@@ -99,7 +100,7 @@ fn home() -> PathBuf {
 }
 
 fn places() -> Vec<(String, PathBuf)> {
-    vec![("Início".into(), home()), ("Computador".into(), "/".into())]
+    vec![(tr!("Início").into(), home()), ("Computador".into(), "/".into())]
 }
 
 fn sibling(name: &str) -> PathBuf {
@@ -280,11 +281,11 @@ impl App for Find {
             ui.horizontal(|ui| {
                 icons::draw(ui.c, ui.fonts, Icon::Search, 14.0, 10.0, 30.0, None);
                 ui.space(34.0);
-                ui.search_field(&mut self.query, "Parte do nome", (w - 360.0).max(140.0));
+                ui.search_field(&mut self.query, tr!("Parte do nome"), (w - 360.0).max(140.0));
                 ui.label_right("em", 24.0);
                 let names: Vec<String> = self.places.iter().map(|p| p.0.clone()).collect();
                 ui.popup(&mut place, &names, 130.0);
-                clicked = ui.default_button("Buscar");
+                clicked = ui.default_button(tr!("Buscar"));
             });
         });
         if place != self.place {
@@ -296,7 +297,7 @@ impl App for Find {
         }
 
         // Resultados numa tabela ordenável (Nome, Data, Tamanho, Tipo).
-        let cols = [Column::new("Nome", 0.4), Column::new("Data de modificação", 0.26), Column::new("Tamanho", 0.14).right(), Column::new("Tipo", 0.2)];
+        let cols = [Column::new(tr!("Nome"), 0.4), Column::new(tr!("Data de modificação"), 0.26), Column::new(tr!("Tamanho"), 0.14).right(), Column::new(tr!("Tipo"), 0.2)];
         let mut order: Vec<usize> = (0..self.view.len()).collect();
         let (col, asc) = self.table.sort.unwrap_or((0, true));
         let v = &self.view;
@@ -356,7 +357,7 @@ impl App for Find {
             acts.push("open".into());
         }
         if self.view.is_empty() {
-            let msg = if self.searching { "Buscando…" } else { "Digite parte do nome e pressione Enter." };
+            let msg = if self.searching { tr!("Buscando…") } else { tr!("Digite parte do nome e pressione Enter.") };
             let tw = ui.text_width(msg, 13.0, false);
             ui.fonts.draw(ui.c, msg, (w - tw) / 2.0, area.y + area.h / 2.0, 13.0, false, rgba(140, 140, 140, 255));
         }
@@ -395,11 +396,11 @@ impl App for Find {
         ui.c.hline(0.0, sy, w, rgba(150, 150, 156, 255));
         let n = self.view.len();
         let status = if self.searching {
-            format!("Buscando… {n} encontrados")
+            tr!("Buscando… {} encontrados", n)
         } else if self.query.trim().is_empty() {
             String::new()
         } else {
-            format!("{n} {}{}", if n == 1 { "item encontrado" } else { "itens encontrados" }, if n >= MAX_RESULTS { " (limite)" } else { "" })
+            format!("{n} {}{}", if n == 1 { tr!("item encontrado") } else { tr!("itens encontrados") }, if n >= MAX_RESULTS { tr!(" (limite)") } else { "" })
         };
         // Enquanto busca, o giratório gira ao lado do texto.
         let tx = if self.searching {
@@ -432,20 +433,20 @@ impl App for Find {
     fn menus(&self) -> Vec<Menu> {
         let sel = self.selected.is_some();
         vec![Menu::new(
-            "Arquivo",
+            tr!("Arquivo"),
             vec![
-                MenuItem::new("search", "Buscar", ""),
-                MenuItem::new("open", "Abrir", "Ctrl+O").enabled(sel),
-                MenuItem::new("reveal", "Mostrar no Arquivos", "Ctrl+R").enabled(sel),
+                MenuItem::new("search", tr!("Buscar"), ""),
+                MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(sel),
+                MenuItem::new("reveal", tr!("Mostrar no Arquivos"), "Ctrl+R").enabled(sel),
                 MenuItem::Separator,
-                MenuItem::new("close", "Fechar", "Ctrl+W"),
+                MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
             ],
         )]
     }
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Busca".into(), app_id: "glove.Find".into(), size: (680, 480), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Busca").into(), app_id: "glove.Find".into(), size: (680, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Find::from_args()) {
         eprintln!("glove-find: {e}");
     }

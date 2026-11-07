@@ -3,6 +3,7 @@
 //! (ping, tracepath, host) e fala direto os protocolos simples (whois na porta
 //! 43, finger na 79, varredura de portas por conexão TCP), sem precisar de root.
 
+use glove_config::tr;
 use std::io::{BufRead, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -61,7 +62,7 @@ impl Job {
                     }
                     let _ = c.wait();
                 }
-                Err(e) => j.push(&format!("Não foi possível usar o {prog}: {e}\n")),
+                Err(e) => j.push(&tr!("Não foi possível usar o {}: {}\n", prog, e)),
             }
             j.running.store(false, Ordering::Relaxed);
         });
@@ -99,7 +100,7 @@ fn first(cmds: &[&str]) -> Option<String> {
 /// Whois: pergunta à IANA quem cuida do domínio e segue a indicação ("refer:").
 fn whois(j: &Job, query: &str) {
     let ask = |server: &str| -> Result<String, String> {
-        let addr = (server, 43).to_socket_addrs().map_err(|e| e.to_string())?.next().ok_or("servidor não encontrado")?;
+        let addr = (server, 43).to_socket_addrs().map_err(|e| e.to_string())?.next().ok_or(tr!("servidor não encontrado"))?;
         let mut s = TcpStream::connect_timeout(&addr, Duration::from_secs(8)).map_err(|e| e.to_string())?;
         s.set_read_timeout(Some(Duration::from_secs(10))).ok();
         s.write_all(format!("{query}\r\n").as_bytes()).map_err(|e| e.to_string())?;
@@ -107,22 +108,22 @@ fn whois(j: &Job, query: &str) {
         let _ = s.read_to_end(&mut out);
         Ok(String::from_utf8_lossy(&out).into_owned())
     };
-    j.push("Consultando whois.iana.org…\n");
+    j.push(tr!("Consultando whois.iana.org…\n"));
     match ask("whois.iana.org") {
         Ok(t) => {
             let refer = t.lines().find_map(|l| l.strip_prefix("refer:").map(|r| r.trim().to_string()));
             match refer {
                 Some(r) => {
-                    j.push(&format!("Consultando {r}…\n\n"));
+                    j.push(&tr!("Consultando {}…\n\n", r));
                     match ask(&r) {
                         Ok(t2) => j.push(&t2),
-                        Err(e) => j.push(&format!("Erro: {e}\n")),
+                        Err(e) => j.push(&tr!("Erro: {}\n", e)),
                     }
                 }
                 None => j.push(&format!("\n{t}")),
             }
         }
-        Err(e) => j.push(&format!("Erro: {e}\n")),
+        Err(e) => j.push(&tr!("Erro: {}\n", e)),
     }
 }
 
@@ -131,7 +132,7 @@ fn finger(j: &Job, query: &str) {
     let (user, host) = query.rsplit_once('@').unwrap_or(("", query));
     let addr = match (host, 79).to_socket_addrs().ok().and_then(|mut a| a.next()) {
         Some(a) => a,
-        None => return j.push("Máquina não encontrada.\n"),
+        None => return j.push(tr!("Máquina não encontrada.\n")),
     };
     match TcpStream::connect_timeout(&addr, Duration::from_secs(6)) {
         Ok(mut s) => {
@@ -141,7 +142,7 @@ fn finger(j: &Job, query: &str) {
             let _ = s.read_to_end(&mut out);
             j.push(&String::from_utf8_lossy(&out));
         }
-        Err(e) => j.push(&format!("A máquina não respondeu na porta 79 (finger): {e}\n")),
+        Err(e) => j.push(&tr!("A máquina não respondeu na porta 79 (finger): {}\n", e)),
     }
 }
 
@@ -171,9 +172,9 @@ fn service(port: u16) -> String {
 /// Varredura: tenta conectar em cada porta (várias ao mesmo tempo).
 fn scan(j: &Job, host: &str, from: u16, to: u16) {
     let Some(ip) = (host, 0).to_socket_addrs().ok().and_then(|mut a| a.next()).map(|a| a.ip()) else {
-        return j.push("Máquina não encontrada.\n");
+        return j.push(tr!("Máquina não encontrada.\n"));
     };
-    j.push(&format!("Procurando portas abertas em {host} ({ip}), de {from} a {to}…\n\n"));
+    j.push(&tr!("Procurando portas abertas em {} ({}), de {} a {}…\n\n", host, ip, from, to));
     let ports: Vec<u16> = (from..=to).collect();
     let found = Arc::new(Mutex::new(Vec::new()));
     for chunk in ports.chunks(64) {
@@ -200,7 +201,7 @@ fn scan(j: &Job, host: &str, from: u16, to: u16) {
             j.push(&format!("Porta {p:<6} aberta   {}\n", service(p)));
         }
     }
-    j.push("\nVarredura terminada.\n");
+    j.push(tr!("\nVarredura terminada.\n"));
 }
 
 /// Interfaces de rede: (nome, linhas de informação).
@@ -219,22 +220,22 @@ fn interfaces() -> Vec<(String, Vec<(String, String)>)> {
         let speed = read("speed").parse::<i64>().ok().filter(|s| *s > 0).map(|s| format!("{s} Mb/s")).unwrap_or_else(|| "—".into());
         let kind = if base.join("wireless").exists() { "Wi-Fi" } else if n == "lo" { "Interna (loopback)" } else { "Cabo (Ethernet)" };
         let state = match read("operstate").as_str() {
-            "up" => "Conectada".to_string(),
-            "down" => "Desconectada".to_string(),
+            "up" => tr!("Conectada").to_string(),
+            "down" => tr!("Desconectada").to_string(),
             o => o.to_string(),
         };
         let num = |f: &str| read(&format!("statistics/{f}"));
         v.push((
             n.clone(),
             vec![
-                ("Tipo".into(), kind.into()),
-                ("Estado".into(), state),
-                ("Endereço físico".into(), read("address")),
+                (tr!("Tipo").into(), kind.into()),
+                (tr!("Estado").into(), state),
+                (tr!("Endereço físico").into(), read("address")),
                 ("Endereços IP".into(), if ips.is_empty() { "—".into() } else { ips.join("  ") }),
-                ("Velocidade".into(), speed),
-                ("Pacotes enviados".into(), num("tx_packets")),
-                ("Pacotes recebidos".into(), num("rx_packets")),
-                ("Erros (envio/recebimento)".into(), format!("{} / {}", num("tx_errors"), num("rx_errors"))),
+                (tr!("Velocidade").into(), speed),
+                (tr!("Pacotes enviados").into(), num("tx_packets")),
+                (tr!("Pacotes recebidos").into(), num("rx_packets")),
+                (tr!("Erros (envio/recebimento)").into(), format!("{} / {}", num("tx_errors"), num("rx_errors"))),
             ],
         ));
     }
@@ -285,7 +286,7 @@ impl Util {
             3 => match first(&["traceroute", "tracepath"]) {
                 Some(p) if p == "traceroute" => Job::command("traceroute", vec![host]),
                 Some(_) => Job::command("tracepath", vec![host]),
-                None => Job::thread(|j| j.push("Nem traceroute nem tracepath estão instalados.\n")),
+                None => Job::thread(|j| j.push(tr!("Nem traceroute nem tracepath estão instalados.\n"))),
             },
             4 => Job::thread(move |j| whois(j, &host)),
             5 => Job::thread(move |j| finger(j, &host)),
@@ -348,7 +349,7 @@ impl App for Util {
         let (w, h) = (ui.c.w, ui.c.h);
         let mut tab = self.tab;
         ui.area(Rect::new(16.0, 12.0, w - 32.0, 24.0), |ui| {
-            ui.tabs(&mut tab, &TABS);
+            ui.tabs(&mut tab, &TABS.map(tr));
         });
         if tab != self.tab {
             self.tab = tab;
@@ -364,7 +365,7 @@ impl App for Util {
         // Informações: as interfaces de rede.
         if self.tab == 0 {
             let names: Vec<String> = self.ifaces.iter().map(|(n, _)| n.clone()).collect();
-            ui.fonts.draw(ui.c, "Escolha uma interface de rede para ver as informações:", 20.0, top + 16.0, 12.0, false, ink);
+            ui.fonts.draw(ui.c, tr!("Escolha uma interface de rede para ver as informações:"), 20.0, top + 16.0, 12.0, false, ink);
             ui.area(Rect::new(20.0, top + 26.0, 240.0, 24.0), |ui| {
                 ui.popup(&mut self.iface, &names, 220.0);
             });
@@ -380,9 +381,9 @@ impl App for Util {
         }
         // Campo do endereço e as opções de cada aba.
         let prompt = match self.tab {
-            5 => "Usuário e máquina (usuario@maquina):",
-            4 => "Domínio ou endereço (ex.: exemplo.org):",
-            _ => "Endereço de rede (ex.: 10.0.0.1 ou exemplo.org):",
+            5 => tr!("Usuário e máquina (usuario@maquina):"),
+            4 => tr!("Domínio ou endereço (ex.: exemplo.org):"),
+            _ => tr!("Endereço de rede (ex.: 10.0.0.1 ou exemplo.org):"),
         };
         ui.fonts.draw(ui.c, prompt, 20.0, top + 16.0, 12.0, false, ink);
         let (_, enter) = ui.text_field_in(Rect::new(20.0, top + 24.0, 300.0, 22.0), &mut self.host, false);
@@ -390,16 +391,16 @@ impl App for Util {
         let running = self.job.as_ref().is_some_and(|j| j.running.load(Ordering::Relaxed));
         match self.tab {
             1 => {
-                ui.fonts.draw(ui.c, "Pings:", 336.0, top + 40.0, 12.0, false, ink);
+                ui.fonts.draw(ui.c, tr!("Pings:"), 336.0, top + 40.0, 12.0, false, ink);
                 ui.text_field_in(Rect::new(380.0, top + 24.0, 50.0, 22.0), &mut self.count, false);
             }
             2 => {
                 ui.area(Rect::new(336.0, top + 23.0, 190.0, 24.0), |ui| {
-                    ui.popup(&mut self.lookup_type, &LOOKUP_TYPES.iter().map(|t| t.1.to_string()).collect::<Vec<_>>(), 180.0);
+                    ui.popup(&mut self.lookup_type, &LOOKUP_TYPES.iter().map(|t| tr(t.1).to_string()).collect::<Vec<_>>(), 180.0);
                 });
             }
             6 => {
-                ui.fonts.draw(ui.c, "Portas de", 336.0, top + 40.0, 12.0, false, ink);
+                ui.fonts.draw(ui.c, tr!("Portas de"), 336.0, top + 40.0, 12.0, false, ink);
                 ui.text_field_in(Rect::new(400.0, top + 24.0, 56.0, 22.0), &mut self.from, false);
                 ui.fonts.draw(ui.c, "a", 464.0, top + 40.0, 12.0, false, ink);
                 ui.text_field_in(Rect::new(476.0, top + 24.0, 56.0, 22.0), &mut self.to, false);
@@ -408,15 +409,15 @@ impl App for Util {
         }
         let label = match self.tab {
             1 => "Ping",
-            2 => "Procurar",
-            3 => "Rastrear",
-            6 => "Varrer",
-            _ => "Consultar",
+            2 => tr!("Procurar"),
+            3 => tr!("Rastrear"),
+            6 => tr!("Varrer"),
+            _ => tr!("Consultar"),
         };
         let mut stop = false;
         ui.area(Rect::new(w - 116.0, top + 23.0, 100.0, 24.0), |ui| {
             if running {
-                stop = ui.button("Parar");
+                stop = ui.button(tr!("Parar"));
             } else {
                 go |= ui.default_button(label);
             }
@@ -432,7 +433,7 @@ impl App for Util {
     }
 
     fn menus(&self) -> Vec<Menu> {
-        vec![Menu::new("Arquivo", vec![MenuItem::new("close", "Fechar", "Ctrl+W")])]
+        vec![Menu::new(tr!("Arquivo"), vec![MenuItem::new("close", tr!("Fechar"), "Ctrl+W")])]
     }
 }
 
@@ -452,7 +453,7 @@ pub fn main() {
         follow: true,
         last_len: 0,
     };
-    let opts = WindowOptions { title: "Utilitário de Rede".into(), app_id: "glove.UtilRede".into(), size: (720, 480), fixed: false, min_size: Some((600, 380)) };
+    let opts = WindowOptions { title: tr!("Utilitário de Rede").into(), app_id: "glove.UtilRede".into(), size: (720, 480), fixed: false, min_size: Some((600, 380)) };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-utilrede: {e}");
     }

@@ -1,6 +1,7 @@
 //! Mensagens de e-mail: ler (cabeçalhos, MIME, codificações) e montar
 //! (texto em UTF-8 com quoted-printable e anexos em base64).
 
+use glove_config::tr;
 use base64::Engine;
 
 /// Cabeçalhos "desdobrados" (linhas de continuação juntadas) e onde começa o corpo.
@@ -260,7 +261,7 @@ fn walk(h: &[(String, String)], body: &[u8], plain: &mut Vec<String>, html: &mut
     }
     if kind == "message/rfc822" && depth < 12 {
         let inner = parse(body);
-        plain.push(format!("---------- Mensagem encaminhada ----------\nDe: {}\nAssunto: {}\nData: {}\n\n{}", inner.from, inner.subject, inner.date, inner.text));
+        plain.push(tr!("---------- Mensagem encaminhada ----------\nDe: {}\nAssunto: {}\nData: {}\n\n{}", inner.from, inner.subject, inner.date, inner.text));
         att.extend(inner.attachments);
         return;
     }

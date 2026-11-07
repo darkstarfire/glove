@@ -1,6 +1,7 @@
 //! Caracteres: mapa de caracteres por categoria; clique para ver, copie com um botão.
 //! Também mostra o teclado na tela e, na visão Fonte, os caracteres de uma fonte.
 
+use glove_config::tr;
 mod fonte;
 
 use glove_kit::{
@@ -96,7 +97,7 @@ impl Chars {
         if ui.key_button(Rect::new(r.x + 12.0, y5, key * 2.5 - 4.0, kh - 4.0), "Shift", 12.0, self.shift) {
             self.shift = !self.shift;
         }
-        if ui.key_button(Rect::new(r.x + 12.0 + key * 3.0, y5, key * 7.0 - 4.0, kh - 4.0), "espaço", 12.0, lit == Some(' ')) {
+        if ui.key_button(Rect::new(r.x + 12.0 + key * 3.0, y5, key * 7.0 - 4.0, kh - 4.0), tr!("espaço"), 12.0, lit == Some(' ')) {
             typed = Some(' ');
         }
         if ui.key_button(Rect::new(r.x + 12.0 + key * 10.5, y5, key * 2.5 - 4.0, kh - 4.0), "⌫", 14.0, false) {
@@ -151,7 +152,7 @@ impl App for Chars {
         if self.mode == 2 {
             let mut m = self.mode;
             ui.area(Rect::new(10.0, 10.0, 300.0, 24.0), |ui| {
-                if let Some(i) = ui.segmented_text(&MODES, Some(m)) {
+                if let Some(i) = ui.segmented_text(&MODES.map(tr), Some(m)) {
                     m = i;
                 }
             });
@@ -163,7 +164,7 @@ impl App for Chars {
         if self.mode == 1 {
             let mut m = self.mode;
             ui.area(Rect::new(10.0, 10.0, 300.0, 24.0), |ui| {
-                if let Some(i) = ui.segmented_text(&MODES, Some(m)) {
+                if let Some(i) = ui.segmented_text(&MODES.map(tr), Some(m)) {
                     m = i;
                 }
             });
@@ -172,13 +173,13 @@ impl App for Chars {
             self.keyboard(ui, kr);
             // Texto montado, Copiar e Limpar.
             let ty = h - 58.0;
-            ui.fonts.draw(ui.c, "Texto:", 12.0, ty + 15.0, 12.0, false, rgba(40, 40, 44, 255));
+            ui.fonts.draw(ui.c, tr!("Texto:"), 12.0, ty + 15.0, 12.0, false, rgba(40, 40, 44, 255));
             ui.text_field_in(Rect::new(60.0, ty, w - 270.0, 22.0), &mut self.text, false);
             let (mut copy_t, mut clear) = (false, false);
             ui.area(Rect::new(w - 200.0, ty - 2.0, 190.0, 26.0), |ui| {
                 ui.horizontal(|ui| {
-                    clear = ui.button("Limpar");
-                    copy_t = ui.default_button("Copiar");
+                    clear = ui.button(tr!("Limpar"));
+                    copy_t = ui.default_button(tr!("Copiar"));
                 });
             });
             if clear {
@@ -191,7 +192,7 @@ impl App for Chars {
         }
         let mut m = self.mode;
         ui.area(Rect::new(10.0, 10.0, 300.0, 24.0), |ui| {
-            if let Some(i) = ui.segmented_text(&MODES, Some(m)) {
+            if let Some(i) = ui.segmented_text(&MODES.map(tr), Some(m)) {
                 m = i;
             }
         });
@@ -202,7 +203,7 @@ impl App for Chars {
         }
 
         // Categorias
-        let names: Vec<String> = BLOCKS.iter().map(|b| b.0.to_string()).collect();
+        let names: Vec<String> = BLOCKS.iter().map(|b| tr(b.0).to_string()).collect();
         let before = self.block;
         ui.area(Rect::new(10.0, 44.0, SIDE, h - 54.0), |ui| {
             ui.list(&mut self.block, &names, SIDE, h - 54.0);
@@ -265,25 +266,25 @@ impl App for Chars {
             ui.fonts.draw(ui.c, &s, pv.x + (pv.w - tw) / 2.0, pv.y + 62.0, 52.0, false, rgba(10, 10, 10, 255));
             let code = format!("U+{:04X}", c as u32);
             ui.fonts.draw(ui.c, &code, pv.x + 100.0, py + 22.0, 15.0, true, rgba(20, 20, 20, 255));
-            let msg = if self.copied == Some(c) { "Copiado para a área de transferência." } else { "Clique duplo também copia." };
+            let msg = if self.copied == Some(c) { tr!("Copiado para a área de transferência.") } else { tr!("Clique duplo também copia.") };
             ui.fonts.draw(ui.c, msg, pv.x + 100.0, py + 44.0, 11.0, false, rgba(90, 90, 90, 255));
             let mut go = false;
-            ui.area(Rect::new(pv.x + 100.0, py + 56.0, 120.0, 24.0), |ui| go = ui.default_button("Copiar"));
+            ui.area(Rect::new(pv.x + 100.0, py + 56.0, 120.0, 24.0), |ui| go = ui.default_button(tr!("Copiar")));
             if go {
                 ui.copy(&s);
                 self.copied = Some(c);
             }
         } else {
-            ui.fonts.draw(ui.c, "Escolha um caractere.", pv.x + 100.0, py + 46.0, 12.0, false, rgba(110, 110, 110, 255));
+            ui.fonts.draw(ui.c, tr!("Escolha um caractere."), pv.x + 100.0, py + 46.0, 12.0, false, rgba(110, 110, 110, 255));
         }
     }
 
     fn menus(&self) -> Vec<Menu> {
         vec![
-            Menu::new("Arquivo", vec![MenuItem::new("install-font", "Instalar Fonte…", "Ctrl+Shift+I"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")]),
-            Menu::new("Editar", vec![MenuItem::new("copy", "Copiar caractere", "Ctrl+C").enabled(if self.mode == 2 { self.font.selected.is_some() } else { self.selected.is_some() })]),
+            Menu::new(tr!("Arquivo"), vec![MenuItem::new("install-font", tr!("Instalar Fonte…"), "Ctrl+Shift+I"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")]),
+            Menu::new(tr!("Editar"), vec![MenuItem::new("copy", tr!("Copiar caractere"), "Ctrl+C").enabled(if self.mode == 2 { self.font.selected.is_some() } else { self.selected.is_some() })]),
             Menu::new(
-                "Visualizar",
+                tr!("Visualizar"),
                 vec![
                     MenuItem::new("mode-map", "Caracteres", "").checked(self.mode == 0),
                     MenuItem::new("mode-kbd", "Teclado", "").checked(self.mode == 1),

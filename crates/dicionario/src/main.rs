@@ -2,6 +2,7 @@
 //! parecidas aparecem à esquerda e a definição à direita. Lê dicionários
 //! livres StarDict e DICT (dictd) instalados no sistema ou na pasta do Glove.
 
+use glove_config::tr;
 mod dict;
 
 use std::path::PathBuf;
@@ -40,8 +41,8 @@ fn user_dir() -> PathBuf {
 
 /// Copia um dicionário (o .ifo/.index e os arquivos irmãos) para a pasta do Glove.
 fn install(p: &std::path::Path) -> Result<(), String> {
-    let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).ok_or("arquivo sem nome")?;
-    let src = p.parent().ok_or("sem pasta")?;
+    let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).ok_or(tr!("arquivo sem nome"))?;
+    let src = p.parent().ok_or(tr!("sem pasta"))?;
     let dest = user_dir().join(&stem);
     std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
     for e in std::fs::read_dir(src).map_err(|e| e.to_string())?.flatten() {
@@ -117,7 +118,7 @@ impl Dicionario {
         let sx = 32.0 + 4.0 * SEGMENT_W;
         let sw = w - sx - 240.0;
         if names.len() > 1 && sw > 120.0 {
-            let mut labels: Vec<String> = vec!["Todos".into()];
+            let mut labels: Vec<String> = vec![tr!("Todos").into()];
             labels.extend(names.iter().map(|n| ui.fonts.ellipsize(n, 12.0, false, 130.0)));
             let refs: Vec<&str> = labels.iter().map(String::as_str).collect();
             let sel = Some(self.only.map(|i| i + 1).unwrap_or(0));
@@ -130,7 +131,7 @@ impl Dicionario {
             }
         }
         let first = std::mem::take(&mut self.first);
-        ui.search_field_focus(Rect::new(w - 226.0, (BAR - SEARCH_H) / 2.0, 214.0, SEARCH_H), &mut self.query, "Procurar palavra", first);
+        ui.search_field_focus(Rect::new(w - 226.0, (BAR - SEARCH_H) / 2.0, 214.0, SEARCH_H), &mut self.query, tr!("Procurar palavra"), first);
         acts
     }
 
@@ -140,16 +141,16 @@ impl Dicionario {
         let Some((d, i)) = self.shown else {
             let msg: &[&str] = if dicts.is_empty() {
                 &[
-                    "Nenhum dicionário instalado.",
+                    tr!("Nenhum dicionário instalado."),
                     "",
-                    "O Dicionário lê dicionários livres nos formatos StarDict e DICT.",
-                    "Instale um pelo sistema (por exemplo: sudo apt install dict-freedict-por-eng)",
-                    "ou use Arquivo ▸ Adicionar Dicionário… e escolha o arquivo .ifo ou .index.",
+                    tr!("O Dicionário lê dicionários livres nos formatos StarDict e DICT."),
+                    tr!("Instale um pelo sistema (por exemplo: sudo apt install dict-freedict-por-eng)"),
+                    tr!("ou use Arquivo ▸ Adicionar Dicionário… e escolha o arquivo .ifo ou .index."),
                 ]
             } else if self.query.trim().is_empty() {
-                &["Digite uma palavra no campo de busca."]
+                &[tr!("Digite uma palavra no campo de busca.")]
             } else {
-                &["Nenhuma entrada encontrada."]
+                &[tr!("Nenhuma entrada encontrada.")]
             };
             for (k, l) in msg.iter().enumerate() {
                 let (px, bold) = if k == 0 { (14.0, true) } else { (12.0, false) };
@@ -208,7 +209,7 @@ impl App for Dicionario {
         let Some(dicts) = guard.as_ref() else {
             drop(guard);
             self.toolbar(ui, &[]);
-            ui.fonts.draw(ui.c, "Carregando os dicionários…", 24.0, BAR + 40.0, 12.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Carregando os dicionários…"), 24.0, BAR + 40.0, 12.0, false, rgba(110, 110, 116, 255));
             ui.wake_after(Duration::from_millis(200));
             return;
         };
@@ -294,7 +295,7 @@ impl App for Dicionario {
                             self.error = None;
                             self.reload();
                         }
-                        Err(e) => self.error = Some(format!("Não deu para adicionar o dicionário: {e}")),
+                        Err(e) => self.error = Some(tr!("Não deu para adicionar o dicionário: {}", e)),
                     }
                 }
                 ui.redraw = true;
@@ -304,10 +305,10 @@ impl App for Dicionario {
 
     fn menus(&self) -> Vec<Menu> {
         vec![
-            Menu::new("Arquivo", vec![MenuItem::new("add", "Adicionar Dicionário…", ""), MenuItem::new("reload", "Recarregar Dicionários", ""), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")]),
+            Menu::new(tr!("Arquivo"), vec![MenuItem::new("add", tr!("Adicionar Dicionário…"), ""), MenuItem::new("reload", tr!("Recarregar Dicionários"), ""), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")]),
             Menu::new(
-                "Ir",
-                vec![MenuItem::new("back", "Voltar", "Ctrl+["), MenuItem::new("fwd", "Avançar", "Ctrl+]"), MenuItem::Separator, MenuItem::new("bigger", "Aumentar Fonte", "Ctrl+plus"), MenuItem::new("smaller", "Diminuir Fonte", "Ctrl+minus")],
+                tr!("Ir"),
+                vec![MenuItem::new("back", tr!("Voltar"), "Ctrl+["), MenuItem::new("fwd", tr!("Avançar"), "Ctrl+]"), MenuItem::Separator, MenuItem::new("bigger", tr!("Aumentar Fonte"), "Ctrl+plus"), MenuItem::new("smaller", tr!("Diminuir Fonte"), "Ctrl+minus")],
             ),
         ]
     }
@@ -331,7 +332,7 @@ pub fn main() {
         error: None,
     };
     app.reload();
-    let opts = WindowOptions { title: "Dicionário".into(), app_id: "glove.Dicionario".into(), size: (720, 480), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Dicionário").into(), app_id: "glove.Dicionario".into(), size: (720, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-dicionario: {e}");
     }

@@ -1,6 +1,7 @@
 //! Trabalho de rede numa linha de execução à parte: a janela manda pedidos
 //! e lê o resultado em `Shared` (redesenhando de tempos em tempos).
 
+use glove_config::tr;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -91,7 +92,7 @@ impl Worker {
 
     fn conn(&mut self, acct: usize) -> Result<&mut Imap, String> {
         if !self.conns.contains_key(&acct) {
-            let a = self.accounts.get(acct).ok_or("conta não encontrada")?.clone();
+            let a = self.accounts.get(acct).ok_or(tr!("conta não encontrada"))?.clone();
             let c = Imap::connect(&a.imap_host, a.imap_port, sec_imap(&a), &a.user, &a.password)?;
             self.conns.insert(acct, (c, None));
         }
@@ -148,7 +149,7 @@ impl Worker {
             return;
         }
         self.set(|s| {
-            s.busy = Some("Recebendo mensagens…".into());
+            s.busy = Some(tr!("Recebendo mensagens…").into());
             s.error = None;
         });
         let r = self.retry(acct, |w| w.conn(acct)?.folders()).and_then(|f| {
@@ -197,7 +198,7 @@ impl Worker {
                 let raw = match std::fs::read(&path) {
                     Ok(b) => Ok(b),
                     Err(_) => {
-                        self.set(|s| s.busy = Some("Abrindo a mensagem…".into()));
+                        self.set(|s| s.busy = Some(tr!("Abrindo a mensagem…").into()));
                         let r = self.retry(acct, |w| {
                             w.selected(acct, &folder)?;
                             w.conns.get_mut(&acct).unwrap().0.body(uid)
@@ -251,12 +252,12 @@ impl Worker {
                             store::save_rows(&email, &folder, store::load_rows(&email, &folder).0, &s.rows);
                         });
                     }
-                    Err(e) => self.set(|s| s.error = Some(format!("Não deu para apagar: {e}"))),
+                    Err(e) => self.set(|s| s.error = Some(tr!("Não deu para apagar: {}", e))),
                 }
             }
             Cmd::Send(win, acct, out, reply) => {
                 let Some(a) = self.accounts.get(acct).cloned() else { return };
-                self.set(|s| s.busy = Some("Enviando…".into()));
+                self.set(|s| s.busy = Some(tr!("Enviando…").into()));
                 let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
                 let host = a.email.rsplit('@').next().unwrap_or("glove.local").to_string();
                 let msg = mime::build(&out, now, &host);
@@ -283,7 +284,7 @@ impl Worker {
                 self.set(|s| {
                     s.busy = None;
                     if r.is_ok() {
-                        s.info = Some("Mensagem enviada.".into());
+                        s.info = Some(tr!("Mensagem enviada.").into());
                     }
                     s.sent.push((win, r));
                 });
@@ -335,11 +336,11 @@ pub fn role_order(role: &str) -> u8 {
 /// Nome em português das pastas especiais.
 pub fn folder_label(f: &Folder) -> String {
     match f.role.as_str() {
-        "inbox" => "Entrada".into(),
-        "\\sent" => "Enviados".into(),
-        "\\drafts" => "Rascunhos".into(),
-        "\\trash" => "Lixo".into(),
-        "\\junk" => "Lixo Eletrônico".into(),
+        "inbox" => tr!("Entrada").into(),
+        "\\sent" => tr!("Enviados").into(),
+        "\\drafts" => tr!("Rascunhos").into(),
+        "\\trash" => tr!("Lixo").into(),
+        "\\junk" => tr!("Lixo Eletrônico").into(),
         _ => f.name.clone(),
     }
 }

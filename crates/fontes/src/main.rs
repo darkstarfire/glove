@@ -2,6 +2,7 @@
 //! meio e a amostra à direita. Instala fontes na pasta pessoal e desativa
 //! famílias com uma regra do fontconfig (sem apagar nada).
 
+use glove_config::tr;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Command;
@@ -141,7 +142,7 @@ fn install(files: &[PathBuf]) -> Result<usize, String> {
     std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
     let mut n = 0;
     for f in files {
-        let name = f.file_name().ok_or("arquivo sem nome")?;
+        let name = f.file_name().ok_or(tr!("arquivo sem nome"))?;
         std::fs::copy(f, dest.join(name)).map_err(|e| e.to_string())?;
         n += 1;
     }
@@ -206,10 +207,10 @@ impl Livro {
         }
         match write_disabled(&self.disabled) {
             Ok(()) => {
-                self.message = Some(if off { format!("“{name}” desativada. Os apps abertos a deixam de usar quando forem reabertos.") } else { format!("“{name}” ativada de novo.") });
+                self.message = Some(if off { tr!("“{}” desativada. Os apps abertos a deixam de usar quando forem reabertos.", name) } else { format!("“{name}” ativada de novo.") });
                 let _ = Command::new("fc-cache").spawn();
             }
-            Err(e) => self.message = Some(format!("Não deu para salvar: {e}")),
+            Err(e) => self.message = Some(tr!("Não deu para salvar: {}", e)),
         }
     }
 
@@ -244,7 +245,7 @@ impl Livro {
                 total = (chars.len().div_ceil(cols)) as f32 * cell + 28.0;
             }
             Mode::Sample | Mode::Custom => {
-                let text = if self.mode == Mode::Custom && !self.custom.trim().is_empty() { self.custom.clone() } else { SAMPLE.to_string() };
+                let text = if self.mode == Mode::Custom && !self.custom.trim().is_empty() { self.custom.clone() } else { tr(SAMPLE).to_string() };
                 for face in fam.faces.clone() {
                     let label = format!("{} {}", fam.name, face.style);
                     y += 16.0;
@@ -254,7 +255,7 @@ impl Livro {
                     let Some(fi) = self.font(&face) else {
                         y += 18.0;
                         if y > top && y < bottom {
-                            ui.fonts.draw(ui.c, "(não deu para abrir este arquivo)", r.x + pad, y, 11.0, false, grey);
+                            ui.fonts.draw(ui.c, tr!("(não deu para abrir este arquivo)"), r.x + pad, y, 11.0, false, grey);
                         }
                         continue;
                     };
@@ -304,7 +305,7 @@ impl App for Livro {
         // Barra: modo da amostra, tamanho e busca.
         ui.c.fill_rect(0.0, 0.0, w, BAR, &vgrad(0.0, BAR, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(204, 204, 208, 255))]));
         ui.c.hline(0.0, BAR - 1.0, w, rgba(140, 140, 146, 255));
-        let modes = ["Amostra", "Repertório", "Personalizado"];
+        let modes = [tr!("Amostra"), tr!("Repertório"), tr!("Personalizado")];
         let cur = match self.mode {
             Mode::Sample => 0,
             Mode::Repertoire => 1,
@@ -318,28 +319,28 @@ impl App for Livro {
             self.mode = [Mode::Sample, Mode::Repertoire, Mode::Custom][p];
             self.scroll = 0.0;
         }
-        ui.fonts.draw(ui.c, "Tamanho", 330.0, BAR / 2.0 + 4.0, 11.0, false, rgba(40, 40, 44, 255));
+        ui.fonts.draw(ui.c, tr!("Tamanho"), 330.0, BAR / 2.0 + 4.0, 11.0, false, rgba(40, 40, 44, 255));
         let mut size = self.size;
         ui.area(Rect::new(382.0, BAR / 2.0 - 10.0, 130.0, 24.0), |ui| {
             if ui.slider_ticks(&mut size, 9.0, 72.0, 120.0, &Ticks { count: 0, labels: &[], snap: false }, true) {
                 self.size = size.round();
             }
         });
-        ui.fonts.draw(ui.c, &format!("{} pt", self.size as i32), 518.0, BAR / 2.0 + 4.0, 11.0, false, rgba(40, 40, 44, 255));
-        ui.search_field_in(Rect::new(w - 200.0, (BAR - SEARCH_H) / 2.0, 188.0, SEARCH_H), &mut self.filter, "Buscar fonte");
+        ui.fonts.draw(ui.c, &tr!("{} pt", self.size as i32), 518.0, BAR / 2.0 + 4.0, 11.0, false, rgba(40, 40, 44, 255));
+        ui.search_field_in(Rect::new(w - 200.0, (BAR - SEARCH_H) / 2.0, 188.0, SEARCH_H), &mut self.filter, tr!("Buscar fonte"));
 
         let slot = self.families.clone();
         let guard = slot.lock().unwrap();
         let Some(all) = guard.as_ref() else {
             drop(guard);
-            ui.fonts.draw(ui.c, "Lendo as fontes instaladas…", 20.0, BAR + 36.0, 12.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Lendo as fontes instaladas…"), 20.0, BAR + 36.0, 12.0, false, rgba(110, 110, 116, 255));
             ui.wake_after(Duration::from_millis(200));
             return;
         };
         // Coleções.
         let cw = 150.0;
         let foot = 34.0;
-        let names: Vec<String> = COLLECTIONS.iter().map(|s| s.to_string()).collect();
+        let names: Vec<String> = COLLECTIONS.iter().map(|s| tr(s).to_string()).collect();
         let ch = h - BAR - 16.0 - foot;
         ui.area(Rect::new(8.0, BAR + 8.0, cw, ch), |ui| {
             ui.list(&mut self.collection, &names, cw, ch);
@@ -376,12 +377,12 @@ impl App for Livro {
             self.family = fam.as_ref().map(|f| f.name.clone());
             self.scroll = 0.0;
         }
-        let count = format!("{} {}", shown.len(), if shown.len() == 1 { "família" } else { "famílias" });
+        let count = format!("{} {}", shown.len(), if shown.len() == 1 { tr!("família") } else { tr!("famílias") });
         drop(guard);
         // Rodapé: + (adicionar) e Desativar/Ativar.
         let fy = h - foot - 2.0;
         ui.area(Rect::new(8.0, fy, cw, 26.0), |ui| {
-            if ui.small_button("Adicionar…") {
+            if ui.small_button(tr!("Adicionar…")) {
                 acts.push("add".into());
             }
         });
@@ -410,8 +411,8 @@ impl App for Livro {
             }
             Some(f) => {
                 ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
-                ui.fonts.draw(ui.c, &format!("“{}” está desativada.", f.name), r.x + 18.0, r.y + 30.0, 13.0, true, rgba(60, 60, 66, 255));
-                ui.fonts.draw(ui.c, "Clique em Ativar para que os apps voltem a usá-la.", r.x + 18.0, r.y + 52.0, 11.0, false, rgba(120, 120, 126, 255));
+                ui.fonts.draw(ui.c, &tr!("“{}” está desativada.", f.name), r.x + 18.0, r.y + 30.0, 13.0, true, rgba(60, 60, 66, 255));
+                ui.fonts.draw(ui.c, tr!("Clique em Ativar para que os apps voltem a usá-la."), r.x + 18.0, r.y + 52.0, 11.0, false, rgba(120, 120, 126, 255));
             }
             None => ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE)),
         }
@@ -443,13 +444,13 @@ impl App for Livro {
         }
         if !self.pending.is_empty() {
             let names: Vec<String> = self.pending.iter().filter_map(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).collect();
-            let title = if names.len() == 1 { format!("Instalar a fonte “{}”?", names[0]) } else { format!("Instalar {} fontes?", names.len()) };
-            match ui.alert(AlertKind::Note, &title, "Ela fica na sua pasta pessoal e os apps passam a vê-la quando forem reabertos.", &["Cancelar", "Instalar"]) {
+            let title = if names.len() == 1 { tr!("Instalar a fonte “{}”?", names[0]) } else { tr!("Instalar {} fontes?", names.len()) };
+            match ui.alert(AlertKind::Note, &title, tr!("Ela fica na sua pasta pessoal e os apps passam a vê-la quando forem reabertos."), &[tr!("Cancelar"), tr!("Instalar")]) {
                 Some(1) => {
                     let files = std::mem::take(&mut self.pending);
                     self.message = Some(match install(&files) {
-                        Ok(n) => format!("{n} {} em {}.", if n == 1 { "fonte instalada" } else { "fontes instaladas" }, user_fonts().display()),
-                        Err(e) => format!("Não deu para instalar: {e}"),
+                        Ok(n) => tr!("{} {} em {}.", n, if n == 1 { "fonte instalada" } else { "fontes instaladas" }, user_fonts().display()),
+                        Err(e) => tr!("Não deu para instalar: {}", e),
                     });
                     self.collection = Some(1);
                     self.reload();
@@ -463,8 +464,8 @@ impl App for Livro {
                 self.open_fb = None;
                 if let Choice::Picked(p) = c {
                     self.message = Some(match install(std::slice::from_ref(&p)) {
-                        Ok(_) => format!("“{}” instalada em {}.", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), user_fonts().display()),
-                        Err(e) => format!("Não deu para instalar: {e}"),
+                        Ok(_) => tr!("“{}” instalada em {}.", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), user_fonts().display()),
+                        Err(e) => tr!("Não deu para instalar: {}", e),
                     });
                     self.collection = Some(1);
                     self.reload();
@@ -476,8 +477,8 @@ impl App for Livro {
 
     fn menus(&self) -> Vec<Menu> {
         vec![
-            Menu::new("Arquivo", vec![MenuItem::new("add", "Adicionar Fontes…", "Ctrl+O"), MenuItem::new("reload", "Recarregar", ""), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")]),
-            Menu::new("Editar", vec![MenuItem::new("toggle", "Desativar/Ativar Família", "Ctrl+Shift+D")]),
+            Menu::new(tr!("Arquivo"), vec![MenuItem::new("add", tr!("Adicionar Fontes…"), "Ctrl+O"), MenuItem::new("reload", tr!("Recarregar"), ""), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")]),
+            Menu::new(tr!("Editar"), vec![MenuItem::new("toggle", tr!("Desativar/Ativar Família"), "Ctrl+Shift+D")]),
         ]
     }
 }
@@ -501,7 +502,7 @@ pub fn main() {
         pending,
     };
     app.reload();
-    let opts = WindowOptions { title: "Livro de Fontes".into(), app_id: "glove.Fontes".into(), size: (860, 520), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Livro de Fontes").into(), app_id: "glove.Fontes".into(), size: (860, 520), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-fontes: {e}");
     }

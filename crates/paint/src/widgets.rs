@@ -225,7 +225,7 @@ pub fn calendar(f: &Fonts, today: (i32, u32, u32), shown: (i32, u32), scale: f32
     }
     let wd = weekday(today.0, today.1, today.2);
     f.draw(&mut c, glove_i18n::tr(WEEKDAYS[wd as usize]), x + 15.0, ty + 30.0, 17.0, true, red);
-    f.draw(&mut c, MONTHS[(today.1 - 1) as usize], x + 15.0, ty + 56.0, 22.0, true, red);
+    f.draw(&mut c, glove_i18n::tr(MONTHS[(today.1 - 1) as usize]), x + 15.0, ty + 56.0, 22.0, true, red);
     centered(&mut c, f, &today.2.to_string(), x + 17.0 + pw * 1.5, ty + 56.0, 42.0, true, red);
     // Grade do mês mostrado.
     let (gy, cw) = (y + 96.0, (w - 16.0) / 7.0);
@@ -249,7 +249,7 @@ pub fn calendar(f: &Fonts, today: (i32, u32, u32), shown: (i32, u32), scale: f32
     // Mês e ano mostrados + setas.
     let fy = y + h - 22.0;
     c.fill(rrect(x + 8.0, fy, w - 16.0, 16.0, 8.0), &solid(rgba(110, 10, 10, 180)));
-    let label = format!("{} {sy}", MONTHS[(sm - 1) as usize]);
+    let label = format!("{} {sy}", glove_i18n::tr(MONTHS[(sm - 1) as usize]));
     centered(&mut c, f, &label, x + w / 2.0, fy + 12.0, 10.0, true, Color::WHITE);
     let tri = |c: &mut Canvas, cx: f32, left: bool| {
         let mut pb = PathBuilder::new();
@@ -363,8 +363,10 @@ pub fn calculator(f: &Fonts, display: &str, pressed: Option<&str>, memory: bool,
         c.fill(rrect(kx, ky, kw, kh, r), &vgrad(ky, ky + kh, &[(0.0, top), (1.0, bot)]));
         c.stroke(rrect(kx + 0.5, ky + 0.5, kw - 1.0, kh - 1.0, r), &solid(rgba(120, 120, 128, 200)), 1.0);
         let px = if k.0.len() > 1 && k.0.chars().count() > 1 { 10.0 } else { 14.0 };
-        let tw = f.measure(k.0, px, true);
-        f.draw(&mut c, k.0, (kx + (kw - tw) / 2.0).round(), (ky + kh / 2.0 + px * 0.36).round(), px, true, rgba(60, 60, 66, 255));
+        // A tecla decimal mostra o separador do idioma (o identificador continua ",").
+        let shown = if k.0 == "," { glove_i18n::virgula() } else { k.0 };
+        let tw = f.measure(shown, px, true);
+        f.draw(&mut c, shown, (kx + (kw - tw) / 2.0).round(), (ky + kh / 2.0 + px * 0.36).round(), px, true, rgba(60, 60, 66, 255));
     }
     Some(c)
 }

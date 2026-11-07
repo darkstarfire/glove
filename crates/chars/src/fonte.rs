@@ -3,6 +3,7 @@
 //! altura do x, maiúsculas, subida e descida). "Instalar Fonte…" copia um
 //! .ttf/.otf para a pasta pessoal e já mostra a fonte nova.
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc::{channel, Receiver};
@@ -33,11 +34,11 @@ fn user_fonts() -> PathBuf {
 fn install(file: &Path) -> Result<String, String> {
     let family = Command::new("fc-scan").args(["--format", "%{family[0]}"]).arg(file).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
     if family.is_empty() {
-        return Err("Esse arquivo não parece ser uma fonte.".into());
+        return Err(tr!("Esse arquivo não parece ser uma fonte.").into());
     }
     let dest = user_fonts();
     std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
-    let name = file.file_name().ok_or("arquivo sem nome")?;
+    let name = file.file_name().ok_or(tr!("arquivo sem nome"))?;
     std::fs::copy(file, dest.join(name)).map_err(|e| format!("Não consegui copiar: {e}"))?;
     let _ = Command::new("fc-cache").arg("-f").arg(&dest).status();
     Ok(family)
@@ -105,7 +106,7 @@ impl FontView {
             match rx.try_recv() {
                 Ok(Ok(family)) => {
                     self.installing = None;
-                    self.message = Some(format!("“{family}” instalada."));
+                    self.message = Some(tr!("“{}” instalada.", family));
                     self.list = Some(families());
                     self.pick(&family);
                 }
@@ -126,14 +127,14 @@ impl FontView {
         }
         // Linha de cima: Instalar e quantos caracteres a fonte tem.
         let mut install = false;
-        ui.area(Rect::new(r.x, r.y, 160.0, 24.0), |ui| install = ui.button("Instalar Fonte…"));
+        ui.area(Rect::new(r.x, r.y, 160.0, 24.0), |ui| install = ui.button(tr!("Instalar Fonte…")));
         if install {
             self.ask_install();
         }
         let info = match (&self.message, self.installing.is_some()) {
-            (_, true) => "Instalando…".to_string(),
+            (_, true) => tr!("Instalando…").to_string(),
             (Some(m), _) => m.clone(),
-            _ => format!("{}: {} caracteres", self.family, self.chars.len()),
+            _ => tr!("{}: {} caracteres", self.family, self.chars.len()),
         };
         let info = ui.fonts.ellipsize(&info, 11.0, false, r.w - 180.0);
         let iw = ui.text_width(&info, 11.0, false);
@@ -143,7 +144,7 @@ impl FontView {
         let names = self.list.clone().unwrap_or_default();
         let lr = Rect::new(r.x, r.y + 34.0, LIST_W, r.h - 34.0);
         if names.is_empty() {
-            ui.fonts.draw(ui.c, "Lendo as fontes…", lr.x + 8.0, lr.y + 18.0, 12.0, false, rgba(110, 110, 110, 255));
+            ui.fonts.draw(ui.c, tr!("Lendo as fontes…"), lr.x + 8.0, lr.y + 18.0, 12.0, false, rgba(110, 110, 110, 255));
         } else {
             let mut sel = names.iter().position(|n| *n == self.family);
             let before = sel;
@@ -221,12 +222,12 @@ impl FontView {
             };
             line(ui, base - asc, "subida", rgba(170, 170, 200, 255));
             if caps > 0.0 {
-                line(ui, base - caps, "maiúsculas", rgba(120, 160, 220, 255));
+                line(ui, base - caps, tr!("maiúsculas"), rgba(120, 160, 220, 255));
             }
             if xh > 0.0 {
-                line(ui, base - xh, "altura do x", rgba(90, 170, 120, 255));
+                line(ui, base - xh, tr!("altura do x"), rgba(90, 170, 120, 255));
             }
-            line(ui, base, "linha de base", rgba(210, 90, 80, 255));
+            line(ui, base, tr!("linha de base"), rgba(210, 90, 80, 255));
             line(ui, base + desc, "descida", rgba(170, 170, 200, 255));
             let s = ch.to_string();
             let tw = fonts.measure(&s, px, false);
@@ -237,10 +238,10 @@ impl FontView {
             let code = format!("U+{:04X}", ch as u32);
             ui.fonts.draw(ui.c, &code, pv.x, ty, 14.0, true, rgba(20, 20, 20, 255));
             if self.copied == Some(ch) {
-                ui.fonts.draw(ui.c, "Copiado.", pv.x + 80.0, ty, 11.0, false, rgba(90, 90, 90, 255));
+                ui.fonts.draw(ui.c, tr!("Copiado."), pv.x + 80.0, ty, 11.0, false, rgba(90, 90, 90, 255));
             }
             let mut go = false;
-            ui.area(Rect::new(pv.x, ty + 10.0, 120.0, 24.0), |ui| go = ui.default_button("Copiar"));
+            ui.area(Rect::new(pv.x, ty + 10.0, 120.0, 24.0), |ui| go = ui.default_button(tr!("Copiar")));
             if go {
                 ui.copy(&s);
                 self.copied = Some(ch);

@@ -2,6 +2,7 @@
 //! ordem do processador), pelo socket em $GREETD_SOCK. Sem dependências: as
 //! mensagens são objetos simples de texto.
 
+use glove_config::tr;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 
@@ -88,12 +89,12 @@ impl Greetd {
         self.stream.read_exact(&mut lb)?;
         let n = u32::from_ne_bytes(lb) as usize;
         if n > 1 << 20 {
-            return Err(std::io::Error::other("resposta grande demais"));
+            return Err(std::io::Error::other(tr!("resposta grande demais")));
         }
         let mut buf = vec![0u8; n];
         self.stream.read_exact(&mut buf)?;
         let text = String::from_utf8_lossy(&buf);
-        parse_reply(&text).ok_or_else(|| std::io::Error::other(format!("resposta inesperada: {text}")))
+        parse_reply(&text).ok_or_else(|| std::io::Error::other(tr!("resposta inesperada: {}", text)))
     }
 
     pub fn create_session(&mut self, user: &str) -> std::io::Result<Reply> {
@@ -121,7 +122,7 @@ impl Greetd {
 /// Entra: cria a sessão, responde ao PAM com a senha e inicia `cmd`.
 /// Erro: texto para mostrar (a sessão é cancelada).
 pub fn log_in(user: &str, password: &str, cmd: &[String], env: &[String]) -> Result<(), String> {
-    let io = |e: std::io::Error| format!("Erro ao falar com o greetd: {e}");
+    let io = |e: std::io::Error| tr!("Erro ao falar com o greetd: {}", e);
     let mut g = Greetd::connect().map_err(io)?;
     let mut reply = g.create_session(user).map_err(io)?;
     // Algumas perguntas podem vir em sequência (ex.: aviso + senha).
@@ -140,7 +141,7 @@ pub fn log_in(user: &str, password: &str, cmd: &[String], env: &[String]) -> Res
                     Reply::Success => Ok(()),
                     Reply::Error { description, .. } => {
                         let _ = g.cancel();
-                        Err(format!("Não foi possível iniciar a sessão: {description}"))
+                        Err(tr!("Não foi possível iniciar a sessão: {}", description))
                     }
                     other => {
                         let _ = g.cancel();
@@ -150,12 +151,12 @@ pub fn log_in(user: &str, password: &str, cmd: &[String], env: &[String]) -> Res
             }
             Reply::Error { auth, description } => {
                 let _ = g.cancel();
-                return Err(if auth { "Senha incorreta.".into() } else { description });
+                return Err(if auth { tr!("Senha incorreta.").into() } else { description });
             }
         }
     }
     let _ = g.cancel();
-    Err("O login pediu mais informações do que o esperado.".into())
+    Err(tr!("O login pediu mais informações do que o esperado.").into())
 }
 
 #[cfg(test)]

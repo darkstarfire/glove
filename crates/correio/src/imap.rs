@@ -1,6 +1,7 @@
 //! Cliente IMAP mínimo: entrar, listar pastas, ler cabeçalhos e mensagens,
 //! marcar como lida, mover para o Lixo e guardar cópias (APPEND).
 
+use glove_config::tr;
 use std::io::Read;
 
 use crate::net::{self, Conn, Security};
@@ -192,11 +193,11 @@ pub struct Imap {
 
 impl Imap {
     pub fn connect(host: &str, port: u16, sec: Security, user: &str, pass: &str) -> Result<Self, String> {
-        let c = net::connect(host, port, sec).map_err(|e| format!("Não deu para conectar a {host}: {e}"))?;
+        let c = net::connect(host, port, sec).map_err(|e| tr!("Não deu para conectar a {}: {}", host, e))?;
         let mut s = Imap { c, tag: 0, caps: String::new() };
         let greet = net::read_line(&mut s.c).map_err(|e| e.to_string())?;
         if !greet.starts_with(b"* OK") && !greet.starts_with(b"* PREAUTH") {
-            return Err(format!("Resposta estranha do servidor: {}", String::from_utf8_lossy(&greet).trim()));
+            return Err(tr!("Resposta estranha do servidor: {}", String::from_utf8_lossy(&greet).trim()));
         }
         let r = s.cmd(&format!("LOGIN {} {}", quote(user), quote(pass))).map_err(|e| if e.contains("NO") || e.contains("AUTHENTICATIONFAILED") { "Usuário ou senha recusados pelo servidor.".to_string() } else { e })?;
         let _ = r;
@@ -328,7 +329,7 @@ impl Imap {
                 }
             }
         }
-        Err("A mensagem não veio do servidor (talvez tenha sido apagada).".into())
+        Err(tr!("A mensagem não veio do servidor (talvez tenha sido apagada).").into())
     }
 
     pub fn set_flag(&mut self, uid: u32, flag: &str, on: bool) -> Result<(), String> {

@@ -1,6 +1,7 @@
 //! Ajuda do Glove (como o Visualizador de Ajuda da era): os tópicos à
 //! esquerda, com busca, e a página à direita. O texto mora aqui mesmo.
 
+use glove_config::tr;
 use glove_kit::{
     paint::{draw::*, Color},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions, SEARCH_H,
@@ -56,12 +57,12 @@ impl App for Ajuda {
         let bar = 40.0;
         ui.c.fill_rect(0.0, 0.0, w, bar, &vgrad(0.0, bar, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(206, 206, 210, 255))]));
         ui.c.hline(0.0, bar - 1.0, w, rgba(140, 140, 146, 255));
-        ui.fonts.draw(ui.c, "Ajuda do Glove", 14.0, bar / 2.0 + 5.0, 13.0, true, rgba(30, 30, 34, 255));
-        ui.search_field_in(Rect::new(w - 230.0, (bar - SEARCH_H) / 2.0, 216.0, SEARCH_H), &mut self.query, "Buscar na ajuda");
+        ui.fonts.draw(ui.c, tr!("Ajuda do Glove"), 14.0, bar / 2.0 + 5.0, 13.0, true, rgba(30, 30, 34, 255));
+        ui.search_field_in(Rect::new(w - 230.0, (bar - SEARCH_H) / 2.0, 216.0, SEARCH_H), &mut self.query, tr!("Buscar na ajuda"));
         // Tópicos (só os que têm as palavras da busca).
         let q = self.query.trim().to_lowercase();
-        let found: Vec<usize> = (0..PAGES.len()).filter(|i| q.is_empty() || q.split_whitespace().all(|w| PAGES[*i].0.to_lowercase().contains(w) || PAGES[*i].1.to_lowercase().contains(w))).collect();
-        let names: Vec<String> = found.iter().map(|i| PAGES[*i].0.to_string()).collect();
+        let found: Vec<usize> = (0..PAGES.len()).filter(|i| q.is_empty() || q.split_whitespace().all(|w| tr(PAGES[*i].0).to_lowercase().contains(w) || tr(PAGES[*i].1).to_lowercase().contains(w))).collect();
+        let names: Vec<String> = found.iter().map(|i| tr(PAGES[*i].0).to_string()).collect();
         let mut sel = self.page.and_then(|p| found.iter().position(|i| *i == p));
         ui.area(Rect::new(8.0, bar + 8.0, 190.0, h - bar - 16.0), |ui| {
             ui.list(&mut sel, &names, 190.0, h - bar - 16.0);
@@ -77,10 +78,10 @@ impl App for Ajuda {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         ui.c.stroke(rrect(r.x - 0.5, r.y - 0.5, r.w + 1.0, r.h + 1.0, 0.0), &solid(rgba(150, 150, 156, 255)), 1.0);
         let Some(p) = self.page.filter(|p| found.contains(p)).or_else(|| found.first().copied()) else {
-            ui.fonts.draw(ui.c, "Nada encontrado para essa busca.", r.x + 20.0, r.y + 30.0, 12.0, false, rgba(130, 130, 136, 255));
+            ui.fonts.draw(ui.c, tr!("Nada encontrado para essa busca."), r.x + 20.0, r.y + 30.0, 12.0, false, rgba(130, 130, 136, 255));
             return;
         };
-        let (title, body) = PAGES[p];
+        let (title, body) = (tr(PAGES[p].0), tr(PAGES[p].1));
         let max = r.w - 50.0;
         let mut lines: Vec<(String, f32, bool, f32)> = vec![(title.to_string(), 18.0, true, 0.0)];
         for para in body.split('\n') {
@@ -108,7 +109,7 @@ impl App for Ajuda {
     }
 
     fn menus(&self) -> Vec<Menu> {
-        vec![Menu::new("Arquivo", vec![MenuItem::new("close", "Fechar", "Ctrl+W")])]
+        vec![Menu::new(tr!("Arquivo"), vec![MenuItem::new("close", tr!("Fechar"), "Ctrl+W")])]
     }
 }
 
@@ -116,7 +117,7 @@ pub fn main() {
     // "glove-ajuda tópico" abre direto num tópico (pela primeira palavra do título).
     let want = std::env::args().nth(1).map(|a| a.to_lowercase());
     let page = want.and_then(|w| PAGES.iter().position(|(t, _)| t.to_lowercase().contains(&w))).or(Some(0));
-    let opts = WindowOptions { title: "Ajuda".into(), app_id: "glove.Ajuda".into(), size: (760, 500), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Ajuda").into(), app_id: "glove.Ajuda".into(), size: (760, 500), fixed: false, min_size: None };
     if let Err(e) = run(opts, Ajuda { page, query: String::new(), scroll: 0.0 }) {
         eprintln!("glove-ajuda: {e}");
     }

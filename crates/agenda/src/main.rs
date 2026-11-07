@@ -2,6 +2,7 @@
 //! o dia escolhido ao lado e a folha de evento. Fica em
 //! ~/.local/share/glove/agenda/agenda.ics; importa outros .ics.
 
+use glove_config::tr;
 mod ics;
 
 use std::path::PathBuf;
@@ -117,7 +118,7 @@ impl Agenda {
             let _ = std::fs::create_dir_all(d);
         }
         if let Err(e) = std::fs::write(&p, ics::serialize(&self.events)) {
-            self.message = Some(format!("Não foi possível salvar: {e}"));
+            self.message = Some(tr!("Não foi possível salvar: {}", e));
         }
     }
 
@@ -152,7 +153,7 @@ impl Agenda {
         let cw = r.w / 7.0;
         let ch = (r.h - head) / 6.0;
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
-        for (i, d) in ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].iter().enumerate() {
+        for (i, d) in [tr!("Dom"), tr!("Seg"), tr!("Ter"), tr!("Qua"), tr!("Qui"), tr!("Sex"), tr!("Sáb")].iter().enumerate() {
             let tw = ui.text_width(d, 11.0, true);
             ui.fonts.draw(ui.c, d, r.x + i as f32 * cw + (cw - tw) / 2.0, r.y + 14.0, 11.0, true, rgba(90, 90, 96, 255));
         }
@@ -190,7 +191,7 @@ impl Agenda {
                 ui.fonts.draw(ui.c, &label, cell.x + 6.0, ey + 10.0, 10.0, false, if e.all_day { Color::WHITE } else { rgba(20, 50, 120, 255) });
             }
             if evs.len() > fit && fit > 0 {
-                let more = format!("+{} mais", evs.len() - fit + 1);
+                let more = tr!("+{} mais", evs.len() - fit + 1);
                 ui.fonts.draw(ui.c, &more, cell.x + 6.0, cell.y + cell.h - 4.0, 9.0, false, rgba(90, 90, 96, 255));
             }
             let h = ui.hit(cell);
@@ -215,21 +216,23 @@ impl Agenda {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(236, 238, 242, 255)));
         ui.c.vline(r.x + 0.5, r.y, r.h, rgba(170, 170, 176, 255));
         let (y, m, d) = self.day;
-        let wd = DIAS[weekday(y, m, d) as usize];
+        let wd = tr(DIAS[weekday(y, m, d) as usize]);
         ui.fonts.draw(ui.c, wd, r.x + 14.0, r.y + 22.0, 12.0, false, rgba(90, 90, 96, 255));
-        let t = format!("{d} de {} de {y}", MESES[(m - 1) as usize].to_lowercase());
+        let mes = tr(MESES[(m - 1) as usize]);
+        let mes = if glove_config::idioma() == "pt" { mes.to_lowercase() } else { mes.to_string() };
+        let t = tr!("{0} de {1} de {2}", d, mes, y);
         ui.fonts.draw(ui.c, &t, r.x + 14.0, r.y + 42.0, 15.0, true, rgba(20, 20, 24, 255));
         let evs = self.of_day(self.day);
         let mut yy = r.y + 64.0;
         let mut pick = None;
         if evs.is_empty() {
-            ui.fonts.draw(ui.c, "Nenhum evento.", r.x + 14.0, yy + 14.0, 12.0, false, rgba(130, 130, 136, 255));
+            ui.fonts.draw(ui.c, tr!("Nenhum evento."), r.x + 14.0, yy + 14.0, 12.0, false, rgba(130, 130, 136, 255));
         }
         for e in &evs {
             let card = Rect::new(r.x + 10.0, yy, r.w - 20.0, if e.notes.is_empty() { 38.0 } else { 54.0 });
             ui.c.fill(rrect(card.x, card.y, card.w, card.h, 5.0), &solid(Color::WHITE));
             ui.c.fill(rrect(card.x, card.y, 4.0, card.h, 2.0), &solid(rgba(80, 140, 230, 255)));
-            let when = if e.all_day { "dia inteiro".to_string() } else { format!("{} – {}", hm(e.start), hm(e.end)) };
+            let when = if e.all_day { tr!("dia inteiro").to_string() } else { format!("{} – {}", hm(e.start), hm(e.end)) };
             ui.fonts.draw(ui.c, &when, card.x + 12.0, card.y + 14.0, 10.0, false, rgba(90, 90, 96, 255));
             let title = ui.fonts.ellipsize(&e.title, 12.0, true, card.w - 20.0);
             ui.fonts.draw(ui.c, &title, card.x + 12.0, card.y + 30.0, 12.0, true, rgba(20, 20, 24, 255));
@@ -243,7 +246,7 @@ impl Agenda {
             yy += card.h + 8.0;
         }
         ui.area(Rect::new(r.x + 10.0, r.y + r.h - 34.0, r.w - 20.0, 26.0), |ui| {
-            if ui.button("Novo Evento") {
+            if ui.button(tr!("Novo Evento")) {
                 pick = Some(Event::default());
             }
         });
@@ -260,29 +263,29 @@ impl Agenda {
         ui.c.fill(rrect(x - 6.0, y, sw + 12.0, sh + 8.0, 6.0), &solid(rgba(0, 0, 0, 40)));
         ui.c.fill_rect(x, y, sw, sh, &vgrad(y, y + sh, &[(0.0, rgba(236, 236, 238, 252)), (1.0, rgba(246, 246, 248, 252))]));
         ui.c.stroke(rrect(x + 0.5, y - 0.5, sw - 1.0, sh, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0);
-        let title = if s.uid.is_some() { "Evento" } else { "Novo Evento" };
+        let title = if s.uid.is_some() { tr!("Evento") } else { tr!("Novo Evento") };
         ui.fonts.draw(ui.c, title, x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 24, 255));
         let label = |ui: &mut Ui, t: &str, yy: f32| {
             let tw = ui.text_width(t, 12.0, false);
             ui.fonts.draw(ui.c, t, x + 100.0 - tw, yy + 15.0, 12.0, false, rgba(40, 40, 44, 255));
         };
         let fresh = s.title.is_empty() && s.uid.is_none();
-        label(ui, "Título:", y + 44.0);
+        label(ui, tr!("Título:"), y + 44.0);
         ui.text_field_in(Rect::new(x + 108.0, y + 44.0, sw - 128.0, 20.0), &mut s.title, fresh && s.error.is_none());
-        label(ui, "Data:", y + 74.0);
+        label(ui, tr!("Data:"), y + 74.0);
         ui.text_field_in(Rect::new(x + 108.0, y + 74.0, 110.0, 20.0), &mut s.date, false);
         let mut ad = s.all_day;
         ui.area(Rect::new(x + 232.0, y + 74.0, 160.0, 22.0), |ui| {
-            ui.checkbox(&mut ad, "Dia inteiro");
+            ui.checkbox(&mut ad, tr!("Dia inteiro"));
         });
         s.all_day = ad;
         if !s.all_day {
-            label(ui, "Das:", y + 104.0);
+            label(ui, tr!("Das:"), y + 104.0);
             ui.text_field_in(Rect::new(x + 108.0, y + 104.0, 60.0, 20.0), &mut s.start, false);
-            ui.fonts.draw(ui.c, "às", x + 178.0, y + 119.0, 12.0, false, rgba(40, 40, 44, 255));
+            ui.fonts.draw(ui.c, tr!("às"), x + 178.0, y + 119.0, 12.0, false, rgba(40, 40, 44, 255));
             ui.text_field_in(Rect::new(x + 200.0, y + 104.0, 60.0, 20.0), &mut s.end, false);
         }
-        label(ui, "Notas:", y + 134.0);
+        label(ui, tr!("Notas:"), y + 134.0);
         ui.text_field_in(Rect::new(x + 108.0, y + 134.0, sw - 128.0, 20.0), &mut s.notes, false);
         if let Some(e) = &s.error {
             ui.fonts.draw(ui.c, e, x + 108.0, y + 176.0, 11.0, false, rgba(180, 40, 30, 255));
@@ -292,13 +295,13 @@ impl Agenda {
         ui.area(Rect::new(x + 16.0, y + sh - 40.0, sw - 32.0, 30.0), |ui| {
             ui.horizontal(|ui| {
                 if editing {
-                    del = ui.button("Apagar");
+                    del = ui.button(tr!("Apagar"));
                     ui.space(sw - 32.0 - 290.0);
                 } else {
                     ui.space(sw - 32.0 - 200.0);
                 }
-                cancel = ui.button("Cancelar");
-                ok = ui.default_button("Salvar");
+                cancel = ui.button(tr!("Cancelar"));
+                ok = ui.default_button(tr!("Salvar"));
             });
         });
         if cancel || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
@@ -315,7 +318,7 @@ impl Agenda {
         }
         if ok {
             let Some(date) = parse_date(&s.date) else {
-                s.error = Some("Use a data como 05/11/2026.".into());
+                s.error = Some(tr!("Use a data como 05/11/2026.").into());
                 return;
             };
             let (start, end) = if s.all_day {
@@ -323,13 +326,13 @@ impl Agenda {
                 ((date.0, date.1, date.2, 0, 0), (n.0, n.1, n.2, 0, 0))
             } else {
                 let (Some(a), Some(b)) = (parse_hm(&s.start), parse_hm(&s.end)) else {
-                    s.error = Some("Use os horários como 14:30.".into());
+                    s.error = Some(tr!("Use os horários como 14:30.").into());
                     return;
                 };
                 let b = if b < a { a } else { b };
                 ((date.0, date.1, date.2, a.0, a.1), (date.0, date.1, date.2, b.0, b.1))
             };
-            let ev = Event { uid: s.uid.clone().unwrap_or_else(new_uid), title: if s.title.trim().is_empty() { "Evento".into() } else { s.title.trim().to_string() }, start, end, all_day: s.all_day, notes: s.notes.trim().to_string() };
+            let ev = Event { uid: s.uid.clone().unwrap_or_else(new_uid), title: if s.title.trim().is_empty() { tr!("Evento").into() } else { s.title.trim().to_string() }, start, end, all_day: s.all_day, notes: s.notes.trim().to_string() };
             self.events.retain(|e| e.uid != ev.uid);
             self.day = date;
             self.month = (date.0, date.1);
@@ -367,12 +370,12 @@ impl App for Agenda {
             None => {}
         }
         ui.area(Rect::new(12.0 + 2.0 * SEGMENT_W + 10.0, (TOOL_H - 22.0) / 2.0, 80.0, 24.0), |ui| {
-            if ui.small_button("Hoje") {
+            if ui.small_button(tr!("Hoje")) {
                 acts.push("today".into());
             }
         });
         let (y, m) = self.month;
-        let t = format!("{} de {y}", MESES[(m - 1) as usize]);
+        let t = tr!("{} de {}", tr(MESES[(m - 1) as usize]), y);
         let tw = ui.text_width(&t, 16.0, true);
         ui.fonts.draw(ui.c, &t, (w - SIDE_W - tw) / 2.0 + 60.0, TOOL_H / 2.0 + 6.0, 16.0, true, rgba(30, 30, 34, 255));
 
@@ -413,7 +416,7 @@ impl App for Agenda {
                             n += 1;
                         }
                     }
-                    self.message = Some(format!("{n} evento(s) importado(s)."));
+                    self.message = Some(tr!("{} evento(s) importado(s).", n));
                     self.save();
                 }
             }
@@ -423,21 +426,21 @@ impl App for Agenda {
     fn menus(&self) -> Vec<Menu> {
         vec![
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("new", "Novo Evento", "Ctrl+N"),
+                    MenuItem::new("new", tr!("Novo Evento"), "Ctrl+N"),
                     MenuItem::Separator,
-                    MenuItem::new("import", "Importar .ics…", ""),
+                    MenuItem::new("import", tr!("Importar .ics…"), ""),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
                 ],
             ),
             Menu::new(
-                "Visualizar",
+                tr!("Visualizar"),
                 vec![
-                    MenuItem::new("today", "Ir para Hoje", "Ctrl+T"),
-                    MenuItem::new("next", "Próximo Mês", "Ctrl+Right"),
-                    MenuItem::new("prev", "Mês Anterior", "Ctrl+Left"),
+                    MenuItem::new("today", tr!("Ir para Hoje"), "Ctrl+T"),
+                    MenuItem::new("next", tr!("Próximo Mês"), "Ctrl+Right"),
+                    MenuItem::new("prev", tr!("Mês Anterior"), "Ctrl+Left"),
                 ],
             ),
         ]
@@ -448,7 +451,7 @@ pub fn main() {
     let (y, m, d, ..) = glove_kit::local_time();
     let events = std::fs::read_to_string(file()).map(|t| ics::parse(&t)).unwrap_or_default();
     let app = Agenda { events, month: (y, m), day: (y, m, d), today: (y, m, d), sheet: None, import: None, message: None };
-    let opts = WindowOptions { title: "Agenda".into(), app_id: "glove.Agenda".into(), size: (860, 560), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Agenda").into(), app_id: "glove.Agenda".into(), size: (860, 560), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-agenda: {e}");
     }

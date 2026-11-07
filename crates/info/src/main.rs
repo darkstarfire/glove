@@ -2,6 +2,7 @@
 //! esquerda e os detalhes de cada uma à direita, lidos de /proc, /sys e de
 //! alguns comandos do sistema.
 
+use glove_config::tr;
 use std::process::Command;
 
 use glove_kit::{paint::draw::*, run, App, Menu, MenuItem, Rect, Ui, WindowOptions};
@@ -32,13 +33,13 @@ pub fn section(i: usize) -> Vec<(String, String)> {
             let mhz = read("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq").parse::<f64>().map(|k| format!("{:.2} GHz", k / 1e6).replace('.', glove_config::virgula())).unwrap_or_default();
             let model_name = format!("{} {}", read("/sys/class/dmi/id/sys_vendor"), read("/sys/class/dmi/id/product_name")).trim().to_string();
             vec![
-                kv("Modelo", model_name),
-                kv("Processador", model),
-                kv("Velocidade máxima", mhz),
-                kv("Núcleos", cores),
-                kv("Processadores lógicos", threads.to_string()),
+                kv(tr!("Modelo"), model_name),
+                kv(tr!("Processador"), model),
+                kv(tr!("Velocidade máxima"), mhz),
+                kv(tr!("Núcleos"), cores),
+                kv(tr!("Processadores lógicos"), threads.to_string()),
                 kv("Firmware", format!("{} {}", read("/sys/class/dmi/id/bios_vendor"), read("/sys/class/dmi/id/bios_version")).trim().to_string()),
-                kv("Número de série", read("/sys/class/dmi/id/product_serial")),
+                kv(tr!("Número de série"), read("/sys/class/dmi/id/product_serial")),
             ]
         }
         1 => {
@@ -46,9 +47,9 @@ pub fn section(i: usize) -> Vec<(String, String)> {
             let get = |k: &str| m.lines().find(|l| l.starts_with(k)).and_then(|l| l.split_whitespace().nth(1)).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             vec![
                 kv("Total", gb(get("MemTotal:"))),
-                kv("Disponível", gb(get("MemAvailable:"))),
-                kv("Em cache", gb(get("Cached:"))),
-                kv("Swap", format!("{} ({} livres)", gb(get("SwapTotal:")), gb(get("SwapFree:")))),
+                kv(tr!("Disponível"), gb(get("MemAvailable:"))),
+                kv(tr!("Em cache"), gb(get("Cached:"))),
+                kv("Swap", tr!("{} ({} livres)", gb(get("SwapTotal:")), gb(get("SwapFree:")))),
             ]
         }
         2 => {
@@ -57,7 +58,7 @@ pub fn section(i: usize) -> Vec<(String, String)> {
                 let name = e.file_name().to_string_lossy().into_owned();
                 if name.contains('-') && read(&format!("/sys/class/drm/{name}/status")) == "connected" {
                     let modes = read(&format!("/sys/class/drm/{name}/modes"));
-                    v.push(kv("Monitor", format!("{} ({})", name.split_once('-').map(|x| x.1).unwrap_or(&name), modes.lines().next().unwrap_or(""))));
+                    v.push(kv(tr!("Monitor"), format!("{} ({})", name.split_once('-').map(|x| x.1).unwrap_or(&name), modes.lines().next().unwrap_or(""))));
                 }
             }
             v
@@ -82,8 +83,8 @@ pub fn section(i: usize) -> Vec<(String, String)> {
                 let ip = cmd("ip", &["-4", "-o", "addr", "show", &n]).split_whitespace().skip_while(|w| *w != "inet").nth(1).unwrap_or("").to_string();
                 v.push((String::new(), n.clone()));
                 v.push(kv("Estado", if state == "up" { "conectado".into() } else { state }));
-                v.push(kv("Endereço IP", ip));
-                v.push(kv("Endereço MAC", mac));
+                v.push(kv(tr!("Endereço IP"), ip));
+                v.push(kv(tr!("Endereço MAC"), mac));
             }
             v
         }
@@ -91,14 +92,14 @@ pub fn section(i: usize) -> Vec<(String, String)> {
             .lines()
             .map(|l| {
                 let name = l.splitn(7, ' ').nth(6).unwrap_or(l).to_string();
-                kv("Aparelho", name)
+                kv(tr!("Aparelho"), name)
             })
             .collect(),
         6 => {
-            let mut v: Vec<(String, String)> = read("/proc/asound/cards").lines().filter(|l| l.contains('[')).map(|l| kv("Placa de som", l.split_once(" - ").map(|x| x.1.trim().to_string()).unwrap_or_default())).collect();
+            let mut v: Vec<(String, String)> = read("/proc/asound/cards").lines().filter(|l| l.contains('[')).map(|l| kv(tr!("Placa de som"), l.split_once(" - ").map(|x| x.1.trim().to_string()).unwrap_or_default())).collect();
             let s = cmd("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"]);
             if !s.is_empty() {
-                v.push(kv("Volume", s.trim().replace("Volume: ", "").replace("[MUTED]", "(sem som)")));
+                v.push(kv("Volume", s.trim().replace(tr!("Volume: "), "").replace("[MUTED]", tr!("(sem som)"))));
             }
             v
         }
@@ -107,11 +108,11 @@ pub fn section(i: usize) -> Vec<(String, String)> {
             let pretty = os.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=")).map(|v| v.trim_matches('"').to_string()).unwrap_or_default();
             let up = read("/proc/uptime").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0) as u64;
             vec![
-                kv("Sistema", pretty),
+                kv(tr!("Sistema"), pretty),
                 kv("Kernel", cmd("uname", &["-r"]).trim().to_string()),
-                kv("Nome do computador", read("/proc/sys/kernel/hostname")),
+                kv(tr!("Nome do computador"), read("/proc/sys/kernel/hostname")),
                 kv("Usuário", std::env::var("USER").unwrap_or_default()),
-                kv("Ligado há", format!("{} h {} min", up / 3600, up / 60 % 60)),
+                kv("Ligado há", tr!("{} h {} min", up / 3600, up / 60 % 60)),
                 kv("Glove", env!("CARGO_PKG_VERSION").to_string()),
             ]
         }
@@ -132,7 +133,7 @@ impl App for Info {
         if ui.keys().iter().any(|k| k.combo == "Ctrl+R") || ui.menu_actions().iter().any(|a| a == "refresh") {
             self.cache = vec![None; SECTIONS.len()];
         }
-        let names: Vec<String> = SECTIONS.iter().map(|s| s.to_string()).collect();
+        let names: Vec<String> = SECTIONS.iter().map(|s| tr(s).to_string()).collect();
         ui.area(Rect::new(10.0, 10.0, 170.0, h - 20.0), |ui| {
             ui.list(&mut self.sel, &names, 170.0, h - 20.0);
         });
@@ -141,11 +142,11 @@ impl App for Info {
         let r = Rect::new(190.0, 10.0, w - 200.0, h - 20.0);
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(255, 255, 255, 255)));
         ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 0.0), &solid(rgba(150, 150, 156, 255)), 1.0);
-        ui.fonts.draw(ui.c, SECTIONS[i], r.x + 16.0, r.y + 26.0, 15.0, true, rgba(20, 20, 24, 255));
+        ui.fonts.draw(ui.c, tr(SECTIONS[i]), r.x + 16.0, r.y + 26.0, 15.0, true, rgba(20, 20, 24, 255));
         let mut y = r.y + 52.0;
         let lw = 170.0;
         if rows.is_empty() {
-            ui.fonts.draw(ui.c, "Nada encontrado.", r.x + 16.0, y, 12.0, false, rgba(130, 130, 136, 255));
+            ui.fonts.draw(ui.c, tr!("Nada encontrado."), r.x + 16.0, y, 12.0, false, rgba(130, 130, 136, 255));
         }
         for (k, v) in rows {
             if y > r.y + r.h - 8.0 {
@@ -167,12 +168,12 @@ impl App for Info {
     }
 
     fn menus(&self) -> Vec<Menu> {
-        vec![Menu::new("Arquivo", vec![MenuItem::new("refresh", "Atualizar", "Ctrl+R"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")])]
+        vec![Menu::new(tr!("Arquivo"), vec![MenuItem::new("refresh", tr!("Atualizar"), "Ctrl+R"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")])]
     }
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Informações do Sistema".into(), app_id: "glove.Info".into(), size: (680, 440), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Informações do Sistema").into(), app_id: "glove.Info".into(), size: (680, 440), fixed: false, min_size: None };
     if let Err(e) = run(opts, Info { sel: Some(0), cache: vec![None; SECTIONS.len()] }) {
         eprintln!("glove-info: {e}");
     }

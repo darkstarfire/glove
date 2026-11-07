@@ -2,6 +2,7 @@
 //! esta janela é o painel de controle da era: tocar/pausar, a barra do
 //! tempo, o volume e a tela cheia. Fala com o mpv pelo soquete JSON dele.
 
+use glove_config::tr;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
@@ -133,7 +134,7 @@ impl Video {
         }
         self.player = Player::start(&p, self.state.clone(), self.volume);
         if self.player.is_none() {
-            self.error = Some("O mpv não abriu esse arquivo.".into());
+            self.error = Some(tr!("O mpv não abriu esse arquivo.").into());
         }
         self.file = Some(p);
     }
@@ -181,7 +182,7 @@ impl App for Video {
             (s.pos, s.dur, s.paused, s.title.clone())
         };
         // Nome do vídeo.
-        let name = if !title.is_empty() { title } else { self.file.as_ref().and_then(|f| f.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Nenhum vídeo aberto".into()) };
+        let name = if !title.is_empty() { title } else { self.file.as_ref().and_then(|f| f.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| tr!("Nenhum vídeo aberto").into()) };
         let name = ui.fonts.ellipsize(&name, 12.0, true, w - 24.0);
         let tw = ui.text_width(&name, 12.0, true);
         ui.fonts.draw(ui.c, &name, (w - tw) / 2.0, 22.0, 12.0, true, rgba(30, 30, 34, 255));
@@ -242,7 +243,7 @@ impl App for Video {
             }
         });
         ui.area(Rect::new(w - 110.0, cy - 11.0, 96.0, 24.0), |ui| {
-            if ui.button("Tela Cheia") {
+            if ui.button(tr!("Tela Cheia")) {
                 acts.push("full".into());
             }
         });
@@ -293,7 +294,7 @@ impl App for Video {
             ui.wake_after(Duration::from_millis(250));
         }
         if !self.mpv {
-            if ui.alert_window(AlertKind::Caution, "O Vídeo precisa do mpv.", "Instale o pacote mpv (por exemplo: sudo apt install mpv) e abra o Vídeo de novo.", &["OK"]).is_some() {
+            if ui.alert_window(AlertKind::Caution, tr!("O Vídeo precisa do mpv."), tr!("Instale o pacote mpv (por exemplo: sudo apt install mpv) e abra o Vídeo de novo."), &["OK"]).is_some() {
                 ui.close = true;
             }
             return;
@@ -311,15 +312,15 @@ impl App for Video {
 
     fn menus(&self) -> Vec<Menu> {
         vec![
-            Menu::new("Arquivo", vec![MenuItem::new("open", "Abrir…", "Ctrl+O"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")]),
+            Menu::new(tr!("Arquivo"), vec![MenuItem::new("open", tr!("Abrir…"), "Ctrl+O"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")]),
             Menu::new(
-                "Controles",
+                tr!("Controles"),
                 vec![
-                    MenuItem::new("toggle", "Tocar/Pausar", "Space"),
-                    MenuItem::new("back", "Voltar 10 s", "Left"),
-                    MenuItem::new("fwd", "Avançar 10 s", "Right"),
+                    MenuItem::new("toggle", tr!("Tocar/Pausar"), "Space"),
+                    MenuItem::new("back", tr!("Voltar 10 s"), "Left"),
+                    MenuItem::new("fwd", tr!("Avançar 10 s"), "Right"),
                     MenuItem::Separator,
-                    MenuItem::new("full", "Tela Cheia", "Ctrl+F"),
+                    MenuItem::new("full", tr!("Tela Cheia"), "Ctrl+F"),
                 ],
             ),
         ]
@@ -336,7 +337,7 @@ pub fn main() {
     if let Some(p) = std::env::args().nth(1).map(PathBuf::from) {
         app.load(p);
     }
-    let opts = WindowOptions { title: "Vídeo".into(), app_id: "glove.Video".into(), size: (440, 120), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Vídeo").into(), app_id: "glove.Video".into(), size: (440, 120), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-video: {e}");
     }

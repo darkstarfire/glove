@@ -2,6 +2,7 @@
 //! ferramentas e miniaturas na lateral. As páginas de PDF são desenhadas pelo
 //! pdftoppm (poppler) numa thread; as miniaturas também.
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 
 use glove_kit::{
@@ -145,9 +146,9 @@ fn render_pdf_page(pdf: &Path, n: usize, dpi: u32, tag: &str) -> Result<Pixmap, 
         .arg(pdf)
         .arg(&prefix)
         .output()
-        .map_err(|e| format!("Não foi possível usar o pdftoppm: {e}"))?;
+        .map_err(|e| tr!("Não foi possível usar o pdftoppm: {}", e))?;
     if !out.status.success() {
-        return Err("O pdftoppm não conseguiu ler este PDF.".into());
+        return Err(tr!("O pdftoppm não conseguiu ler este PDF.").into());
     }
     let png = prefix.with_extension("png");
     let pm = Pixmap::load_png(&png).map_err(|e| e.to_string());
@@ -265,7 +266,7 @@ impl Viewer {
                 }
                 _ => {
                     self.doc = None;
-                    self.error = Some("Não foi possível abrir este PDF (o pdfinfo do poppler está instalado?).".into());
+                    self.error = Some(tr!("Não foi possível abrir este PDF (o pdfinfo do poppler está instalado?).").into());
                 }
             }
             self.path = Some(p);
@@ -338,7 +339,7 @@ impl Viewer {
         let Some(p) = self.current_file() else { return };
         let ok = std::process::Command::new("gio").arg("trash").arg(&p).status().is_ok_and(|s| s.success());
         if !ok {
-            self.note = Some(("Não foi possível mover para a Lixeira.".into(), std::time::Instant::now()));
+            self.note = Some((tr!("Não foi possível mover para a Lixeira.").into(), std::time::Instant::now()));
             return;
         }
         let rest: Vec<PathBuf> = match &self.doc {
@@ -349,11 +350,11 @@ impl Viewer {
             self.doc = None;
             self.image = None;
             self.path = None;
-            self.note = Some(("Movida para a Lixeira.".into(), std::time::Instant::now()));
+            self.note = Some((tr!("Movida para a Lixeira.").into(), std::time::Instant::now()));
         } else {
             let next = rest[self.index.min(rest.len() - 1)].clone();
             self.load(next);
-            self.note = Some(("Movida para a Lixeira.".into(), std::time::Instant::now()));
+            self.note = Some((tr!("Movida para a Lixeira.").into(), std::time::Instant::now()));
         }
     }
 
@@ -499,7 +500,7 @@ impl Viewer {
                 // O arquivo de verdade: colar num chat ou editor cola a imagem.
                 if let Some(p) = self.current_file() {
                     ui.copy_files(&[p], false);
-                    self.note = Some(("Imagem copiada.".into(), std::time::Instant::now()));
+                    self.note = Some((tr!("Imagem copiada.").into(), std::time::Instant::now()));
                 }
             }
             "trash" => self.trash_current(),
@@ -532,7 +533,7 @@ impl Viewer {
         if ui.segmented_in(Rect::new(x, y, SEGMENT_W, SEGMENT_H), &[Glyph::Sidebar], self.sidebar.then_some(0), &[n > 0]).is_some() {
             act = Some("sidebar");
         }
-        label(ui, "Miniaturas", x + SEGMENT_W / 2.0);
+        label(ui, tr!("Miniaturas"), x + SEGMENT_W / 2.0);
         x += SEGMENT_W + 36.0;
         // Anterior / Próxima
         let nav = [n > 1 && (matches!(self.doc, Some(Doc::Images(_))) || self.index > 0), n > 1 && (matches!(self.doc, Some(Doc::Images(_))) || self.index + 1 < n)];
@@ -541,7 +542,7 @@ impl Viewer {
             Some(_) => act = Some("next"),
             None => {}
         }
-        let pg = if n > 0 { format!("{} de {n}", self.index + 1) } else { "Anterior/Próxima".into() };
+        let pg = if n > 0 { tr!("{} de {}", self.index + 1, n) } else { "Anterior/Próxima".into() };
         label(ui, &pg, x + SEGMENT_W);
         x += 2.0 * SEGMENT_W + 30.0;
         // Zoom
@@ -550,7 +551,7 @@ impl Viewer {
             Some(_) => act = Some("bigger"),
             None => {}
         }
-        label(ui, "Zoom", x + SEGMENT_W);
+        label(ui, tr!("Zoom"), x + SEGMENT_W);
         x += 2.0 * SEGMENT_W + 30.0;
         // Girar
         match ui.segmented_in(Rect::new(x, y, 2.0 * SEGMENT_W, SEGMENT_H), &[Glyph::RotateLeft, Glyph::RotateRight], None, &[has, has]) {
@@ -558,7 +559,7 @@ impl Viewer {
             Some(_) => act = Some("rot-right"),
             None => {}
         }
-        label(ui, "Girar", x + SEGMENT_W);
+        label(ui, tr!("Girar"), x + SEGMENT_W);
         act
     }
 
@@ -744,7 +745,7 @@ impl App for Viewer {
         };
         let name = self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Visualizador".into());
         let title = match &self.doc {
-            Some(Doc::Pdf { pages, .. }) => format!("{name} (página {} de {pages})", self.index + 1),
+            Some(Doc::Pdf { pages, .. }) => tr!("{} (página {} de {})", name, self.index + 1, pages),
             _ if self.image.is_some() => format!("{name} ({:.0}%)", k * 100.0),
             _ => name,
         };
@@ -797,7 +798,7 @@ impl App for Viewer {
             let (cx, cy) = (area.x + area.w / 2.0, area.y + area.h / 2.0);
             ui.area(Rect::new(cx - 12.0, cy - 12.0, 24.0, 24.0), |ui| ui.spinner(24.0));
         } else {
-            let msg = self.error.clone().unwrap_or_else(|| "Abra uma imagem ou um PDF com Arquivo › Abrir… (Ctrl+O) ou pelo Arquivos.".into());
+            let msg = self.error.clone().unwrap_or_else(|| tr!("Abra uma imagem ou um PDF com Arquivo › Abrir… (Ctrl+O) ou pelo Arquivos.").into());
             let tw = ui.text_width(&msg, 13.0, false);
             ui.fonts.draw(ui.c, &msg, area.x + (area.w - tw) / 2.0, area.y + area.h / 2.0, 13.0, false, Color::WHITE);
         }
@@ -827,6 +828,7 @@ impl App for Viewer {
                 let mut y = r.y + 4.0;
                 let mut chosen = None;
                 for (id, label) in CTX {
+                    let label = tr(label);
                     if id.is_empty() {
                         ui.c.hline(r.x + 1.0, y + 4.0, r.w - 2.0, rgba(214, 214, 218, 255));
                         y += 9.0;
@@ -879,45 +881,45 @@ impl App for Viewer {
         let pdf = matches!(self.doc, Some(Doc::Pdf { .. }));
         vec![
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("open", "Abrir…", "Ctrl+O"),
-                    MenuItem::new("reveal", "Mostrar no Arquivos", "Ctrl+Shift+R"),
-                    MenuItem::new("trash", "Mover para a Lixeira", "Ctrl+BackSpace").enabled(self.doc.is_some()),
+                    MenuItem::new("open", tr!("Abrir…"), "Ctrl+O"),
+                    MenuItem::new("reveal", tr!("Mostrar no Arquivos"), "Ctrl+Shift+R"),
+                    MenuItem::new("trash", tr!("Mover para a Lixeira"), "Ctrl+BackSpace").enabled(self.doc.is_some()),
                     MenuItem::Separator,
-                    MenuItem::new("print", "Imprimir…", "Ctrl+P").enabled(self.path.is_some()),
+                    MenuItem::new("print", tr!("Imprimir…"), "Ctrl+P").enabled(self.path.is_some()),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
                 ],
             ),
-            Menu::new("Editar", vec![MenuItem::new("copy", "Copiar Imagem", "Ctrl+C").enabled(self.doc.is_some())]),
+            Menu::new(tr!("Editar"), vec![MenuItem::new("copy", tr!("Copiar Imagem"), "Ctrl+C").enabled(self.doc.is_some())]),
             Menu::new(
-                "Visualizar",
+                tr!("Visualizar"),
                 vec![
-                    MenuItem::new("sidebar", if self.sidebar { "Ocultar Miniaturas" } else { "Mostrar Miniaturas" }, "Ctrl+Shift+M").enabled(self.doc.is_some()),
+                    MenuItem::new("sidebar", if self.sidebar { tr!("Ocultar Miniaturas") } else { tr!("Mostrar Miniaturas") }, "Ctrl+Shift+M").enabled(self.doc.is_some()),
                     MenuItem::Separator,
-                    MenuItem::new("bigger", "Ampliar", "Ctrl+equal").enabled(has),
-                    MenuItem::new("smaller", "Reduzir", "Ctrl+minus").enabled(has),
+                    MenuItem::new("bigger", tr!("Ampliar"), "Ctrl+equal").enabled(has),
+                    MenuItem::new("smaller", tr!("Reduzir"), "Ctrl+minus").enabled(has),
                     MenuItem::Separator,
-                    MenuItem::new("actual", "Tamanho real", "Ctrl+0").enabled(has).checked(self.zoom == Some(1.0)),
-                    MenuItem::new("fit", "Ajustar à janela", "Ctrl+9").enabled(has).checked(self.zoom.is_none()),
-                ],
-            ),
-            Menu::new(
-                "Imagem",
-                vec![
-                    MenuItem::new("rot-left", "Girar à esquerda", "Ctrl+L").enabled(has),
-                    MenuItem::new("rot-right", "Girar à direita", "Ctrl+R").enabled(has),
+                    MenuItem::new("actual", tr!("Tamanho real"), "Ctrl+0").enabled(has).checked(self.zoom == Some(1.0)),
+                    MenuItem::new("fit", tr!("Ajustar à janela"), "Ctrl+9").enabled(has).checked(self.zoom.is_none()),
                 ],
             ),
             Menu::new(
-                "Ir",
+                tr!("Imagem"),
                 vec![
-                    MenuItem::new("next", if pdf { "Próxima página" } else { "Próxima imagem" }, "Right"),
-                    MenuItem::new("prev", if pdf { "Página anterior" } else { "Imagem anterior" }, "Left"),
+                    MenuItem::new("rot-left", tr!("Girar à esquerda"), "Ctrl+L").enabled(has),
+                    MenuItem::new("rot-right", tr!("Girar à direita"), "Ctrl+R").enabled(has),
+                ],
+            ),
+            Menu::new(
+                tr!("Ir"),
+                vec![
+                    MenuItem::new("next", if pdf { tr!("Próxima página") } else { tr!("Próxima imagem") }, "Right"),
+                    MenuItem::new("prev", if pdf { tr!("Página anterior") } else { tr!("Imagem anterior") }, "Left"),
                     MenuItem::Separator,
-                    MenuItem::new("first", "Primeira", "Home"),
-                    MenuItem::new("last", "Última", "End"),
+                    MenuItem::new("first", tr!("Primeira"), "Home"),
+                    MenuItem::new("last", tr!("Última"), "End"),
                 ],
             ),
         ]

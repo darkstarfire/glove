@@ -2,6 +2,7 @@
 //! mensagem aberta embaixo; Nova Mensagem, Responder e Encaminhar abrem
 //! janelas de escrever. IMAP para ler e SMTP para enviar, com TLS.
 
+use glove_config::tr;
 mod imap;
 mod mime;
 mod net;
@@ -44,9 +45,9 @@ fn downloads() -> PathBuf {
 
 fn size_text(n: usize) -> String {
     if n < 1024 {
-        format!("{n} B")
+        tr!("{} B", n)
     } else if n < 1024 * 1024 {
-        format!("{} KB", n / 1024)
+        tr!("{} KB", n / 1024)
     } else {
         format!("{:.1} MB", n as f64 / 1048576.0).replace('.', glove_config::virgula())
     }
@@ -200,7 +201,7 @@ impl Correio {
     fn open_compose(&mut self, ui: &mut Ui, c: Compose) {
         let id = self.next_win;
         self.next_win += 1;
-        let title = if c.subject.is_empty() { "Nova Mensagem".to_string() } else { c.subject.clone() };
+        let title = if c.subject.is_empty() { tr!("Nova Mensagem").to_string() } else { c.subject.clone() };
         self.composes.insert(id, c);
         ui.open_window(id, WindowOptions { title, app_id: "glove.Correio".into(), size: (620, 480), fixed: false, min_size: None });
     }
@@ -214,7 +215,7 @@ impl Correio {
         }
         if !self.accounts_open {
             self.accounts_open = true;
-            ui.open_window(ACCOUNTS_WIN, WindowOptions { title: "Contas de Correio".into(), app_id: "glove.Correio".into(), size: (560, 400), fixed: true, min_size: None });
+            ui.open_window(ACCOUNTS_WIN, WindowOptions { title: tr!("Contas de Correio").into(), app_id: "glove.Correio".into(), size: (560, 400), fixed: true, min_size: None });
         }
     }
 
@@ -243,8 +244,8 @@ impl Correio {
         let subj = row.subject.clone();
         let low = subj.to_lowercase();
         if kind == "forward" {
-            c.subject = if low.starts_with("enc:") || low.starts_with("fwd:") || low.starts_with("fw:") { subj } else { format!("Enc: {subj}") };
-            c.body = TextBuffer::new(format!("\n\n---------- Mensagem encaminhada ----------\nDe: {}\nData: {}\nAssunto: {}\nPara: {}\n\n{}", row.from, store::long_date(row.date), row.subject, row.to, text));
+            c.subject = if low.starts_with("enc:") || low.starts_with("fwd:") || low.starts_with("fw:") { subj } else { tr!("Enc: {}", subj) };
+            c.body = TextBuffer::new(tr!("\n\n---------- Mensagem encaminhada ----------\nDe: {}\nData: {}\nAssunto: {}\nPara: {}\n\n{}", row.from, store::long_date(row.date), row.subject, row.to, text));
             c.attachments = atts;
         } else {
             c.subject = if low.starts_with("re:") { subj } else { format!("Re: {subj}") };
@@ -253,7 +254,7 @@ impl Correio {
                 let others: Vec<String> = mime::split_addresses(&row.to).into_iter().chain(mime::split_addresses(&row.cc)).filter(|a| mime::address(a).to_lowercase() != me && mime::address(a).to_lowercase() != mime::address(&row.from).to_lowercase()).collect();
                 c.cc = others.join(", ");
             }
-            c.body = TextBuffer::new(format!("\n\nEm {}, {} escreveu:\n{}", store::long_date(row.date), mime::display_name(&row.from), mime::quote(&text)));
+            c.body = TextBuffer::new(tr!("\n\nEm {}, {} escreveu:\n{}", store::long_date(row.date), mime::display_name(&row.from), mime::quote(&text)));
             c.reply = Some((folder, row.uid));
             c.in_reply_to = row.message_id.clone();
             c.references = row.references.clone();
@@ -266,7 +267,7 @@ impl Correio {
         ui.c.brushed_metal(0.0, 0.0, w, TOOL_H, rgba(226, 226, 228, 255), rgba(190, 190, 194, 255));
         ui.c.hline(0.0, TOOL_H - 1.0, w, rgba(120, 120, 126, 255));
         let has = self.selected.is_some();
-        let items: [(&str, &'static str, bool); 6] = [("Apagar", "delete", has), ("Responder", "reply", has), ("Resp. a Todos", "reply-all", has), ("Encaminhar", "forward", has), ("Nova Mensagem", "new", !self.accounts.is_empty()), ("Receber", "get", !self.accounts.is_empty())];
+        let items: [(&str, &'static str, bool); 6] = [(tr!("Apagar"), "delete", has), (tr!("Responder"), "reply", has), (tr!("Resp. a Todos"), "reply-all", has), (tr!("Encaminhar"), "forward", has), (tr!("Nova Mensagem"), "new", !self.accounts.is_empty()), (tr!("Receber"), "get", !self.accounts.is_empty())];
         let mut act = None;
         let mut x = 12.0;
         for (label, id, on) in items {
@@ -286,7 +287,7 @@ impl Correio {
             }
             x += bw + 4.0;
         }
-        ui.search_field_in(Rect::new(w - 200.0, (TOOL_H - SEARCH_H) / 2.0, 186.0, SEARCH_H), &mut self.search, "Buscar");
+        ui.search_field_in(Rect::new(w - 200.0, (TOOL_H - SEARCH_H) / 2.0, 186.0, SEARCH_H), &mut self.search, tr!("Buscar"));
         act
     }
 
@@ -331,7 +332,7 @@ impl Correio {
     fn preview(&mut self, ui: &mut Ui, r: Rect) {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
         let Some(row) = self.selected_row() else {
-            let t = "Nenhuma mensagem selecionada";
+            let t = tr!("Nenhuma mensagem selecionada");
             let tw = ui.text_width(t, 12.0, false);
             ui.fonts.draw(ui.c, t, r.x + (r.w - tw) / 2.0, r.y + r.h / 2.0, 12.0, false, rgba(150, 150, 156, 255));
             return;
@@ -346,9 +347,9 @@ impl Correio {
         // Cabeçalho da mensagem.
         let grey = rgba(110, 110, 116, 255);
         let ink = rgba(25, 25, 30, 255);
-        let mut fields = vec![("De:", row.from.clone()), ("Data:", store::long_date(row.date)), ("Para:", row.to.clone())];
+        let mut fields = vec![(tr!("De:"), row.from.clone()), (tr!("Data:"), store::long_date(row.date)), (tr!("Para:"), row.to.clone())];
         if !row.cc.is_empty() {
-            fields.push(("Cc:", row.cc.clone()));
+            fields.push((tr!("Cc:"), row.cc.clone()));
         }
         fields.insert(1, ("Assunto:", row.subject.clone()));
         let mut y = r.y + 18.0;
@@ -366,7 +367,7 @@ impl Correio {
             icons::draw_bare(ui.c, ui.fonts, Icon::Clip, r.x + 74.0, y - 11.0, 16.0, None);
             ui.fonts.draw(ui.c, &label, r.x + 94.0, y + 2.0, 11.0, false, ink);
             let mut save = false;
-            ui.area(Rect::new(r.x + r.w - 90.0, y - 12.0, 80.0, 20.0), |ui| save = ui.small_button("Salvar"));
+            ui.area(Rect::new(r.x + r.w - 90.0, y - 12.0, 80.0, 20.0), |ui| save = ui.small_button(tr!("Salvar")));
             if save {
                 let att = self.shared.lock().unwrap().open.as_ref().and_then(|m| m.parsed.attachments.get(i).map(|a| (a.name.clone(), a.data.clone())));
                 if let Some((name, data)) = att {
@@ -381,8 +382,8 @@ impl Correio {
                     }
                     self.message_at = Instant::now();
                     self.message = Some(match std::fs::write(&p, data) {
-                        Ok(()) => format!("“{}” salvo em {}.", p.file_name().unwrap().to_string_lossy(), dir.display()),
-                        Err(e) => format!("Não deu para salvar: {e}"),
+                        Ok(()) => tr!("“{}” salvo em {}.", p.file_name().unwrap().to_string_lossy(), dir.display()),
+                        Err(e) => tr!("Não deu para salvar: {}", e),
                     });
                 }
             }
@@ -391,7 +392,7 @@ impl Correio {
         ui.c.hline(r.x + 10.0, y - 6.0, r.w - 20.0, rgba(210, 210, 214, 255));
         let body = Rect::new(r.x, y, r.w, r.y + r.h - y);
         if !open_ok {
-            ui.fonts.draw(ui.c, "Carregando…", body.x + 20.0, body.y + 24.0, 12.0, false, grey);
+            ui.fonts.draw(ui.c, tr!("Carregando…"), body.x + 20.0, body.y + 24.0, 12.0, false, grey);
             return;
         }
         let max = body.w - 36.0;
@@ -456,7 +457,7 @@ impl Correio {
         let lx = SIDE_W;
         let lw = w - lx;
         let list_h = (body_h * 0.42).max(120.0);
-        let cols = [Column::new("", 0.065), Column::new("De", 0.27), Column::new("Assunto", 0.465), Column::new("Data", 0.2)];
+        let cols = [Column::new("", 0.065), Column::new(tr!("De"), 0.27), Column::new(tr!("Assunto"), 0.465), Column::new(tr!("Data"), 0.2)];
         let t = now();
         let trows: Vec<TableRow> = rows
             .iter()
@@ -513,7 +514,7 @@ impl Correio {
         } else if let Some(m) = &self.message {
             m.clone()
         } else if self.accounts.is_empty() {
-            "Nenhuma conta. Use Correio ▸ Contas… para adicionar uma.".into()
+            tr!("Nenhuma conta. Use Correio ▸ Contas… para adicionar uma.").into()
         } else {
             format!("{} {}{}", rows.len(), if rows.len() == 1 { "mensagem" } else { "mensagens" }, if unread > 0 { format!(", {unread} não lidas") } else { String::new() })
         };
@@ -572,7 +573,7 @@ impl Correio {
                             let s = self.shared.lock().unwrap();
                             s.open.as_ref().filter(|m| m.uid == row.uid).map(|m| m.parsed.text.clone()).unwrap_or_default()
                         };
-                        let doc = format!("De: {}\nPara: {}\nData: {}\nAssunto: {}\n\n{text}", row.from, row.to, store::long_date(row.date), row.subject);
+                        let doc = tr!("De: {}\nPara: {}\nData: {}\nAssunto: {}\n\n{}", row.from, row.to, store::long_date(row.date), row.subject, text);
                         self.print = Some(glove_kit::print::PrintSheet::new(&row.subject, glove_kit::print::PrintContent::Text(doc)));
                     }
                 }
@@ -624,7 +625,7 @@ impl Correio {
         ui.c.brushed_metal(0.0, 0.0, w, TOOL_H, rgba(226, 226, 228, 255), rgba(190, 190, 194, 255));
         ui.c.hline(0.0, TOOL_H - 1.0, w, rgba(120, 120, 126, 255));
         let mut x = 12.0;
-        for (label, act) in [("Enviar", "send"), ("Anexar", "attach")] {
+        for (label, act) in [(tr!("Enviar"), "send"), (tr!("Anexar"), "attach")] {
             let r = Rect::new(x, 4.0, 70.0, TOOL_H - 8.0);
             let on = !c.sending;
             let ink = if on { rgba(40, 40, 46, 255) } else { rgba(150, 150, 156, 255) };
@@ -646,18 +647,18 @@ impl Correio {
             let tw = ui.text_width(t, 11.0, false);
             ui.fonts.draw(ui.c, t, lx - 8.0 - tw, y + 15.0, 11.0, false, rgba(90, 90, 96, 255));
         };
-        label(ui, "Para:", y);
+        label(ui, tr!("Para:"), y);
         let focus_to = first && c.to.is_empty();
         ui.text_field_in(Rect::new(lx, y, fw, 22.0), &mut c.to, focus_to);
         y += 30.0;
-        label(ui, "Cc:", y);
+        label(ui, tr!("Cc:"), y);
         ui.text_field_in(Rect::new(lx, y, fw, 22.0), &mut c.cc, false);
         y += 30.0;
         label(ui, "Assunto:", y);
         ui.text_field_in(Rect::new(lx, y, fw, 22.0), &mut c.subject, false);
         y += 30.0;
         if accounts.len() > 1 {
-            label(ui, "De:", y);
+            label(ui, tr!("De:"), y);
             let from = accounts.get(c.acct).map(|a| format!("{} <{}>", a.name, a.email)).unwrap_or_default();
             let mut clicked = false;
             ui.area(Rect::new(lx, y, fw.min(360.0), 22.0), |ui| clicked = ui.small_button(&from));
@@ -692,7 +693,7 @@ impl Correio {
             c.body.set_cursor(0, false);
         }
         if c.sending || c.error.is_some() {
-            let (t, col) = if c.sending { ("Enviando…".to_string(), rgba(50, 50, 56, 255)) } else { (c.error.clone().unwrap_or_default(), rgba(170, 40, 30, 255)) };
+            let (t, col) = if c.sending { (tr!("Enviando…").to_string(), rgba(50, 50, 56, 255)) } else { (c.error.clone().unwrap_or_default(), rgba(170, 40, 30, 255)) };
             let t = ui.fonts.ellipsize(&t, 11.0, false, w - 20.0);
             ui.fonts.draw(ui.c, &t, 10.0, h - 6.0, 11.0, false, col);
             if c.sending {
@@ -705,7 +706,7 @@ impl Correio {
                 "send" if !c.sending => {
                     let to = mime::split_addresses(&c.to);
                     if to.is_empty() || !to.iter().all(|a| mime::address(a).contains('@')) {
-                        c.error = Some("Confira os destinatários em “Para:”.".into());
+                        c.error = Some(tr!("Confira os destinatários em “Para:”.").into());
                         continue;
                     }
                     let Some(acc) = accounts.get(c.acct) else { continue };
@@ -737,7 +738,7 @@ impl Correio {
             }
         }
         if c.confirm_close {
-            match ui.alert(AlertKind::Caution, "Descartar esta mensagem?", "O que foi escrito será perdido.", &["Cancelar", "Descartar"]) {
+            match ui.alert(AlertKind::Caution, tr!("Descartar esta mensagem?"), tr!("O que foi escrito será perdido."), &[tr!("Cancelar"), tr!("Descartar")]) {
                 Some(1) => {
                     c.confirm_close = false;
                     ui.close = true;
@@ -751,9 +752,9 @@ impl Correio {
                 c.fb = None;
                 if let Choice::Picked(p) = ch {
                     match std::fs::read(&p) {
-                        Ok(d) if d.len() > 25 * 1024 * 1024 => c.error = Some("Arquivo grande demais para anexar (mais de 25 MB).".into()),
+                        Ok(d) if d.len() > 25 * 1024 * 1024 => c.error = Some(tr!("Arquivo grande demais para anexar (mais de 25 MB).").into()),
                         Ok(d) => c.attachments.push((p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), d)),
-                        Err(e) => c.error = Some(format!("Não deu para ler o arquivo: {e}")),
+                        Err(e) => c.error = Some(tr!("Não deu para ler o arquivo: {}", e)),
                     }
                 }
                 ui.redraw = true;
@@ -776,7 +777,7 @@ impl Correio {
         // Lista de contas.
         let lw = 160.0;
         let mut names: Vec<String> = self.accounts.iter().map(|a| if a.name.is_empty() { a.email.clone() } else { a.name.clone() }).collect();
-        names.push("Nova Conta…".into());
+        names.push(tr!("Nova Conta…").into());
         let mut sel = self.form.as_ref().map(|f| f.index.unwrap_or(self.accounts.len()));
         let before = sel;
         ui.area(Rect::new(12.0, 12.0, lw, h - 64.0), |ui| {
@@ -804,14 +805,14 @@ impl Correio {
                     f.index = Some(idx);
                     f.error = None;
                     if let Err(e) = store::save_accounts(&self.accounts) {
-                        f.error = Some(format!("Não deu para salvar: {e}"));
+                        f.error = Some(tr!("Não deu para salvar: {}", e));
                     }
                     let _ = self.tx.send(Cmd::SetAccounts(self.accounts.clone()));
                     if self.shared.lock().unwrap().current.as_ref().is_none_or(|c| c.0 == idx) {
                         let _ = self.tx.send(Cmd::Open(idx, "INBOX".into()));
                     }
                     self.message_at = Instant::now();
-                    self.message = Some("Conta salva.".into());
+                    self.message = Some(tr!("Conta salva.").into());
                 }
                 Err(e) => f.error = Some(e),
             }
@@ -825,10 +826,10 @@ impl Correio {
             ui.fonts.draw(ui.c, t, fx - 8.0 - tw, y + 15.0, 11.0, false, rgba(60, 60, 66, 255));
         };
         let old_email = f.a.email.clone();
-        label(ui, "Nome completo:", y);
+        label(ui, tr!("Nome completo:"), y);
         ui.text_field_in(Rect::new(fx, y, fw, 22.0), &mut f.a.name, false);
         y += 30.0;
-        label(ui, "E-mail:", y);
+        label(ui, tr!("E-mail:"), y);
         let focus_email = std::mem::take(&mut f.focus);
         ui.text_field_in(Rect::new(fx, y, fw, 22.0), &mut f.a.email, focus_email);
         y += 30.0;
@@ -840,25 +841,25 @@ impl Correio {
             f.smtp_port = g.smtp_port.to_string();
             f.a.user = g.user;
         }
-        label(ui, "Senha:", y);
+        label(ui, tr!("Senha:"), y);
         ui.password_field_in(Rect::new(fx, y, fw, 22.0), &mut f.a.password, false);
         y += 38.0;
         let snapshot = (f.a.imap_host.clone(), f.imap_port.clone(), f.a.smtp_host.clone(), f.smtp_port.clone(), f.a.user.clone());
-        label(ui, "Entrada (IMAP):", y);
+        label(ui, tr!("Entrada (IMAP):"), y);
         ui.text_field_in(Rect::new(fx, y, fw - 70.0, 22.0), &mut f.a.imap_host, false);
         ui.text_field_in(Rect::new(fx + fw - 60.0, y, 60.0, 22.0), &mut f.imap_port, false);
         y += 30.0;
-        label(ui, "Saída (SMTP):", y);
+        label(ui, tr!("Saída (SMTP):"), y);
         ui.text_field_in(Rect::new(fx, y, fw - 70.0, 22.0), &mut f.a.smtp_host, false);
         ui.text_field_in(Rect::new(fx + fw - 60.0, y, 60.0, 22.0), &mut f.smtp_port, false);
         y += 30.0;
-        label(ui, "Usuário:", y);
+        label(ui, tr!("Usuário:"), y);
         ui.text_field_in(Rect::new(fx, y, fw, 22.0), &mut f.a.user, false);
         y += 30.0;
         if snapshot != (f.a.imap_host.clone(), f.imap_port.clone(), f.a.smtp_host.clone(), f.smtp_port.clone(), f.a.user.clone()) {
             f.touched = true;
         }
-        for (k, line) in ["A senha fica guardada só para você,", "em ~/.config/glove/correio.toml."].iter().enumerate() {
+        for (k, line) in [tr!("A senha fica guardada só para você,"), "em ~/.config/glove/correio.toml."].iter().enumerate() {
             ui.fonts.draw(ui.c, line, fx, y + 10.0 + k as f32 * 14.0, 10.0, false, rgba(120, 120, 126, 255));
         }
         if let Some(e) = &f.error {
@@ -874,14 +875,14 @@ impl Correio {
         let editing = f.index.is_some();
         ui.area(Rect::new(w - 120.0, h - 36.0, 108.0, 26.0), |ui| {
             ui.set_enabled(ready);
-            save = ui.button(if f.testing { "Verificando…" } else { "Salvar" });
+            save = ui.button(if f.testing { tr!("Verificando…") } else { tr!("Salvar") });
             ui.set_enabled(true);
         });
         if has_error && !f.testing {
-            ui.area(Rect::new(w - 290.0, h - 36.0, 160.0, 26.0), |ui| save_anyway = ui.small_button("Salvar Mesmo Assim"));
+            ui.area(Rect::new(w - 290.0, h - 36.0, 160.0, 26.0), |ui| save_anyway = ui.small_button(tr!("Salvar Mesmo Assim")));
         }
         if editing {
-            ui.area(Rect::new(12.0, h - 36.0, 90.0, 26.0), |ui| remove = ui.small_button("Remover"));
+            ui.area(Rect::new(12.0, h - 36.0, 90.0, 26.0), |ui| remove = ui.small_button(tr!("Remover")));
         }
         if save && ready {
             f.testing = true;
@@ -900,7 +901,7 @@ impl Correio {
             self.confirm_remove = true;
         }
         if self.confirm_remove {
-            match ui.alert(AlertKind::Caution, "Remover esta conta?", "As mensagens continuam no servidor; só a cópia local e os ajustes saem deste computador.", &["Cancelar", "Remover"]) {
+            match ui.alert(AlertKind::Caution, tr!("Remover esta conta?"), tr!("As mensagens continuam no servidor; só a cópia local e os ajustes saem deste computador."), &[tr!("Cancelar"), tr!("Remover")]) {
                 Some(1) => {
                     self.confirm_remove = false;
                     if let Some(i) = self.form.as_ref().and_then(|f| f.index) {
@@ -1059,33 +1060,33 @@ impl App for Correio {
         let has = self.selected.is_some();
         vec![
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("new", "Nova Mensagem", "Ctrl+N"),
+                    MenuItem::new("new", tr!("Nova Mensagem"), "Ctrl+N"),
                     MenuItem::Separator,
-                    MenuItem::new("attach", "Anexar Arquivo…", "Ctrl+Shift+A"),
-                    MenuItem::new("send", "Enviar", "Ctrl+Shift+D"),
+                    MenuItem::new("attach", tr!("Anexar Arquivo…"), "Ctrl+Shift+A"),
+                    MenuItem::new("send", tr!("Enviar"), "Ctrl+Shift+D"),
                     MenuItem::Separator,
-                    MenuItem::new("accounts", "Contas…", "Ctrl+comma"),
+                    MenuItem::new("accounts", tr!("Contas…"), "Ctrl+comma"),
                     MenuItem::Separator,
-                    MenuItem::new("print", "Imprimir…", "Ctrl+P"),
+                    MenuItem::new("print", tr!("Imprimir…"), "Ctrl+P"),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar Janela", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar Janela"), "Ctrl+W"),
                 ],
             ),
             Menu::new(
-                "Mensagem",
+                tr!("Mensagem"),
                 vec![
-                    MenuItem::new("get", "Receber Mensagens", "Ctrl+Shift+N"),
+                    MenuItem::new("get", tr!("Receber Mensagens"), "Ctrl+Shift+N"),
                     MenuItem::Separator,
-                    MenuItem::new("reply", "Responder", "Ctrl+R").enabled(has),
-                    MenuItem::new("reply-all", "Responder a Todos", "Ctrl+Shift+R").enabled(has),
-                    MenuItem::new("forward", "Encaminhar", "Ctrl+Shift+F").enabled(has),
+                    MenuItem::new("reply", tr!("Responder"), "Ctrl+R").enabled(has),
+                    MenuItem::new("reply-all", tr!("Responder a Todos"), "Ctrl+Shift+R").enabled(has),
+                    MenuItem::new("forward", tr!("Encaminhar"), "Ctrl+Shift+F").enabled(has),
                     MenuItem::Separator,
-                    MenuItem::new("unread", "Marcar como Lida/Não Lida", "Ctrl+Shift+U").enabled(has),
-                    MenuItem::new("flag", "Marcar com Bandeira", "Ctrl+Shift+L").enabled(has),
+                    MenuItem::new("unread", tr!("Marcar como Lida/Não Lida"), "Ctrl+Shift+U").enabled(has),
+                    MenuItem::new("flag", tr!("Marcar com Bandeira"), "Ctrl+Shift+L").enabled(has),
                     MenuItem::Separator,
-                    MenuItem::new("delete", "Apagar", "").enabled(has),
+                    MenuItem::new("delete", tr!("Apagar"), "").enabled(has),
                 ],
             ),
         ]
@@ -1118,7 +1119,7 @@ pub fn main() {
         message_at: Instant::now(),
         confirm_remove: false,
     };
-    let opts = WindowOptions { title: "Correio".into(), app_id: "glove.Correio".into(), size: (900, 600), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Correio").into(), app_id: "glove.Correio".into(), size: (900, 600), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-correio: {e}");
     }

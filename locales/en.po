@@ -2936,3 +2936,1674 @@ msgstr "Tap"
 msgid "Sopro"
 msgstr "Breeze"
 
+msgid "Não deu para conectar a {}: {}"
+msgstr "Couldn’t connect to {}: {}"
+
+msgid "Resposta estranha do servidor: {}"
+msgstr "Unexpected answer from the server: {}"
+
+msgid "A mensagem não veio do servidor (talvez tenha sido apagada)."
+msgstr "The message didn’t come from the server (it may have been deleted)."
+
+msgid "{} B"
+msgstr "{} B"
+
+msgid "{} KB"
+msgstr "{} KB"
+
+msgid "Nova Mensagem"
+msgstr "New Message"
+
+msgid "Contas de Correio"
+msgstr "Mail Accounts"
+
+msgid "Enc: {}"
+msgstr "Fwd: {}"
+
+msgid "\n\n---------- Mensagem encaminhada ----------\nDe: {}\nData: {}\nAssunto: {}\nPara: {}\n\n{}"
+msgstr "\n\n---------- Forwarded message ----------\nFrom: {}\nDate: {}\nSubject: {}\nTo: {}\n\n{}"
+
+msgid "\n\nEm {}, {} escreveu:\n{}"
+msgstr "\n\nOn {}, {} wrote:\n{}"
+
+msgid "Apagar"
+msgstr "Delete"
+
+msgid "Responder"
+msgstr "Reply"
+
+msgid "Resp. a Todos"
+msgstr "Reply All"
+
+msgid "Encaminhar"
+msgstr "Forward"
+
+msgid "Receber"
+msgstr "Get Mail"
+
+msgid "Nenhuma mensagem selecionada"
+msgstr "No message selected"
+
+msgid "Para:"
+msgstr "To:"
+
+msgid "Cc:"
+msgstr "Cc:"
+
+msgid "“{}” salvo em {}."
+msgstr "“{}” saved to {}."
+
+msgid "Não deu para salvar: {}"
+msgstr "Couldn’t save: {}"
+
+msgid "Carregando…"
+msgstr "Loading…"
+
+msgid "De"
+msgstr "From"
+
+msgid "Assunto"
+msgstr "Subject"
+
+msgid "Nenhuma conta. Use Correio ▸ Contas… para adicionar uma."
+msgstr "No accounts. Use Mail ▸ Accounts… to add one."
+
+msgid "De: {}\nPara: {}\nData: {}\nAssunto: {}\n\n{}"
+msgstr "From: {}\nTo: {}\nDate: {}\nSubject: {}\n\n{}"
+
+msgid "Enviar"
+msgstr "Send"
+
+msgid "Anexar"
+msgstr "Attach"
+
+msgid "Enviando…"
+msgstr "Sending…"
+
+msgid "Confira os destinatários em “Para:”."
+msgstr "Check the recipients in “To:”."
+
+msgid "Descartar esta mensagem?"
+msgstr "Discard this message?"
+
+msgid "O que foi escrito será perdido."
+msgstr "What you wrote will be lost."
+
+msgid "Descartar"
+msgstr "Discard"
+
+msgid "Arquivo grande demais para anexar (mais de 25 MB)."
+msgstr "File too large to attach (over 25 MB)."
+
+msgid "Não deu para ler o arquivo: {}"
+msgstr "Couldn’t read the file: {}"
+
+msgid "Nova Conta…"
+msgstr "New Account…"
+
+msgid "Conta salva."
+msgstr "Account saved."
+
+msgid "Nome completo:"
+msgstr "Full name:"
+
+msgid "E-mail:"
+msgstr "Email:"
+
+msgid "Entrada (IMAP):"
+msgstr "Incoming (IMAP):"
+
+msgid "Saída (SMTP):"
+msgstr "Outgoing (SMTP):"
+
+msgid "Usuário:"
+msgstr "User name:"
+
+msgid "A senha fica guardada só para você,"
+msgstr "The password is stored only for you,"
+
+msgid "Salvar Mesmo Assim"
+msgstr "Save Anyway"
+
+msgid "Remover esta conta?"
+msgstr "Remove this account?"
+
+msgid "As mensagens continuam no servidor; só a cópia local e os ajustes saem deste computador."
+msgstr "The messages stay on the server; only the local copy and settings leave this computer."
+
+msgid "Anexar Arquivo…"
+msgstr "Attach File…"
+
+msgid "Contas…"
+msgstr "Accounts…"
+
+msgid "Imprimir…"
+msgstr "Print…"
+
+msgid "Fechar Janela"
+msgstr "Close Window"
+
+msgid "Mensagem"
+msgstr "Message"
+
+msgid "Receber Mensagens"
+msgstr "Get New Mail"
+
+msgid "Responder a Todos"
+msgstr "Reply All"
+
+msgid "Marcar como Lida/Não Lida"
+msgstr "Mark as Read/Unread"
+
+msgid "Marcar com Bandeira"
+msgstr "Mark as Flagged"
+
+msgid "---------- Mensagem encaminhada ----------\nDe: {}\nAssunto: {}\nData: {}\n\n{}"
+msgstr "---------- Forwarded message ----------\nFrom: {}\nSubject: {}\nDate: {}\n\n{}"
+
+msgid "endereço não encontrado"
+msgstr "address not found"
+
+msgid "nome de servidor inválido"
+msgstr "invalid server name"
+
+msgid "o servidor fechou a conexão"
+msgstr "the server closed the connection"
+
+msgid "Falha no TLS: {}"
+msgstr "TLS failed: {}"
+
+msgid "conta não encontrada"
+msgstr "account not found"
+
+msgid "Recebendo mensagens…"
+msgstr "Getting new mail…"
+
+msgid "Abrindo a mensagem…"
+msgstr "Opening the message…"
+
+msgid "Não deu para apagar: {}"
+msgstr "Couldn’t delete: {}"
+
+msgid "Mensagem enviada."
+msgstr "Message sent."
+
+msgid "Enviados"
+msgstr "Sent"
+
+msgid "Rascunhos"
+msgstr "Drafts"
+
+msgid "Lixo"
+msgstr "Trash"
+
+msgid "Lixo Eletrônico"
+msgstr "Junk"
+
+msgid "Não consegui abrir “{}”: {}"
+msgstr "Couldn’t open “{}”: {}"
+
+msgid "Não consegui salvar “{}”: {}"
+msgstr "Couldn’t save “{}”: {}"
+
+msgid "Sem título.txt"
+msgstr "Untitled.txt"
+
+msgid "Não encontrado"
+msgstr "Not found"
+
+msgid "{} substituídas"
+msgstr "{} replaced"
+
+msgid "Localizar:"
+msgstr "Find:"
+
+msgid "Substituir:"
+msgstr "Replace:"
+
+msgid "Tudo"
+msgstr "All"
+
+msgid "Deseja salvar as alterações feitas no documento “{}”?"
+msgstr "Do you want to save the changes you made in the document “{}”?"
+
+msgid "Se você não salvar, as alterações serão perdidas."
+msgstr "Your changes will be lost if you don’t save them."
+
+msgid "Não salvar"
+msgstr "Don’t Save"
+
+msgid "Novo"
+msgstr "New"
+
+msgid "Abrir…"
+msgstr "Open…"
+
+msgid "Fechar"
+msgstr "Close"
+
+msgid "Salvar como…"
+msgstr "Save As…"
+
+msgid "Desfazer"
+msgstr "Undo"
+
+msgid "Refazer"
+msgstr "Redo"
+
+msgid "Selecionar tudo"
+msgstr "Select All"
+
+msgid "Localizar"
+msgstr "Find"
+
+msgid "Localizar…"
+msgstr "Find…"
+
+msgid "Localizar Próximo"
+msgstr "Find Next"
+
+msgid "Localizar Anterior"
+msgstr "Find Previous"
+
+msgid "Usar Seleção para Localizar"
+msgstr "Use Selection for Find"
+
+msgid "Substituir Tudo"
+msgstr "Replace All"
+
+msgid "Formatar"
+msgstr "Format"
+
+msgid "Ocultar Fontes"
+msgstr "Hide Fonts"
+
+msgid "Mostrar Fontes"
+msgstr "Show Fonts"
+
+msgid "Aumentar fonte"
+msgstr "Bigger"
+
+msgid "Diminuir fonte"
+msgstr "Smaller"
+
+msgid "Tamanho normal"
+msgstr "Normal Size"
+
+msgid "Ocultar Régua"
+msgstr "Hide Ruler"
+
+msgid "Mostrar Régua"
+msgstr "Show Ruler"
+
+msgid "Destrancar"
+msgstr "Unlock"
+
+msgid "Trancar"
+msgstr "Lock"
+
+msgid "Escolha um item para ver os detalhes."
+msgstr "Choose an item to see its details."
+
+msgid "Conta:"
+msgstr "Account:"
+
+msgid "Mostrar senha"
+msgstr "Show password"
+
+msgid "Copiar senha"
+msgstr "Copy password"
+
+msgid "Apagar…"
+msgstr "Delete…"
+
+msgid "Senha copiada."
+msgstr "Password copied."
+
+msgid "Não foi possível concluir."
+msgstr "Couldn’t finish."
+
+msgid "Apagar “{}”?"
+msgstr "Delete “{}”?"
+
+msgid "Mudar a senha do chaveiro “{}”"
+msgstr "Change the password of the keychain “{}”"
+
+msgid "Nova senha:"
+msgstr "New password:"
+
+msgid "A nova senha e a confirmação não são iguais."
+msgstr "The new password and the verification don’t match."
+
+msgid "Senha do chaveiro mudada."
+msgstr "Keychain password changed."
+
+msgid "CHAVEIROS"
+msgstr "KEYCHAINS"
+
+msgid " (trancado)"
+msgstr " (locked)"
+
+msgid "Modificado"
+msgstr "Modified"
+
+msgid "Este chaveiro está trancado. Clique em Destrancar para ver as senhas."
+msgstr "This keychain is locked. Click Unlock to see the passwords."
+
+msgid "Recarregar"
+msgstr "Reload"
+
+msgid "Copiar Senha"
+msgstr "Copy Password"
+
+msgid "Mudar Senha do Chaveiro “{}”…"
+msgstr "Change Password for Keychain “{}”…"
+
+msgid "Senha de rede (Wi-Fi/VPN)"
+msgstr "Network password (Wi-Fi/VPN)"
+
+msgid "Senha de rede"
+msgstr "Network password"
+
+msgid "Senha de app"
+msgstr "App password"
+
+msgid "Sem o serviço de senhas: {}"
+msgstr "No password service: {}"
+
+msgid "Não foi possível usar o pdftoppm: {}"
+msgstr "Couldn’t use pdftoppm: {}"
+
+msgid "O pdftoppm não conseguiu ler este PDF."
+msgstr "pdftoppm couldn’t read this PDF."
+
+msgid "Copiar Imagem"
+msgstr "Copy Image"
+
+msgid "Girar à Esquerda"
+msgstr "Rotate Left"
+
+msgid "Girar à Direita"
+msgstr "Rotate Right"
+
+msgid "Abrir Outra…"
+msgstr "Open Another…"
+
+msgid "Não foi possível abrir este PDF (o pdfinfo do poppler está instalado?)."
+msgstr "Couldn’t open this PDF (is poppler’s pdfinfo installed?)."
+
+msgid "Não foi possível mover para a Lixeira."
+msgstr "Couldn’t move it to the Trash."
+
+msgid "Movida para a Lixeira."
+msgstr "Moved to the Trash."
+
+msgid "Imagem copiada."
+msgstr "Image copied."
+
+msgid "Miniaturas"
+msgstr "Thumbnails"
+
+msgid "Girar"
+msgstr "Rotate"
+
+msgid "{} (página {} de {})"
+msgstr "{} (page {} of {})"
+
+msgid "Ocultar Miniaturas"
+msgstr "Hide Thumbnails"
+
+msgid "Mostrar Miniaturas"
+msgstr "Show Thumbnails"
+
+msgid "Ampliar"
+msgstr "Zoom In"
+
+msgid "Reduzir"
+msgstr "Zoom Out"
+
+msgid "Ajustar à janela"
+msgstr "Zoom to Fit"
+
+msgid "Girar à esquerda"
+msgstr "Rotate Left"
+
+msgid "Girar à direita"
+msgstr "Rotate Right"
+
+msgid "Próxima página"
+msgstr "Next Page"
+
+msgid "Próxima imagem"
+msgstr "Next Image"
+
+msgid "Página anterior"
+msgstr "Previous Page"
+
+msgid "Imagem anterior"
+msgstr "Previous Image"
+
+msgid "Primeira"
+msgstr "First"
+
+msgid "Última"
+msgstr "Last"
+
+msgid "Não foi possível encerrar o processo {}: {}"
+msgstr "Couldn’t quit process {}: {}"
+
+msgid "Atividade do Disco"
+msgstr "Disk Activity"
+
+msgid "Uso do Disco"
+msgstr "Disk Usage"
+
+msgid "Usuário"
+msgstr "User"
+
+msgid "Ocioso"
+msgstr "Idle"
+
+msgid "Processos"
+msgstr "Processes"
+
+msgid "Em uso"
+msgstr "In use"
+
+msgid "Em cache"
+msgstr "Cached"
+
+msgid "Livre"
+msgstr "Free"
+
+msgid "Leitura"
+msgstr "Read"
+
+msgid "Gravação"
+msgstr "Written"
+
+msgid "Leituras"
+msgstr "Reads"
+
+msgid "Gravações"
+msgstr "Writes"
+
+msgid "Lido / gravado"
+msgstr "Read / written"
+
+msgid "Recebendo"
+msgstr "Receiving"
+
+msgid "Enviando"
+msgstr "Sending"
+
+msgid "Recebido"
+msgstr "Received"
+
+msgid "Enviado"
+msgstr "Sent"
+
+msgid "Processo"
+msgstr "Process"
+
+msgid "Encerrar Processo"
+msgstr "Quit Process"
+
+msgid "Todos os processos"
+msgstr "All processes"
+
+msgid "Meus processos"
+msgstr "My processes"
+
+msgid "Em hierarquia"
+msgstr "Hierarchically"
+
+msgid "Mostrar"
+msgstr "Show"
+
+msgid "Nome ou PID"
+msgstr "Name or PID"
+
+msgid "Filtro"
+msgstr "Filter"
+
+msgid "{} processos"
+msgstr "{} processes"
+
+msgid "Forçar o encerramento de “{}”?"
+msgstr "Force “{}” to quit?"
+
+msgid "O processo é interrompido na hora, sem chance de salvar. Alterações não salvas serão perdidas."
+msgstr "The process stops immediately, without a chance to save. Unsaved changes will be lost."
+
+msgid "Forçar encerramento"
+msgstr "Force Quit"
+
+msgid "Encerrar processo"
+msgstr "Quit process"
+
+msgid "+{} mais"
+msgstr "+{} more"
+
+msgid "Nenhum evento."
+msgstr "No events."
+
+msgid "dia inteiro"
+msgstr "all day"
+
+msgid "Novo Evento"
+msgstr "New Event"
+
+msgid "Evento"
+msgstr "Event"
+
+msgid "Título:"
+msgstr "Title:"
+
+msgid "Dia inteiro"
+msgstr "All day"
+
+msgid "Das:"
+msgstr "From:"
+
+msgid "às"
+msgstr "to"
+
+msgid "Notas:"
+msgstr "Notes:"
+
+msgid "Use a data como 05/11/2026."
+msgstr "Write the date like 05/11/2026."
+
+msgid "Use os horários como 14:30."
+msgstr "Write times like 14:30."
+
+msgid "Hoje"
+msgstr "Today"
+
+msgid "{} evento(s) importado(s)."
+msgstr "{} event(s) imported."
+
+msgid "Importar .ics…"
+msgstr "Import .ics…"
+
+msgid "Ir para Hoje"
+msgstr "Go to Today"
+
+msgid "Próximo Mês"
+msgstr "Next Month"
+
+msgid "Mês Anterior"
+msgstr "Previous Month"
+
+msgid "Gráficos"
+msgstr "Graphics"
+
+msgid "Armazenamento"
+msgstr "Storage"
+
+msgid "Modelo"
+msgstr "Model"
+
+msgid "Velocidade máxima"
+msgstr "Maximum speed"
+
+msgid "Núcleos"
+msgstr "Cores"
+
+msgid "Processadores lógicos"
+msgstr "Logical processors"
+
+msgid "Número de série"
+msgstr "Serial number"
+
+msgid "Disponível"
+msgstr "Available"
+
+msgid "{} ({} livres)"
+msgstr "{} ({} free)"
+
+msgid "Endereço MAC"
+msgstr "MAC Address"
+
+msgid "Aparelho"
+msgstr "Device"
+
+msgid "Volume: "
+msgstr "Volume: "
+
+msgid "(sem som)"
+msgstr "(no sound)"
+
+msgid "Nada encontrado."
+msgstr "Nothing found."
+
+msgid "Atualizar"
+msgstr "Refresh"
+
+msgid "Todas as Fontes"
+msgstr "All Fonts"
+
+msgid "Pessoais"
+msgstr "User"
+
+msgid "Desativadas"
+msgstr "Disabled"
+
+msgid "À noite, vovô Kowalsky vê o ímã cair no pé do pinguim queixoso e vovó põe açúcar no chá de tâmaras do jabuti feliz."
+msgstr "The quick brown fox jumps over the lazy dog."
+
+msgid "arquivo sem nome"
+msgstr "unnamed file"
+
+msgid "“{}” desativada. Os apps abertos a deixam de usar quando forem reabertos."
+msgstr "“{}” disabled. Open apps stop using it when they’re reopened."
+
+msgid "(não deu para abrir este arquivo)"
+msgstr "(couldn’t open this file)"
+
+msgid "Amostra"
+msgstr "Sample"
+
+msgid "Repertório"
+msgstr "Repertoire"
+
+msgid "Personalizado"
+msgstr "Custom"
+
+msgid "Buscar fonte"
+msgstr "Search fonts"
+
+msgid "Lendo as fontes instaladas…"
+msgstr "Reading the installed fonts…"
+
+msgid "“{}” está desativada."
+msgstr "“{}” is disabled."
+
+msgid "Clique em Ativar para que os apps voltem a usá-la."
+msgstr "Click Enable so apps use it again."
+
+msgid "Ela fica na sua pasta pessoal e os apps passam a vê-la quando forem reabertos."
+msgstr "It goes in your home folder, and apps see it when they’re reopened."
+
+msgid "Instalar"
+msgstr "Install"
+
+msgid "{} {} em {}."
+msgstr "{} {} in {}."
+
+msgid "Não deu para instalar: {}"
+msgstr "Couldn’t install: {}"
+
+msgid "“{}” instalada em {}."
+msgstr "“{}” installed in {}."
+
+msgid "Adicionar Fontes…"
+msgstr "Add Fonts…"
+
+msgid "Desativar/Ativar Família"
+msgstr "Disable/Enable Family"
+
+msgid "Sobrenome"
+msgstr "Last name"
+
+msgid "Empresa"
+msgstr "Company"
+
+msgid "Trabalho"
+msgstr "Work"
+
+msgid "Casa"
+msgstr "Home"
+
+msgid "E-mail do trabalho"
+msgstr "Work email"
+
+msgid "Endereço"
+msgstr "Address"
+
+msgid "Aniversário"
+msgstr "Birthday"
+
+msgid "Grupo"
+msgstr "Group"
+
+msgid "Nenhum contato escolhido."
+msgstr "No contact selected."
+
+msgid "Nota"
+msgstr "Note"
+
+msgid "Contato novo"
+msgstr "New contact"
+
+msgid "endereço"
+msgstr "address"
+
+msgid "aniversário"
+msgstr "birthday"
+
+msgid "{} contato{}"
+msgstr "{} contact{}"
+
+msgid "Todos"
+msgstr "All"
+
+msgid "Não foi possível exportar: {}"
+msgstr "Couldn’t export: {}"
+
+msgid "{} contato(s) importado(s)."
+msgstr "{} contact(s) imported."
+
+msgid "Novo Contato"
+msgstr "New Contact"
+
+msgid "Importar vCards…"
+msgstr "Import vCards…"
+
+msgid "Exportar vCard…"
+msgstr "Export vCard…"
+
+msgid "Ficha"
+msgstr "Card"
+
+msgid "Terminar Edição"
+msgstr "Done Editing"
+
+msgid "Editar Ficha"
+msgstr "Edit Card"
+
+msgid "Apagar Contato"
+msgstr "Delete Contact"
+
+msgid "Sem Nome"
+msgstr "No Name"
+
+msgid "Esse arquivo não parece ser uma fonte."
+msgstr "This file doesn’t look like a font."
+
+msgid "“{}” instalada."
+msgstr "“{}” installed."
+
+msgid "Instalar Fonte…"
+msgstr "Install Font…"
+
+msgid "Instalando…"
+msgstr "Installing…"
+
+msgid "{}: {} caracteres"
+msgstr "{}: {} characters"
+
+msgid "Lendo as fontes…"
+msgstr "Reading the fonts…"
+
+msgid "maiúsculas"
+msgstr "capitals"
+
+msgid "altura do x"
+msgstr "x-height"
+
+msgid "linha de base"
+msgstr "baseline"
+
+msgid "Latim básico"
+msgstr "Basic Latin"
+
+msgid "Acentos e latim estendido"
+msgstr "Accents and extended Latin"
+
+msgid "Grego"
+msgstr "Greek"
+
+msgid "Cirílico"
+msgstr "Cyrillic"
+
+msgid "Pontuação"
+msgstr "Punctuation"
+
+msgid "Moedas"
+msgstr "Currency"
+
+msgid "Letras e números especiais"
+msgstr "Letterlike symbols and numbers"
+
+msgid "Setas"
+msgstr "Arrows"
+
+msgid "Matemática"
+msgstr "Math"
+
+msgid "Técnicos"
+msgstr "Technical"
+
+msgid "Linhas e blocos"
+msgstr "Lines and blocks"
+
+msgid "Formas geométricas"
+msgstr "Geometric shapes"
+
+msgid "Símbolos diversos"
+msgstr "Miscellaneous symbols"
+
+msgid "Ícones (Nerd Font)"
+msgstr "Icons (Nerd Font)"
+
+msgid "Texto:"
+msgstr "Text:"
+
+msgid "Escolha um caractere."
+msgstr "Choose a character."
+
+msgid "sem pasta"
+msgstr "no folder"
+
+msgid "Nenhum dicionário instalado."
+msgstr "No dictionary installed."
+
+msgid "O Dicionário lê dicionários livres nos formatos StarDict e DICT."
+msgstr "Dictionary reads free dictionaries in the StarDict and DICT formats."
+
+msgid "Instale um pelo sistema (por exemplo: sudo apt install dict-freedict-por-eng)"
+msgstr "Install one from the system (for example: sudo apt install dict-freedict-eng-por)"
+
+msgid "ou use Arquivo ▸ Adicionar Dicionário… e escolha o arquivo .ifo ou .index."
+msgstr "or use File ▸ Add Dictionary… and choose the .ifo or .index file."
+
+msgid "Digite uma palavra no campo de busca."
+msgstr "Type a word in the search field."
+
+msgid "Nenhuma entrada encontrada."
+msgstr "No entries found."
+
+msgid "Carregando os dicionários…"
+msgstr "Loading the dictionaries…"
+
+msgid "Não deu para adicionar o dicionário: {}"
+msgstr "Couldn’t add the dictionary: {}"
+
+msgid "Adicionar Dicionário…"
+msgstr "Add Dictionary…"
+
+msgid "Recarregar Dicionários"
+msgstr "Reload Dictionaries"
+
+msgid "Aumentar Fonte"
+msgstr "Bigger Font"
+
+msgid "Diminuir Fonte"
+msgstr "Smaller Font"
+
+msgid "Portas"
+msgstr "Ports"
+
+msgid "Endereço (padrão)"
+msgstr "Address (default)"
+
+msgid "Correio (MX)"
+msgstr "Mail (MX)"
+
+msgid "Servidores (NS)"
+msgstr "Servers (NS)"
+
+msgid "Texto (TXT)"
+msgstr "Text (TXT)"
+
+msgid "Não foi possível usar o {}: {}\n"
+msgstr "Couldn’t use {}: {}\n"
+
+msgid "servidor não encontrado"
+msgstr "server not found"
+
+msgid "Consultando whois.iana.org…\n"
+msgstr "Asking whois.iana.org…\n"
+
+msgid "Consultando {}…\n\n"
+msgstr "Asking {}…\n\n"
+
+msgid "Erro: {}\n"
+msgstr "Error: {}\n"
+
+msgid "Máquina não encontrada.\n"
+msgstr "Host not found.\n"
+
+msgid "A máquina não respondeu na porta 79 (finger): {}\n"
+msgstr "The host didn’t answer on port 79 (finger): {}\n"
+
+msgid "Procurando portas abertas em {} ({}), de {} a {}…\n\n"
+msgstr "Looking for open ports on {} ({}), from {} to {}…\n\n"
+
+msgid "\nVarredura terminada.\n"
+msgstr "\nScan finished.\n"
+
+msgid "Conectada"
+msgstr "Connected"
+
+msgid "Desconectada"
+msgstr "Disconnected"
+
+msgid "Estado"
+msgstr "Status"
+
+msgid "Endereço físico"
+msgstr "Hardware address"
+
+msgid "Pacotes enviados"
+msgstr "Packets sent"
+
+msgid "Pacotes recebidos"
+msgstr "Packets received"
+
+msgid "Erros (envio/recebimento)"
+msgstr "Errors (sent/received)"
+
+msgid "Nem traceroute nem tracepath estão instalados.\n"
+msgstr "Neither traceroute nor tracepath is installed.\n"
+
+msgid "Escolha uma interface de rede para ver as informações:"
+msgstr "Choose a network interface to see its information:"
+
+msgid "Usuário e máquina (usuario@maquina):"
+msgstr "User and host (user@host):"
+
+msgid "Domínio ou endereço (ex.: exemplo.org):"
+msgstr "Domain or address (e.g. example.org):"
+
+msgid "Endereço de rede (ex.: 10.0.0.1 ou exemplo.org):"
+msgstr "Network address (e.g. 10.0.0.1 or example.org):"
+
+msgid "Pings:"
+msgstr "Pings:"
+
+msgid "Portas de"
+msgstr "Ports from"
+
+msgid "Rastrear"
+msgstr "Trace"
+
+msgid "Varrer"
+msgstr "Scan"
+
+msgid "Consultar"
+msgstr "Look Up"
+
+msgid "Partição EFI"
+msgstr "EFI partition"
+
+msgid "Cartão / eMMC"
+msgstr "Card / eMMC"
+
+msgid "Interna"
+msgstr "Internal"
+
+msgid "Não foi possível usar o udisksctl: {}"
+msgstr "Couldn’t use udisksctl: {}"
+
+msgid "Escolha um disco ou uma partição à esquerda."
+msgstr "Choose a disk or partition on the left."
+
+msgid "Dispositivo"
+msgstr "Device"
+
+msgid "Capacidade"
+msgstr "Capacity"
+
+msgid "Conexão"
+msgstr "Connection"
+
+msgid "Removível"
+msgstr "Removable"
+
+msgid "Sim"
+msgstr "Yes"
+
+msgid "Não"
+msgstr "No"
+
+msgid "Partições"
+msgstr "Partitions"
+
+msgid "Formato"
+msgstr "Format"
+
+msgid "Montado em"
+msgstr "Mounted at"
+
+msgid "Não montado"
+msgstr "Not mounted"
+
+msgid "Usado"
+msgstr "Used"
+
+msgid "{} livres de {}"
+msgstr "{} free of {}"
+
+msgid "Manter o fuso atual"
+msgstr "Keep the current time zone"
+
+msgid "Brasília (São Paulo, Rio, Sul, Nordeste)"
+msgstr "Brasília (São Paulo, Rio, South, Northeast)"
+
+msgid "Não foi possível mudar o fuso (pode pedir senha de administrador). Dá para mudar depois."
+msgstr "Couldn’t change the time zone (it may need the administrator password). You can change it later."
+
+msgid "Não foi possível guardar a foto: {}"
+msgstr "Couldn’t save the picture: {}"
+
+msgid "Bem-vindo ao Glove"
+msgstr "Welcome to Glove"
+
+msgid "Em poucos passos você escolhe o teclado, o fuso,"
+msgstr "In a few steps you choose the keyboard, the time zone,"
+
+msgid "a aparência e a sua foto. Tudo pode ser mudado"
+msgstr "the appearance and your picture. Everything can be changed"
+
+msgid "depois nas Preferências."
+msgstr "later in Preferences."
+
+msgid "Escolha o teclado que você usa. Ele vale na hora: experimente digitar acentos em qualquer app."
+msgstr "Choose the keyboard you use. It applies right away: try typing accents in any app."
+
+msgid "Data e hora"
+msgstr "Date and time"
+
+msgid "Escolha o visual das janelas, menus e botões."
+msgstr "Choose the look of windows, menus and buttons."
+
+msgid "Sua foto"
+msgstr "Your picture"
+
+msgid "Ela aparece na tela de login e no bloqueio de tela."
+msgstr "It appears on the login and lock screens."
+
+msgid "Manter a foto atual"
+msgstr "Keep the current picture"
+
+msgid "Tudo pronto"
+msgstr "All set"
+
+msgid "Bom uso! A Busca Rápida (Super+Espaço) acha apps e arquivos."
+msgstr "Enjoy! Quick Search (Super+Space) finds apps and files."
+
+msgid "Começar"
+msgstr "Start"
+
+msgid "Continuar"
+msgstr "Continue"
+
+msgid "Bem-vindo"
+msgstr "Welcome"
+
+msgid "Memória: {}"
+msgstr "Memory: {}"
+
+msgid "Processador: {}"
+msgstr "Processor: {}"
+
+msgid "Mais informações…"
+msgstr "More Info…"
+
+msgid "Software livre · GPL-3.0 ou posterior"
+msgstr "Free software · GPL-3.0 or later"
+
+msgid "{} MB"
+msgstr "{} MB"
+
+msgid "Parte do Glove"
+msgstr "Part of Glove"
+
+msgid "sem fonte monoespaçada"
+msgstr "no monospaced font"
+
+msgid "[Processo concluído]"
+msgstr "[Process completed]"
+
+msgid "Limpar histórico"
+msgstr "Clear scrollback"
+
+msgid "Aumentar"
+msgstr "Bigger"
+
+msgid "Diminuir"
+msgstr "Smaller"
+
+msgid "resposta grande demais"
+msgstr "answer too large"
+
+msgid "resposta inesperada: {}"
+msgstr "unexpected answer: {}"
+
+msgid "Erro ao falar com o greetd: {}"
+msgstr "Error talking to greetd: {}"
+
+msgid "Não foi possível iniciar a sessão: {}"
+msgstr "Couldn’t start the session: {}"
+
+msgid "O login pediu mais informações do que o esperado."
+msgstr "Login asked for more information than expected."
+
+msgid "Outro…"
+msgstr "Other…"
+
+msgid "Sessão:"
+msgstr "Session:"
+
+msgid "Entrando…"
+msgstr "Logging in…"
+
+msgid "Entrar"
+msgstr "Log In"
+
+msgid "Reiniciar"
+msgstr "Restart"
+
+msgid "Desligar"
+msgstr "Shut Down"
+
+msgid "Tem certeza de que deseja desligar o computador agora?"
+msgstr "Are you sure you want to shut down your computer now?"
+
+msgid "Tem certeza de que deseja reiniciar o computador agora?"
+msgstr "Are you sure you want to restart your computer now?"
+
+msgid "Encerrar Sessão"
+msgstr "Log Out"
+
+msgid "Tem certeza de que deseja encerrar a sessão e sair de todos os aplicativos?"
+msgstr "Are you sure you want to quit all applications and log out now?"
+
+msgid "Tem certeza de que deseja sair do Glove?"
+msgstr "Are you sure you want to quit Glove?"
+
+msgid "Sair"
+msgstr "Quit"
+
+msgid "o computador será desligado"
+msgstr "the computer will shut down"
+
+msgid "o computador será reiniciado"
+msgstr "the computer will restart"
+
+msgid "a sessão será encerrada"
+msgstr "you will be logged out"
+
+msgid "o Glove será fechado"
+msgstr "Glove will quit"
+
+msgid "2 minutos"
+msgstr "2 minutes"
+
+msgid "1 segundo"
+msgstr "1 second"
+
+msgid "{} segundos"
+msgstr "{} seconds"
+
+msgid "Se você não fizer nada, {} automaticamente em {}."
+msgstr "If you do nothing, {} automatically in {}."
+
+msgid "O desligamento"
+msgstr "Shutting down"
+
+msgid "A reinicialização"
+msgstr "Restarting"
+
+msgid "O encerramento da sessão"
+msgstr "Logging out"
+
+msgid "A saída do Glove"
+msgstr "Quitting Glove"
+
+msgid "{} foi cancelado."
+msgstr "{} was canceled."
+
+msgid "“{}” não fechou. Ele pode estar esperando uma resposta sua, como salvar um documento. Resolva e tente de novo."
+msgstr "“{}” didn’t close. It may be waiting for an answer from you, like saving a document. Sort it out and try again."
+
+msgid "Não foi possível reiniciar o computador."
+msgstr "Couldn’t restart the computer."
+
+msgid "Não foi possível desligar o computador."
+msgstr "Couldn’t shut down the computer."
+
+msgid "O sistema recusou o pedido. Talvez haja outra sessão aberta ou falte permissão."
+msgstr "The system refused the request. Maybe another session is open or permission is missing."
+
+msgid "Código"
+msgstr "Code"
+
+msgid "Parte do nome"
+msgstr "Part of the name"
+
+msgid "Digite parte do nome e pressione Enter."
+msgstr "Type part of the name and press Enter."
+
+msgid "Buscando… {} encontrados"
+msgstr "Searching… {} found"
+
+msgid "Rosa"
+msgstr "Pink"
+
+msgid "Outra Cor…"
+msgstr "Other Color…"
+
+msgid "Novo lembrete"
+msgstr "New note"
+
+msgid "Importar texto…"
+msgstr "Import text…"
+
+msgid "Exportar como texto…"
+msgstr "Export as text…"
+
+msgid "Apagar lembrete"
+msgstr "Delete note"
+
+msgid "Cor"
+msgstr "Color"
+
+msgid "Glove Música"
+msgstr "Glove Music"
+
+msgid "Artista"
+msgstr "Artist"
+
+msgid "Álbum"
+msgstr "Album"
+
+msgid "Duração"
+msgstr "Time"
+
+msgid "Nenhuma música em {}. Ponha MP3, FLAC, OGG ou WAV nessa pasta."
+msgstr "No music in {}. Put MP3, FLAC, OGG or WAV files in that folder."
+
+msgid "{} músicas, {}"
+msgstr "{} songs, {}"
+
+msgid "Não deu para tocar: {}"
+msgstr "Couldn’t play: {}"
+
+msgid "Controles"
+msgstr "Controls"
+
+msgid "Pausar"
+msgstr "Pause"
+
+msgid "Tocar"
+msgstr "Play"
+
+msgid "Próxima Música"
+msgstr "Next Song"
+
+msgid "Música Anterior"
+msgstr "Previous Song"
+
+msgid "formato não reconhecido"
+msgstr "unrecognized format"
+
+msgid "sem faixa de áudio"
+msgstr "no audio track"
+
+msgid "codec não suportado"
+msgstr "unsupported codec"
+
+msgid "sem saída de som (pw-cat ou aplay)"
+msgstr "no sound output (pw-cat or aplay)"
+
+msgid "Não foi possível iniciar: {}"
+msgstr "Couldn’t start: {}"
+
+msgid "Não foi possível escrever em “{}”: {}"
+msgstr "Couldn’t write to “{}”: {}"
+
+msgid "Este tipo de arquivo não pode ser expandido."
+msgstr "This kind of file can’t be expanded."
+
+msgid "Não foi possível iniciar “{}”: {}"
+msgstr "Couldn’t start “{}”: {}"
+
+msgid "“{}” não conseguiu descomprimir o arquivo"
+msgstr "“{}” couldn’t decompress the file"
+
+msgid "Não foi possível compactar “{}”."
+msgstr "Couldn’t compress “{}”."
+
+msgid "Não foi possível expandir “{}”."
+msgstr "Couldn’t expand “{}”."
+
+msgid "{} de {} itens"
+msgstr "{} of {} items"
+
+msgid "Fácil"
+msgstr "Easy"
+
+msgid "Médio"
+msgstr "Medium"
+
+msgid "Difícil"
+msgstr "Hard"
+
+msgid "Empate por afogamento."
+msgstr "Draw by stalemate."
+
+msgid "Empate: 50 lances sem captura nem peão."
+msgstr "Draw: 50 moves without a capture or pawn move."
+
+msgid "O computador está pensando…"
+msgstr "The computer is thinking…"
+
+msgid "Xeque! Sua vez."
+msgstr "Check! Your move."
+
+msgid "Sua vez."
+msgstr "Your move."
+
+msgid "Jogo"
+msgstr "Game"
+
+msgid "Novo jogo"
+msgstr "New game"
+
+msgid "Desfazer jogada"
+msgstr "Undo move"
+
+msgid "Nível"
+msgstr "Level"
+
+msgid "Agora"
+msgstr "Now"
+
+msgid "Em 5 segundos"
+msgstr "In 5 seconds"
+
+msgid "Em 10 segundos"
+msgstr "In 10 seconds"
+
+msgid "Fotografa a tela, uma área ou uma janela"
+msgstr "Captures the screen, an area or a window"
+
+msgid "e salva na sua pasta Imagens."
+msgstr "and saves it in your Pictures folder."
+
+msgid "O quê:"
+msgstr "What:"
+
+msgid "Tela inteira"
+msgstr "Whole screen"
+
+msgid "Uma área (arraste)"
+msgstr "An area (drag)"
+
+msgid "Uma janela (clique)"
+msgstr "A window (click)"
+
+msgid "Quando:"
+msgstr "When:"
+
+msgid "Abrir no Visualizador"
+msgstr "Open in Viewer"
+
+msgid "Capturar"
+msgstr "Capture"
+
+msgid "Tela inteira em 5 segundos"
+msgstr "Whole screen in 5 seconds"
+
+msgid "Uma área…"
+msgstr "An area…"
+
+msgid "Uma janela…"
+msgstr "A window…"
+
+msgid "O mpv não abriu esse arquivo."
+msgstr "mpv didn’t open this file."
+
+msgid "Tela Cheia"
+msgstr "Full Screen"
+
+msgid "O Vídeo precisa do mpv."
+msgstr "Video needs mpv."
+
+msgid "Instale o pacote mpv (por exemplo: sudo apt install mpv) e abra o Vídeo de novo."
+msgstr "Install the mpv package (for example: sudo apt install mpv) and open Video again."
+
+msgid "Tocar/Pausar"
+msgstr "Play/Pause"
+
+msgid "Voltar 10 s"
+msgstr "Back 10 s"
+
+msgid "Avançar 10 s"
+msgstr "Forward 10 s"
+
+msgid "O Dock"
+msgstr "The Dock"
+
+msgid "Capturas de tela"
+msgstr "Screenshots"
+
+msgid "Som, rede e energia"
+msgstr "Sound, network and power"
+
+msgid "Sair, bloquear e desligar"
+msgstr "Quit, lock and shut down"
+
+msgid "Problemas comuns"
+msgstr "Common problems"
+
+msgid "Buscar na ajuda"
+msgstr "Search help"
+
+msgid "Nada encontrado para essa busca."
+msgstr "Nothing found for this search."
+
+msgid "Sessão do Glove"
+msgstr "Glove session"
+
+msgid "Sessão anterior"
+msgstr "Previous session"
+
+msgid "Sistema (desde a partida)"
+msgstr "System (since boot)"
+
+msgid "Sem linhas (talvez falte permissão para ler o registro do sistema)."
+msgstr "No lines (maybe there’s no permission to read the system log)."
+
+msgid "Filtrar"
+msgstr "Filter"
+
+msgid "Acompanhar o fim"
+msgstr "Follow the end"
+
+msgid "Limpar Filtro"
+msgstr "Clear Filter"
+
+msgid "Básica"
+msgstr "Basic"
+
+msgid "Científica"
+msgstr "Scientific"
+
+msgid "Instale o NetSurf (leve, bom para pouca memória) ou o Firefox pelo gerenciador de pacotes do sistema."
+msgstr "Install NetSurf (light, good for little memory) or Firefox from the system’s package manager."
+
+msgid "Nenhum navegador instalado."
+msgstr "No browser installed."
+
+msgid "O Glove é um ambiente de trabalho leve, feito para caber em computadores com pouca memória, com o jeito do Mac OS X da era do Tiger.\n# O essencial\n- A barra de menu fica no alto: à esquerda o menu do Glove (a bolinha) e os menus do app em uso; à direita o Wi-Fi, o som, a bateria, o relógio e a Busca Rápida.\n- O Dock fica embaixo: clique num ícone para abrir o app; o triângulo mostra os que estão abertos.\n- A Mesa mostra o Disco e os pendrives conectados.\n# Onde mudar as coisas\n- Abra as Preferências pelo Dock ou pelo menu do Glove. Use a busca no canto delas para achar um ajuste."
+msgstr "Glove is a light desktop, made to fit computers with little memory, with the feel of the Mac OS X Tiger era.\n# The essentials\n- The menu bar is at the top: on the left the Glove menu (the little ball) and the menus of the app in use; on the right Wi-Fi, sound, battery, the clock and Quick Search.\n- The Dock is at the bottom: click an icon to open the app; the triangle shows the ones that are open.\n- The desktop shows the Disk and connected USB drives.\n# Where to change things\n- Open Preferences from the Dock or the Glove menu. Use the search field in its corner to find a setting."
+
+msgid "Cada janela tem os três botões no canto: vermelho fecha, amarelo minimiza para o Dock e verde faz o zoom.\n# Atalhos\n- Super+Q fecha a janela.\n- Super+M minimiza.\n- Super+Tab troca de app; segure o Super e aperte Tab de novo para andar na lista.\n- Super+H oculta o app; Super+Alt+H oculta os outros.\n# Exposé\n- F9 mostra todas as janelas lado a lado.\n- F10 mostra só as do app em uso.\n- F11 afasta as janelas para mostrar a Mesa.\n- Os cantos da tela podem fazer isso também: Preferências ▸ Mesa e Protetor de Tela."
+msgstr "Every window has three buttons in the corner: red closes, yellow minimizes to the Dock and green zooms.\n# Shortcuts\n- Super+Q closes the window.\n- Super+M minimizes.\n- Super+Tab switches apps; hold Super and press Tab again to move through the list.\n- Super+H hides the app; Super+Alt+H hides the others.\n# Exposé\n- F9 shows all windows side by side.\n- F10 shows only those of the app in use.\n- F11 moves the windows away to show the desktop.\n- The screen corners can do this too: Preferences ▸ Desktop & Screen Saver."
+
+msgid "O Dock guarda os apps que você mais usa e mostra os que estão abertos.\n# Dicas\n- Arraste um app aberto para o Dock, ou use o menu de contexto dele (clique com o botão direito) ▸ Manter no Dock.\n- Janelas minimizadas aparecem como miniaturas à direita.\n- A Lixeira fica na ponta direita; clique para ver o que está nela.\n- Tamanho, ampliação, posição e ocultar sozinho: Preferências ▸ Dock."
+msgstr "The Dock keeps the apps you use most and shows the ones that are open.\n# Tips\n- Drag an open app to the Dock, or use its context menu (right click) ▸ Keep in Dock.\n- Minimized windows appear as thumbnails on the right.\n- The Trash is at the right end; click it to see what’s inside.\n- Size, magnification, position and automatic hiding: Preferences ▸ Dock."
+
+msgid "O Arquivos mostra suas pastas como ícones, lista ou colunas.\n# Coisas que dá para fazer\n- Arraste para mover; segure Ctrl ao soltar para copiar.\n- Ctrl+C e Ctrl+V copiam e colam; Ctrl+X recorta.\n- Ctrl+Backspace manda para a Lixeira; Devolver traz de volta.\n- Clique com o botão direito para o menu: Obter Informações, Duplicar, Criar Atalho, Compactar.\n- A busca da barra cria uma pasta de resultados; Salvar a guarda na barra lateral.\n- Clique duplo num .zip expande o arquivo ao lado dele."
+msgstr "Files shows your folders as icons, a list or columns.\n# Things you can do\n- Drag to move; hold Ctrl when dropping to copy.\n- Ctrl+C and Ctrl+V copy and paste; Ctrl+X cuts.\n- Ctrl+Backspace moves to the Trash; Put Back brings it back.\n- Right click for the menu: Get Info, Duplicate, Make Alias, Compress.\n- The toolbar search makes a results folder; Save keeps it in the sidebar.\n- Double-clicking a .zip expands it next to it."
+
+msgid "Aperte Super+espaço (ou clique na lupa no canto da barra de menu) e comece a digitar.\n# O que ela acha\n- Aplicativos, painéis das Preferências e arquivos da sua pasta pessoal.\n- Use as setas para escolher e Enter para abrir."
+msgstr "Press Super+Space (or click the magnifier in the corner of the menu bar) and start typing.\n# What it finds\n- Applications, Preferences panes and files in your home folder.\n- Use the arrows to choose and Enter to open."
+
+msgid "Os atalhos principais (todos podem ser mudados em Preferências ▸ Teclado ▸ Atalhos de Teclado):\n- Super+Enter abre o Terminal.\n- Super+vírgula abre as Preferências.\n- Super+espaço abre a Busca Rápida.\n- Super+L bloqueia a tela.\n- Ctrl+Alt+Esc abre Forçar Encerrar.\n- Print captura a tela; Shift+Print captura uma área.\n- Super+Alt+espaço troca o layout do teclado.\n- Super+Alt+8 liga o zoom; Ctrl+Super+Alt+8 inverte as cores."
+msgstr "The main shortcuts (all can be changed in Preferences ▸ Keyboard ▸ Keyboard Shortcuts):\n- Super+Enter opens the Terminal.\n- Super+comma opens Preferences.\n- Super+Space opens Quick Search.\n- Super+L locks the screen.\n- Ctrl+Alt+Esc opens Force Quit.\n- Print captures the screen; Shift+Print captures an area.\n- Super+Alt+Space switches the keyboard layout.\n- Super+Alt+8 turns zoom on; Ctrl+Super+Alt+8 inverts colors."
+
+msgid "O Correio lê e envia e-mails pela sua conta (IMAP e SMTP, com conexão segura).\n# Começar\n- Na primeira vez, a janela Contas de Correio pede nome, e-mail e senha; os servidores dos provedores comuns (Gmail, Outlook, Yahoo, UOL, Terra) são preenchidos sozinhos.\n- No Gmail e em outros que pedem, use uma senha de app, criada na página de segurança da sua conta.\n# No dia a dia\n- Receber (Ctrl+Shift+N) busca mensagens novas; o Correio também confere sozinho a cada 5 minutos.\n- Responder (Ctrl+R), Responder a Todos (Ctrl+Shift+R) e Encaminhar (Ctrl+Shift+F) abrem uma janela de escrever; Enviar é Ctrl+Shift+D.\n- Apagar (Delete) manda a mensagem para o Lixo; os anexos têm o botão Salvar, que guarda na pasta Downloads.\n- As mensagens já abertas ficam guardadas no computador e podem ser lidas sem rede."
+msgstr "Mail reads and sends email through your account (IMAP and SMTP, with a secure connection).\n# Getting started\n- The first time, the Mail Accounts window asks for your name, email and password; servers of common providers (Gmail, Outlook, Yahoo, UOL, Terra) are filled in automatically.\n- On Gmail and others that ask for it, use an app password, created on your account’s security page.\n# Day to day\n- Get Mail (Ctrl+Shift+N) fetches new messages; Mail also checks by itself every 5 minutes.\n- Reply (Ctrl+R), Reply All (Ctrl+Shift+R) and Forward (Ctrl+Shift+F) open a compose window; Send is Ctrl+Shift+D.\n- Delete moves the message to the Trash; attachments have a Save button that puts them in Downloads.\n- Messages you’ve opened are kept on the computer and can be read without a network."
+
+msgid "As capturas vão para a sua pasta Imagens.\n# Jeitos de capturar\n- Print: a tela inteira.\n- Shift+Print: arraste para escolher a área; Esc cancela.\n- O app Captura deixa escolher a tela inteira, uma área e um atraso de alguns segundos, e abre a foto no Visualizador."
+msgstr "Screenshots go to your Pictures folder.\n# Ways to capture\n- Print: the whole screen.\n- Shift+Print: drag to choose the area; Esc cancels.\n- The Screenshot app lets you choose the whole screen, an area and a delay of a few seconds, and opens the picture in Viewer."
+
+msgid "Os ícones da barra de menu dão acesso rápido:\n- O alto-falante mostra o controle de volume; as teclas de volume do teclado também funcionam.\n- O leque do Wi-Fi lista as redes; as que pedem senha abrem as Preferências pedindo a senha.\n- A bateria mostra a carga e quanto tempo falta.\n# Mais ajustes\n- Preferências ▸ Som, Rede e Economizador de Energia."
+msgstr "The menu bar icons give quick access:\n- The speaker shows the volume control; the keyboard’s volume keys also work.\n- The Wi-Fi fan lists the networks; those that need a password open Preferences asking for it.\n- The battery shows the charge and how much time is left.\n# More settings\n- Preferences ▸ Sound, Network and Power Saving."
+
+msgid "Pelo menu do Glove (a bolinha no canto):\n- Bloquear Tela pede a sua senha para voltar.\n- Repouso deixa o computador dormindo.\n- Reiniciar, Desligar e Encerrar Sessão pedem confirmação e fecham os apps antes; um app com documento não salvo pode cancelar o encerramento."
+msgstr "From the Glove menu (the little ball in the corner):\n- Lock Screen asks for your password to come back.\n- Sleep puts the computer to sleep.\n- Restart, Shut Down and Log Out ask for confirmation and close the apps first; an app with an unsaved document can cancel it."
+
+msgid "# Um app parou de responder\n- O cursor vira o disco girando sobre ele. Use Forçar Encerrar (Ctrl+Alt+Esc) para fechá-lo.\n# Sem som\n- Veja se o som não está mudo no ícone da barra e em Preferências ▸ Som ▸ Saída.\n# Sem rede\n- Abra Preferências ▸ Rede e veja a luz de cada interface; Wi-Fi desligado aparece em vermelho.\n# Ver o que aconteceu\n- O app Registros mostra o registro da sessão do Glove e do sistema."
+msgstr "# An app stopped responding\n- The pointer turns into a spinning disc over it. Use Force Quit (Ctrl+Alt+Esc) to close it.\n# No sound\n- Check that sound isn’t muted in the menu bar icon and in Preferences ▸ Sound ▸ Output.\n# No network\n- Open Preferences ▸ Network and look at each interface’s light; Wi-Fi turned off shows in red.\n# See what happened\n- The Logs app shows the Glove session log and the system log."
+
+msgid "{0} de {1} de {2}"
+msgstr "{1} {0}, {2}"
+
+msgid "O servidor de envio recusou o usuário ou a senha."
+msgstr "The outgoing server refused the user name or password."
+
+msgid "Sem título"
+msgstr "Untitled"
+
+msgid "Alinhar à Esquerda"
+msgstr "Align Left"
+
+msgid "Alinhar à Direita"
+msgstr "Align Right"
+
+msgid "Sem o serviço de senhas."
+msgstr "No password service."
+
+msgid "Sem senha."
+msgstr "No password."
+
+msgid "A senha atual não confere."
+msgstr "The current password doesn’t match."
+
+msgid "Abra uma imagem ou um PDF com Arquivo › Abrir… (Ctrl+O) ou pelo Arquivos."
+msgstr "Open a picture or a PDF with File › Open… (Ctrl+O) or from Files."
+
+msgid "Tamanho real"
+msgstr "Actual Size"
+
+msgid "Placa de som"
+msgstr "Sound card"
+
+msgid "família"
+msgstr "family"
+
+msgid "famílias"
+msgstr "families"
+
+msgid "Instalar a fonte “{}”?"
+msgstr "Install the font “{}”?"
+
+msgid "Instalar {} fontes?"
+msgstr "Install {} fonts?"
+
+msgid "e-mail trab."
+msgstr "work email"
+
+msgid "e-mail"
+msgstr "email"
+
+msgid "espaço"
+msgstr "space"
+
+msgid "Copiado para a área de transferência."
+msgstr "Copied to the clipboard."
+
+msgid "Clique duplo também copia."
+msgstr "Double-clicking also copies."
+
+msgid "Copiar caractere"
+msgstr "Copy Character"
+
+msgid "Disco de {}"
+msgstr "{} disk"
+
+msgid "Partição de {}"
+msgstr "{} partition"
+
+msgid "{} · não montado"
+msgstr "{} · not mounted"
+
+msgid "Senha incorreta."
+msgstr "Wrong password."
+
+msgid "Um aplicativo"
+msgstr "An application"
+
+msgid "item encontrado"
+msgstr "item found"
+
+msgid "itens encontrados"
+msgstr "items found"
+
+msgid " (limite)"
+msgstr " (limit)"
+
+msgid "o programa falhou"
+msgstr "the program failed"
+
+msgid "{} itens"
+msgstr "{} items"
+
+msgid "Xeque-mate. O computador venceu."
+msgstr "Checkmate. The computer won."
+
+msgid "Xeque-mate! Você venceu."
+msgstr "Checkmate! You won."
+
+msgid "Jogar com as pretas"
+msgstr "Play as Black"
+
+msgid "Jogar com as brancas"
+msgstr "Play as White"
+
+msgid "Nenhum vídeo aberto"
+msgstr "No video open"
+
+msgid "JAN"
+msgstr "JAN"
+
+msgid "FEV"
+msgstr "FEB"
+
+msgid "MAR"
+msgstr "MAR"
+
+msgid "ABR"
+msgstr "APR"
+
+msgid "MAI"
+msgstr "MAY"
+
+msgid "JUN"
+msgstr "JUN"
+
+msgid "JUL"
+msgstr "JUL"
+
+msgid "AGO"
+msgstr "AUG"
+
+msgid "SET"
+msgstr "SEP"
+
+msgid "OUT"
+msgstr "OCT"
+
+msgid "NOV"
+msgstr "NOV"
+
+msgid "DEZ"
+msgstr "DEC"
+

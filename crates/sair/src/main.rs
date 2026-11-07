@@ -5,6 +5,7 @@
 //! - `glove-sair cancelado <ação> <app>`: um app não fechou e o encerramento parou.
 //! - `glove-sair falhou <ação>`: o sistema recusou desligar ou reiniciar.
 
+use glove_config::tr;
 use std::time::{Duration, Instant};
 
 use glove_kit::{run, ui::AlertKind, App, Ui, WindowOptions};
@@ -27,36 +28,36 @@ const KINDS: [&str; 4] = ["desligar", "reiniciar", "encerrar", "sair"];
 /// (título da janela, pergunta, botão de confirmar).
 fn confirm_texts(kind: &str) -> (&'static str, &'static str, &'static str) {
     match kind {
-        "desligar" => ("Desligar", "Tem certeza de que deseja desligar o computador agora?", "Desligar"),
-        "reiniciar" => ("Reiniciar", "Tem certeza de que deseja reiniciar o computador agora?", "Reiniciar"),
-        "encerrar" => ("Encerrar Sessão", "Tem certeza de que deseja encerrar a sessão e sair de todos os aplicativos?", "Encerrar Sessão"),
-        _ => ("Sair do Glove", "Tem certeza de que deseja sair do Glove?", "Sair"),
+        "desligar" => (tr!("Desligar"), tr!("Tem certeza de que deseja desligar o computador agora?"), tr!("Desligar")),
+        "reiniciar" => (tr!("Reiniciar"), tr!("Tem certeza de que deseja reiniciar o computador agora?"), tr!("Reiniciar")),
+        "encerrar" => (tr!("Encerrar Sessão"), tr!("Tem certeza de que deseja encerrar a sessão e sair de todos os aplicativos?"), tr!("Encerrar Sessão")),
+        _ => (tr!("Sair do Glove"), tr!("Tem certeza de que deseja sair do Glove?"), tr!("Sair")),
     }
 }
 
 /// Aviso da contagem: "…será desligado automaticamente em 2 minutos."
 fn countdown_text(kind: &str, left: u64) -> String {
     let what = match kind {
-        "desligar" => "o computador será desligado",
-        "reiniciar" => "o computador será reiniciado",
-        "encerrar" => "a sessão será encerrada",
-        _ => "o Glove será fechado",
+        "desligar" => tr!("o computador será desligado"),
+        "reiniciar" => tr!("o computador será reiniciado"),
+        "encerrar" => tr!("a sessão será encerrada"),
+        _ => tr!("o Glove será fechado"),
     };
     let when = match left {
-        120 => "2 minutos".to_string(),
-        1 => "1 segundo".to_string(),
-        s => format!("{s} segundos"),
+        120 => tr!("2 minutos").to_string(),
+        1 => tr!("1 segundo").to_string(),
+        s => tr!("{} segundos", s),
     };
-    format!("Se você não fizer nada, {what} automaticamente em {when}.")
+    tr!("Se você não fizer nada, {} automaticamente em {}.", what, when)
 }
 
 /// Nome da ação para frases: "o desligamento", "a reinicialização"…
 fn action_noun(kind: &str) -> &'static str {
     match kind {
-        "desligar" => "O desligamento",
-        "reiniciar" => "A reinicialização",
-        "encerrar" => "O encerramento da sessão",
-        _ => "A saída do Glove",
+        "desligar" => tr!("O desligamento"),
+        "reiniciar" => tr!("A reinicialização"),
+        "encerrar" => tr!("O encerramento da sessão"),
+        _ => tr!("A saída do Glove"),
     }
 }
 
@@ -68,7 +69,7 @@ impl App for Sair {
                 let elapsed = started.elapsed().as_secs();
                 let left = COUNTDOWN.saturating_sub(elapsed);
                 let (_, q, ok) = confirm_texts(kind);
-                let choice = ui.alert_window(AlertKind::Note, q, &countdown_text(kind, left.max(1)), &["Cancelar", ok]);
+                let choice = ui.alert_window(AlertKind::Note, q, &countdown_text(kind, left.max(1)), &[tr!("Cancelar"), ok]);
                 if left == 0 || choice == Some(1) {
                     ui.request_end_session(kind);
                     ui.close = true;
@@ -81,18 +82,18 @@ impl App for Sair {
                 }
             }
             Mode::Cancelled { kind, app } => {
-                let title = format!("{} foi cancelado.", action_noun(kind));
-                let text = format!("“{app}” não fechou. Ele pode estar esperando uma resposta sua, como salvar um documento. Resolva e tente de novo.");
+                let title = tr!("{} foi cancelado.", action_noun(kind));
+                let text = tr!("“{}” não fechou. Ele pode estar esperando uma resposta sua, como salvar um documento. Resolva e tente de novo.", app);
                 if ui.alert_window(AlertKind::Caution, &title, &text, &["OK"]).is_some() {
                     ui.close = true;
                 }
             }
             Mode::Failed { kind } => {
                 let title = match *kind {
-                    "reiniciar" => "Não foi possível reiniciar o computador.",
-                    _ => "Não foi possível desligar o computador.",
+                    "reiniciar" => tr!("Não foi possível reiniciar o computador."),
+                    _ => tr!("Não foi possível desligar o computador."),
                 };
-                let text = "O sistema recusou o pedido. Talvez haja outra sessão aberta ou falte permissão.";
+                let text = tr!("O sistema recusou o pedido. Talvez haja outra sessão aberta ou falte permissão.");
                 if ui.alert_window(AlertKind::Stop, title, text, &["OK"]).is_some() {
                     ui.close = true;
                 }
@@ -110,7 +111,7 @@ pub fn main() {
     let mut args = std::env::args().skip(1);
     let first = args.next();
     let mode = match first.as_deref() {
-        Some("cancelado") => kind_arg(args.next()).map(|kind| Mode::Cancelled { kind, app: args.next().unwrap_or_else(|| "Um aplicativo".into()) }),
+        Some("cancelado") => kind_arg(args.next()).map(|kind| Mode::Cancelled { kind, app: args.next().unwrap_or_else(|| tr!("Um aplicativo").into()) }),
         Some("falhou") => kind_arg(args.next()).map(|kind| Mode::Failed { kind }),
         _ => kind_arg(first).map(|kind| Mode::Confirm { kind, started: Instant::now() }),
     };
@@ -134,9 +135,9 @@ mod tests {
 
     #[test]
     fn contagem() {
-        assert_eq!(countdown_text("desligar", 120), "Se você não fizer nada, o computador será desligado automaticamente em 2 minutos.");
-        assert_eq!(countdown_text("encerrar", 1), "Se você não fizer nada, a sessão será encerrada automaticamente em 1 segundo.");
-        assert!(countdown_text("reiniciar", 37).ends_with("em 37 segundos."));
+        assert_eq!(countdown_text("desligar", 120), tr!("Se você não fizer nada, {} automaticamente em {}.", tr!("o computador será desligado"), tr!("2 minutos")));
+        assert_eq!(countdown_text("encerrar", 1), tr!("Se você não fizer nada, {} automaticamente em {}.", tr!("a sessão será encerrada"), tr!("1 segundo")));
+        assert!(countdown_text("reiniciar", 37).contains(&tr!("{} segundos", 37)));
     }
 
     #[test]

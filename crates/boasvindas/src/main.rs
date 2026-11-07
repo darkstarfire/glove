@@ -4,6 +4,7 @@
 //!
 //! Com GLOVE_TESTE=1 não mexe no sistema (fuso e foto da conta): só na configuração.
 
+use glove_config::tr;
 use std::time::Duration;
 
 use glove_config::Config;
@@ -90,7 +91,7 @@ impl Welcome {
                 if !zone.is_empty() && !self.test {
                     let ok = std::process::Command::new("timedatectl").args(["set-timezone", zone]).status().map(|s| s.success()).unwrap_or(false);
                     if !ok {
-                        self.note = Some("Não foi possível mudar o fuso (pode pedir senha de administrador). Dá para mudar depois.".into());
+                        self.note = Some(tr!("Não foi possível mudar o fuso (pode pedir senha de administrador). Dá para mudar depois.").into());
                     }
                 }
             }
@@ -101,7 +102,7 @@ impl Welcome {
             4 => {
                 if let Some(i) = self.avatar {
                     if let Err(e) = self.set_photo(i) {
-                        self.note = Some(format!("Não foi possível guardar a foto: {e}"));
+                        self.note = Some(tr!("Não foi possível guardar a foto: {}", e));
                     }
                 }
             }
@@ -161,17 +162,17 @@ impl App for Welcome {
         match self.step {
             0 => {
                 gel_circle(ui.c, w / 2.0, 120.0, 48.0, accent);
-                let t = "Bem-vindo ao Glove";
+                let t = tr!("Bem-vindo ao Glove");
                 let tw = ui.text_width(t, 24.0, true);
                 ui.fonts.draw(ui.c, t, (w - tw) / 2.0, 214.0, 24.0, true, rgba(20, 20, 20, 255));
-                for (k, line) in ["Em poucos passos você escolhe o teclado, o fuso,", "a aparência e a sua foto. Tudo pode ser mudado", "depois nas Preferências."].iter().enumerate() {
+                for (k, line) in [tr!("Em poucos passos você escolhe o teclado, o fuso,"), tr!("a aparência e a sua foto. Tudo pode ser mudado"), tr!("depois nas Preferências.")].iter().enumerate() {
                     let lw = ui.text_width(line, 13.0, false);
                     ui.fonts.draw(ui.c, line, (w - lw) / 2.0, 250.0 + k as f32 * 19.0, 13.0, false, rgba(50, 50, 50, 255));
                 }
             }
             1 => {
-                title(ui, "Teclado", "Escolha o teclado que você usa. Ele vale na hora: experimente digitar acentos em qualquer app.");
-                let names: Vec<&str> = LAYOUTS.iter().map(|l| l.2).collect();
+                title(ui, tr!("Teclado"), tr!("Escolha o teclado que você usa. Ele vale na hora: experimente digitar acentos em qualquer app."));
+                let names: Vec<&str> = LAYOUTS.iter().map(|l| tr(l.2)).collect();
                 let mut cur = self.layout;
                 ui.area(Rect::new(60.0, 120.0, w - 120.0, 240.0), |ui| {
                     ui.radio_group(&mut cur, &names);
@@ -181,9 +182,9 @@ impl App for Welcome {
             2 => {
                 let now = glove_kit::local_time();
                 let sub = format!("Agora são {:02}:{:02} no fuso {}.", now.4, now.5, self.zone_now);
-                title(ui, "Data e hora", &sub);
+                title(ui, tr!("Data e hora"), &sub);
                 ui.wake_after(Duration::from_secs(15));
-                let names: Vec<&str> = ZONES.iter().map(|z| z.1).collect();
+                let names: Vec<&str> = ZONES.iter().map(|z| tr(z.1)).collect();
                 let mut cur = self.zone;
                 ui.area(Rect::new(60.0, 110.0, w - 120.0, 260.0), |ui| {
                     ui.radio_group(&mut cur, &names);
@@ -191,7 +192,7 @@ impl App for Welcome {
                 self.zone = cur;
             }
             3 => {
-                title(ui, "Aparência", "Escolha o visual das janelas, menus e botões.");
+                title(ui, tr!("Aparência"), tr!("Escolha o visual das janelas, menus e botões."));
                 let names: Vec<&str> = Variant::ALL.iter().map(|v| v.label()).collect();
                 let mut cur = self.theme;
                 ui.area(Rect::new(60.0, 120.0, w - 120.0, 200.0), |ui| {
@@ -205,7 +206,7 @@ impl App for Welcome {
                 }
             }
             4 => {
-                title(ui, "Sua foto", "Ela aparece na tela de login e no bloqueio de tela.");
+                title(ui, tr!("Sua foto"), tr!("Ela aparece na tela de login e no bloqueio de tela."));
                 let (cols, s, gap) = (6, 64.0, 14.0);
                 let x0 = (w - (cols as f32 * (s + gap) - gap)) / 2.0;
                 for i in 0..AVATARS {
@@ -221,7 +222,7 @@ impl App for Welcome {
                 }
                 let mut keep = self.avatar.is_none();
                 ui.area(Rect::new(x0, 290.0, 300.0, 24.0), |ui| {
-                    ui.checkbox(&mut keep, "Manter a foto atual");
+                    ui.checkbox(&mut keep, tr!("Manter a foto atual"));
                 });
                 if keep && self.avatar.is_some() {
                     self.avatar = None;
@@ -229,10 +230,10 @@ impl App for Welcome {
             }
             _ => {
                 gel_circle(ui.c, w / 2.0, 120.0, 40.0, accent);
-                let t = "Tudo pronto";
+                let t = tr!("Tudo pronto");
                 let tw = ui.text_width(t, 24.0, true);
                 ui.fonts.draw(ui.c, t, (w - tw) / 2.0, 204.0, 24.0, true, rgba(20, 20, 20, 255));
-                let line = "Bom uso! A Busca Rápida (Super+Espaço) acha apps e arquivos.";
+                let line = tr!("Bom uso! A Busca Rápida (Super+Espaço) acha apps e arquivos.");
                 let lw = ui.text_width(line, 13.0, false);
                 ui.fonts.draw(ui.c, line, (w - lw) / 2.0, 240.0, 13.0, false, rgba(50, 50, 50, 255));
             }
@@ -251,9 +252,9 @@ impl App for Welcome {
         let last = self.step == STEPS - 1;
         let (mut back, mut next) = (false, false);
         if self.step > 0 && !last {
-            ui.area(Rect::new(w - 260.0, H - 44.0, 100.0, 24.0), |ui| back = ui.button("Voltar"));
+            ui.area(Rect::new(w - 260.0, H - 44.0, 100.0, 24.0), |ui| back = ui.button(tr!("Voltar")));
         }
-        ui.area(Rect::new(w - 150.0, H - 44.0, 120.0, 24.0), |ui| next = ui.default_button(if last { "Começar" } else { "Continuar" }));
+        ui.area(Rect::new(w - 150.0, H - 44.0, 120.0, 24.0), |ui| next = ui.default_button(if last { tr!("Começar") } else { tr!("Continuar") }));
         if ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Enter) {
             next = true;
         }
@@ -279,7 +280,7 @@ pub fn main() {
     let layout = LAYOUTS.iter().position(|(l, v, _)| *l == config.keyboard.layout && *v == config.keyboard.variant).unwrap_or(0);
     let theme = Variant::ALL.iter().position(|v| v.id() == config.theme).unwrap_or(0);
     let app = Welcome { step: 0, config, layout, zone: 0, zone_now: current_zone(), theme, avatar: None, note: None, test: std::env::var_os("GLOVE_TESTE").is_some() };
-    let opts = WindowOptions { title: "Bem-vindo".into(), app_id: "glove.Boasvindas".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Bem-vindo").into(), app_id: "glove.Boasvindas".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-boasvindas: {e}");
     }

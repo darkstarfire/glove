@@ -35,7 +35,7 @@ struct Calc {
 /// Número no formato brasileiro, com no máximo 12 dígitos significativos.
 fn fmt(v: f64) -> String {
     if !v.is_finite() {
-        return "Erro".into();
+        return tr!("Erro").into();
     }
     if v != 0.0 && (v.abs() >= 1e12 || v.abs() < 1e-9) {
         return format!("{v:.6e}").replace('.', ",");
@@ -268,8 +268,8 @@ impl App for Calc {
 
     fn menus(&self) -> Vec<Menu> {
         vec![Menu::new(
-            "Visualizar",
-            vec![MenuItem::new("basic", "Básica", "Ctrl+1").checked(!self.scientific), MenuItem::new("sci", "Científica", "Ctrl+2").checked(self.scientific)],
+            tr!("Visualizar"),
+            vec![MenuItem::new("basic", tr!("Básica"), "Ctrl+1").checked(!self.scientific), MenuItem::new("sci", tr!("Científica"), "Ctrl+2").checked(self.scientific)],
         )]
     }
 
@@ -394,7 +394,7 @@ impl App for Calc {
         if ui.key_button(cell(0.0, 5.0, 2.0, 1.0), "0", px, false) {
             self.digit('0');
         }
-        if ui.key_button(cell(2.0, 5.0, 1.0, 1.0), ",", px, false) {
+        if ui.key_button(cell(2.0, 5.0, 1.0, 1.0), glove_config::virgula(), px, false) {
             self.digit(',');
         }
         if ui.key_button(cell(3.0, 4.0, 1.0, 2.0), "=", px + 2.0, false) {
@@ -411,7 +411,7 @@ fn sizes(scientific: bool) -> (u32, u32) {
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Calculadora".into(), app_id: "glove.Calculator".into(), size: sizes(false), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Calculadora").into(), app_id: "glove.Calculator".into(), size: sizes(false), fixed: true, min_size: None };
     if let Err(e) = run(opts, Calc::new()) {
         eprintln!("glove-calc: {e}");
     }

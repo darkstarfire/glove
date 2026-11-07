@@ -3,6 +3,7 @@
 //! memória. A escolha das Preferências (navegador = "...") vale antes de tudo.
 //! O processo vira o navegador (exec), com os endereços passados adiante.
 
+use glove_config::tr;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -69,8 +70,8 @@ struct NoBrowser;
 
 impl App for NoBrowser {
     fn ui(&mut self, ui: &mut Ui) {
-        let text = "Instale o NetSurf (leve, bom para pouca memória) ou o Firefox pelo gerenciador de pacotes do sistema.";
-        if ui.alert_window(AlertKind::Caution, "Nenhum navegador instalado.", text, &["OK"]).is_some() {
+        let text = tr!("Instale o NetSurf (leve, bom para pouca memória) ou o Firefox pelo gerenciador de pacotes do sistema.");
+        if ui.alert_window(AlertKind::Caution, tr!("Nenhum navegador instalado."), text, &["OK"]).is_some() {
             ui.close = true;
         }
     }
@@ -81,7 +82,7 @@ pub fn main() {
     let mem = mem_total_mb(&std::fs::read_to_string("/proc/meminfo").unwrap_or_default());
     let preferred = glove_config::Config::load().navegador;
     let Some((prog, glove_firefox)) = choose(mem, &preferred, &|p| which(p).is_some()) else {
-        let opts = WindowOptions { title: "Navegador".into(), app_id: "glove.Navegador".into(), size: (440, 130), fixed: true, min_size: None };
+        let opts = WindowOptions { title: tr!("Navegador").into(), app_id: "glove.Navegador".into(), size: (440, 130), fixed: true, min_size: None };
         let _ = run(opts, NoBrowser);
         return;
     };

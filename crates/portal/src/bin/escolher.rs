@@ -3,6 +3,7 @@
 //! cancelar ou fechar sai com 1.
 //!   glove-escolher abrir|salvar|pasta [--titulo T] [--nome N] [--em PASTA] [--tipos png,jpg]
 
+use glove_config::tr;
 use std::path::PathBuf;
 
 use glove_kit::{run, App, Choice, FileBrowser, Ui, WindowOptions};
@@ -37,9 +38,9 @@ fn main() {
     };
     fb.whole_window = true;
     let default_title = match mode {
-        "salvar" => "Salvar",
-        "pasta" => "Escolher uma pasta",
-        _ => "Abrir",
+        "salvar" => tr!("Salvar"),
+        "pasta" => tr!("Escolher uma pasta"),
+        _ => tr!("Abrir"),
     };
     let title = val("--titulo").filter(|t| !t.is_empty()).unwrap_or_else(|| default_title.into());
     let opts = WindowOptions { title, app_id: "glove.Escolher".into(), size: (640, 410), fixed: true, min_size: None };

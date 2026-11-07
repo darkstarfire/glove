@@ -1,6 +1,7 @@
 //! vCard 3.0 (o que interessa: nome, empresa, telefones, e-mails, endereço,
 //! aniversário e nota), lido e escrito à mão.
 
+use glove_config::tr;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Contact {
     /// Nome do arquivo (sem .vcf) e UID.
@@ -26,7 +27,7 @@ impl Contact {
         } else if !self.org.is_empty() {
             self.org.clone()
         } else {
-            "Sem Nome".into()
+            tr!("Sem Nome").into()
         }
     }
 }

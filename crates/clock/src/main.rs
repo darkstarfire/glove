@@ -1,5 +1,6 @@
 //! Relógio do Glove: mostrador analógico + data por extenso.
 
+use glove_config::tr;
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::time::Duration;
 
@@ -115,7 +116,7 @@ impl App for Clock {
             ui.fonts.draw(ui.c, t, (w - tw) / 2.0, yy, px, bold, rgba(30, 30, 30, 255));
         };
         center(ui, &format!("{h:02}:{m:02}:{s:02}"), 268.0, 20.0, true);
-        let date = format!("{}, {} de {} de {}", DIAS[wd as usize % 7], d, MESES[(mo as usize + 11) % 12], y);
+        let date = tr!("{0}, {1} de {2} de {3}", tr(DIAS[wd as usize % 7]), d, tr(MESES[(mo as usize + 11) % 12]), y);
         center(ui, &date, 290.0, 12.0, false);
     }
 
@@ -131,7 +132,7 @@ impl App for Clock {
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Relógio".into(), app_id: "glove.Clock".into(), size: (W, H), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Relógio").into(), app_id: "glove.Clock".into(), size: (W, H), fixed: true, min_size: None };
     if let Err(e) = run(opts, Clock::default()) {
         eprintln!("glove-clock: {e}");
     }

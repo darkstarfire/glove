@@ -504,8 +504,15 @@ com a tradução ou com outra coisa (o caminho, um identificador).
   servidores e preferências; separador decimal do idioma (`virgula()`) em todos os apps; todos os apps
   passam a depender do glove-config (para o `tr!`); `tools/i18n.py consertar` desfaz o `tr!` onde o
   compilador não aceita (listas fixas e padrões de match)
-- [ ] 9.15.5 Os outros apps, em lotes (G)
-- [ ] 9.15.6 Nomes do Dock e dos apps (configuração), tela de login e boas-vindas (M)
+- [x] 9.15.5 Os outros apps (G) — v0.9.27: os 30 apps restantes (Correio, Editor, Visualizador, Monitor,
+  Agenda, Contatos, Fontes, Caracteres, Dicionário, Utilitário de Rede, Discos, Terminal, Busca,
+  Lembretes, Música, Xadrez, Captura, Vídeo, Ajuda com os textos de ajuda, Registros, Calculadora…);
+  datas por extenso e meses abreviados (também no ícone da Agenda) na ordem de cada idioma; a tecla
+  decimal das calculadoras mostra o separador do idioma; protocolos (IMAP, SMTP, vCard, iCalendar,
+  datas de e-mail) continuam no formato padrão
+- [x] 9.15.6 Nomes do Dock e dos apps (configuração), tela de login e boas-vindas (M) — v0.9.27: os nomes
+  gravados na configuração continuam em português e são traduzidos ao mostrar (Dock, barra de menu,
+  Busca Rápida); atalhos, layouts de teclado, cores, rótulos e sons de alerta também
 - [ ] 9.15.7 Instalador vira `glove-setup-tool.sh` em português e inglês; README em inglês (M)
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)

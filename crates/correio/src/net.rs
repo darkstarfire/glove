@@ -1,5 +1,6 @@
 //! Conexão TCP com ou sem TLS (rustls), com STARTTLS para o SMTP.
 
+use glove_config::tr;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
@@ -71,7 +72,7 @@ pub type Conn = BufReader<Stream>;
 
 fn tcp(host: &str, port: u16) -> std::io::Result<TcpStream> {
     use std::net::ToSocketAddrs;
-    let mut last = std::io::Error::other("endereço não encontrado");
+    let mut last = std::io::Error::other(tr!("endereço não encontrado"));
     for addr in (host, port).to_socket_addrs()? {
         match TcpStream::connect_timeout(&addr, Duration::from_secs(15)) {
             Ok(s) => {
@@ -86,7 +87,7 @@ fn tcp(host: &str, port: u16) -> std::io::Result<TcpStream> {
 }
 
 fn wrap_tls(host: &str, tcp: TcpStream) -> std::io::Result<Stream> {
-    let name = ServerName::try_from(host.to_string()).map_err(|_| std::io::Error::other("nome de servidor inválido"))?;
+    let name = ServerName::try_from(host.to_string()).map_err(|_| std::io::Error::other(tr!("nome de servidor inválido")))?;
     let conn = ClientConnection::new(tls_config(), name).map_err(std::io::Error::other)?;
     let mut s = StreamOwned::new(conn, tcp);
     // Faz o aperto de mão agora, para o erro de certificado aparecer aqui.
@@ -116,7 +117,7 @@ pub fn read_line(c: &mut Conn) -> std::io::Result<Vec<u8>> {
     let mut v = Vec::new();
     let n = c.read_until(b'\n', &mut v)?;
     if n == 0 {
-        return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "o servidor fechou a conexão"));
+        return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, tr!("o servidor fechou a conexão")));
     }
     Ok(v)
 }

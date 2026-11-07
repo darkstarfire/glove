@@ -77,7 +77,7 @@ def marcar(arquivo, lista):
         # Todas as ocorrências ainda sem tr!( na linha.
         linhas[i] = re.sub(r"(?<!tr!\()" + re.escape(lit), lambda m: f"tr!({lit})", linhas[i])
     texto = "\n".join(linhas)
-    if "tr!(" in texto and not re.search(r"^use glove_config::(tr|\{[^}]*\btr\b)", texto, re.M) and "macro_rules! tr" not in texto:
+    if "tr!(" in texto and not re.search(r"^use (glove_config|glove_i18n|crate)::(tr|\{[^}]*\btr\b)", texto, re.M) and "macro_rules! tr" not in texto:
         # Depois dos comentários de abertura (//!) e dos atributos do arquivo.
         ls = texto.split("\n")
         j = 0
@@ -267,7 +267,7 @@ def candidatos(pasta):
     for arq, n, s, linha, fmt in cands:
         if s in logica:
             suspeitos.append(f"{os.path.relpath(arq, RAIZ)}:{n}: {s!r}  |  {linha.strip()[:110]}")
-        elif s not in en and s not in novos:
+        elif s not in en and decodifica(s) not in en and s not in novos:
             novos.append(s)
     print(json.dumps({s: "" for s in novos}, ensure_ascii=False, indent=0))
     if suspeitos:
@@ -276,14 +276,31 @@ def candidatos(pasta):
             print("#", x, file=sys.stderr)
 
 
+def decodifica(raw):
+    """Texto como o Rust o entende a partir do literal do código (\\n, \\", \\\\)."""
+    out, i = "", 0
+    while i < len(raw):
+        c = raw[i]
+        if c == "\\" and i + 1 < len(raw):
+            n = raw[i + 1]
+            out += {"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\", "'": "'"}.get(n, n)
+            i += 2
+            continue
+        out += c
+        i += 1
+    return out
+
+
 def aplicar(pasta, dic):
-    novos = [(k, v) for k, v in dic.items() if v]
+    # As chaves vêm como estão no código (cru); o .po guarda o texto decodificado.
+    novos = [(decodifica(k), decodifica(v) if "\\" in v else v) for k, v in dic.items() if v]
     registra(novos)
-    en = le_po()
+    en = {k: v for k, v in le_po().items()}
+    crus = {k for k in dic if dic[k]} | {k for k in en}
     cands, logica = varrer(pasta)
     porarq = {}
     for arq, n, s, linha, fmt in cands:
-        if s in logica or s not in en:
+        if s in logica or (s not in en and decodifica(s) not in en):
             continue
         porarq.setdefault(arq, []).append((n, s, fmt))
     total = 0
@@ -296,12 +313,12 @@ def aplicar(pasta, dic):
                 if r and r[1] == s:
                     linhas[i] = r[0]; total += 1
             else:
-                lit = literal_rust(s)
+                lit = '"' + s + '"'
                 nova = re.sub(r"(?<!tr!\()" + re.escape(lit), lambda m: f"tr!({lit})", linhas[i])
                 if nova != linhas[i]:
                     linhas[i] = nova; total += 1
         texto = "\n".join(linhas)
-        if "tr!(" in texto and not re.search(r"^use glove_config::(tr|\{[^}]*\btr\b)", texto, re.M):
+        if "tr!(" in texto and not re.search(r"^use (glove_config|glove_i18n|crate)::(tr|\{[^}]*\btr\b)", texto, re.M):
             ls = texto.split("\n")
             j = 0
             while j < len(ls) and (ls[j].startswith("//!") or ls[j].startswith("#![") or ls[j].strip() == ""):

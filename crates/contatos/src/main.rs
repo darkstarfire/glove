@@ -1,6 +1,7 @@
 //! Contatos (como a Agenda de Endereços da era): grupos, nomes e a ficha,
 //! com Editar. Cada contato é um .vcf em ~/.local/share/glove/contatos.
 
+use glove_config::tr;
 mod vcard;
 
 use std::path::PathBuf;
@@ -148,7 +149,7 @@ impl Contatos {
         if let Some(c) = self.all.iter_mut().find(|c| c.uid == uid) {
             from_form(c, &form, &note);
             if let Err(e) = save(c) {
-                self.message = Some(format!("Não foi possível salvar: {e}"));
+                self.message = Some(tr!("Não foi possível salvar: {}", e));
             }
         }
         sort(&mut self.all);
@@ -193,7 +194,7 @@ impl Contatos {
     fn card(&mut self, ui: &mut Ui, r: Rect) {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(252, 252, 252, 255)));
         let Some(c) = self.current().cloned() else {
-            ui.fonts.draw(ui.c, "Nenhum contato escolhido.", r.x + 20.0, r.y + 40.0, 12.0, false, rgba(140, 140, 146, 255));
+            ui.fonts.draw(ui.c, tr!("Nenhum contato escolhido."), r.x + 20.0, r.y + 40.0, 12.0, false, rgba(140, 140, 146, 255));
             return;
         };
         // Retrato desenhado e o nome.
@@ -203,6 +204,7 @@ impl Contatos {
             let lw = 120.0;
             let mut y = r.y + 82.0;
             for (i, label) in FIELDS.iter().enumerate() {
+                let label: &str = tr(label);
                 let tw = ui.text_width(label, 11.0, false);
                 ui.fonts.draw(ui.c, label, r.x + lw - tw, y + 14.0, 11.0, false, rgba(110, 110, 116, 255));
                 ui.push_id(label, |ui| {
@@ -210,13 +212,13 @@ impl Contatos {
                 });
                 y += 25.0;
             }
-            let tw = ui.text_width("Nota", 11.0, false);
-            ui.fonts.draw(ui.c, "Nota", r.x + lw - tw, y + 14.0, 11.0, false, rgba(110, 110, 116, 255));
+            let tw = ui.text_width(tr!("Nota"), 11.0, false);
+            ui.fonts.draw(ui.c, tr!("Nota"), r.x + lw - tw, y + 14.0, 11.0, false, rgba(110, 110, 116, 255));
             ui.text_field_in(Rect::new(r.x + lw + 8.0, y, (r.w - lw - 24.0).min(260.0), 20.0), note, false);
             let first = form[0].clone();
             let last = form[1].clone();
             let t = format!("{first} {last}");
-            ui.fonts.draw(ui.c, if t.trim().is_empty() { "Contato novo" } else { t.trim() }, r.x + 84.0, r.y + 40.0, 16.0, true, rgba(20, 20, 24, 255));
+            ui.fonts.draw(ui.c, if t.trim().is_empty() { tr!("Contato novo") } else { t.trim() }, r.x + 84.0, r.y + 40.0, 16.0, true, rgba(20, 20, 24, 255));
             return;
         }
         ui.fonts.draw(ui.c, &c.display(), r.x + 84.0, r.y + 40.0, 16.0, true, rgba(20, 20, 24, 255));
@@ -226,12 +228,12 @@ impl Contatos {
         // Linhas "rótulo  valor", como na ficha da era.
         let mut rows: Vec<(String, String)> = Vec::new();
         rows.extend(c.phones.iter().map(|(k, v)| (k.clone(), v.clone())));
-        rows.extend(c.emails.iter().map(|(k, v)| (if k == "trabalho" { "e-mail trab.".into() } else { "e-mail".into() }, v.clone())));
+        rows.extend(c.emails.iter().map(|(k, v)| (if k == "trabalho" { tr!("e-mail trab.").into() } else { tr!("e-mail").into() }, v.clone())));
         if !c.address.is_empty() {
-            rows.push(("endereço".into(), c.address.clone()));
+            rows.push((tr!("endereço").into(), c.address.clone()));
         }
         if !c.birthday.is_empty() {
-            rows.push(("aniversário".into(), br_date(&c.birthday)));
+            rows.push((tr!("aniversário").into(), br_date(&c.birthday)));
         }
         if !c.group.is_empty() {
             rows.push(("grupo".into(), c.group.clone()));
@@ -275,22 +277,22 @@ impl App for Contatos {
         // Barra: busca à direita.
         ui.c.fill_rect(0.0, 0.0, w, TOOL_H, &vgrad(0.0, TOOL_H, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(206, 206, 210, 255))]));
         ui.c.hline(0.0, TOOL_H - 1.0, w, rgba(140, 140, 146, 255));
-        ui.search_field_in(Rect::new(w - 200.0, (TOOL_H - SEARCH_H) / 2.0, 186.0, SEARCH_H), &mut self.filter, "Buscar");
+        ui.search_field_in(Rect::new(w - 200.0, (TOOL_H - SEARCH_H) / 2.0, 186.0, SEARCH_H), &mut self.filter, tr!("Buscar"));
         let n = self.all.len();
-        let t = format!("{n} contato{}", if n == 1 { "" } else { "s" });
+        let t = tr!("{} contato{}", n, if n == 1 { "" } else { "s" });
         ui.fonts.draw(ui.c, &t, 14.0, TOOL_H / 2.0 + 4.0, 12.0, false, rgba(60, 60, 66, 255));
 
         let foot = 34.0;
         let body = Rect::new(0.0, TOOL_H, w, h - TOOL_H - foot);
         // Grupos.
-        let mut groups = vec!["Todos".to_string()];
+        let mut groups = vec![tr!("Todos").to_string()];
         groups.extend(self.groups());
         let gsel = match &self.group {
             None => Some(0),
             Some(g) => groups.iter().position(|x| x == g),
         };
         let mut s0 = 0.0;
-        if let Some(i) = Self::column(ui, Rect::new(0.0, body.y, GROUP_W, body.h), "Grupo", &groups, gsel, &mut s0) {
+        if let Some(i) = Self::column(ui, Rect::new(0.0, body.y, GROUP_W, body.h), tr!("Grupo"), &groups, gsel, &mut s0) {
             self.finish_edit();
             self.group = (i > 0).then(|| groups[i].clone());
         }
@@ -299,7 +301,7 @@ impl App for Contatos {
         let names: Vec<String> = vis.iter().map(|v| v.1.clone()).collect();
         let nsel = self.selected.as_ref().and_then(|u| vis.iter().position(|v| &v.0 == u));
         let mut sc = self.name_scroll;
-        if let Some(i) = Self::column(ui, Rect::new(GROUP_W, body.y, NAME_W, body.h), "Nome", &names, nsel, &mut sc) {
+        if let Some(i) = Self::column(ui, Rect::new(GROUP_W, body.y, NAME_W, body.h), tr!("Nome"), &names, nsel, &mut sc) {
             self.finish_edit();
             self.selected = Some(vis[i].0.clone());
         }
@@ -328,7 +330,7 @@ impl App for Contatos {
         });
         ui.area(Rect::new(GROUP_W + NAME_W + 16.0, fy + 5.0, 140.0, 26.0), |ui| {
             ui.set_active(has);
-            if if editing { ui.default_button("OK") } else { ui.button("Editar") } {
+            if if editing { ui.default_button("OK") } else { ui.button(tr!("Editar")) } {
                 acts.push("edit".into());
             }
             ui.set_active(true);
@@ -374,7 +376,7 @@ impl App for Contatos {
                     if export {
                         if let Some(c) = self.current() {
                             if let Err(e) = std::fs::write(&p, vcard::serialize(c)) {
-                                self.message = Some(format!("Não foi possível exportar: {e}"));
+                                self.message = Some(tr!("Não foi possível exportar: {}", e));
                             }
                         }
                     } else {
@@ -390,7 +392,7 @@ impl App for Contatos {
                             }
                         }
                         sort(&mut self.all);
-                        self.message = Some(format!("{n} contato(s) importado(s)."));
+                        self.message = Some(tr!("{} contato(s) importado(s).", n));
                     }
                 }
             }
@@ -401,21 +403,21 @@ impl App for Contatos {
         let has = self.selected.is_some();
         vec![
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("new", "Novo Contato", "Ctrl+N"),
+                    MenuItem::new("new", tr!("Novo Contato"), "Ctrl+N"),
                     MenuItem::Separator,
-                    MenuItem::new("import", "Importar vCards…", "Ctrl+Shift+I"),
-                    MenuItem::new("export", "Exportar vCard…", "Ctrl+Shift+E").enabled(has),
+                    MenuItem::new("import", tr!("Importar vCards…"), "Ctrl+Shift+I"),
+                    MenuItem::new("export", tr!("Exportar vCard…"), "Ctrl+Shift+E").enabled(has),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
                 ],
             ),
             Menu::new(
-                "Ficha",
+                tr!("Ficha"),
                 vec![
-                    MenuItem::new("edit", if self.editing.is_some() { "Terminar Edição" } else { "Editar Ficha" }, "Ctrl+L").enabled(has),
-                    MenuItem::new("delete", "Apagar Contato", "").enabled(has),
+                    MenuItem::new("edit", if self.editing.is_some() { tr!("Terminar Edição") } else { tr!("Editar Ficha") }, "Ctrl+L").enabled(has),
+                    MenuItem::new("delete", tr!("Apagar Contato"), "").enabled(has),
                 ],
             ),
         ]
@@ -431,7 +433,7 @@ pub fn main() {
     let all = load_all();
     let selected = all.first().map(|c| c.uid.clone());
     let app = Contatos { all, group: None, selected, filter: String::new(), editing: None, file: None, message: None, name_scroll: 0.0 };
-    let opts = WindowOptions { title: "Contatos".into(), app_id: "glove.Contatos".into(), size: (760, 470), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Contatos").into(), app_id: "glove.Contatos".into(), size: (760, 470), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-contatos: {e}");
     }

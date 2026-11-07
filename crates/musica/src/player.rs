@@ -1,6 +1,7 @@
 //! Tocador: decodifica com o symphonia (Rust puro) numa thread e manda o som
 //! (PCM de 16 bits) para o pw-cat do PipeWire, ou para o aplay do ALSA.
 
+use glove_config::tr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -136,15 +137,15 @@ fn play(path: &Path, rx: &Receiver<Cmd>, status: &Arc<Mutex<Status>>, volume: &m
         s.ended = true;
     };
     let Some((mut format, _)) = open(path) else {
-        fail("formato não reconhecido");
+        fail(tr!("formato não reconhecido"));
         return None;
     };
     let Some(track) = format.tracks().iter().find(|t| t.codec_params.codec != CODEC_TYPE_NULL).cloned() else {
-        fail("sem faixa de áudio");
+        fail(tr!("sem faixa de áudio"));
         return None;
     };
     let Ok(mut decoder) = symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default()) else {
-        fail("codec não suportado");
+        fail(tr!("codec não suportado"));
         return None;
     };
     let rate = track.codec_params.sample_rate.unwrap_or(44_100);
@@ -155,7 +156,7 @@ fn play(path: &Path, rx: &Receiver<Cmd>, status: &Arc<Mutex<Status>>, volume: &m
         *s = Status { playing: Some(path.to_path_buf()), paused: false, pos: 0.0, secs, ended: false, error: None };
     }
     let Some(mut out) = sink(rate, channels) else {
-        fail("sem saída de som (pw-cat ou aplay)");
+        fail(tr!("sem saída de som (pw-cat ou aplay)"));
         return None;
     };
     let mut stdin = out.stdin.take();

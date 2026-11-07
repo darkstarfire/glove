@@ -6,6 +6,7 @@
 //! os lembretes fechados ou um novo. Os textos ficam em
 //! ~/.local/share/glove/lembretes/<n>.txt e a cor em <n>.cor.
 
+use glove_config::tr;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, RawFd};
@@ -391,34 +392,34 @@ impl App for Notes {
     fn menus(&self) -> Vec<Menu> {
         let color = self.notes.iter().find(|n| n.id == self.active).map(|n| n.color).unwrap_or(0);
         let custom = self.notes.iter().find(|n| n.id == self.active).is_some_and(|n| n.custom.is_some());
-        let mut cores: Vec<MenuItem> = COLORS.iter().enumerate().map(|(i, (id, name, _))| MenuItem::new(&format!("cor-{id}"), name, "").checked(i == color && !custom)).collect();
+        let mut cores: Vec<MenuItem> = COLORS.iter().enumerate().map(|(i, (id, name, _))| MenuItem::new(&format!("cor-{id}"), tr(name), "").checked(i == color && !custom)).collect();
         cores.push(MenuItem::Separator);
-        cores.push(MenuItem::new("cor-outra", "Outra Cor…", "Ctrl+Shift+C").checked(custom));
+        cores.push(MenuItem::new("cor-outra", tr!("Outra Cor…"), "Ctrl+Shift+C").checked(custom));
         vec![
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("new", "Novo lembrete", "Ctrl+N"),
+                    MenuItem::new("new", tr!("Novo lembrete"), "Ctrl+N"),
                     MenuItem::Separator,
-                    MenuItem::new("import", "Importar texto…", "Ctrl+Shift+I"),
-                    MenuItem::new("export", "Exportar como texto…", "Ctrl+Shift+E"),
+                    MenuItem::new("import", tr!("Importar texto…"), "Ctrl+Shift+I"),
+                    MenuItem::new("export", tr!("Exportar como texto…"), "Ctrl+Shift+E"),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar", "Ctrl+W"),
-                    MenuItem::new("delete", "Apagar lembrete", ""),
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
+                    MenuItem::new("delete", tr!("Apagar lembrete"), ""),
                 ],
             ),
             Menu::new(
-                "Editar",
+                tr!("Editar"),
                 vec![
-                    MenuItem::new("undo", "Desfazer", "Ctrl+Z"),
+                    MenuItem::new("undo", tr!("Desfazer"), "Ctrl+Z"),
                     MenuItem::Separator,
-                    MenuItem::new("cut", "Recortar", "Ctrl+X"),
-                    MenuItem::new("copy", "Copiar", "Ctrl+C"),
-                    MenuItem::new("paste", "Colar", "Ctrl+V"),
-                    MenuItem::new("select-all", "Selecionar tudo", "Ctrl+A"),
+                    MenuItem::new("cut", tr!("Recortar"), "Ctrl+X"),
+                    MenuItem::new("copy", tr!("Copiar"), "Ctrl+C"),
+                    MenuItem::new("paste", tr!("Colar"), "Ctrl+V"),
+                    MenuItem::new("select-all", tr!("Selecionar tudo"), "Ctrl+A"),
                 ],
             ),
-            Menu::new("Cor", cores),
+            Menu::new(tr!("Cor"), cores),
         ]
     }
 

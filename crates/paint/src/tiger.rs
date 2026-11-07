@@ -349,7 +349,7 @@ pub(crate) fn calendar(pm: &mut Canvas, fonts: &Fonts, x: f32, y: f32, s: f32, m
     pm.fill_clipped(u.rr(0.12, 0.12, 0.76, 0.1, 0.0), &solid(rgba(255, 255, 255, 50)), band.clone());
     pm.fill_rect(u.px(0.12), u.py(0.3), u.d(0.76), u.d(0.06), &vgrad(u.py(0.3), u.py(0.36), &[(0.0, rgba(164, 20, 14, 255)), (1.0, rgba(140, 14, 10, 255))]));
     if s >= 32.0 {
-        let t = MESES[(month.clamp(1, 12) - 1) as usize];
+        let t = glove_i18n::tr(MESES[(month.clamp(1, 12) - 1) as usize]);
         let px = u.d(0.13);
         let tw = fonts.measure(t, px, true);
         fonts.draw(pm, t, u.px(0.5) - tw / 2.0, u.py(0.31), px, true, rgba(255, 255, 255, 245));

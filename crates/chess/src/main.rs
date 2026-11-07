@@ -1,5 +1,6 @@
 //! Xadrez contra o computador.
 
+use glove_config::tr;
 mod engine;
 
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
@@ -103,17 +104,17 @@ impl Chess {
         let moves = self.pos.legal();
         if moves.is_empty() {
             if self.pos.in_check() {
-                return if self.pos.side == self.me { "Xeque-mate. O computador venceu.".into() } else { "Xeque-mate! Você venceu.".into() };
+                return if self.pos.side == self.me { tr!("Xeque-mate. O computador venceu.").into() } else { tr!("Xeque-mate! Você venceu.").into() };
             }
-            return "Empate por afogamento.".into();
+            return tr!("Empate por afogamento.").into();
         }
         if self.pos.half >= 100 {
-            return "Empate: 50 lances sem captura nem peão.".into();
+            return tr!("Empate: 50 lances sem captura nem peão.").into();
         }
         if self.think {
-            return "O computador está pensando…".into();
+            return tr!("O computador está pensando…").into();
         }
-        if self.pos.in_check() { "Xeque! Sua vez.".into() } else { "Sua vez.".into() }
+        if self.pos.in_check() { tr!("Xeque! Sua vez.").into() } else { tr!("Sua vez.").into() }
     }
 
     /// Casa da tela → índice do tabuleiro (invertido se jogo de pretas).
@@ -308,27 +309,27 @@ impl App for Chess {
     }
 
     fn menus(&self) -> Vec<Menu> {
-        let mut nivel: Vec<MenuItem> = LEVELS.iter().enumerate().map(|(i, (id, label, _))| MenuItem::new(id, label, "").checked(i == self.level)).collect();
+        let mut nivel: Vec<MenuItem> = LEVELS.iter().enumerate().map(|(i, (id, label, _))| MenuItem::new(id, tr(label), "").checked(i == self.level)).collect();
         nivel.push(MenuItem::Separator);
-        nivel.push(MenuItem::new("flip", if self.me == 1 { "Jogar com as pretas" } else { "Jogar com as brancas" }, ""));
+        nivel.push(MenuItem::new("flip", if self.me == 1 { tr!("Jogar com as pretas") } else { tr!("Jogar com as brancas") }, ""));
         vec![
             Menu::new(
-                "Jogo",
+                tr!("Jogo"),
                 vec![
-                    MenuItem::new("new", "Novo jogo", "Ctrl+N"),
-                    MenuItem::new("undo", "Desfazer jogada", "Ctrl+Z").enabled(!self.history.is_empty()),
+                    MenuItem::new("new", tr!("Novo jogo"), "Ctrl+N"),
+                    MenuItem::new("undo", tr!("Desfazer jogada"), "Ctrl+Z").enabled(!self.history.is_empty()),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
                 ],
             ),
-            Menu::new("Nível", nivel),
+            Menu::new(tr!("Nível"), nivel),
         ]
     }
 }
 
 pub fn main() {
     let side = (MARGIN * 2.0 + SQ * 8.0) as u32;
-    let opts = WindowOptions { title: "Xadrez".into(), app_id: "glove.Chess".into(), size: (side, side + STATUS_H as u32 + 4), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Xadrez").into(), app_id: "glove.Chess".into(), size: (side, side + STATUS_H as u32 + 4), fixed: true, min_size: None };
     if let Err(e) = run(opts, Chess::new(1, 1, pipe(), 0)) {
         eprintln!("glove-chess: {e}");
     }

@@ -2,6 +2,7 @@
 //! itens, segredos (sessão "plain", local), apagar, trancar/destrancar e mudar a
 //! senha do chaveiro (a interface do gnome-keyring para isso).
 
+use glove_config::tr;
 use std::collections::HashMap;
 
 use zbus::blocking::Connection;
@@ -75,13 +76,13 @@ unsafe extern "C" {
 fn describe(attrs: &HashMap<String, String>) -> (String, String, String) {
     let schema = attrs.get("xdg:schema").map(String::as_str).unwrap_or("");
     let kind = if schema.contains("NetworkManager") {
-        "Senha de rede (Wi-Fi/VPN)"
+        tr!("Senha de rede (Wi-Fi/VPN)")
     } else if schema.contains("NetworkPassword") || attrs.contains_key("server") || attrs.contains_key("host") {
-        "Senha de rede"
+        tr!("Senha de rede")
     } else if schema.contains("chrome") || schema.contains("Chrome") || attrs.contains_key("application") {
-        "Senha de app"
+        tr!("Senha de app")
     } else {
-        "Senha"
+        tr!("Senha")
     };
     let get = |keys: &[&str]| keys.iter().find_map(|k| attrs.get(*k)).cloned().unwrap_or_default();
     let account = get(&["user", "username", "account", "login", "email"]);
@@ -137,14 +138,14 @@ impl Backend {
         }
         match Connection::session() {
             Ok(c) => Backend::Dbus { conn: Some(c), session: None, error: None },
-            Err(e) => Backend::Dbus { conn: None, session: None, error: Some(format!("Sem o serviço de senhas: {e}")) },
+            Err(e) => Backend::Dbus { conn: None, session: None, error: Some(tr!("Sem o serviço de senhas: {}", e)) },
         }
     }
 
     fn conn(&self) -> Result<&Connection, String> {
         match self {
             Backend::Dbus { conn: Some(c), .. } => Ok(c),
-            Backend::Dbus { error, .. } => Err(error.clone().unwrap_or_else(|| "Sem o serviço de senhas.".into())),
+            Backend::Dbus { error, .. } => Err(error.clone().unwrap_or_else(|| tr!("Sem o serviço de senhas.").into())),
             Backend::Fake(..) => Err("teste".into()),
         }
     }
@@ -200,7 +201,7 @@ impl Backend {
 
     pub fn secret(&mut self, item: &str) -> Result<String, String> {
         if let Backend::Fake(_, s) = self {
-            return s.get(item).cloned().ok_or_else(|| "Sem senha.".into());
+            return s.get(item).cloned().ok_or_else(|| tr!("Sem senha.").into());
         }
         let s = self.session()?;
         let c = self.conn()?;
@@ -257,7 +258,7 @@ impl Backend {
     /// Mudar a senha do chaveiro (gnome-keyring): a atual e a nova vão pela sessão local.
     pub fn change_password(&mut self, path: &str, old: &str, new: &str) -> Result<(), String> {
         if let Backend::Fake(..) = self {
-            return if old == "teste" { Ok(()) } else { Err("A senha atual não confere.".into()) };
+            return if old == "teste" { Ok(()) } else { Err(tr!("A senha atual não confere.").into()) };
         }
         let s = self.session()?;
         let c = self.conn()?;
@@ -266,7 +267,7 @@ impl Backend {
         c.call_method(Some(DEST), ROOT, Some("org.gnome.keyring.InternalUnsupportedGuiltRiddenInterface"), "ChangeWithMasterPassword", &(obj, secret(old), secret(new)))
             .map_err(|e| {
                 let m = e.to_string();
-                if m.contains("Denied") || m.contains("Invalid") { "A senha atual não confere.".to_string() } else { m }
+                if m.contains("Denied") || m.contains("Invalid") { tr!("A senha atual não confere.").to_string() } else { m }
             })?;
         Ok(())
     }
@@ -280,10 +281,10 @@ fn fake() -> Backend {
             label: "login".into(),
             locked: false,
             items: vec![
-                item(1, "Casa 5G", "Senha de rede (Wi-Fi/VPN)", "", "Casa 5G"),
-                item(2, "Servidor de arquivos", "Senha de rede", "ana", "smb://casa.local"),
-                item(3, "Correio (IMAP)", "Senha de app", "ana@exemplo.org", "imap.exemplo.org"),
-                item(4, "Navegador", "Senha de app", "", "chromium"),
+                item(1, "Casa 5G", tr!("Senha de rede (Wi-Fi/VPN)"), "", "Casa 5G"),
+                item(2, "Servidor de arquivos", tr!("Senha de rede"), "ana", "smb://casa.local"),
+                item(3, "Correio (IMAP)", tr!("Senha de app"), "ana@exemplo.org", "imap.exemplo.org"),
+                item(4, tr!("Navegador"), tr!("Senha de app"), "", "chromium"),
             ],
         },
         Keyring { path: "/teste/trabalho".into(), label: "trabalho".into(), locked: true, items: Vec::new() },

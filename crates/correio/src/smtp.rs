@@ -1,5 +1,6 @@
 //! Envio por SMTP: TLS direto (465) ou STARTTLS (587), AUTH PLAIN/LOGIN.
 
+use glove_config::tr;
 use base64::Engine;
 
 use crate::net::{self, Conn, Security};
@@ -10,7 +11,7 @@ fn reply(c: &mut Conn) -> Result<(u16, String), String> {
     loop {
         let l = net::read_line(c).map_err(|e| e.to_string())?;
         let s = String::from_utf8_lossy(&l).trim_end().to_string();
-        let code: u16 = s.get(..3).and_then(|x| x.parse().ok()).ok_or_else(|| format!("Resposta estranha do servidor: {s}"))?;
+        let code: u16 = s.get(..3).and_then(|x| x.parse().ok()).ok_or_else(|| tr!("Resposta estranha do servidor: {}", s))?;
         text.push_str(s.get(4..).unwrap_or(""));
         text.push('\n');
         if s.as_bytes().get(3) != Some(&b'-') {
@@ -46,13 +47,13 @@ pub fn dot_stuff(msg: &str) -> String {
 
 #[allow(clippy::too_many_arguments)]
 pub fn send(host: &str, port: u16, sec: Security, user: &str, pass: &str, from: &str, rcpt: &[String], msg: &str) -> Result<(), String> {
-    let mut c = net::connect(host, port, sec).map_err(|e| format!("Não deu para conectar a {host}: {e}"))?;
+    let mut c = net::connect(host, port, sec).map_err(|e| tr!("Não deu para conectar a {}: {}", host, e))?;
     expect(&mut c, &[220])?;
     let me = "glove.local";
     let mut caps = say(&mut c, &format!("EHLO {me}"), &[250])?;
     if sec == Security::StartTls {
         say(&mut c, "STARTTLS", &[220])?;
-        c = net::upgrade(host, c).map_err(|e| format!("Falha no TLS: {e}"))?;
+        c = net::upgrade(host, c).map_err(|e| tr!("Falha no TLS: {}", e))?;
         caps = say(&mut c, &format!("EHLO {me}"), &[250])?;
     }
     if !user.is_empty() {
@@ -63,7 +64,7 @@ pub fn send(host: &str, port: u16, sec: Security, user: &str, pass: &str, from: 
         } else {
             say(&mut c, "AUTH LOGIN", &[334]).and_then(|_| say(&mut c, &b64(user), &[334])).and_then(|_| say(&mut c, &b64(pass), &[235]))
         };
-        r.map_err(|e| if e.starts_with("535") || e.starts_with("534") { "O servidor de envio recusou o usuário ou a senha.".to_string() } else { e })?;
+        r.map_err(|e| if e.starts_with("535") || e.starts_with("534") { tr!("O servidor de envio recusou o usuário ou a senha.").to_string() } else { e })?;
     }
     say(&mut c, &format!("MAIL FROM:<{from}>"), &[250])?;
     for r in rcpt {

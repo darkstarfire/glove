@@ -1,6 +1,7 @@
 //! Música: a biblioteca da pasta Música e um tocador leve (como o iTunes da
 //! era, só o essencial). Tudo em Rust: o symphonia decodifica, o pw-cat toca.
 
+use glove_config::tr;
 mod player;
 
 use std::path::{Path, PathBuf};
@@ -178,7 +179,7 @@ impl Musica {
             ui.fonts.draw(ui.c, &t, r.x + (r.w - tw) / 2.0, y, px, bold, ink);
         };
         match playing {
-            None => center(ui, "Glove Música", r.y + r.h / 2.0 + 5.0, 13.0, true),
+            None => center(ui, tr!("Glove Música"), r.y + r.h / 2.0 + 5.0, 13.0, true),
             Some(p) => {
                 let info = self.songs.lock().unwrap().iter().find(|s| s.path == p).map(|s| s.info.clone()).unwrap_or_default();
                 center(ui, &info.title, r.y + 16.0, 12.0, true);
@@ -279,10 +280,10 @@ impl App for Musica {
         self.display(ui, Rect::new(250.0, 8.0, dw, TOP_H - 18.0));
         // Busca.
         let sw = (w - 250.0 - dw - 24.0).max(120.0);
-        ui.search_field_in(Rect::new(w - sw - 12.0, cy - SEARCH_H / 2.0, sw, SEARCH_H), &mut self.filter, "Buscar");
+        ui.search_field_in(Rect::new(w - sw - 12.0, cy - SEARCH_H / 2.0, sw, SEARCH_H), &mut self.filter, tr!("Buscar"));
 
         // Biblioteca.
-        let cols = [Column::new("Nome", 0.36), Column::new("Artista", 0.24), Column::new("Álbum", 0.28), Column::new("Duração", 0.12).right()];
+        let cols = [Column::new(tr!("Nome"), 0.36), Column::new(tr!("Artista"), 0.24), Column::new(tr!("Álbum"), 0.28), Column::new(tr!("Duração"), 0.12).right()];
         let cur = self.status.lock().unwrap().playing.clone();
         let trows: Vec<TableRow> = rows
             .iter()
@@ -301,7 +302,7 @@ impl App for Musica {
             self.play(rows[i].0.clone(), &rows);
         }
         if rows.is_empty() {
-            let msg = if *self.scanning.lock().unwrap() { "Lendo a biblioteca…".to_string() } else { format!("Nenhuma música em {}. Ponha MP3, FLAC, OGG ou WAV nessa pasta.", self.dir.display()) };
+            let msg = if *self.scanning.lock().unwrap() { "Lendo a biblioteca…".to_string() } else { tr!("Nenhuma música em {}. Ponha MP3, FLAC, OGG ou WAV nessa pasta.", self.dir.display()) };
             let msg = ui.fonts.ellipsize(&msg, 12.0, false, w - 40.0);
             let tw = ui.text_width(&msg, 12.0, false);
             ui.fonts.draw(ui.c, &msg, (w - tw) / 2.0, area.y + area.h / 2.0, 12.0, false, rgba(130, 130, 136, 255));
@@ -311,11 +312,11 @@ impl App for Musica {
         ui.c.fill_rect(0.0, fy, w, 22.0, &vgrad(fy, h, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(214, 214, 218, 255))]));
         ui.c.hline(0.0, fy, w, rgba(150, 150, 156, 255));
         let total: f32 = rows.iter().map(|r| r.1.secs).sum();
-        let t = format!("{} músicas, {}", rows.len(), mmss(total));
+        let t = tr!("{} músicas, {}", rows.len(), mmss(total));
         let tw = ui.text_width(&t, 11.0, false);
         ui.fonts.draw(ui.c, &t, (w - tw) / 2.0, fy + 15.0, 11.0, false, rgba(60, 60, 66, 255));
         if let Some(e) = self.status.lock().unwrap().error.clone() {
-            ui.fonts.draw(ui.c, &format!("Não deu para tocar: {e}"), 10.0, fy + 15.0, 10.0, false, rgba(180, 40, 30, 255));
+            ui.fonts.draw(ui.c, &tr!("Não deu para tocar: {}", e), 10.0, fy + 15.0, 10.0, false, rgba(180, 40, 30, 255));
         }
 
         for a in acts {
@@ -352,13 +353,13 @@ impl App for Musica {
             (s.playing.is_some(), s.paused)
         };
         vec![Menu::new(
-            "Controles",
+            tr!("Controles"),
             vec![
-                MenuItem::new("toggle", if playing && !paused { "Pausar" } else { "Tocar" }, "space"),
-                MenuItem::new("stop", "Parar", "").enabled(playing),
+                MenuItem::new("toggle", if playing && !paused { tr!("Pausar") } else { tr!("Tocar") }, "space"),
+                MenuItem::new("stop", tr!("Parar"), "").enabled(playing),
                 MenuItem::Separator,
-                MenuItem::new("next", "Próxima Música", "Ctrl+Right"),
-                MenuItem::new("prev", "Música Anterior", "Ctrl+Left"),
+                MenuItem::new("next", tr!("Próxima Música"), "Ctrl+Right"),
+                MenuItem::new("prev", tr!("Música Anterior"), "Ctrl+Left"),
             ],
         )]
     }
@@ -370,7 +371,7 @@ impl App for Musica {
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Música".into(), app_id: "glove.Musica".into(), size: (760, 480), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Música").into(), app_id: "glove.Musica".into(), size: (760, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Musica::new()) {
         eprintln!("glove-musica: {e}");
     }

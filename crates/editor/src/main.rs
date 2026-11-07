@@ -1,5 +1,6 @@
 //! Editor de texto do Glove.
 
+use glove_config::tr;
 use std::path::{Path, PathBuf};
 
 use glove_kit::paint::draw::*;
@@ -100,14 +101,14 @@ impl Editor {
                 }
                 // Arquivo novo: começa vazio e salva nesse caminho.
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => ed.path = Some(p),
-                Err(e) => ed.sheet = Sheet::Error(format!("Não consegui abrir “{}”: {e}", p.display())),
+                Err(e) => ed.sheet = Sheet::Error(tr!("Não consegui abrir “{}”: {}", p.display(), e)),
             }
         }
         ed
     }
 
     fn name(&self) -> String {
-        self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Sem título".into())
+        self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| tr!("Sem título").into())
     }
 
     fn save(&mut self, then_close: bool, ui: &mut Ui) {
@@ -119,10 +120,10 @@ impl Editor {
                         ui.close = true;
                     }
                 }
-                Err(e) => self.sheet = Sheet::Error(format!("Não consegui salvar “{}”: {e}", p.display())),
+                Err(e) => self.sheet = Sheet::Error(tr!("Não consegui salvar “{}”: {}", p.display(), e)),
             },
             None => {
-                self.sheet = Sheet::SaveAs { fb: FileBrowser::save(Some(documents_dir()), "Sem título.txt"), then_close };
+                self.sheet = Sheet::SaveAs { fb: FileBrowser::save(Some(documents_dir()), tr!("Sem título.txt")), then_close };
             }
         }
     }
@@ -194,7 +195,7 @@ impl Editor {
         let Some(f) = &mut self.find else { return };
         let hits = find_all(self.buf.text(), &f.query, f.case);
         if hits.is_empty() {
-            f.message = if f.query.is_empty() { String::new() } else { "Não encontrado".into() };
+            f.message = if f.query.is_empty() { String::new() } else { tr!("Não encontrado").into() };
             return;
         }
         let (a, b) = self.buf.selection();
@@ -209,7 +210,7 @@ impl Editor {
             self.buf.set_cursor(e, true);
             self.buf.reveal = true;
             let n = hits.iter().position(|h| h.0 == s).map(|i| i + 1).unwrap_or(0);
-            f.message = format!("{n} de {}", hits.len());
+            f.message = tr!("{} de {}", n, hits.len());
         }
     }
 
@@ -230,7 +231,7 @@ impl Editor {
         let Some(f) = &mut self.find else { return };
         let hits = find_all(self.buf.text(), &f.query, f.case);
         if hits.is_empty() {
-            f.message = "Não encontrado".into();
+            f.message = tr!("Não encontrado").into();
             return;
         }
         let mut out = String::with_capacity(self.buf.len());
@@ -241,7 +242,7 @@ impl Editor {
             last = *b;
         }
         out.push_str(&self.buf.text()[last..]);
-        f.message = format!("{} substituídas", hits.len());
+        f.message = tr!("{} substituídas", hits.len());
         self.buf.select_all();
         self.buf.insert(&out);
         self.buf.set_cursor(0, false);
@@ -294,7 +295,7 @@ impl Editor {
             ui.fonts.draw(ui.c, t, x, row + 14.0, 12.0, false, rgba(30, 30, 34, 255));
             ui.text_width(t, 12.0, false)
         };
-        x += label(ui, "Localizar:", x) + 6.0;
+        x += label(ui, tr!("Localizar:"), x) + 6.0;
         let focus = std::mem::take(&mut f.focus);
         let (changed, enter) = ui.text_field_in(Rect::new(x, row, fw, 20.0), &mut f.query, focus);
         // "2 de 3" dentro do campo, à direita (como na busca do Safari da era).
@@ -303,7 +304,7 @@ impl Editor {
             ui.fonts.draw(ui.c, &f.message, x + fw - mw - 5.0, row + 14.0, 10.0, false, rgba(130, 130, 136, 255));
         }
         x += fw + 10.0;
-        x += label(ui, "Substituir:", x) + 6.0;
+        x += label(ui, tr!("Substituir:"), x) + 6.0;
         let (_, enter_r) = ui.text_field_in(Rect::new(x, row, fw, 20.0), &mut f.replace, false);
         x += fw + 8.0;
         let msg = f.message.clone();
@@ -320,10 +321,10 @@ impl Editor {
                 if ui.small_button("▶") {
                     act = Some("next");
                 }
-                if ui.small_button("Substituir") {
+                if ui.small_button(tr!("Substituir")) {
                     act = Some("one");
                 }
-                if ui.small_button("Tudo") {
+                if ui.small_button(tr!("Tudo")) {
                     act = Some("all");
                 }
                 let _ = &msg;
@@ -359,8 +360,8 @@ impl Editor {
             return;
         }
         if matches!(self.sheet, Sheet::AskSave) {
-            let title = format!("Deseja salvar as alterações feitas no documento “{}”?", self.name());
-            match ui.alert(AlertKind::Caution, &title, "Se você não salvar, as alterações serão perdidas.", &["Não salvar", "Cancelar", "Salvar"]) {
+            let title = tr!("Deseja salvar as alterações feitas no documento “{}”?", self.name());
+            match ui.alert(AlertKind::Caution, &title, tr!("Se você não salvar, as alterações serão perdidas."), &[tr!("Não salvar"), tr!("Cancelar"), tr!("Salvar")]) {
                 Some(0) => ui.close = true,
                 Some(1) => {
                     self.sheet = Sheet::None;
@@ -516,58 +517,58 @@ impl App for Editor {
         let sel = self.buf.has_selection();
         vec![
             Menu::new(
-                "Arquivo",
+                tr!("Arquivo"),
                 vec![
-                    MenuItem::new("new", "Novo", "Ctrl+N"),
-                    MenuItem::new("open", "Abrir…", "Ctrl+O"),
+                    MenuItem::new("new", tr!("Novo"), "Ctrl+N"),
+                    MenuItem::new("open", tr!("Abrir…"), "Ctrl+O"),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar", "Ctrl+W"),
-                    MenuItem::new("save", "Salvar", "Ctrl+S"),
-                    MenuItem::new("save-as", "Salvar como…", "Ctrl+Shift+S"),
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
+                    MenuItem::new("save", tr!("Salvar"), "Ctrl+S"),
+                    MenuItem::new("save-as", tr!("Salvar como…"), "Ctrl+Shift+S"),
                     MenuItem::Separator,
-                    MenuItem::new("print", "Imprimir…", "Ctrl+P"),
+                    MenuItem::new("print", tr!("Imprimir…"), "Ctrl+P"),
                 ],
             ),
             Menu::new(
-                "Editar",
+                tr!("Editar"),
                 vec![
-                    MenuItem::new("undo", "Desfazer", "Ctrl+Z").enabled(self.buf.can_undo()),
-                    MenuItem::new("redo", "Refazer", "Ctrl+Shift+Z").enabled(self.buf.can_redo()),
+                    MenuItem::new("undo", tr!("Desfazer"), "Ctrl+Z").enabled(self.buf.can_undo()),
+                    MenuItem::new("redo", tr!("Refazer"), "Ctrl+Shift+Z").enabled(self.buf.can_redo()),
                     MenuItem::Separator,
-                    MenuItem::new("cut", "Recortar", "Ctrl+X").enabled(sel),
-                    MenuItem::new("copy", "Copiar", "Ctrl+C").enabled(sel),
-                    MenuItem::new("paste", "Colar", "Ctrl+V"),
-                    MenuItem::new("delete", "Apagar", "").enabled(sel),
+                    MenuItem::new("cut", tr!("Recortar"), "Ctrl+X").enabled(sel),
+                    MenuItem::new("copy", tr!("Copiar"), "Ctrl+C").enabled(sel),
+                    MenuItem::new("paste", tr!("Colar"), "Ctrl+V"),
+                    MenuItem::new("delete", tr!("Apagar"), "").enabled(sel),
                     MenuItem::Separator,
-                    MenuItem::new("select-all", "Selecionar tudo", "Ctrl+A"),
+                    MenuItem::new("select-all", tr!("Selecionar tudo"), "Ctrl+A"),
                     MenuItem::Separator,
                     MenuItem::submenu(
-                        "Localizar",
+                        tr!("Localizar"),
                         vec![
-                            MenuItem::new("find", "Localizar…", "Ctrl+F"),
-                            MenuItem::new("find-next", "Localizar Próximo", "Ctrl+G"),
-                            MenuItem::new("find-prev", "Localizar Anterior", "Ctrl+Shift+G"),
-                            MenuItem::new("use-selection", "Usar Seleção para Localizar", "Ctrl+E").enabled(sel),
+                            MenuItem::new("find", tr!("Localizar…"), "Ctrl+F"),
+                            MenuItem::new("find-next", tr!("Localizar Próximo"), "Ctrl+G"),
+                            MenuItem::new("find-prev", tr!("Localizar Anterior"), "Ctrl+Shift+G"),
+                            MenuItem::new("use-selection", tr!("Usar Seleção para Localizar"), "Ctrl+E").enabled(sel),
                             MenuItem::Separator,
-                            MenuItem::new("replace-all", "Substituir Tudo", "").enabled(self.find.is_some()),
+                            MenuItem::new("replace-all", tr!("Substituir Tudo"), "").enabled(self.find.is_some()),
                         ],
                     ),
                 ],
             ),
             Menu::new(
-                "Formatar",
+                tr!("Formatar"),
                 vec![
-                    MenuItem::new("fonts", if self.fonts.open { "Ocultar Fontes" } else { "Mostrar Fontes" }, "Ctrl+T"),
+                    MenuItem::new("fonts", if self.fonts.open { tr!("Ocultar Fontes") } else { tr!("Mostrar Fontes") }, "Ctrl+T"),
                     MenuItem::Separator,
-                    MenuItem::new("bigger", "Aumentar fonte", "Ctrl+equal"),
-                    MenuItem::new("smaller", "Diminuir fonte", "Ctrl+minus"),
-                    MenuItem::new("font-reset", "Tamanho normal", "").enabled(self.buf.font_px > 0.0),
+                    MenuItem::new("bigger", tr!("Aumentar fonte"), "Ctrl+equal"),
+                    MenuItem::new("smaller", tr!("Diminuir fonte"), "Ctrl+minus"),
+                    MenuItem::new("font-reset", tr!("Tamanho normal"), "").enabled(self.buf.font_px > 0.0),
                     MenuItem::Separator,
-                    MenuItem::new("align-left", "Alinhar à Esquerda", "").checked(self.buf.align == Align::Left),
+                    MenuItem::new("align-left", tr!("Alinhar à Esquerda"), "").checked(self.buf.align == Align::Left),
                     MenuItem::new("align-center", "Centralizar", "").checked(self.buf.align == Align::Center),
-                    MenuItem::new("align-right", "Alinhar à Direita", "").checked(self.buf.align == Align::Right),
+                    MenuItem::new("align-right", tr!("Alinhar à Direita"), "").checked(self.buf.align == Align::Right),
                     MenuItem::Separator,
-                    MenuItem::new("ruler", if self.ruler { "Ocultar Régua" } else { "Mostrar Régua" }, "Ctrl+R"),
+                    MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R"),
                 ],
             ),
         ]

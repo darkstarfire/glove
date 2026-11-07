@@ -1,5 +1,6 @@
 //! Monitor: uso de CPU, memória e lista de processos (lidos de /proc).
 
+use glove_config::tr;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -288,7 +289,7 @@ impl Monitor {
 
     fn kill_pid(&mut self, pid: i32, sig: i32) {
         if unsafe { libc::kill(pid, sig) } != 0 {
-            self.message = Some(format!("Não foi possível encerrar o processo {pid}: {}", std::io::Error::last_os_error()));
+            self.message = Some(tr!("Não foi possível encerrar o processo {}: {}", pid, std::io::Error::last_os_error()));
         } else {
             self.message = None;
         }
@@ -364,7 +365,7 @@ impl Monitor {
         let mut tab = self.tab;
         let shown = tab;
         ui.area(area, |ui| {
-            ui.tab_box(&mut tab, &["CPU", "Memória", "Atividade do Disco", "Uso do Disco", "Rede"], area.h - 8.0, |ui| {
+            ui.tab_box(&mut tab, &["CPU", tr!("Memória"), tr!("Atividade do Disco"), tr!("Uso do Disco"), tr!("Rede")], area.h - 8.0, |ui| {
                 let (x0, y0) = ui.cursor();
                 let w = ui.available_width();
                 let gh = area.h - 62.0;
@@ -377,10 +378,10 @@ impl Monitor {
                         let (u, sy, id) = self.cpu_split;
                         let threads: u64 = self.procs.iter().map(|p| p.threads).sum();
                         Self::legend(ui, x0, y0 + 12.0, &[
-                            ("Usuário", format!("{:.1} %", u * 100.0).replace('.', glove_config::virgula()), Some(green)),
-                            ("Sistema", format!("{:.1} %", sy * 100.0).replace('.', glove_config::virgula()), Some(red)),
-                            ("Ocioso", format!("{:.1} %", id * 100.0).replace('.', glove_config::virgula()), Some(rgba(30, 30, 34, 255))),
-                            ("Processos", self.procs.len().to_string(), None),
+                            (tr!("Usuário"), format!("{:.1} %", u * 100.0).replace('.', glove_config::virgula()), Some(green)),
+                            (tr!("Sistema"), format!("{:.1} %", sy * 100.0).replace('.', glove_config::virgula()), Some(red)),
+                            (tr!("Ocioso"), format!("{:.1} %", id * 100.0).replace('.', glove_config::virgula()), Some(rgba(30, 30, 34, 255))),
+                            (tr!("Processos"), self.procs.len().to_string(), None),
                             ("Threads", threads.to_string(), None),
                         ]);
                         Self::graph(ui, g, &[(&self.history, (110, 255, 130))]);
@@ -393,11 +394,11 @@ impl Monitor {
                         let cached = cache.min(total.saturating_sub(used).saturating_sub(free));
                         let t = total.max(1) as f32;
                         Self::legend(ui, x0, y0 + 12.0, &[
-                            ("Em uso", human_kb(used), Some(red)),
-                            ("Em cache", human_kb(cached), Some(blue)),
-                            ("Livre", human_kb(free), Some(green)),
+                            (tr!("Em uso"), human_kb(used), Some(red)),
+                            (tr!("Em cache"), human_kb(cached), Some(blue)),
+                            (tr!("Livre"), human_kb(free), Some(green)),
                             ("Total", human_kb(total), None),
-                            ("Swap em uso", format!("{} de {}", human_kb(swt.saturating_sub(swf)), human_kb(swt)), None),
+                            ("Swap em uso", tr!("{} de {}", human_kb(swt.saturating_sub(swf)), human_kb(swt)), None),
                         ]);
                         let r = (gh / 2.0 - 4.0).min(60.0);
                         Self::pie(ui, g.x + g.w / 2.0, g.y + gh / 2.0, r, &[(used as f32 / t, red), (cached as f32 / t, blue), (free as f32 / t, green)]);
@@ -405,11 +406,11 @@ impl Monitor {
                     2 => {
                         let (rb, wb, ro, wo) = self.disk_rate;
                         Self::legend(ui, x0, y0 + 12.0, &[
-                            ("Leitura", format!("{}/s", human_bytes(rb as f64)), Some(green)),
-                            ("Gravação", format!("{}/s", human_bytes(wb as f64)), Some(red)),
-                            ("Leituras", format!("{:.0} por segundo", ro), None),
-                            ("Gravações", format!("{:.0} por segundo", wo), None),
-                            ("Lido / gravado", format!("{} / {}", human_bytes(self.disk_total.0 as f64), human_bytes(self.disk_total.1 as f64)), None),
+                            (tr!("Leitura"), format!("{}/s", human_bytes(rb as f64)), Some(green)),
+                            (tr!("Gravação"), format!("{}/s", human_bytes(wb as f64)), Some(red)),
+                            (tr!("Leituras"), format!("{:.0} por segundo", ro), None),
+                            (tr!("Gravações"), format!("{:.0} por segundo", wo), None),
+                            (tr!("Lido / gravado"), format!("{} / {}", human_bytes(self.disk_total.0 as f64), human_bytes(self.disk_total.1 as f64)), None),
                         ]);
                         let peak = self.disk_hist.iter().map(|(a, b)| a.max(*b)).fold(1.0f32, f32::max);
                         let r: Vec<f32> = self.disk_hist.iter().map(|(a, _)| a / peak).collect();
@@ -421,8 +422,8 @@ impl Monitor {
                         let (total, free) = disk_usage(&home).or_else(|| disk_usage("/")).unwrap_or((1, 0));
                         let used = total.saturating_sub(free);
                         Self::legend(ui, x0, y0 + 12.0, &[
-                            ("Em uso", human_bytes(used as f64), Some(blue)),
-                            ("Livre", human_bytes(free as f64), Some(green)),
+                            (tr!("Em uso"), human_bytes(used as f64), Some(blue)),
+                            (tr!("Livre"), human_bytes(free as f64), Some(green)),
                             ("Total", human_bytes(total as f64), None),
                         ]);
                         let r = (gh / 2.0 - 4.0).min(60.0);
@@ -432,10 +433,10 @@ impl Monitor {
                     _ => {
                         let (rx, tx) = self.net_rate;
                         Self::legend(ui, x0, y0 + 12.0, &[
-                            ("Recebendo", format!("{}/s", human_bytes(rx as f64)), Some(green)),
-                            ("Enviando", format!("{}/s", human_bytes(tx as f64)), Some(red)),
-                            ("Recebido", human_bytes(self.net_total.0 as f64), None),
-                            ("Enviado", human_bytes(self.net_total.1 as f64), None),
+                            (tr!("Recebendo"), format!("{}/s", human_bytes(rx as f64)), Some(green)),
+                            (tr!("Enviando"), format!("{}/s", human_bytes(tx as f64)), Some(red)),
+                            (tr!("Recebido"), human_bytes(self.net_total.0 as f64), None),
+                            (tr!("Enviado"), human_bytes(self.net_total.1 as f64), None),
                         ]);
                         let peak = self.net_hist.iter().map(|(a, b)| a.max(*b)).fold(1.0f32, f32::max);
                         let r: Vec<f32> = self.net_hist.iter().map(|(a, _)| a / peak).collect();
@@ -498,11 +499,11 @@ impl Monitor {
 
     fn table(&mut self, ui: &mut Ui, area: Rect) {
         let cols = [
-            Column::new("Processo", 0.42),
+            Column::new(tr!("Processo"), 0.42),
             Column::new("PID", 0.1).right(),
-            Column::new("Usuário", 0.18),
+            Column::new(tr!("Usuário"), 0.18),
             Column::new("% CPU", 0.12).right(),
-            Column::new("Memória", 0.18).right(),
+            Column::new(tr!("Memória"), 0.18).right(),
         ];
         let list = self.rows();
         // Setas mudam a seleção; ← e → recolhem e abrem na hierarquia.
@@ -582,37 +583,37 @@ impl App for Monitor {
         };
         ui.area(Rect::new(14.0, 6.0, 120.0, 26.0), |ui| {
             ui.set_active(has && !asking);
-            if ui.small_button("Encerrar") {
+            if ui.small_button(tr!("Encerrar")) {
                 self.kill(libc::SIGTERM);
             }
             ui.set_active(!asking);
         });
-        lab(ui, "Encerrar Processo", 14.0 + 40.0);
-        let shows = ["Todos os processos".to_string(), "Meus processos".to_string(), "Em hierarquia".to_string()];
+        lab(ui, tr!("Encerrar Processo"), 14.0 + 40.0);
+        let shows = [tr!("Todos os processos").to_string(), tr!("Meus processos").to_string(), tr!("Em hierarquia").to_string()];
         let mx = (w / 2.0 - 85.0).max(150.0);
         ui.area(Rect::new(mx, 6.0, 170.0, 22.0), |ui| {
             if ui.popup(&mut self.show, &shows, 170.0) {
                 self.table.scroll = 0.0;
             }
         });
-        lab(ui, "Mostrar", mx + 85.0);
+        lab(ui, tr!("Mostrar"), mx + 85.0);
         let fw = 150.0;
-        ui.search_field_in(Rect::new(w - fw - 14.0, 8.0, fw, glove_kit::SEARCH_H), &mut self.filter, "Nome ou PID");
-        lab(ui, "Filtro", w - fw / 2.0 - 14.0);
+        ui.search_field_in(Rect::new(w - fw - 14.0, 8.0, fw, glove_kit::SEARCH_H), &mut self.filter, tr!("Nome ou PID"));
+        lab(ui, tr!("Filtro"), w - fw / 2.0 - 14.0);
 
         let area = Rect::new(0.0, TOOL_H, w, h - TOOL_H - BOTTOM_H - 18.0);
         self.table(ui, area);
         // Linha de status entre a tabela e o painel.
         let sy = area.y + area.h;
         ui.c.fill_rect(0.0, sy, w, 18.0, &solid(rgba(232, 232, 236, 255)));
-        let info = self.message.clone().unwrap_or_else(|| format!("{} processos", self.procs.len()));
+        let info = self.message.clone().unwrap_or_else(|| tr!("{} processos", self.procs.len()));
         ui.fonts.draw(ui.c, &info, 12.0, sy + 13.0, 10.0, false, rgba(70, 70, 76, 255));
         self.panels(ui, Rect::new(10.0, sy + 20.0, w - 20.0, BOTTOM_H - 4.0));
 
         if let Some((pid, name)) = self.confirm_kill.clone() {
-            let title = format!("Forçar o encerramento de “{name}”?");
-            let text = "O processo é interrompido na hora, sem chance de salvar. Alterações não salvas serão perdidas.";
-            match ui.alert(AlertKind::Caution, &title, text, &["Cancelar", "Forçar encerramento"]) {
+            let title = tr!("Forçar o encerramento de “{}”?", name);
+            let text = tr!("O processo é interrompido na hora, sem chance de salvar. Alterações não salvas serão perdidas.");
+            match ui.alert(AlertKind::Caution, &title, text, &[tr!("Cancelar"), tr!("Forçar encerramento")]) {
                 Some(1) => {
                     self.confirm_kill = None;
                     self.kill_pid(pid, libc::SIGKILL);
@@ -639,12 +640,12 @@ impl App for Monitor {
         let has = self.selected.is_some();
         vec![
             Menu::new(
-                "Processo",
+                tr!("Processo"),
                 vec![
-                    MenuItem::new("term", "Encerrar processo", "Ctrl+Q").enabled(has),
-                    MenuItem::new("kill", "Forçar encerramento", "").enabled(has),
+                    MenuItem::new("term", tr!("Encerrar processo"), "Ctrl+Q").enabled(has),
+                    MenuItem::new("kill", tr!("Forçar encerramento"), "").enabled(has),
                     MenuItem::Separator,
-                    MenuItem::new("close", "Fechar janela", "Ctrl+W"),
+                    MenuItem::new("close", tr!("Fechar janela"), "Ctrl+W"),
                 ],
             ),
         ]
@@ -652,7 +653,7 @@ impl App for Monitor {
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Monitor".into(), app_id: "glove.Monitor".into(), size: (720, 600), fixed: false, min_size: None };
+    let opts = WindowOptions { title: tr!("Monitor").into(), app_id: "glove.Monitor".into(), size: (720, 600), fixed: false, min_size: None };
     if let Err(e) = run(opts, Monitor::new()) {
         eprintln!("glove-monitor: {e}");
     }

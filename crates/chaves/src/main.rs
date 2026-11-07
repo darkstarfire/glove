@@ -4,6 +4,7 @@
 //! Fala com o serviço de senhas do sistema (Secret Service: gnome-keyring,
 //! KeePassXC…) pelo D-Bus. `GLOVE_CHAVES_TESTE=1` usa itens de mentira.
 
+use glove_config::tr;
 mod secret;
 
 use glove_kit::{
@@ -70,7 +71,7 @@ impl Chaves {
         let locked = self.rings.get(self.ring).is_some_and(|r| r.locked);
         let mut toggle = false;
         ui.area(Rect::new(12.0, 10.0, 130.0, 24.0), |ui| {
-            toggle = ui.button(if locked { "Destrancar" } else { "Trancar" });
+            toggle = ui.button(if locked { tr!("Destrancar") } else { tr!("Trancar") });
         });
         if toggle {
             if let Some(r) = self.rings.get(self.ring) {
@@ -82,7 +83,7 @@ impl Chaves {
             }
         }
         ui.area(Rect::new(w - 210.0, 11.0, 196.0, 22.0), |ui| {
-            ui.search_field(&mut self.search, "Buscar", 196.0);
+            ui.search_field(&mut self.search, tr!("Buscar"), 196.0);
         });
     }
 
@@ -92,13 +93,13 @@ impl Chaves {
         let ink = rgba(20, 20, 20, 255);
         let grey = rgba(90, 90, 96, 255);
         let Some(it) = self.current().cloned() else {
-            ui.fonts.draw(ui.c, "Escolha um item para ver os detalhes.", r.x + 20.0, r.y + 30.0, 12.0, false, grey);
+            ui.fonts.draw(ui.c, tr!("Escolha um item para ver os detalhes."), r.x + 20.0, r.y + 30.0, 12.0, false, grey);
             return;
         };
         ui.area(Rect::new(r.x + 16.0, r.y + 14.0, 48.0, 48.0), |ui| ui.icon(Icon::Keychain, 48.0));
         let x = r.x + 80.0;
         ui.fonts.draw(ui.c, &ui.fonts.ellipsize(&it.label, 14.0, true, r.w - 100.0), x, r.y + 28.0, 14.0, true, ink);
-        let rows = [("Tipo:", it.kind.clone()), ("Conta:", it.account.clone()), ("Onde:", it.place.clone())];
+        let rows = [(tr!("Tipo:"), it.kind.clone()), (tr!("Conta:"), it.account.clone()), (tr!("Onde:"), it.place.clone())];
         for (k, (l, v)) in rows.iter().enumerate() {
             let y = r.y + 50.0 + k as f32 * 17.0;
             ui.fonts.draw(ui.c, l, x, y, 11.0, false, grey);
@@ -111,11 +112,11 @@ impl Chaves {
         let mut delete = false;
         ui.area(Rect::new(x, y, r.w - 100.0, 26.0), |ui| {
             ui.horizontal(|ui| {
-                if ui.checkbox(&mut show, "Mostrar senha") {}
+                if ui.checkbox(&mut show, tr!("Mostrar senha")) {}
                 ui.spacing(14.0);
-                copy = ui.button("Copiar senha");
+                copy = ui.button(tr!("Copiar senha"));
                 ui.spacing(8.0);
-                delete = ui.button("Apagar…");
+                delete = ui.button(tr!("Apagar…"));
             });
         });
         if show && self.shown.is_none() {
@@ -133,7 +134,7 @@ impl Chaves {
             match self.backend.secret(&it.path) {
                 Ok(s) => {
                     ui.copy(&s);
-                    self.message = Some("Senha copiada.".into());
+                    self.message = Some(tr!("Senha copiada.").into());
                 }
                 Err(e) => self.message = Some(e),
             }
@@ -149,13 +150,13 @@ impl Chaves {
             Sheet::None => {}
             Sheet::Error(e) => {
                 let e = e.clone();
-                if ui.alert(AlertKind::Stop, "Não foi possível concluir.", &e, &["OK"]).is_some() {
+                if ui.alert(AlertKind::Stop, tr!("Não foi possível concluir."), &e, &["OK"]).is_some() {
                     self.sheet = Sheet::None;
                 }
             }
             Sheet::Delete => {
                 let name = self.current().map(|i| i.label.clone()).unwrap_or_default();
-                match ui.alert(AlertKind::Caution, &format!("Apagar “{name}”?"), "A senha guardada some do chaveiro. Os apps que a usam vão pedir a senha de novo.", &["Cancelar", "Apagar"]) {
+                match ui.alert(AlertKind::Caution, &tr!("Apagar “{}”?", name), "A senha guardada some do chaveiro. Os apps que a usam vão pedir a senha de novo.", &["Cancelar", "Apagar"]) {
                     Some(1) => {
                         if let Some(p) = self.current().map(|i| i.path.clone()) {
                             if let Err(e) = self.backend.delete(&p) {
@@ -180,9 +181,9 @@ impl Chaves {
                 ui.c.fill(rrect4(sx, 0.0, sw, sh, [0.0, 0.0, 6.0, 6.0]), &solid(ui.theme.body_b));
                 ui.c.pinstripes(sx, 0.0, sw, sh - 6.0, ui.theme.body_a, ui.theme.body_b);
                 let name = self.rings.get(self.ring).map(|r| r.label.clone()).unwrap_or_default();
-                ui.fonts.draw(ui.c, &format!("Mudar a senha do chaveiro “{name}”"), sx + 18.0, 28.0, 13.0, true, rgba(20, 20, 20, 255));
+                ui.fonts.draw(ui.c, &tr!("Mudar a senha do chaveiro “{}”", name), sx + 18.0, 28.0, 13.0, true, rgba(20, 20, 20, 255));
                 let mut enter = false;
-                for (k, (label, v)) in [("Senha atual:", &mut *old), ("Nova senha:", &mut *new), ("Confirmar:", &mut *again)].into_iter().enumerate() {
+                for (k, (label, v)) in [(tr!("Senha atual:"), &mut *old), (tr!("Nova senha:"), &mut *new), (tr!("Confirmar:"), &mut *again)].into_iter().enumerate() {
                     let y = 48.0 + k as f32 * 32.0;
                     let lw = ui.text_width(label, 12.0, false);
                     ui.fonts.draw(ui.c, label, sx + 120.0 - lw, y + 15.0, 12.0, false, rgba(20, 20, 20, 255));
@@ -194,21 +195,21 @@ impl Chaves {
                 let (mut cancel, mut ok) = (false, false);
                 ui.area(Rect::new(sx + sw - 200.0, sh - 40.0, 184.0, 24.0), |ui| {
                     ui.horizontal(|ui| {
-                        cancel = ui.button("Cancelar");
+                        cancel = ui.button(tr!("Cancelar"));
                         ui.spacing(8.0);
-                        ok = ui.default_button("Mudar");
+                        ok = ui.default_button(tr!("Mudar"));
                     });
                 });
                 if cancel || ui.keys().iter().any(|k| k.key == Key::Escape) {
                     self.sheet = Sheet::None;
                 } else if ok || enter {
                     if new.is_empty() || new != again {
-                        *err = Some("A nova senha e a confirmação não são iguais.".into());
+                        *err = Some(tr!("A nova senha e a confirmação não são iguais.").into());
                     } else if let Some(r) = self.rings.get(self.ring) {
                         match self.backend.change_password(&r.path, old, new) {
                             Ok(()) => {
                                 self.sheet = Sheet::None;
-                                self.message = Some("Senha do chaveiro mudada.".into());
+                                self.message = Some(tr!("Senha do chaveiro mudada.").into());
                             }
                             Err(e) => *err = Some(e),
                         }
@@ -244,7 +245,7 @@ impl App for Chaves {
                     if let Some(p) = self.current().map(|i| i.path.clone()) {
                         if let Ok(s) = self.backend.secret(&p) {
                             ui.copy(&s);
-                            self.message = Some("Senha copiada.".into());
+                            self.message = Some(tr!("Senha copiada.").into());
                         }
                     }
                 }
@@ -258,7 +259,7 @@ impl App for Chaves {
         let left = Rect::new(0.0, TOOL_H, LEFT_W, h - TOOL_H);
         ui.c.fill_rect(left.x, left.y, left.w, left.h, &solid(rgba(231, 235, 241, 255)));
         ui.c.vline(LEFT_W, TOOL_H, h - TOOL_H, rgba(150, 150, 156, 255));
-        ui.fonts.draw(ui.c, "CHAVEIROS", 12.0, TOOL_H + 20.0, 10.0, true, rgba(110, 116, 128, 255));
+        ui.fonts.draw(ui.c, tr!("CHAVEIROS"), 12.0, TOOL_H + 20.0, 10.0, true, rgba(110, 116, 128, 255));
         for (i, r) in self.rings.iter().enumerate() {
             let row = Rect::new(0.0, TOOL_H + 28.0 + i as f32 * 26.0, LEFT_W, 26.0);
             if i == self.ring {
@@ -266,7 +267,7 @@ impl App for Chaves {
             }
             let col = if i == self.ring { Color::WHITE } else { rgba(20, 20, 20, 255) };
             ui.area(Rect::new(10.0, row.y + 3.0, 20.0, 20.0), |ui| ui.icon(Icon::Keychain, 20.0));
-            let label = format!("{}{}", r.label, if r.locked { " (trancado)" } else { "" });
+            let label = format!("{}{}", r.label, if r.locked { tr!(" (trancado)") } else { "" });
             ui.fonts.draw(ui.c, &ui.fonts.ellipsize(&label, 12.0, false, LEFT_W - 44.0), 36.0, row.y + 17.0, 12.0, false, col);
             if ui.hit(row).clicked {
                 self.ring = i;
@@ -283,7 +284,7 @@ impl App for Chaves {
             .filter_map(|&i| ring.and_then(|r| r.items.get(i)))
             .map(|it| TableRow { cells: vec![it.label.clone(), it.kind.clone(), secret::date(it.modified)], icon: Some(Icon::Keychain), ..TableRow::default() })
             .collect();
-        let cols = [Column::new("Nome", 0.5), Column::new("Tipo", 0.28), Column::new("Modificado", 0.22)];
+        let cols = [Column::new(tr!("Nome"), 0.5), Column::new(tr!("Tipo"), 0.28), Column::new(tr!("Modificado"), 0.22)];
         let sel = self.item.and_then(|i| vis.iter().position(|&v| v == i));
         let resp = ui.table(list, &cols, &rows, sel, &mut self.table, &TableStyle::default());
         if let Some(r) = resp.pressed {
@@ -294,7 +295,7 @@ impl App for Chaves {
             }
         }
         if ring.is_some_and(|r| r.locked) {
-            ui.fonts.draw(ui.c, "Este chaveiro está trancado. Clique em Destrancar para ver as senhas.", list.x + 20.0, list.y + 60.0, 12.0, false, rgba(90, 90, 96, 255));
+            ui.fonts.draw(ui.c, tr!("Este chaveiro está trancado. Clique em Destrancar para ver as senhas."), list.x + 20.0, list.y + 60.0, 12.0, false, rgba(90, 90, 96, 255));
         }
         self.details(ui, Rect::new(LEFT_W + 1.0, h - DETAIL_H, w - LEFT_W - 1.0, DETAIL_H));
         if let Some(m) = &self.message {
@@ -308,14 +309,14 @@ impl App for Chaves {
         let sel = self.item.is_some();
         let name = self.rings.get(self.ring).map(|r| r.label.clone()).unwrap_or_default();
         vec![
-            Menu::new("Arquivo", vec![MenuItem::new("reload", "Recarregar", "Ctrl+R"), MenuItem::Separator, MenuItem::new("close", "Fechar", "Ctrl+W")]),
+            Menu::new(tr!("Arquivo"), vec![MenuItem::new("reload", tr!("Recarregar"), "Ctrl+R"), MenuItem::Separator, MenuItem::new("close", tr!("Fechar"), "Ctrl+W")]),
             Menu::new(
-                "Editar",
+                tr!("Editar"),
                 vec![
-                    MenuItem::new("copy", "Copiar Senha", "Ctrl+C").enabled(sel),
-                    MenuItem::new("delete", "Apagar…", "Ctrl+BackSpace").enabled(sel),
+                    MenuItem::new("copy", tr!("Copiar Senha"), "Ctrl+C").enabled(sel),
+                    MenuItem::new("delete", tr!("Apagar…"), "Ctrl+BackSpace").enabled(sel),
                     MenuItem::Separator,
-                    MenuItem::new("password", &format!("Mudar Senha do Chaveiro “{name}”…"), "").enabled(!self.rings.is_empty()),
+                    MenuItem::new("password", &tr!("Mudar Senha do Chaveiro “{}”…", name), "").enabled(!self.rings.is_empty()),
                 ],
             ),
         ]
@@ -338,7 +339,7 @@ pub fn main() {
     if let Some(i) = app.rings.iter().position(|r| r.path.ends_with("/login")) {
         app.ring = i;
     }
-    let opts = WindowOptions { title: "Acesso às Chaves".into(), app_id: "glove.Chaves".into(), size: (820, 520), fixed: false, min_size: Some((640, 400)) };
+    let opts = WindowOptions { title: tr!("Acesso às Chaves").into(), app_id: "glove.Chaves".into(), size: (820, 520), fixed: false, min_size: Some((640, 400)) };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-chaves: {e}");
     }
