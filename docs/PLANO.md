@@ -520,16 +520,16 @@ com a tradução ou com outra coisa (o caminho, um identificador).
 
 ## Fase 9.16 — glove-ui: a biblioteca dos apps (pedido de 07/11/2026)
 
-O instalador do sistema (para a ISO Debian) vai ser feito com ela, por isso vem antes da ISO.
+O instalador do sistema (Fase 11) vai ser feito com ela.
 
 - [x] 9.16.1 Repositório próprio (M) — v0.9.29: o glove-kit vira **glove-ui**, e vai junto com o
   glove-paint, o glove-config e o glove-i18n para github.com/fabioaacarneiro/glove-ui; o Glove usa
   como submódulo em `ui/` (compila sem internet; cada versão do Glove aponta para uma versão exata);
   os catálogos de tradução são somados na compilação (`locales/` da glove-ui + `GLOVE_LOCALES` do app)
-- [ ] 9.16.2 Documentação, exemplos e modelo de app (M)
-- [ ] 9.16.3 Instalador do sistema feito com a glove-ui (G)
-- [ ] 9.16.4 `glove-setup-tool.sh iso`: ISO Debian com o Glove, o Firefox e o instalador; baixa o
-  live-build oficial do Debian para uma pasta ignorada pelo Git (o do Ubuntu é antigo) (G)
+- [x] 9.16.2 Documentação, exemplos e modelo de app (M) — v0.9.30 (glove-ui v0.2.1): guia em português e
+  inglês (`docs/GUIA.md`, `docs/GUIDE.md`), exemplos `ola`, `formulario` e `lista`, e a pasta `modelo/`
+  (app pronto para copiar, com menus e traduções; compila baixando a glove-ui do GitHub); a glove-ui
+  re-exporta `tr!` e as configurações; um app escrito em outra língua pode trazer `pt.po`
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
@@ -545,3 +545,11 @@ visual gel. Cada uma será detalhada antes de começar.
 - [ ] 10.7 Cópias de segurança automáticas com linha do tempo (como o Time Machine)
 - [ ] 10.8 Central de apps (instalar e atualizar pelo apt/Flatpak) com cara da era
 - [ ] 10.9 Apps de luxo: Fotos (biblioteca de imagens), gravador de som, Mensagens
+
+## Fase 11 — Instalador do sistema e ISO Debian (depois da Fase 10; testada antes de fechar)
+
+- [ ] 11.1 Instalador do sistema feito com a glove-ui: idioma, teclado, fuso e conta (como as
+  boas-vindas), disco (inteiro ou ao lado de outro sistema), cópia do sistema e carregador de boot (G)
+- [ ] 11.2 `glove-setup-tool.sh iso`: ISO Debian só com o Glove, o Firefox e o instalador; baixa o
+  live-build oficial do Debian e os pacotes para pastas ignoradas pelo Git (o live-build do Ubuntu é
+  antigo); nada pesado vai para o GitHub (G)
