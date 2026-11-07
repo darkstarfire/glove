@@ -602,7 +602,21 @@ pub(crate) fn video(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         chalk.move_to(u.px(0.5), u.py(0.56));
         chalk.line_to(u.px(0.5), u.py(0.86));
         pm.stroke(chalk.finish(), &solid(rgba(236, 236, 230, 180)), u.lw(0.008));
+        // Anotações a giz nos campos (riscos curtos e irregulares).
+        let mut notes = PathBuilder::new();
+        for (x0, y0, w) in [(0.18, 0.64, 0.22), (0.56, 0.64, 0.18), (0.18, 0.8, 0.14), (0.56, 0.8, 0.24)] {
+            notes.move_to(u.px(x0), u.py(y0));
+            let n = 5;
+            for k in 1..=n {
+                let t = k as f32 / n as f32;
+                let j = ((hash((x0 * 100.0) as u32 + k) & 0xff) as f32 / 255.0 - 0.5) * 0.02;
+                notes.line_to(u.px(x0 + w * t), u.py(y0 + j));
+            }
+        }
+        pm.stroke(notes.finish(), &solid(rgba(230, 230, 222, 140)), u.lw(0.012));
     }
+    // Lousa: reflexo largo e suave na diagonal.
+    pm.fill_clipped(u.poly(&[(0.1, 0.36), (0.5, 0.36), (0.25, 0.9), (0.1, 0.9)]), &solid(rgba(255, 255, 255, 18)), board.clone());
     pm.stroke(board, &solid(rgba(10, 10, 12, 255)), u.lw(0.008));
     // Faixa listrada de baixo (fixa) e a de cima (aberta, girada na dobradiça).
     let stripes = |pm: &mut Canvas, t: Transform| {
@@ -617,11 +631,17 @@ pub(crate) fn video(pm: &mut Canvas, x: f32, y: f32, s: f32) {
             w.line_to(u.px(x0 + 0.07), u.py(0.36));
             w.close();
         }
-        pm.fill_clipped(tf(w.finish(), t), &solid(rgba(245, 245, 240, 255)), bar.clone());
+        pm.fill_clipped(tf(w.finish(), t), &tpaint(vgrad(u.py(0.26), u.py(0.36), &[(0.0, rgba(255, 255, 252, 255)), (1.0, rgba(214, 214, 208, 255))]), t), bar.clone());
+        // Chanfro: fio claro em cima e sombra embaixo da ripa.
+        pm.fill_clipped(tf(u.rr(0.1, 0.26, 0.8, 0.012, 0.0), t), &solid(rgba(255, 255, 255, 90)), bar.clone());
+        pm.fill_clipped(tf(u.rr(0.1, 0.345, 0.8, 0.015, 0.0), t), &solid(rgba(0, 0, 0, 90)), bar.clone());
         pm.stroke(bar, &solid(rgba(10, 10, 12, 255)), u.lw(0.006));
     };
     stripes(pm, Transform::identity());
-    stripes(pm, Transform::from_rotate_at(-18.0, u.px(0.12), u.py(0.27)).pre_translate(0.0, -u.d(0.11)));
+    let open_t = Transform::from_rotate_at(-18.0, u.px(0.12), u.py(0.27)).pre_translate(0.0, -u.d(0.11));
+    // Sombra da ripa aberta sobre a de baixo.
+    pm.fill_clipped(tf(u.rr(0.1, 0.26, 0.8, 0.1, 0.01), open_t.post_translate(u.d(0.01), u.d(0.04))), &solid(rgba(0, 0, 0, 60)), u.rr(0.1, 0.26, 0.8, 0.1, 0.01));
+    stripes(pm, open_t);
     pm.fill(u.circ(0.13, 0.28, 0.025), &metal_paint(u.py(0.25), u.py(0.31)));
 }
 

@@ -964,10 +964,9 @@ pub(crate) fn editor(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     pm.stroke(nib, &solid(rgba(90, 94, 104, 255)), u.lw(0.003));
 }
 
-/// Xadrez: cavalo de madeira dourada envernizada na casa da ponta de um
-/// tabuleiro 2×2 cinza e branco. A base é uma peça torneada (pé, bojo e
-/// colarinho) com as elipses na mesma inclinação do tabuleiro; a cabeça tem
-/// luz na frente, sombra na nuca e as bordas escurecidas.
+/// Xadrez: torre de madeira dourada envernizada na casa da ponta de um
+/// tabuleiro 2×2 cinza e branco. Peça torneada (pé, bojo, coluna, anel e a
+/// coroa com as ameias) com as elipses na mesma inclinação do tabuleiro.
 pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
     // Tabuleiro: losango com 2×2 casas e a espessura. Achatamento: 0,42.
@@ -1024,107 +1023,39 @@ pub(crate) fn chess(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     };
     // Sombra no tabuleiro
     pm.fill(u.ov(cx - 0.2, foot_y - 0.05, 0.46, 0.13), &radial(u.px(cx + 0.03), u.py(foot_y + 0.01), u.d(0.24), &[(0.0, rgba(0, 0, 0, 110)), (1.0, rgba(0, 0, 0, 0))]));
-    // Pé, bojo e colarinho, de baixo para cima.
-    let neck_y = foot_y - 0.16;
-    turned(pm, foot_y - 0.03, 0.185, foot_y, 0.185, 0.0);
-    turned(pm, neck_y + 0.01, 0.1, foot_y - 0.03, 0.17, 0.035);
-
-    // Colarinho: um anel baixo; o pescoço entra nele.
-    turned(pm, neck_y - 0.012, 0.135, neck_y + 0.016, 0.137, 0.008);
-    // Cabeça e pescoço (olhando para a esquerda) em coordenadas da peça:
-    // crina em arco atrás, duas orelhas, testa, focinho comprido e baixo, a
-    // boca, a bochecha redonda e o recorte fundo da garganta.
-    let (w, h) = (0.44, 0.58);
-    let (ox, oy) = (cx - 0.555 * w, neck_y - 0.97 * h);
-    let q = |a: f32, bq: f32| (u.px(ox + a * w), u.py(oy + bq * h));
-    let path = |cmds: &[(char, &[(f32, f32)])]| {
-        let mut pb = PathBuilder::new();
-        for (c, pts) in cmds {
-            let v: Vec<(f32, f32)> = pts.iter().map(|p| q(p.0, p.1)).collect();
-            match c {
-                'M' => pb.move_to(v[0].0, v[0].1),
-                'L' => pb.line_to(v[0].0, v[0].1),
-                'Q' => pb.quad_to(v[0].0, v[0].1, v[1].0, v[1].1),
-                _ => pb.cubic_to(v[0].0, v[0].1, v[1].0, v[1].1, v[2].0, v[2].1),
-            }
+    // Torre: pé, bojo, coluna que afina, anel, e a coroa com as ameias.
+    turned(pm, foot_y - 0.03, 0.19, foot_y, 0.19, 0.0);
+    turned(pm, foot_y - 0.1, 0.15, foot_y - 0.03, 0.175, 0.02);
+    turned(pm, foot_y - 0.12, 0.155, foot_y - 0.1, 0.155, 0.0);
+    let col_top = foot_y - 0.44;
+    turned(pm, col_top, 0.105, foot_y - 0.12, 0.135, 0.0);
+    turned(pm, col_top - 0.03, 0.14, col_top + 0.005, 0.12, 0.0);
+    let crown_top = col_top - 0.17;
+    let rc = 0.145;
+    turned(pm, crown_top, rc, col_top - 0.03, rc, 0.0);
+    // Boca da coroa: o vão escuro no meio e a borda clara em volta.
+    let inner = 0.095;
+    pm.fill(ell(crown_top + 0.004, inner), &vgrad(u.py(crown_top - inner * k), u.py(crown_top + inner * k), &[(0.0, rgba(40, 22, 8, 255)), (1.0, rgba(110, 72, 34, 255))]));
+    // Ameias: quatro vãos na borda (dois na frente, um de cada lado atrás).
+    let notch = |pm: &mut Canvas, a: f32| {
+        let (ca, sa) = (a.cos(), a.sin());
+        let (nx, ny) = (cx + ca * rc, crown_top + sa * rc * k);
+        let wd = 0.035 * sa.abs().max(0.35);
+        let depth = 0.05;
+        let front = sa > 0.0;
+        let gap = u.poly(&[(nx - wd, ny - 0.006), (nx + wd, ny - 0.006), (nx + wd, ny + if front { depth } else { 0.012 }), (nx - wd, ny + if front { depth } else { 0.012 })]);
+        let col = if front { rgba(70, 40, 14, 255) } else { rgba(50, 28, 10, 255) };
+        pm.fill(gap.clone(), &vgrad(u.py(ny), u.py(ny + depth), &[(0.0, col), (1.0, rgba(120, 80, 40, 255))]));
+        // A parede de dentro do vão (a outra borda da coroa) aparece por ele.
+        if front {
+            pm.fill(u.rr(nx - wd, ny + depth - 0.012, wd * 2.0, 0.012, 0.0), &solid(rgba(236, 200, 140, 255)));
         }
-        pb.close();
-        pb.finish()
     };
-    let head = path(&[
-        ('M', &[(0.84, 1.0)]),
-        ('C', &[(0.96, 0.74), (0.95, 0.42), (0.77, 0.22)]),
-        ('C', &[(0.74, 0.17), (0.72, 0.1), (0.71, 0.0)]),
-        ('L', &[(0.62, 0.11)]),
-        ('C', &[(0.6, 0.08), (0.58, 0.05), (0.55, 0.01)]),
-        ('L', &[(0.5, 0.14)]),
-        ('C', &[(0.42, 0.17), (0.34, 0.24), (0.28, 0.32)]),
-        ('C', &[(0.2, 0.42), (0.1, 0.52), (0.05, 0.6)]),
-        ('C', &[(0.02, 0.66), (0.05, 0.72), (0.12, 0.72)]),
-        ('L', &[(0.17, 0.69)]),
-        ('L', &[(0.16, 0.75)]),
-        ('C', &[(0.23, 0.79), (0.32, 0.77), (0.38, 0.73)]),
-        ('C', &[(0.48, 0.7), (0.57, 0.66), (0.59, 0.57)]),
-        ('C', &[(0.49, 0.64), (0.37, 0.76), (0.31, 0.88)]),
-        ('C', &[(0.29, 0.93), (0.28, 0.97), (0.27, 1.0)]),
-    ]);
-    pm.fill(shift(&head, u.d(0.01), u.d(0.008)), &solid(rgba(0, 0, 0, 45)));
-    pm.fill(head.clone(), &solid(rgba(176, 128, 64, 255)));
-    // Luz na cara (frente e em cima), sombra na crina, bordas escurecidas.
-    let lit = q(0.3, 0.36);
-    pm.fill_clipped(head.clone(), &radial(lit.0, lit.1, u.d(0.6 * w), &[(0.0, rgba(255, 236, 186, 255)), (0.45, rgba(226, 182, 112, 200)), (1.0, rgba(226, 182, 112, 0))]), head.clone());
-    pm.fill_clipped(head.clone(), &linear(u.px(ox + 0.55 * w), 0.0, u.px(ox + 0.95 * w), 0.0, &[(0.0, rgba(60, 34, 10, 0)), (1.0, rgba(60, 34, 10, 200))]), head.clone());
-    pm.fill_clipped(head.clone().and_then(|p| p.stroke(&tiny_skia::Stroke { width: u.lw(0.04), line_join: tiny_skia::LineJoin::Round, ..Default::default() }, 1.0)), &solid(rgba(70, 40, 14, 100)), head.clone());
-    let groove = |pm: &mut Canvas, p: Option<Path>, w0: f32| {
-        // Entalhe: risco escuro com o fio de luz logo acima.
-        pm.fill_clipped(p.clone().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(w0), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(74, 42, 14, 190)), head.clone());
-        pm.fill_clipped(shift(&p.and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(w0 * 0.5), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), -u.d(0.003), -u.d(0.004)), &solid(rgba(255, 236, 190, 130)), head.clone());
-    };
-    if s >= 24.0 {
-        let open = |cmds: &[(char, &[(f32, f32)])]| {
-            let mut pb = PathBuilder::new();
-            for (c, pts) in cmds {
-                let v: Vec<(f32, f32)> = pts.iter().map(|p| q(p.0, p.1)).collect();
-                match c {
-                    'M' => pb.move_to(v[0].0, v[0].1),
-                    'L' => pb.line_to(v[0].0, v[0].1),
-                    'Q' => pb.quad_to(v[0].0, v[0].1, v[1].0, v[1].1),
-                    _ => pb.cubic_to(v[0].0, v[0].1, v[1].0, v[1].1, v[2].0, v[2].1),
-                }
-            }
-            pb.finish()
-        };
-        // Crina: a faixa entalhada que acompanha a nuca, com os tufos.
-        groove(pm, open(&[('M', &[(0.62, 0.16)]), ('C', &[(0.8, 0.32), (0.84, 0.62), (0.76, 0.98)])]), 0.012);
-        if s >= 48.0 {
-            let mut tufts = Vec::new();
-            for k in 0..4 {
-                let t = (k as f32 + 0.5) / 4.0;
-                let (x0, y0) = (0.72 + t * 0.12 - t * t * 0.08, 0.26 + t * 0.62);
-                tufts.push(open(&[('M', &[(x0, y0)]), ('Q', &[(x0 + 0.08, y0 - 0.01), (x0 + 0.13, y0 + 0.06)])]));
-            }
-            for t in tufts {
-                groove(pm, t, 0.008);
-            }
-        }
-        // Bochecha redonda e a linha da boca.
-        groove(pm, open(&[('M', &[(0.42, 0.42)]), ('C', &[(0.56, 0.42), (0.62, 0.58), (0.5, 0.66)])]), 0.011);
-        groove(pm, open(&[('M', &[(0.17, 0.69)]), ('L', &[(0.3, 0.66)])]), 0.008);
-        // Olho amendoado sob a testa e a narina no focinho.
-        let e = q(0.38, 0.3);
-        let eye = oval(e.0 - u.d(0.03), e.1 - u.d(0.016), u.d(0.06), u.d(0.032)).and_then(|p| p.transform(Transform::from_rotate_at(-30.0, e.0, e.1)));
-        pm.fill(eye, &solid(rgba(40, 20, 6, 255)));
-        pm.fill(circle(e.0 - u.d(0.008), e.1 - u.d(0.006), u.d(0.006)), &solid(rgba(255, 240, 210, 200)));
-        let n = q(0.1, 0.62);
-        pm.fill(oval(n.0 - u.d(0.014), n.1 - u.d(0.01), u.d(0.028), u.d(0.02)), &solid(rgba(50, 26, 8, 230)));
+    for a in [-2.1f32, -1.05, 1.05, 2.1] {
+        notch(pm, a);
     }
-    // Verniz: reflexo na testa e no focinho.
-    let mut gloss = PathBuilder::new();
-    let (a, b2, d) = (q(0.5, 0.18), q(0.3, 0.26), q(0.1, 0.55));
-    gloss.move_to(a.0, a.1);
-    gloss.quad_to(b2.0, b2.1, d.0, d.1);
-    pm.fill_clipped(gloss.finish().and_then(|g| g.stroke(&tiny_skia::Stroke { width: u.lw(0.016), line_cap: tiny_skia::LineCap::Round, ..Default::default() }, 1.0)), &solid(rgba(255, 250, 230, 140)), head.clone());
-    pm.stroke(head, &solid(edge), u.lw(0.005));
+    // Verniz: fio de luz descendo pela coluna.
+    pm.fill(u.rr(cx - 0.055, col_top + 0.02, 0.016, foot_y - 0.15 - col_top, 0.008), &solid(rgba(255, 245, 220, 110)));
 }
 
 /// Contatos: caderno de endereços de couro marrom, com a costura em volta da

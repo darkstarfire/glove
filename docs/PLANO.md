@@ -443,6 +443,11 @@ material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar fo
   Contatos em couro marrom com costura e "@" dourado em relevo; Correio como selo picotado com
   andorinha, valor e carimbo; na barra lateral do Arquivos, Início vira uma casinha e Aplicativos um
   compasso de desenho em forma de "A" e Rede o globo de rede (os outros lugares já tinham ícone próprio)
+- [x] 9.12.4 Fecho dos ícones e tema mais leve (M) — v0.9.19: o Xadrez passa a ser uma torre torneada
+  (pé, bojo, coluna, anel e coroa com ameias) no tabuleiro 2×2; claquete do Vídeo com volume (lousa com
+  reflexo, ripas chanfradas, giz e a sombra da ripa aberta). Tema: PNG sem perda com compressão máxima e
+  as versões 2× que têm os mesmos pixels de um tamanho 1× viram atalhos para ele (840 imagens em vez de
+  1.344; 7,5 MB → 4,0 MB)
 
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 

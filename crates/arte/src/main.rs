@@ -19,6 +19,37 @@ fn save(c: &Canvas, dir: &Path, name: &str) -> Result<(), String> {
     c.pm.save_png(dir.join(name)).map_err(|e| format!("{name}: {e}"))
 }
 
+/// PNG compacto e sem perda (para o tema de ícones): compressão máxima com
+/// filtro adaptativo, cor zerada onde o pixel é transparente e sem o canal
+/// alfa quando a imagem é toda opaca. Os pixels visíveis saem idênticos.
+fn save_compact(c: &Canvas, dir: &Path, name: &str) -> Result<(), String> {
+    let (w, h) = (c.pm.width(), c.pm.height());
+    let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+    let mut opaque = true;
+    for p in c.pm.pixels() {
+        let d = p.demultiply();
+        if d.alpha() == 0 {
+            rgba.extend_from_slice(&[0, 0, 0, 0]);
+        } else {
+            rgba.extend_from_slice(&[d.red(), d.green(), d.blue(), d.alpha()]);
+        }
+        opaque &= d.alpha() == 255;
+    }
+    let (data, color) = if opaque {
+        (rgba.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect(), png::ColorType::Rgb)
+    } else {
+        (rgba, png::ColorType::Rgba)
+    };
+    let file = std::fs::File::create(dir.join(name)).map_err(|e| format!("{name}: {e}"))?;
+    let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
+    enc.set_color(color);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.set_compression(png::Compression::Best);
+    enc.set_adaptive_filter(png::AdaptiveFilterType::Adaptive);
+    let mut wr = enc.write_header().map_err(|e| format!("{name}: {e}"))?;
+    wr.write_image_data(&data).map_err(|e| format!("{name}: {e}"))
+}
+
 fn plymouth(dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let theme = Theme::new(Variant::Claro);
@@ -137,13 +168,24 @@ fn icones(dir: &Path) -> Result<usize, String> {
             let sub = format!("{base}/{ctx}");
             let out = dir.join(&sub);
             std::fs::create_dir_all(&out).map_err(|e| format!("{sub}: {e}"))?;
+            // Versão 2× com os mesmos pixels de um tamanho 1× que já existe:
+            // atalho para ele em vez de outra cópia (o tema fica bem menor).
+            let twin = (scale > 1 && ICON_SIZES.contains(&(size * scale, 1))).then(|| format!("../../{0}x{0}/{ctx}", size * scale));
             for (icon, c, names) in entries.iter().filter(|e| e.1 == *ctx) {
                 let _ = c;
+                if let Some(t) = &twin {
+                    for name in names.iter() {
+                        let link = out.join(format!("{name}.png"));
+                        let _ = std::fs::remove_file(&link);
+                        std::os::unix::fs::symlink(format!("{t}/{name}.png"), &link).map_err(|e| format!("{name}: {e}"))?;
+                    }
+                    continue;
+                }
                 let s = size as f32;
                 let mut canvas = Canvas::new(s, s, scale as f32).ok_or("canvas")?;
                 icons::draw(&mut canvas, &fonts, *icon, 0.0, 0.0, s, None);
                 let file = format!("{}.png", names[0]);
-                save(&canvas, &out, &file)?;
+                save_compact(&canvas, &out, &file)?;
                 count += 1;
                 for alias in &names[1..] {
                     let link = out.join(format!("{alias}.png"));
