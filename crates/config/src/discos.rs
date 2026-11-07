@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn nome_do_servidor() {
-        assert_eq!(server_name("smb-share:server=casa.local,share=fotos"), "fotos em casa.local");
+        assert_eq!(server_name("smb-share:server=casa.local,share=fotos"), crate::tr!("{} em {}", "fotos", "casa.local"));
         assert_eq!(server_name("sftp:host=192.168.0.9,user=ana"), "192.168.0.9");
         assert_eq!(server_name("ftp:host=ftp.exemplo.org"), "ftp.exemplo.org");
     }
