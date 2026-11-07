@@ -252,7 +252,7 @@ msgid "Pasta sem título {}"
 msgstr "untitled folder {}"
 
 msgid "Preferências"
-msgstr "System Preferences"
+msgstr "Preferences"
 
 msgid "Calculadora"
 msgstr "Calculator"
@@ -261,37 +261,37 @@ msgid "Relógio"
 msgstr "Clock"
 
 msgid "Editor de Texto"
-msgstr "TextEdit"
+msgstr "Text Editor"
 
 msgid "Visualizador"
-msgstr "Preview"
+msgstr "Viewer"
 
 msgid "Terminal"
 msgstr "Terminal"
 
 msgid "Lembretes"
-msgstr "Stickies"
+msgstr "Notes"
 
 msgid "Monitor"
-msgstr "Activity Monitor"
+msgstr "System Monitor"
 
 msgid "Captura"
-msgstr "Grab"
+msgstr "Screenshot"
 
 msgid "Caracteres"
-msgstr "Character Viewer"
+msgstr "Characters"
 
 msgid "Busca"
 msgstr "Search"
 
 msgid "Discos"
-msgstr "Disk Utility"
+msgstr "Disks"
 
 msgid "Xadrez"
 msgstr "Chess"
 
 msgid "Utilitário de Arquivo"
-msgstr "Archive Utility"
+msgstr "Archive Manager"
 
 msgid "Navegador"
 msgstr "Browser"
@@ -306,7 +306,7 @@ msgid "Vídeo"
 msgstr "Video"
 
 msgid "Registros"
-msgstr "Console"
+msgstr "Logs"
 
 msgid "Informações do Sistema"
 msgstr "System Information"
@@ -318,7 +318,7 @@ msgid "Dicionário"
 msgstr "Dictionary"
 
 msgid "Livro de Fontes"
-msgstr "Font Book"
+msgstr "Font Viewer"
 
 msgid "Correio"
 msgstr "Mail"
@@ -354,7 +354,7 @@ msgid "Ajuda do Glove"
 msgstr "Glove Help"
 
 msgid "Preferências…"
-msgstr "System Preferences…"
+msgstr "Preferences…"
 
 msgid "Dock"
 msgstr "Dock"
@@ -402,7 +402,7 @@ msgid "Mostrar porcentagem"
 msgstr "Show Percentage"
 
 msgid "Abrir Economizador de Energia…"
-msgstr "Open Energy Saver…"
+msgstr "Open Power Saving…"
 
 msgid "Abrir Preferências de Teclado…"
 msgstr "Open Keyboard Preferences…"
@@ -540,7 +540,7 @@ msgid "Fala (voz)"
 msgstr "Speech (voice)"
 
 msgid "Impressão (impressoras)"
-msgstr "Print & Fax (printers)"
+msgstr "Printing (printers)"
 
 msgid "Mídia Removível (pendrive)"
 msgstr "Removable Media (USB drive)"
@@ -564,10 +564,10 @@ msgid "Protetor de Tela"
 msgstr "Screen Saver"
 
 msgid "Acesso Universal (zoom, cores)"
-msgstr "Universal Access (zoom, colors)"
+msgstr "Accessibility (zoom, colors)"
 
 msgid "Itens de Início"
-msgstr "Login Items"
+msgstr "Startup Items"
 
 msgid "Menu de Entrada (layouts de teclado)"
 msgstr "Input Menu (keyboard layouts)"
@@ -579,7 +579,7 @@ msgid "Rede (Wi-Fi)"
 msgstr "Network (Wi-Fi)"
 
 msgid "Economizador de Energia"
-msgstr "Energy Saver"
+msgstr "Power Saving"
 
 msgid "Som (volume)"
 msgstr "Sound (volume)"
@@ -609,7 +609,7 @@ msgid "Segurança (senha, firewall)"
 msgstr "Security (password, firewall)"
 
 msgid "Busca Rápida (categorias, privacidade)"
-msgstr "Spotlight (categories, privacy)"
+msgstr "Quick Search (categories, privacy)"
 
 msgid "Exposé e Painel (cantos ativos)"
 msgstr "Exposé & Dashboard (hot corners)"
@@ -744,7 +744,7 @@ msgid "Clima"
 msgstr "Weather"
 
 msgid "Lembrete"
-msgstr "Stickies"
+msgstr "Note"
 
 msgid "Digite a cidade e Enter"
 msgstr "Type a city and press Enter"
@@ -822,7 +822,7 @@ msgid "Desbloquear"
 msgstr "Unlock"
 
 msgid "Busca Rápida"
-msgstr "Spotlight"
+msgstr "Quick Search"
 
 msgid "Nenhum resultado"
 msgstr "No results"
