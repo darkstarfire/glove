@@ -883,10 +883,36 @@ pub(crate) fn music(pm: &mut Canvas, x: f32, y: f32, s: f32) {
         pb.finish()
     };
     soft_shadow(pm, note.clone(), s, 0.9);
-    pm.fill(shift(&note, u.d(0.006), u.d(0.012)), &solid(rgba(10, 70, 20, 255)));
-    pm.fill(note.clone(), &linear(u.px(0.5), u.py(0.2), u.px(0.9), u.py(0.85), &[(0.0, rgba(170, 240, 120, 255)), (0.5, rgba(70, 190, 60, 255)), (1.0, rgba(20, 120, 30, 255))]));
-    pm.fill_clipped(u.rr(0.4, 0.15, 0.6, 0.2, 0.0), &vgrad(u.py(0.18), u.py(0.36), &[(0.0, rgba(255, 255, 255, 160)), (1.0, rgba(255, 255, 255, 0))]), note.clone());
-    pm.stroke(note, &solid(rgba(14, 90, 24, 220)), u.lw(0.005));
+    // Gel: a borda escura só por fora (o traço largo por baixo, o recheio por
+    // cima apaga as emendas entre as peças), a cor e a luz que atravessa.
+    let st = tiny_skia::Stroke { width: u.lw(0.014), line_join: tiny_skia::LineJoin::Round, ..Default::default() };
+    pm.fill(note.clone().and_then(|p| p.stroke(&st, 1.0)), &solid(rgba(12, 92, 26, 255)));
+    pm.fill(note.clone(), &solid(rgba(12, 92, 26, 255)));
+    pm.fill(note.clone(), &linear(u.px(0.5), u.py(0.18), u.px(0.86), u.py(0.86), &[(0.0, rgba(150, 236, 110, 255)), (0.45, rgba(64, 190, 56, 255)), (1.0, rgba(24, 132, 36, 255))]));
+    // Luz que atravessa o gel: mais clara embaixo de cada cabeça.
+    for (cx, cy) in [n1, n2] {
+        pm.fill_clipped(u.circ(cx, cy + 0.02, 0.09), &radial(u.px(cx), u.py(cy + 0.05), u.d(0.09), &[(0.0, rgba(210, 255, 170, 170)), (1.0, rgba(210, 255, 170, 0))]), note.clone());
+    }
+    // Brilhos: um oval em cada cabeça, um fio em cada haste e a faixa na barra.
+    for (cx, cy) in [n1, n2] {
+        let t = Transform::from_rotate_at(-22.0, u.px(cx), u.py(cy));
+        let g = crate::tiger::tf(u.ov(cx - 0.06, cy - 0.05, 0.09, 0.04), t);
+        pm.fill_clipped(g, &vgrad(u.py(cy - 0.05), u.py(cy - 0.01), &[(0.0, rgba(255, 255, 255, 220)), (1.0, rgba(255, 255, 255, 30))]), note.clone());
+    }
+    let (s1, s2) = (n1.0 + 0.065, n2.0 + 0.065);
+    for (sx, y0, y1) in [(s1, 0.37, n1.1 - 0.06), (s2, 0.28, n2.1 - 0.06)] {
+        pm.fill(u.rr(sx - 0.022, y0, 0.008, y1 - y0, 0.004), &solid(rgba(255, 255, 255, 150)));
+    }
+    let beam_gloss = {
+        let mut pb = PathBuilder::new();
+        pb.move_to(u.px(s1 - 0.02), u.py(0.31));
+        pb.line_to(u.px(s2 - 0.01), u.py(0.215));
+        pb.line_to(u.px(s2 - 0.01), u.py(0.245));
+        pb.line_to(u.px(s1 - 0.02), u.py(0.34));
+        pb.close();
+        pb.finish()
+    };
+    pm.fill_clipped(beam_gloss, &solid(rgba(255, 255, 255, 160)), note);
 }
 
 /// Editor: folha de carta com o texto escrito e uma caneta-tinteiro preta com
