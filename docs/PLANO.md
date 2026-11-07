@@ -551,7 +551,11 @@ visual gel. Cada uma será detalhada antes de começar.
   janela até outra mesa leva a janela para lá. O Dock, a troca de apps e o menu Janela (que lista as
   janelas das outras mesas com o número) vão até a mesa da janela. As janelas das outras mesas saem
   do espaço como as ocultas (`mesas.rs`), sem custo de desenho.
-- [ ] 10.3 Olhada Rápida: Espaço no Arquivos mostra a prévia do arquivo
+- [x] 10.3 Olhada Rápida no Arquivos (M) — v0.10.3: Espaço (ou Arquivo ▸ Olhada Rápida, Ctrl+Y) abre
+  uma janela escura com a prévia do item escolhido: imagens (com as dimensões), a primeira página do PDF
+  (pelo `pdftoppm`), texto e código (o começo do arquivo, com rolagem) e, nos outros, o ícone grande. Ela
+  segue a escolha: as setas, nela ou no Arquivos, passam de item. Espaço ou Esc fecham; Abrir abre no app
+  do tipo. Na glove-ui, `ui.redraw_all_windows()` redesenha as outras janelas do app.
 - [ ] 10.4 Central de notificações e avisos dos apps
 - [ ] 10.5 Gestos de trackpad com vários dedos (Exposé, trocar de mesa, voltar/avançar)
 - [ ] 10.6 Abas no Arquivos, no Editor e no Terminal; janelas em tela cheia

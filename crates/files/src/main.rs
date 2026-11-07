@@ -6,6 +6,7 @@ mod info;
 mod mesa;
 mod ops;
 mod preferencias;
+mod quicklook;
 mod rede;
 mod smart;
 mod thumb;
@@ -619,6 +620,8 @@ struct Files {
     network: Arc<std::sync::Mutex<(Option<std::time::Instant>, bool, Vec<(String, String)>)>>,
     /// Pendrives montados (relidos a cada 2 s para a barra lateral).
     mounts: (Option<std::time::Instant>, Vec<glove_config::discos::Mount>),
+    /// Olhada Rápida (Espaço).
+    ql: quicklook::QuickLook,
 }
 
 impl Files {
@@ -665,6 +668,7 @@ impl Files {
             cfg: glove_config::Config::load().files,
             ctx_sub: None,
             mounts: (None, Vec::new()),
+            ql: Default::default(),
             spring: None,
             bare: false,
             network: Arc::new(std::sync::Mutex::new((None, false, Vec::new()))),
@@ -2264,6 +2268,7 @@ impl Files {
                 "Ctrl+Shift+O" => act.push("go-documents"),
                 "Ctrl+Shift+L" => act.push("go-downloads"),
                 "Ctrl+Shift+G" => act.push("go-folder"),
+                "space" => act.push("quicklook"),
                 _ => match k.key {
                     Key::Up => act.push("sel-up"),
                     Key::Down => act.push("sel-down"),
@@ -2287,6 +2292,7 @@ impl Files {
                 let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(self.cfg.new_window_dir()));
             }
             "new-folder" => self.new_folder(),
+            "quicklook" => self.toggle_quicklook(ui),
             "open" => {
                 let all = self.all_selected();
                 if all.len() > 1 {
@@ -2515,7 +2521,17 @@ impl App for Files {
         self.cache.clear();
     }
 
+    fn window_closed(&mut self, id: u32) {
+        if id == quicklook::QL_WIN {
+            self.ql.open = false;
+        }
+    }
+
     fn ui(&mut self, ui: &mut Ui) {
+        if ui.window_id() == quicklook::QL_WIN {
+            self.quicklook_ui(ui);
+            return;
+        }
         self.keyboard(ui);
         let title = display_name(&self.current());
         if title != self.last_title {
@@ -2608,6 +2624,7 @@ impl App for Files {
         }
         ui.set_enabled(self.ask.is_none());
         self.ask_sheet(ui);
+        self.quicklook_follow(ui);
         // Janela de metal do Tiger: cantos de baixo arredondados também.
         ui.c.clip_bottom_corners(6.0);
     }
@@ -2637,6 +2654,7 @@ impl App for Files {
                     MenuItem::new("new-window", tr!("Nova janela"), "Ctrl+N"),
                     MenuItem::new("new-folder", tr!("Nova pasta"), "Ctrl+Shift+N"),
                     MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(sel),
+                    MenuItem::new("quicklook", tr!("Olhada Rápida"), "Ctrl+Y").enabled(sel),
                     MenuItem::Separator,
                     MenuItem::new("trash", tr!("Mover para a Lixeira"), "Ctrl+BackSpace").enabled(sel && !self.in_trash()),
                     MenuItem::new("put-back", tr!("Devolver"), "").enabled(sel && self.in_trash()),
