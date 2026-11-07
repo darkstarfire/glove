@@ -6,7 +6,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{paint::draw::*, Rect, Ui};
+use glove_ui::{paint::draw::*, Rect, Ui};
 
 /// (unidades do systemd possíveis, nome, o que faz).
 const SERVICES: [(&[&str], &str, &str); 3] = [

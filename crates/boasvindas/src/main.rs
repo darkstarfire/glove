@@ -8,7 +8,7 @@ use glove_config::tr;
 use std::time::Duration;
 
 use glove_config::Config;
-use glove_kit::{
+use glove_ui::{
     paint::{
         chrome::avatar,
         draw::{gel_circle, rgba, rrect, solid, Canvas},
@@ -180,7 +180,7 @@ impl App for Welcome {
                 self.layout = cur;
             }
             2 => {
-                let now = glove_kit::local_time();
+                let now = glove_ui::local_time();
                 let sub = format!("Agora são {:02}:{:02} no fuso {}.", now.4, now.5, self.zone_now);
                 title(ui, tr!("Data e hora"), &sub);
                 ui.wake_after(Duration::from_secs(15));
@@ -247,7 +247,7 @@ impl App for Welcome {
         for i in 0..STEPS {
             let x = 40.0 + i as f32 * 14.0;
             let col = if i == self.step { accent } else { rgba(190, 190, 194, 255) };
-            ui.c.fill(glove_kit::paint::draw::circle(x, H - 30.0, 4.0), &solid(col));
+            ui.c.fill(glove_ui::paint::draw::circle(x, H - 30.0, 4.0), &solid(col));
         }
         let last = self.step == STEPS - 1;
         let (mut back, mut next) = (false, false);
@@ -255,7 +255,7 @@ impl App for Welcome {
             ui.area(Rect::new(w - 260.0, H - 44.0, 100.0, 24.0), |ui| back = ui.button(tr!("Voltar")));
         }
         ui.area(Rect::new(w - 150.0, H - 44.0, 120.0, 24.0), |ui| next = ui.default_button(if last { tr!("Começar") } else { tr!("Continuar") }));
-        if ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Enter) {
+        if ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Enter) {
             next = true;
         }
         if back {

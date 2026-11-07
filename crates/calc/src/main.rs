@@ -1,7 +1,7 @@
 //! Calculadora do Glove.
 
 use glove_config::tr;
-use glove_kit::{
+use glove_ui::{
     paint::draw::*,
     run,
     ui::Key,

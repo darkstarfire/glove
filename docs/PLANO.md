@@ -518,6 +518,19 @@ com a tradução ou com outra coisa (o caminho, um identificador).
   inglês (install, uninstall, deps, all, login remove, help); descrições dos pacotes e scripts dentro
   deles em inglês; `README.en.md`
 
+## Fase 9.16 — glove-ui: a biblioteca dos apps (pedido de 07/11/2026)
+
+O instalador do sistema (para a ISO Debian) vai ser feito com ela, por isso vem antes da ISO.
+
+- [x] 9.16.1 Repositório próprio (M) — v0.9.29: o glove-kit vira **glove-ui**, e vai junto com o
+  glove-paint, o glove-config e o glove-i18n para github.com/fabioaacarneiro/glove-ui; o Glove usa
+  como submódulo em `ui/` (compila sem internet; cada versão do Glove aponta para uma versão exata);
+  os catálogos de tradução são somados na compilação (`locales/` da glove-ui + `GLOVE_LOCALES` do app)
+- [ ] 9.16.2 Documentação, exemplos e modelo de app (M)
+- [ ] 9.16.3 Instalador do sistema feito com a glove-ui (G)
+- [ ] 9.16.4 `glove-setup-tool.sh iso`: ISO Debian com o Glove, o Firefox e o instalador; baixa o
+  live-build oficial do Debian para uma pasta ignorada pelo Git (o do Ubuntu é antigo) (G)
+
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
 Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no

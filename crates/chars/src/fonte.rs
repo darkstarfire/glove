@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc::{channel, Receiver};
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, font::Fonts, Color},
     Choice, FileBrowser, Rect, Ui, SCROLLBAR_W,
 };

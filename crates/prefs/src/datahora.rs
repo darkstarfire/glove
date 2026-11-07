@@ -7,7 +7,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     Ui,
 };
@@ -183,7 +183,7 @@ impl DataHora {
             ui.indent(22.0, |ui| ui.small(if synced { tr!("Sincronizado com o servidor de hora.") } else { tr!("Esperando o servidor de hora…") }));
         }
         ui.space(8.0);
-        let (year, month, day, _, h, m, s) = glove_kit::local_time();
+        let (year, month, day, _, h, m, s) = glove_ui::local_time();
         let (x0, y0) = ui.cursor();
         // Calendário do mês (à esquerda).
         let (cw, ch) = (28.0, 20.0);
@@ -217,14 +217,14 @@ impl DataHora {
         for k in 0..60 {
             let a = k as f32 * std::f32::consts::TAU / 60.0;
             let (l, w) = if k % 5 == 0 { (8.0, 2.0) } else { (3.0, 1.0) };
-            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
             pb.move_to(rx + (r - 4.0) * a.sin(), ry - (r - 4.0) * a.cos());
             pb.line_to(rx + (r - 4.0 - l) * a.sin(), ry - (r - 4.0 - l) * a.cos());
             ui.c.stroke(pb.finish(), &solid(rgba(60, 60, 66, 255)), w);
         }
         let hand = |ui: &mut Ui, frac: f32, len: f32, w: f32, c: Color| {
             let a = frac * std::f32::consts::TAU;
-            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
             pb.move_to(rx - len * 0.15 * a.sin(), ry + len * 0.15 * a.cos());
             pb.line_to(rx + len * a.sin(), ry - len * a.cos());
             ui.c.stroke_round(pb.finish(), &solid(c), w);
@@ -339,7 +339,7 @@ impl DataHora {
             ui.set_active(true);
         });
         ui.space(10.0);
-        let (y, mo, d, wd, h, m, s) = glove_kit::local_time();
+        let (y, mo, d, wd, h, m, s) = glove_ui::local_time();
         let _ = y;
         let preview = if c.analog { tr!("Mostrador de ponteiros").to_string() } else { c.text(wd, d, mo, h, m, s) };
         let t = tr!("Na barra: {}", preview);

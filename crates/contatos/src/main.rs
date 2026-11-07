@@ -6,7 +6,7 @@ mod vcard;
 
 use std::path::PathBuf;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, chrome, Color},
     run, App, Choice, FileBrowser, Menu, MenuItem, Rect, Ui, WindowOptions, SEARCH_H,
 };

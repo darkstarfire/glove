@@ -6,7 +6,7 @@ use glove_config::tr;
 use std::path::PathBuf;
 use std::process::Command;
 
-use glove_kit::Ui;
+use glove_ui::Ui;
 
 /// (tipos, nome da categoria, app do Glove que serve: (id do .desktop, nome, binário)).
 const KINDS: [(&[&str], &str, Option<(&str, &str, &str)>); 7] = [

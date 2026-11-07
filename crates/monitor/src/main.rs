@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, tiny_skia::PathBuilder},
     run, AlertKind, App, Column, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, Ui, WindowOptions,
 };
@@ -324,7 +324,7 @@ impl Monitor {
     }
 
     /// Pizza (Memória e Uso do Disco): fatias (fração, cor).
-    fn pie(ui: &mut Ui, cx: f32, cy: f32, r: f32, slices: &[(f32, glove_kit::paint::Color)]) {
+    fn pie(ui: &mut Ui, cx: f32, cy: f32, r: f32, slices: &[(f32, glove_ui::paint::Color)]) {
         let mut a0 = -std::f32::consts::FRAC_PI_2;
         ui.c.fill(circle(cx + 1.0, cy + 2.0, r), &solid(rgba(0, 0, 0, 50)));
         for (f, c) in slices {
@@ -345,7 +345,7 @@ impl Monitor {
     }
 
     /// Lista "rótulo: valor" com o quadradinho da cor (legenda).
-    fn legend(ui: &mut Ui, x: f32, y: f32, rows: &[(&str, String, Option<glove_kit::paint::Color>)]) {
+    fn legend(ui: &mut Ui, x: f32, y: f32, rows: &[(&str, String, Option<glove_ui::paint::Color>)]) {
         for (i, (k, v, c)) in rows.iter().enumerate() {
             let yy = y + i as f32 * 18.0;
             let mut tx = x;
@@ -598,7 +598,7 @@ impl App for Monitor {
         });
         lab(ui, tr!("Mostrar"), mx + 85.0);
         let fw = 150.0;
-        ui.search_field_in(Rect::new(w - fw - 14.0, 8.0, fw, glove_kit::SEARCH_H), &mut self.filter, tr!("Nome ou PID"));
+        ui.search_field_in(Rect::new(w - fw - 14.0, 8.0, fw, glove_ui::SEARCH_H), &mut self.filter, tr!("Nome ou PID"));
         lab(ui, tr!("Filtro"), w - fw / 2.0 - 14.0);
 
         let area = Rect::new(0.0, TOOL_H, w, h - TOOL_H - BOTTOM_H - 18.0);

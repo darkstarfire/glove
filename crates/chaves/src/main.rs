@@ -7,7 +7,7 @@
 use glove_config::tr;
 mod secret;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, icons::Icon, Color},
     run,
     ui::Key,
@@ -145,7 +145,7 @@ impl Chaves {
     }
 
     fn sheets(&mut self, ui: &mut Ui) {
-        use glove_kit::AlertKind;
+        use glove_ui::AlertKind;
         match &mut self.sheet {
             Sheet::None => {}
             Sheet::Error(e) => {

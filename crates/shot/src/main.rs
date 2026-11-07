@@ -2,7 +2,7 @@
 //! A janela fecha antes da foto; o Glove salva em ~/Imagens.
 
 use glove_config::tr;
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, icons::{self, Icon}},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };

@@ -14,7 +14,7 @@ fn sibling(name: &str) -> PathBuf {
 }
 
 fn uri(p: &Path) -> String {
-    glove_kit::clipfiles::uri(p)
+    glove_ui::clipfiles::uri(p)
 }
 
 fn string(o: &HashMap<String, OwnedValue>, k: &str) -> Option<String> {

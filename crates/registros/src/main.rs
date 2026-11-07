@@ -6,7 +6,7 @@ use glove_config::tr;
 use std::process::Command;
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions, SEARCH_H,
 };

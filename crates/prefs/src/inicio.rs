@@ -2,7 +2,7 @@
 
 use glove_config::tr;
 use glove_config::inicio::{self, Item};
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     Rect, Ui,
 };
@@ -139,7 +139,7 @@ impl Inicio {
                 ui.set_active(true);
             });
         });
-        let esc = ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape);
+        let esc = ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape);
         if cancel || esc {
             return;
         }

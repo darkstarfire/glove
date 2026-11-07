@@ -8,7 +8,7 @@
 use glove_config::tr;
 use std::time::{Duration, Instant};
 
-use glove_kit::{run, ui::AlertKind, App, Ui, WindowOptions};
+use glove_ui::{run, ui::AlertKind, App, Ui, WindowOptions};
 
 /// Segundos até a ação acontecer sozinha.
 const COUNTDOWN: u64 = 120;

@@ -5,7 +5,7 @@
 use glove_config::tr;
 use std::path::{Path, PathBuf};
 
-use glove_kit::{
+use glove_ui::{
     paint::{
         draw::*,
         tiny_skia::{FilterQuality, Pixmap, PixmapPaint, Transform},
@@ -26,7 +26,7 @@ const THUMB: u32 = 96;
 
 /// Lado máximo guardado na memória (fotos maiores são reduzidas ao abrir).
 const MAX_SIDE: u32 = 4096;
-const EXTS: [&str; 4] = glove_kit::image::EXTENSIONS;
+const EXTS: [&str; 4] = glove_ui::image::EXTENSIONS;
 
 fn is_pdf(p: &Path) -> bool {
     p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
@@ -37,7 +37,7 @@ fn is_image(p: &Path) -> bool {
 }
 
 fn decode(path: &Path) -> Result<Pixmap, String> {
-    let img = glove_kit::image::decode(path)?;
+    let img = glove_ui::image::decode(path)?;
     // Reduz fotos enormes logo na abertura.
     let (w, h) = (img.width(), img.height());
     if w.max(h) > MAX_SIDE {
@@ -167,7 +167,7 @@ struct Jobs {
 
 struct Viewer {
     /// Imprimir (Ctrl+P): a folha do kit.
-    print: Option<glove_kit::print::PrintSheet>,
+    print: Option<glove_ui::print::PrintSheet>,
     path: Option<PathBuf>,
     doc: Option<Doc>,
     index: usize,
@@ -470,8 +470,8 @@ impl Viewer {
             "print" => {
                 if let Some(p) = self.path.clone() {
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    let content = if matches!(self.doc, Some(Doc::Pdf { .. })) { glove_kit::print::PrintContent::Pdf(p) } else { glove_kit::print::PrintContent::Image(p) };
-                    self.print = Some(glove_kit::print::PrintSheet::new(&name, content));
+                    let content = if matches!(self.doc, Some(Doc::Pdf { .. })) { glove_ui::print::PrintContent::Pdf(p) } else { glove_ui::print::PrintContent::Image(p) };
+                    self.print = Some(glove_ui::print::PrintSheet::new(&name, content));
                 }
             }
             "open" => {

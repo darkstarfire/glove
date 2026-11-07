@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, icons::{self, Icon}},
     run,
     ui::Key,

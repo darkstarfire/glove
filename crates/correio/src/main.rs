@@ -16,11 +16,11 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, icons, icons::Icon, Color},
     run, AlertKind, App, Choice, Column, FileBrowser, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, TextBuffer, Ui, WindowOptions, SEARCH_H,
 };
-use glove_kit::ui::Key;
+use glove_ui::ui::Key;
 use net::Security;
 use store::{Account, Row};
 use worker::{Cmd, Shared};
@@ -177,7 +177,7 @@ impl AccountForm {
 
 struct Correio {
     /// Imprimir (Ctrl+P) a mensagem aberta.
-    print: Option<glove_kit::print::PrintSheet>,
+    print: Option<glove_ui::print::PrintSheet>,
     shared: Arc<Mutex<Shared>>,
     tx: Sender<Cmd>,
     accounts: Vec<Account>,
@@ -574,7 +574,7 @@ impl Correio {
                             s.open.as_ref().filter(|m| m.uid == row.uid).map(|m| m.parsed.text.clone()).unwrap_or_default()
                         };
                         let doc = tr!("De: {}\nPara: {}\nData: {}\nAssunto: {}\n\n{}", row.from, row.to, store::long_date(row.date), row.subject, text);
-                        self.print = Some(glove_kit::print::PrintSheet::new(&row.subject, glove_kit::print::PrintContent::Text(doc)));
+                        self.print = Some(glove_ui::print::PrintSheet::new(&row.subject, glove_ui::print::PrintContent::Text(doc)));
                     }
                 }
                 "close" => ui.close = true,
@@ -932,18 +932,18 @@ fn tool_glyph(ui: &mut Ui, id: &str, cx: f32, cy: f32, ink: Color) {
     let c = &mut *ui.c;
     let arrow = |c: &mut Canvas, x: f32, y: f32, dir: f32, double: bool| {
         // Seta curva (responder) ou reta (encaminhar).
-        let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+        let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
         pb.move_to(x + 8.0 * dir, y + 8.0);
         pb.quad_to(x + 8.0 * dir, y - 2.0, x - 2.0 * dir, y - 2.0);
         c.stroke(pb.finish(), &solid(ink), 2.6);
-        let mut tip = glove_kit::paint::tiny_skia::PathBuilder::new();
+        let mut tip = glove_ui::paint::tiny_skia::PathBuilder::new();
         tip.move_to(x - 9.0 * dir, y - 2.0);
         tip.line_to(x - 1.0 * dir, y - 8.0);
         tip.line_to(x - 1.0 * dir, y + 4.0);
         tip.close();
         c.fill(tip.finish(), &solid(ink));
         if double {
-            let mut t2 = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut t2 = glove_ui::paint::tiny_skia::PathBuilder::new();
             t2.move_to(x - 14.0 * dir, y - 2.0);
             t2.line_to(x - 6.0 * dir, y - 8.0);
             t2.line_to(x - 6.0 * dir, y + 4.0);
@@ -954,7 +954,7 @@ fn tool_glyph(ui: &mut Ui, id: &str, cx: f32, cy: f32, ink: Color) {
     let envelope = |c: &mut Canvas, x: f32, y: f32| {
         c.fill(rrect(x - 13.0, y - 8.0, 26.0, 17.0, 2.0), &vgrad(y - 8.0, y + 9.0, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(220, 220, 226, 255))]));
         c.stroke(rrect(x - 13.0, y - 8.0, 26.0, 17.0, 2.0), &solid(ink), 1.2);
-        let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+        let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
         pb.move_to(x - 13.0, y - 8.0);
         pb.line_to(x, y + 2.0);
         pb.line_to(x + 13.0, y - 8.0);
@@ -970,7 +970,7 @@ fn tool_glyph(ui: &mut Ui, id: &str, cx: f32, cy: f32, ink: Color) {
             envelope(c, cx, cy);
             if id == "send" {
                 // Avião de papel por cima.
-                let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+                let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
                 pb.move_to(cx + 3.0, cy - 12.0);
                 pb.line_to(cx + 16.0, cy - 15.0);
                 pb.line_to(cx + 10.0, cy - 3.0);
@@ -979,7 +979,7 @@ fn tool_glyph(ui: &mut Ui, id: &str, cx: f32, cy: f32, ink: Color) {
             } else {
                 c.fill(circle(cx + 10.0, cy + 7.0, 6.0), &solid(rgba(60, 120, 210, 255)));
                 c.fill_rect(cx + 9.0, cy + 3.0, 2.0, 5.0, &solid(Color::WHITE));
-                let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+                let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
                 pb.move_to(cx + 7.0, cy + 7.0);
                 pb.line_to(cx + 13.0, cy + 7.0);
                 pb.line_to(cx + 10.0, cy + 10.5);
@@ -989,7 +989,7 @@ fn tool_glyph(ui: &mut Ui, id: &str, cx: f32, cy: f32, ink: Color) {
         }
         "attach" => {
             // Clipe.
-            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
             pb.move_to(cx - 3.0, cy + 10.0);
             pb.line_to(cx - 3.0, cy - 8.0);
             pb.quad_to(cx - 3.0, cy - 13.0, cx + 1.0, cy - 13.0);

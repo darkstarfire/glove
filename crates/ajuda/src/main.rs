@@ -2,7 +2,7 @@
 //! esquerda, com busca, e a página à direita. O texto mora aqui mesmo.
 
 use glove_config::tr;
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions, SEARCH_H,
 };

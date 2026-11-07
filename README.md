@@ -96,6 +96,9 @@ na RAM, buffers reaproveitados entre quadros e o alocador devolve memória ao si
 
 ## Como rodar
 
+A biblioteca dos apps ([glove-ui](https://github.com/fabioaacarneiro/glove-ui)) vem como submódulo
+em `ui/`: clone com `git clone --recursive` (ou rode `git submodule update --init` depois).
+
 ```sh
 cargo build --release
 ./target/release/glove            # abre o Glove numa janela
@@ -263,10 +266,7 @@ O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serv
 ## Estrutura
 
 ```
-crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones no estilo do Tiger (tiger.rs, tiger_prefs.rs e tiger_real.rs, guardados prontos por tamanho) e do sistema, texto, temas
-crates/i18n        traduções (tr!, locales/*.po)
-crates/config      configuração compartilhada (config.toml + aviso de mudança via inotify)
-crates/kit         toolkit dos apps (widgets, janela Wayland, Abrir/Salvar, arrastar e soltar)
+ui/ (glove-ui)     submódulo: glove-ui (o antigo glove-kit), glove-paint, glove-config e glove-i18n
 crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)
 crates/apps        `glove-apps`: um executável só para todos os apps (glove-files, glove-prefs… são atalhos para ele; ver docs/MEMORIA.md)
 crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`

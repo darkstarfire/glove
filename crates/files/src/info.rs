@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::time::{Duration, SystemTime};
 
-use glove_kit::{paint::icons, App, Rect, Ui};
+use glove_ui::{paint::icons, App, Rect, Ui};
 
 const W: f32 = 300.0;
 const LW: f32 = 92.0;
@@ -236,8 +236,8 @@ impl App for Info {
                 icons::alias_badge(ui.c, r.x, r.y, 48.0);
             }
             let name = ui.fonts.ellipsize(&self.name, 13.0, true, w - 100.0);
-            ui.fonts.draw(ui.c, &name, r.x + 58.0, r.y + 22.0, 13.0, true, glove_kit::paint::draw::rgba(20, 20, 20, 255));
-            ui.fonts.draw(ui.c, &size_text, r.x + 58.0, r.y + 40.0, 11.0, false, glove_kit::paint::draw::rgba(80, 80, 80, 255));
+            ui.fonts.draw(ui.c, &name, r.x + 58.0, r.y + 22.0, 13.0, true, glove_ui::paint::draw::rgba(20, 20, 20, 255));
+            ui.fonts.draw(ui.c, &size_text, r.x + 58.0, r.y + 40.0, 11.0, false, glove_ui::paint::draw::rgba(80, 80, 80, 255));
             ui.separator();
 
             if ui.disclosure(&mut self.open[0], tr!("Geral:")) {}
@@ -266,7 +266,7 @@ impl App for Info {
                 let mut name = self.name.clone();
                 ui.text_field(&mut name, w - 28.0);
                 self.name = name;
-                if ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Enter) {
+                if ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Enter) {
                     self.rename();
                 }
             }
@@ -336,7 +336,7 @@ impl App for Info {
             }
             if let Some(m) = self.message.clone() {
                 ui.space(4.0);
-                ui.label_ex(&m, 11.0, true, glove_kit::paint::draw::rgba(190, 40, 40, 255));
+                ui.label_ex(&m, 11.0, true, glove_ui::paint::draw::rgba(190, 40, 40, 255));
             }
         });
         // A janela acompanha as seções abertas.

@@ -2,7 +2,7 @@
 //! retângulos exatos na célula, como fazem os terminais modernos: com a fonte, eles
 //! não se encostam (frestas entre as células) e logos e bordas ficam quebrados.
 
-use glove_kit::paint::{draw::*, Color};
+use glove_ui::paint::{draw::*, Color};
 
 /// Pesos das quatro pontas (cima, direita, baixo, esquerda): 1 fina, 2 grossa, 3 dupla.
 fn arms(c: char) -> Option<[u8; 4]> {
@@ -88,7 +88,7 @@ pub fn draw(cv: &mut Canvas, c: char, x: f32, y: f32, w: f32, h: f32, col: Color
         0x256D..=0x2570 => {
             let (cx, cy) = (snap(x + w / 2.0 - t / 2.0) + t / 2.0, snap(y + h / 2.0 - t / 2.0) + t / 2.0);
             let r = (w / 2.0).min(h / 2.0);
-            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
             let (a, b, ctl) = match u {
                 0x256D => ((x + w, cy), (cx, y + h), (cx + 0.0, cy)),
                 0x256E => ((x, cy), (cx, y + h), (cx, cy)),

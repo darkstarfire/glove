@@ -5,7 +5,7 @@
 use glove_config::tr;
 use std::path::{Path, PathBuf};
 
-use glove_kit::paint::icons::Icon;
+use glove_ui::paint::icons::Icon;
 
 /// Caminho da pasta virtual (não existe no disco).
 const ROOT: &str = "/:Aplicativos";

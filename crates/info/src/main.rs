@@ -5,7 +5,7 @@
 use glove_config::tr;
 use std::process::Command;
 
-use glove_kit::{paint::draw::*, run, App, Menu, MenuItem, Rect, Ui, WindowOptions};
+use glove_ui::{paint::draw::*, run, App, Menu, MenuItem, Rect, Ui, WindowOptions};
 
 const SECTIONS: [&str; 8] = ["Hardware", "Memória", "Gráficos", "Armazenamento", "Rede", "USB", "Áudio", "Software"];
 

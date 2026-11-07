@@ -10,8 +10,8 @@ license.workspace = true
 path = "src/main.rs"
 
 [dependencies]
-glove-config = { path = "../config" }
-glove-kit = { path = "../kit" }
+glove-config = { path = "../../ui/crates/config" }
+glove-ui = { path = "../../ui/crates/ui" }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 rustls-native-certs = "0.8"
 webpki-roots = "1"

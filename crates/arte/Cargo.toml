@@ -5,6 +5,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-glove-config = { path = "../config" }
-glove-paint = { path = "../paint" }
+glove-config = { path = "../../ui/crates/config" }
+glove-paint = { path = "../../ui/crates/paint" }
 png = "0.17"

@@ -11,7 +11,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use glove_kit::{run, ui::Ticks, App, Rect, Ui, WindowOptions};
+use glove_ui::{run, ui::Ticks, App, Rect, Ui, WindowOptions};
 
 use super::{kind_of, launch, open_file, ops, Entry};
 
@@ -91,7 +91,7 @@ impl App for Transfer {
     }
 
     fn ui(&mut self, ui: &mut Ui) {
-        use glove_kit::AlertKind;
+        use glove_ui::AlertKind;
         if let Some((_, names)) = &self.ask {
             let title = if names.len() == 1 {
                 tr!("Já existe um item chamado “{}” nesta pasta.", names[0])
@@ -129,10 +129,10 @@ impl App for Transfer {
         let w = ui.c.w;
         let verb = if self.mv { tr!("Movendo") } else { tr!("Copiando") };
         let label = format!("{verb} {} {}…", self.n, if self.n == 1 { "item" } else { "itens" });
-        ui.fonts.draw(ui.c, &label, 20.0, 30.0, 13.0, true, glove_kit::paint::draw::rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, &label, 20.0, 30.0, 13.0, true, glove_ui::paint::draw::rgba(20, 20, 20, 255));
         let cur = p.current.lock().unwrap().clone();
         let cur = ui.fonts.ellipsize(&cur, 11.0, false, w - 40.0);
-        ui.fonts.draw(ui.c, &cur, 20.0, 50.0, 11.0, false, glove_kit::paint::draw::rgba(70, 70, 70, 255));
+        ui.fonts.draw(ui.c, &cur, 20.0, 50.0, 11.0, false, glove_ui::paint::draw::rgba(70, 70, 70, 255));
         let total = p.total.load(Ordering::Relaxed);
         let frac = if total == 0 { None } else { Some((p.done.load(Ordering::Relaxed) as f32 / total as f32).min(1.0)) };
         ui.progress_in(Rect::new(20.0, 66.0, w - 40.0, 12.0), frac);
@@ -287,7 +287,7 @@ impl App for ViewOptions {
 pub fn eject(mount: PathBuf) {
     if let Err(e) = glove_config::discos::eject(&mount) {
         let opts = WindowOptions { title: tr!("Ejetar").into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
-        let _ = run(opts, Notice { kind: glove_kit::AlertKind::Stop, title: tr!("Não foi possível ejetar o disco.").into(), text: e });
+        let _ = run(opts, Notice { kind: glove_ui::AlertKind::Stop, title: tr!("Não foi possível ejetar o disco.").into(), text: e });
     }
 }
 
@@ -297,7 +297,7 @@ pub fn eject_warning(name: String) {
     let _ = run(
         opts,
         Notice {
-            kind: glove_kit::AlertKind::Caution,
+            kind: glove_ui::AlertKind::Caution,
             title: tr!("O disco “{}” não foi ejetado corretamente.", name),
             text: tr!("Se possível, ejete o disco antes de desconectá-lo ou desligá-lo. Para ejetar, arraste o disco para o Lixo ou clique em ⏏ ao lado dele no Arquivos.").into(),
         },
@@ -305,7 +305,7 @@ pub fn eject_warning(name: String) {
 }
 
 struct Notice {
-    kind: glove_kit::AlertKind,
+    kind: glove_ui::AlertKind,
     title: String,
     text: String,
 }

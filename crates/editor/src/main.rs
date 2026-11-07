@@ -3,8 +3,8 @@
 use glove_config::tr;
 use std::path::{Path, PathBuf};
 
-use glove_kit::paint::draw::*;
-use glove_kit::{run, Align, AlertKind, App, Choice, FileBrowser, FontPanel, Glyph, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
+use glove_ui::paint::draw::*;
+use glove_ui::{run, Align, AlertKind, App, Choice, FileBrowser, FontPanel, Glyph, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
 
 /// Altura da régua e da barra de Localizar.
 const RULER_H: f32 = 30.0;
@@ -60,7 +60,7 @@ enum Sheet {
     /// Erro ao abrir ou salvar (alerta com OK).
     Error(String),
     /// Imprimir (Ctrl+P).
-    Print(glove_kit::print::PrintSheet),
+    Print(glove_ui::print::PrintSheet),
     AskSave,
 }
 
@@ -340,7 +340,7 @@ impl Editor {
         if enter {
             f.focus = true;
         }
-        if ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
+        if ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape) {
             self.find = None;
             return true;
         }
@@ -439,8 +439,8 @@ impl App for Editor {
                     "Ctrl+S" => action = Some("save"),
                     "Ctrl+W" => action = Some("close"),
                     "Ctrl+P" => {
-                        let content = glove_kit::print::PrintContent::Text(self.buf.text().to_string());
-                        self.sheet = Sheet::Print(glove_kit::print::PrintSheet::new(&self.name(), content));
+                        let content = glove_ui::print::PrintContent::Text(self.buf.text().to_string());
+                        self.sheet = Sheet::Print(glove_ui::print::PrintSheet::new(&self.name(), content));
                     }
                     "Ctrl+M" => action = Some("minimize"),
                     "Ctrl+equal" | "Ctrl+plus" => action = Some("bigger"),

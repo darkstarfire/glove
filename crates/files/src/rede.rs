@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{paint::draw::*, run, App, Rect, Ui, WindowOptions};
+use glove_ui::{paint::draw::*, run, App, Rect, Ui, WindowOptions};
 
 /// Pasta virtual da Rede na barra lateral.
 pub const ROOT: &str = "/:Rede";

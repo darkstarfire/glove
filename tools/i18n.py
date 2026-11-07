@@ -24,6 +24,15 @@ def escapa(s):
 
 
 def le_po():
+    """O catálogo do Glove somado ao da glove-ui (ui/locales/en.po)."""
+    pares = {}
+    for po in (os.path.join(RAIZ, "ui", "locales", "en.po"), PO):
+        if os.path.exists(po):
+            pares.update(le_po_arquivo(po))
+    return pares
+
+
+def le_po_arquivo(PO):
     pares = {}
     if not os.path.exists(PO):
         return pares

@@ -7,7 +7,7 @@ mod ics;
 
 use std::path::PathBuf;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run, App, Choice, FileBrowser, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SEGMENT_H, SEGMENT_W,
 };
@@ -304,7 +304,7 @@ impl Agenda {
                 ok = ui.default_button(tr!("Salvar"));
             });
         });
-        if cancel || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
+        if cancel || ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape) {
             self.sheet = None;
             return;
         }
@@ -448,7 +448,7 @@ impl App for Agenda {
 }
 
 pub fn main() {
-    let (y, m, d, ..) = glove_kit::local_time();
+    let (y, m, d, ..) = glove_ui::local_time();
     let events = std::fs::read_to_string(file()).map(|t| ics::parse(&t)).unwrap_or_default();
     let app = Agenda { events, month: (y, m), day: (y, m, d), today: (y, m, d), sheet: None, import: None, message: None };
     let opts = WindowOptions { title: tr!("Agenda").into(), app_id: "glove.Agenda".into(), size: (860, 560), fixed: false, min_size: None };

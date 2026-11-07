@@ -18,7 +18,7 @@ mod rede;
 mod som;
 
 use glove_config::{Config, OutputsInfo};
-use glove_kit::{
+use glove_ui::{
     paint::{
         draw::*,
         icons::{Icon, PrefKind},
@@ -251,7 +251,7 @@ struct Prefs {
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
     /// Miniaturas de papel de parede já desenhadas.
-    thumbs: std::collections::HashMap<String, Option<glove_kit::paint::draw::Canvas>>,
+    thumbs: std::collections::HashMap<String, Option<glove_ui::paint::draw::Canvas>>,
     /// Histórico das setas da barra.
     back: Vec<Pane>,
     forward: Vec<Pane>,
@@ -506,7 +506,7 @@ impl Prefs {
         }
         // Busca (como no 10.4): destaca os painéis que combinam.
         let before = self.search.clone();
-        ui.search_field_in(Rect::new(w - 172.0, mid - glove_kit::SEARCH_H / 2.0, 160.0, glove_kit::SEARCH_H), &mut self.search, tr!("Buscar"));
+        ui.search_field_in(Rect::new(w - 172.0, mid - glove_ui::SEARCH_H / 2.0, 160.0, glove_ui::SEARCH_H), &mut self.search, tr!("Buscar"));
         if self.search != before && !self.search.trim().is_empty() && self.pane != Pane::Todos {
             self.go(Pane::Todos);
         }
@@ -544,7 +544,7 @@ impl Prefs {
             band += 1;
         }
         let draw_cell = |ui: &mut Ui, r: &Rect, i: &PaneInfo, ink: Color| {
-            glove_kit::paint::icons::draw(ui.c, ui.fonts, i.icon, r.x + (r.w - 32.0) / 2.0, r.y + 6.0, 32.0, None);
+            glove_ui::paint::icons::draw(ui.c, ui.fonts, i.icon, r.x + (r.w - 32.0) / 2.0, r.y + 6.0, 32.0, None);
             // Nome em até duas linhas, centrado.
             for (n, l) in wrap2(ui, tr(i.name), r.w - 4.0).iter().enumerate() {
                 // Palavra comprida demais ("Compartilhamento") encolhe um pouco para caber.
@@ -577,7 +577,7 @@ impl Prefs {
                 self.ctx = Some((ui.pointer(), i.pane));
             }
         }
-        if searching && ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Enter) {
+        if searching && ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Enter) {
             open = found.first().copied();
         }
         if let Some(p) = open {
@@ -609,7 +609,7 @@ impl Prefs {
             if h.hover {
                 ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(ui.theme.menu_hot));
             }
-            ui.fonts.draw(ui.c, label, x + 16.0, r.y + 14.5, 13.0, false, if h.hover { glove_kit::paint::Color::WHITE } else { rgba(20, 20, 20, 255) });
+            ui.fonts.draw(ui.c, label, x + 16.0, r.y + 14.5, 13.0, false, if h.hover { glove_ui::paint::Color::WHITE } else { rgba(20, 20, 20, 255) });
             if h.clicked {
                 chosen = Some(n);
             }
@@ -623,7 +623,7 @@ impl Prefs {
                 self.ctx = None;
                 self.toggle_favorite(p);
             }
-            None if ui.mouse_pressed() || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) => {
+            None if ui.mouse_pressed() || ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape) => {
                 let (px, py) = ui.pointer();
                 if !(px >= x && px < x + mw && py >= y && py < y + mh) {
                     self.ctx = None;
@@ -664,7 +664,7 @@ impl Prefs {
         // Ícones: os desenhados pelo Glove ou um tema do sistema (os apps de fora
         // usam sempre o ícone deles).
         if self.icon_themes.is_none() {
-            self.icon_themes = Some(glove_kit::paint::sysicons::installed_themes());
+            self.icon_themes = Some(glove_ui::paint::sysicons::installed_themes());
         }
         let themes = self.icon_themes.clone().unwrap_or_default();
         let mut names: Vec<String> = vec![tr!("Glove (desenhados)").into()];
@@ -673,18 +673,18 @@ impl Prefs {
         ui.form_row(tr!("Ícones"), LW, |ui| {
             if ui.popup(&mut cur, &names, 200.0) {
                 self.config.appearance.icon_theme = if cur == 0 { String::new() } else { themes[cur - 1].0.clone() };
-                glove_kit::paint::icons::set_theme(&self.config.appearance.icon_theme);
+                glove_ui::paint::icons::set_theme(&self.config.appearance.icon_theme);
                 self.save();
             }
         });
         // Prévia com alguns ícones no tema escolhido.
         ui.form_row("", LW, |ui| {
-            use glove_kit::paint::icons::{FolderKind, Icon};
+            use glove_ui::paint::icons::{FolderKind, Icon};
             let sample = [Icon::Folder, Icon::SpecialFolder(FolderKind::Documents), Icon::Terminal, Icon::TextEditor, Icon::Calculator, Icon::Settings, Icon::Trash];
             let (x, y) = ui.cursor();
             ui.alloc(7.0 * 40.0, 36.0);
             for (k, ic) in sample.iter().enumerate() {
-                glove_kit::paint::icons::draw_bare(ui.c, ui.fonts, *ic, x + k as f32 * 40.0, y, 32.0, None);
+                glove_ui::paint::icons::draw_bare(ui.c, ui.fonts, *ic, x + k as f32 * 40.0, y, 32.0, None);
             }
         });
         ui.space(10.0);
@@ -744,7 +744,7 @@ impl Prefs {
 
     /// Protetor de Tela: lista, prévia animada, tempo, Testar e cantos ativos.
     fn protetor_tab(&mut self, ui: &mut Ui) {
-        use glove_kit::paint::saver::SAVERS;
+        use glove_ui::paint::saver::SAVERS;
         let (x0, y0) = ui.cursor();
         let w = ui.available_width();
         let rows: Vec<String> = SAVERS.iter().map(|(_, n)| n.to_string()).collect();
@@ -763,11 +763,11 @@ impl Prefs {
         let pw = (w - 170.0).min(300.0);
         let ph = (pw * 0.6).round();
         ui.c.fill(rrect(px - 3.0, py - 3.0, pw + 6.0, ph + 6.0, 3.0), &solid(rgba(0, 0, 0, 60)));
-        if let Some(mut c) = glove_kit::paint::draw::Canvas::new(pw, ph, ui.c.scale) {
-            let (y, mo, d, _, h, m, _) = glove_kit::local_time();
+        if let Some(mut c) = glove_ui::paint::draw::Canvas::new(pw, ph, ui.c.scale) {
+            let (y, mo, d, _, h, m, _) = glove_ui::local_time();
             let time = format!("{h:02}:{m:02}");
             let date = format!("{d:02}/{mo:02}/{y}");
-            glove_kit::paint::saver::draw(&mut c, ui.fonts, &self.config.saver.kind, pw, ph, self.started.elapsed().as_secs_f32(), (&time, &date));
+            glove_ui::paint::saver::draw(&mut c, ui.fonts, &self.config.saver.kind, pw, ph, self.started.elapsed().as_secs_f32(), (&time, &date));
             ui.c.draw_canvas(&c, px, py);
         }
         ui.fonts.draw(ui.c, tr!("Prévia"), px + pw / 2.0 - ui.text_width(tr!("Prévia"), 11.0, false) / 2.0, py + ph + 16.0, 11.0, false, rgba(90, 90, 96, 255));
@@ -891,7 +891,7 @@ impl Prefs {
     fn draw_thumb(&mut self, ui: &mut Ui, style: &str, r: Rect) {
         let key = format!("{style}@{}x{}", r.w, r.h);
         if !self.thumbs.contains_key(&key) {
-            let c = glove_kit::paint::wallpaper::render_style(ui.theme, style, r.w, r.h, ui.c.scale);
+            let c = glove_ui::paint::wallpaper::render_style(ui.theme, style, r.w, r.h, ui.c.scale);
             self.thumbs.insert(key.clone(), c);
         }
         if let Some(Some(c)) = self.thumbs.get(&key) {
@@ -1709,7 +1709,7 @@ impl Prefs {
                 ui.form_row("", LW, |ui| {
                     let s = 24.0 * self.config.access.cursor_size;
                     let r = ui.alloc(s.max(24.0), s.max(24.0));
-                    if let Some(c) = glove_kit::paint::chrome::cursor_arrow(ui.c.scale * self.config.access.cursor_size) {
+                    if let Some(c) = glove_ui::paint::chrome::cursor_arrow(ui.c.scale * self.config.access.cursor_size) {
                         ui.c.draw_canvas(&c, r.x, r.y);
                     }
                 });

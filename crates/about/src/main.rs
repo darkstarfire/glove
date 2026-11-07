@@ -2,7 +2,7 @@
 //! do 10.2/10.3. "Mais informações…" abre o Monitor.
 
 use glove_config::tr;
-use glove_kit::{paint::draw::*, run, ui::Key, App, Rect, Ui, WindowOptions};
+use glove_ui::{paint::draw::*, run, ui::Key, App, Rect, Ui, WindowOptions};
 
 const W: f32 = 300.0;
 
@@ -128,14 +128,14 @@ fn processor() -> String {
 /// "Sobre <app>" genérico dos apps do Glove (pedido pelo menu do app):
 /// ícone grande, nome, versão e de onde vem.
 struct AppAbout {
-    icon: glove_kit::paint::icons::Icon,
+    icon: glove_ui::paint::icons::Icon,
     name: String,
 }
 
 impl App for AppAbout {
     fn ui(&mut self, ui: &mut Ui) {
         let w = ui.c.w;
-        glove_kit::paint::icons::draw(ui.c, ui.fonts, self.icon, (w - 64.0) / 2.0, 22.0, 64.0, None);
+        glove_ui::paint::icons::draw(ui.c, ui.fonts, self.icon, (w - 64.0) / 2.0, 22.0, 64.0, None);
         let center = |ui: &mut Ui, t: &str, y: f32, px: f32, bold: bool, c| {
             let tw = ui.text_width(t, px, bold);
             ui.fonts.draw(ui.c, t, ((w - tw) / 2.0).max(8.0), y, px, bold, c);
@@ -157,7 +157,7 @@ pub fn main() {
         let name = args.next().unwrap_or_else(|| "Aplicativo".into());
         // Painéis "Sobre" da época não têm título.
         let opts = WindowOptions { title: String::new(), app_id: "glove.About".into(), size: (260, 200), fixed: true, min_size: None };
-        if let Err(e) = run(opts, AppAbout { icon: glove_kit::app_icon(&id), name }) {
+        if let Err(e) = run(opts, AppAbout { icon: glove_ui::app_icon(&id), name }) {
             eprintln!("glove-about: {e}");
         }
         return;

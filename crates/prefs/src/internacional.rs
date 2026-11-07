@@ -5,7 +5,7 @@
 use glove_config::tr;
 use std::path::PathBuf;
 
-use glove_kit::Ui;
+use glove_ui::Ui;
 
 /// (locale, nome do idioma, nome da região).
 pub const LOCALES: [(&str, &str, &str); 10] = [
@@ -174,7 +174,7 @@ impl Internacional {
         });
         ui.space(10.0);
         let r = LOCALES[cur].0;
-        let (y, mo, d, _, h, mi, _) = glove_kit::local_time();
+        let (y, mo, d, _, h, mi, _) = glove_ui::local_time();
         let (date, time) = date_time(r, (y, mo, d, h, mi));
         ui.form_row(tr!("Data"), 120.0, |ui| ui.label(&date));
         ui.form_row(tr!("Hora"), 120.0, |ui| ui.label(&time));

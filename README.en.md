@@ -82,6 +82,9 @@ Mesa OpenGL driver, a fixed cost of any accelerated compositor. Details (in Port
 
 ## Running
 
+The apps' library ([glove-ui](https://github.com/fabioaacarneiro/glove-ui)) is a git submodule
+in `ui/`: clone with `git clone --recursive` (or run `git submodule update --init` afterwards).
+
 ```sh
 cargo build --release
 ./target/release/glove            # opens Glove in a window
@@ -187,10 +190,8 @@ reloads it when it changes.
 ## Layout
 
 ```
-crates/i18n        translations (tr!, locales/*.po)
-crates/paint       drawing: scaled canvas, gel, metal, shadows, Tiger-style icons, text, themes
-crates/config      shared configuration (config.toml + change notification via inotify)
-crates/kit         app toolkit (widgets, Wayland window, Open/Save, drag and drop)
+ui/                glove-ui submodule: glove-ui (toolkit), glove-paint (drawing, icons, themes),
+                   glove-config (shared settings) and glove-i18n (translations)
 crates/compositor  the compositor (`glove`)
 crates/apps        `glove-apps`: one executable for every app
 crates/portal      `glove-portal` (FileChooser portal) and `glove-escolher`

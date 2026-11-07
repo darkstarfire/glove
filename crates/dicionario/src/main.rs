@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use dict::Dict;
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run, App, Choice, FileBrowser, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SEARCH_H, SEGMENT_H, SEGMENT_W,
 };

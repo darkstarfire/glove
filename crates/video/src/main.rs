@@ -10,7 +10,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run, AlertKind, App, Choice, FileBrowser, Menu, MenuItem, Rect, Ticks, Ui, WindowOptions,
 };
@@ -151,7 +151,7 @@ impl Video {
 }
 
 fn tri(c: &mut Canvas, x: f32, y: f32, s: f32, dir: f32, col: Color) {
-    let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+    let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
     pb.move_to(x - s * 0.5 * dir, y - s * 0.6);
     pb.line_to(x + s * 0.6 * dir, y);
     pb.line_to(x - s * 0.5 * dir, y + s * 0.6);

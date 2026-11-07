@@ -8,7 +8,7 @@ use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
 
-use glove_kit::{run, ui::AlertKind, App, Ui, WindowOptions};
+use glove_ui::{run, ui::AlertKind, App, Ui, WindowOptions};
 
 const NETSURF: [&str; 3] = ["netsurf-gtk3", "netsurf-gtk", "netsurf"];
 const OTHERS: [&str; 4] = ["chromium", "chromium-browser", "google-chrome", "epiphany"];

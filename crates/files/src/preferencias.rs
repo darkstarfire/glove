@@ -4,7 +4,7 @@
 //! mesa mudam na hora.
 
 use glove_config::tr;
-use glove_kit::{paint::draw::*, run, ui::Ticks, App, Rect, Ui, WindowOptions};
+use glove_ui::{paint::draw::*, run, ui::Ticks, App, Rect, Ui, WindowOptions};
 
 /// Lugares da barra lateral: (id, nome).
 const PLACES: [(&str, &str); 11] = [

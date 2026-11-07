@@ -1,3 +1,7 @@
 # Metade dos núcleos: a máquina continua usável enquanto compila.
 [build]
 jobs = 6
+
+# Traduções do Glove (somadas às da glove-ui na compilação).
+[env]
+GLOVE_LOCALES = { value = "locales", relative = true }

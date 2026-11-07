@@ -4,7 +4,7 @@ use glove_config::tr;
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::time::Duration;
 
-use glove_kit::{local_time, paint::draw::*, paint::tiny_skia::PathBuilder, run, App, Ui, WindowOptions};
+use glove_ui::{local_time, paint::draw::*, paint::tiny_skia::PathBuilder, run, App, Ui, WindowOptions};
 
 const W: u32 = 260;
 const H: u32 = 304;
@@ -20,7 +20,7 @@ struct Clock {
 }
 
 /// Ponteiro afinando na ponta, do centro até `len`, com um rabicho de `tail`.
-fn hand(c: &mut Canvas, cx: f32, cy: f32, angle: f32, len: f32, tail: f32, width: f32, color: glove_kit::paint::Color) {
+fn hand(c: &mut Canvas, cx: f32, cy: f32, angle: f32, len: f32, tail: f32, width: f32, color: glove_ui::paint::Color) {
     let (dx, dy) = (angle.cos(), angle.sin());
     let (nx, ny) = (-dy, dx);
     let mut pb = PathBuilder::new();
@@ -40,7 +40,7 @@ fn hand(c: &mut Canvas, cx: f32, cy: f32, angle: f32, len: f32, tail: f32, width
 }
 
 /// Parte fixa do mostrador: aro, fundo, marcas e números.
-fn dial(c: &mut Canvas, fonts: &glove_kit::paint::Fonts, cx: f32, cy: f32, r: f32) {
+fn dial(c: &mut Canvas, fonts: &glove_ui::paint::Fonts, cx: f32, cy: f32, r: f32) {
     // Aro: metal escovado em anel + borda de gel.
     c.fill(circle(cx, cy + 3.0, r + 2.0), &radial(cx, cy + 3.0, r + 6.0, &[(0.85, rgba(0, 0, 0, 70)), (1.0, rgba(0, 0, 0, 0))]));
     c.fill(circle(cx, cy, r), &linear(cx - r, cy - r, cx + r, cy + r, &[(0.0, rgba(245, 246, 250, 255)), (0.5, rgba(170, 174, 185, 255)), (1.0, rgba(235, 236, 240, 255))]));
@@ -74,7 +74,7 @@ fn dial(c: &mut Canvas, fonts: &glove_kit::paint::Fonts, cx: f32, cy: f32, r: f3
 }
 
 /// Ponteiros, pino central e o reflexo do vidro (a parte que muda).
-fn hands(c: &mut Canvas, cx: f32, cy: f32, r: f32, h: u32, m: u32, s: u32, accent: glove_kit::paint::Color) {
+fn hands(c: &mut Canvas, cx: f32, cy: f32, r: f32, h: u32, m: u32, s: u32, accent: glove_ui::paint::Color) {
     let fr = r * 0.88;
     let ha = ((h % 12) as f32 + m as f32 / 60.0) / 12.0 * TAU - FRAC_PI_2;
     let ma = (m as f32 + s as f32 / 60.0) / 60.0 * TAU - FRAC_PI_2;

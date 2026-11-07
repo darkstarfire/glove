@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 
-use glove_kit::paint::tiny_skia::{FilterQuality, Pixmap, PixmapPaint, Transform};
+use glove_ui::paint::tiny_skia::{FilterQuality, Pixmap, PixmapPaint, Transform};
 
 /// Arquivos maiores que isto ficam só com o ícone (decodificar custaria muita memória).
 const MAX_BYTES: u64 = 40 * 1024 * 1024;
@@ -13,7 +13,7 @@ const MAX_SIDE: u32 = 2560;
 
 /// O Arquivos sabe mostrar a prévia deste arquivo?
 pub fn supported(p: &Path) -> bool {
-    std::fs::metadata(p).is_ok_and(|m| m.len() <= MAX_BYTES) && glove_kit::image::format_of(p).is_some()
+    std::fs::metadata(p).is_ok_and(|m| m.len() <= MAX_BYTES) && glove_ui::image::format_of(p).is_some()
 }
 
 /// Reduz pela metade até caber em `side` (sem serrilhado) e o resto bilinear.
@@ -57,7 +57,7 @@ impl Thumbs {
             let (tx, rx) = channel();
             let path = p.to_path_buf();
             std::thread::spawn(move || {
-                let _ = tx.send(glove_kit::image::decode(&path).ok().map(|i| {
+                let _ = tx.send(glove_ui::image::decode(&path).ok().map(|i| {
                     let size = (i.width(), i.height());
                     (shrink(i, MAX_SIDE), size)
                 }));

@@ -6,7 +6,7 @@ use glove_config::tr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, icons::{self, Icon}, Color},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };

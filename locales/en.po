@@ -1,126 +1,9 @@
-# Glove — tradução para o inglês.
+# Glove — tradução para o inglês (os textos da glove-ui ficam no repositório dela).
 # A chave (msgid) é o texto em português que está no código.
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: en\n"
-
-msgid "Este app não abre esse tipo de arquivo."
-msgstr "This app can’t open this kind of file."
-
-msgid "Digite um nome."
-msgstr "Type a name."
-
-msgid "O nome não pode ter “/”."
-msgstr "The name can’t contain “/”."
-
-msgid "Salvar como:"
-msgstr "Save As:"
-
-msgid "Escolher uma pasta"
-msgstr "Choose a Folder"
-
-msgid "Abrir"
-msgstr "Open"
-
-msgid "Disco"
-msgstr "Disk"
-
-msgid "Início"
-msgstr "Home"
-
-msgid "Mesa"
-msgstr "Desktop"
-
-msgid "Documentos"
-msgstr "Documents"
-
-msgid "Downloads"
-msgstr "Downloads"
-
-msgid "Imagens"
-msgstr "Pictures"
-
-msgid "Música"
-msgstr "Music"
-
-msgid "Nova Pasta"
-msgstr "New Folder"
-
-msgid "pasta sem título"
-msgstr "untitled folder"
-
-msgid "Salvar"
-msgstr "Save"
-
-msgid "Escolher"
-msgstr "Choose"
-
-msgid "Cancelar"
-msgstr "Cancel"
-
-msgid "Não foi possível criar a pasta: {}"
-msgstr "Couldn’t create the folder: {}"
-
-msgid "Nenhuma impressora configurada."
-msgstr "No printer set up."
-
-msgid "Impressora:"
-msgstr "Printer:"
-
-msgid "Nenhuma impressora"
-msgstr "No printer"
-
-msgid "Adicionar…"
-msgstr "Add…"
-
-msgid "Cópias:"
-msgstr "Copies:"
-
-msgid "Páginas:"
-msgstr "Pages:"
-
-msgid "Todas"
-msgstr "All"
-
-msgid "De:"
-msgstr "From:"
-
-msgid "até:"
-msgstr "to:"
-
-msgid "Salvar PDF…"
-msgstr "Save PDF…"
-
-msgid "Pré-visualizar"
-msgstr "Preview"
-
-msgid "Imprimir"
-msgstr "Print"
-
-msgid "Não foi possível usar o lp (CUPS): {}"
-msgstr "Couldn’t use lp (CUPS): {}"
-
-msgid "Não foi possível salvar: {}"
-msgstr "Couldn’t save: {}"
-
-msgid "Pressione as teclas…"
-msgstr "Press the keys…"
-
-msgid "Fontes"
-msgstr "Fonts"
-
-msgid "Buscar família"
-msgstr "Search family"
-
-msgid "Cores"
-msgstr "Colors"
-
-msgid "Janela"
-msgstr "Window"
-
-msgid "Abrir com"
-msgstr "Open With"
 
 msgid "Mover para a Lixeira"
 msgstr "Move to Trash"
@@ -182,9 +65,6 @@ msgstr "New Files Window"
 msgid "Compactar"
 msgstr "Compress"
 
-msgid "Ejetar"
-msgstr "Eject"
-
 msgid "Selecionar Tudo"
 msgstr "Select All"
 
@@ -197,17 +77,11 @@ msgstr "Trash"
 msgid "Sobre o Arquivos"
 msgstr "About Files"
 
-msgid "Arquivos"
-msgstr "Files"
-
 msgid "Esvaziar Lixeira…"
 msgstr "Empty Trash…"
 
 msgid "Ocultar Outros"
 msgstr "Hide Others"
-
-msgid "Mostrar Todos"
-msgstr "Show All"
 
 msgid "{} {} itens"
 msgstr "{} {} Items"
@@ -227,12 +101,6 @@ msgstr "Eject {} Disks"
 msgid "{} (padrão)"
 msgstr "{} (default)"
 
-msgid "Arquivo"
-msgstr "File"
-
-msgid "Editar"
-msgstr "Edit"
-
 msgid "Visualizar"
 msgstr "View"
 
@@ -251,77 +119,8 @@ msgstr "untitled folder"
 msgid "Pasta sem título {}"
 msgstr "untitled folder {}"
 
-msgid "Preferências"
-msgstr "Preferences"
-
-msgid "Calculadora"
-msgstr "Calculator"
-
-msgid "Relógio"
-msgstr "Clock"
-
-msgid "Editor de Texto"
-msgstr "Text Editor"
-
-msgid "Visualizador"
-msgstr "Viewer"
-
-msgid "Terminal"
-msgstr "Terminal"
-
-msgid "Lembretes"
-msgstr "Notes"
-
-msgid "Monitor"
-msgstr "System Monitor"
-
-msgid "Captura"
-msgstr "Screenshot"
-
-msgid "Caracteres"
-msgstr "Characters"
-
-msgid "Busca"
-msgstr "Search"
-
-msgid "Discos"
-msgstr "Disks"
-
-msgid "Xadrez"
-msgstr "Chess"
-
 msgid "Utilitário de Arquivo"
 msgstr "Archive Manager"
-
-msgid "Navegador"
-msgstr "Browser"
-
-msgid "Contatos"
-msgstr "Contacts"
-
-msgid "Agenda"
-msgstr "Calendar"
-
-msgid "Vídeo"
-msgstr "Video"
-
-msgid "Registros"
-msgstr "Logs"
-
-msgid "Informações do Sistema"
-msgstr "System Information"
-
-msgid "Ajuda"
-msgstr "Help"
-
-msgid "Dicionário"
-msgstr "Dictionary"
-
-msgid "Livro de Fontes"
-msgstr "Font Viewer"
-
-msgid "Correio"
-msgstr "Mail"
 
 msgid "Desativar Ampliação"
 msgstr "Turn Magnification Off"
@@ -347,17 +146,8 @@ msgstr "Position on Right"
 msgid "Preferências do Dock…"
 msgstr "Dock Preferences…"
 
-msgid "Sobre o Glove"
-msgstr "About Glove"
-
 msgid "Ajuda do Glove"
 msgstr "Glove Help"
-
-msgid "Preferências…"
-msgstr "Preferences…"
-
-msgid "Dock"
-msgstr "Dock"
 
 msgid "Itens Recentes"
 msgstr "Recent Items"
@@ -376,9 +166,6 @@ msgstr "Restart…"
 
 msgid "Desligar…"
 msgstr "Shut Down…"
-
-msgid "Aplicativos"
-msgstr "Applications"
 
 msgid "Limpar Menu"
 msgstr "Clear Menu"
@@ -545,9 +332,6 @@ msgstr "Printing (printers)"
 msgid "Mídia Removível (pendrive)"
 msgstr "Removable Media (USB drive)"
 
-msgid "Bluetooth"
-msgstr "Bluetooth"
-
 msgid "Compartilhamento (nome do computador)"
 msgstr "Sharing (computer name)"
 
@@ -584,23 +368,8 @@ msgstr "Power Saving"
 msgid "Som (volume)"
 msgstr "Sound (volume)"
 
-msgid "Aparência"
-msgstr "Appearance"
-
 msgid "Mesa (papel de parede)"
 msgstr "Desktop (wallpaper)"
-
-msgid "Monitores"
-msgstr "Displays"
-
-msgid "Teclado"
-msgstr "Keyboard"
-
-msgid "Mouse"
-msgstr "Mouse"
-
-msgid "Trackpad"
-msgstr "Trackpad"
 
 msgid "Atalhos de teclado"
 msgstr "Keyboard Shortcuts"
@@ -686,17 +455,11 @@ msgstr "VGA Display"
 msgid "Erro"
 msgstr "Error"
 
-msgid "Sem conexão"
-msgstr "No connection"
-
 msgid "Cidade não achada"
 msgstr "City not found"
 
 msgid "Sem dados"
 msgstr "No data"
-
-msgid "Buscando…"
-msgstr "Loading…"
 
 msgid "{} de {} GB"
 msgstr "{} of {} GB"
@@ -716,9 +479,6 @@ msgstr "Opening login items…"
 msgid "Deseja forçar o encerramento de “{}”?"
 msgstr "Do you want to force “{}” to quit?"
 
-msgid "Monitor|tela"
-msgstr "Display"
-
 msgid "Placa de vídeo: {}"
 msgstr "Graphics card: {}"
 
@@ -736,138 +496,6 @@ msgstr "extra"
 
 msgid "A sessão usaria ({}): {} em {} com escala {} (área de {} × {} pontos, em {}, {})"
 msgstr "The session would use ({}): {} at {} with scale {} ({} × {} points, at {}, {})"
-
-msgid "Calendário"
-msgstr "Calendar"
-
-msgid "Clima"
-msgstr "Weather"
-
-msgid "Lembrete"
-msgstr "Note"
-
-msgid "Digite a cidade e Enter"
-msgstr "Type a city and press Enter"
-
-msgid "Escreva aqui…"
-msgstr "Write here…"
-
-msgid "Processador"
-msgstr "Processor"
-
-msgid "Memória"
-msgstr "Memory"
-
-msgid "Procurar palavra"
-msgstr "Look up a word"
-
-msgid "Máx {}°   Mín {}°"
-msgstr "High {}°   Low {}°"
-
-msgid "Dom"
-msgstr "Sun"
-
-msgid "Seg"
-msgstr "Mon"
-
-msgid "Ter"
-msgstr "Tue"
-
-msgid "Qua"
-msgstr "Wed"
-
-msgid "Qui"
-msgstr "Thu"
-
-msgid "Sex"
-msgstr "Fri"
-
-msgid "Sáb"
-msgstr "Sat"
-
-msgid "Claro"
-msgstr "Light"
-
-msgid "Listras"
-msgstr "Stripes"
-
-msgid "Metal"
-msgstr "Metal"
-
-msgid "Grafite"
-msgstr "Graphite"
-
-msgid "Espaço"
-msgstr "Space"
-
-msgid "Forçar Encerrar"
-msgstr "Force Quit"
-
-msgid "Forçar Encerrar Aplicativos"
-msgstr "Force Quit Applications"
-
-msgid "Alterações não salvas serão perdidas."
-msgstr "Unsaved changes will be lost."
-
-msgid "(não responde)"
-msgstr "(not responding)"
-
-msgid "Esta tela está bloqueada."
-msgstr "This screen is locked."
-
-msgid "Digite sua senha para desbloquear."
-msgstr "Enter your password to unlock."
-
-msgid "Desbloquear"
-msgstr "Unlock"
-
-msgid "Busca Rápida"
-msgstr "Quick Search"
-
-msgid "Nenhum resultado"
-msgstr "No results"
-
-msgid "Se um aplicativo não responder por algum tempo, selecione o nome dele e clique em Forçar Encerrar."
-msgstr "If an application doesn’t respond for a while, select its name and click Force Quit."
-
-msgid "jan"
-msgstr "Jan"
-
-msgid "fev"
-msgstr "Feb"
-
-msgid "mar"
-msgstr "Mar"
-
-msgid "abr"
-msgstr "Apr"
-
-msgid "mai"
-msgstr "May"
-
-msgid "jun"
-msgstr "Jun"
-
-msgid "jul"
-msgstr "Jul"
-
-msgid "ago"
-msgstr "Aug"
-
-msgid "set"
-msgstr "Sep"
-
-msgid "out"
-msgstr "Oct"
-
-msgid "nov"
-msgstr "Nov"
-
-msgid "dez"
-msgstr "Dec"
-
-msgid "{0} {1} "
-msgstr "{1} {0} "
 
 msgid "Nenhum adaptador Bluetooth encontrado (ou o bluetoothctl não está instalado)."
 msgstr "No Bluetooth adapter found (or bluetoothctl isn’t installed)."
@@ -1007,9 +635,6 @@ msgstr "Standard"
 msgid "Senha"
 msgstr "Password"
 
-msgid "Imagem"
-msgstr "Picture"
-
 msgid "Nome curto"
 msgstr "Short name"
 
@@ -1127,9 +752,6 @@ msgstr "November"
 msgid "Dezembro"
 msgstr "December"
 
-msgid "Data e Hora"
-msgstr "Date & Time"
-
 msgid "Fuso Horário"
 msgstr "Time Zone"
 
@@ -1244,26 +866,14 @@ msgstr "Portuguese (Brazil)"
 msgid "Brasil"
 msgstr "Brazil"
 
-msgid "Português (Portugal)"
-msgstr "Portuguese (Portugal)"
-
 msgid "Portugal"
 msgstr "Portugal"
-
-msgid "Inglês (EUA)"
-msgstr "English (US)"
 
 msgid "Estados Unidos"
 msgstr "United States"
 
-msgid "Inglês (Reino Unido)"
-msgstr "English (UK)"
-
 msgid "Reino Unido"
 msgstr "United Kingdom"
-
-msgid "Espanhol (Espanha)"
-msgstr "Spanish (Spain)"
 
 msgid "Espanha"
 msgstr "Spain"
@@ -1274,20 +884,11 @@ msgstr "Spanish (Argentina)"
 msgid "Argentina"
 msgstr "Argentina"
 
-msgid "Francês"
-msgstr "French"
-
 msgid "França"
 msgstr "France"
 
-msgid "Alemão"
-msgstr "German"
-
 msgid "Alemanha"
 msgstr "Germany"
-
-msgid "Italiano"
-msgstr "Italian"
 
 msgid "Itália"
 msgstr "Italy"
@@ -1346,9 +947,6 @@ msgstr "size magnification hide automatically position left right minimize effec
 msgid "tela resolução escala tamanho hz frequência monitores"
 msgstr "screen resolution scale size hz refresh displays monitors"
 
-msgid "Som"
-msgstr "Sound"
-
 msgid "volume mudo alto-falante fone saída entrada microfone alerta efeitos sonoros"
 msgstr "volume mute speaker headphones output input microphone alert sound effects"
 
@@ -1364,23 +962,14 @@ msgstr "speed tracking pointer scrolling double click primary button left-handed
 msgid "toque tocar para clicar rolagem natural dois dedos touchpad"
 msgstr "tap tap to click natural scrolling two fingers touchpad"
 
-msgid "Rede"
-msgstr "Network"
-
 msgid "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar"
 msgstr "wi-fi wifi internet wireless ethernet cable ip dhcp dns router password connect"
 
 msgid "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu"
 msgstr "clock time time zone calendar ntp automatic seconds 24 hours menu bar"
 
-msgid "Contas"
-msgstr "Accounts"
-
 msgid "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart"
 msgstr "user account password name picture photo startup items open at login autostart"
-
-msgid "Internacional"
-msgstr "International"
 
 msgid "idioma língua formatos data número moeda região menu de entrada layout teclado"
 msgstr "language formats date number currency region input menu layout keyboard"
@@ -1412,9 +1001,6 @@ msgstr "Default Apps"
 msgid "navegador e-mail abrir com texto imagens pdf música vídeo padrão"
 msgstr "browser email open with text pictures pdf music video default"
 
-msgid "Impressão"
-msgstr "Printing"
-
 msgid "impressora imprimir cups fila padrão"
 msgstr "printer print cups queue default"
 
@@ -1424,17 +1010,11 @@ msgstr "update packages apt system version upgrade"
 msgid "boot iniciar sistema operacional uefi reiniciar disco"
 msgstr "boot start operating system uefi restart disk"
 
-msgid "Fala"
-msgstr "Speech"
-
 msgid "voz ler em voz alta falar sintetizador"
 msgstr "voice read aloud speak synthesizer"
 
 msgid "fonte shell linha de comando"
 msgstr "font shell command line"
-
-msgid "Segurança"
-msgstr "Security"
 
 msgid "senha bloquear repouso protetor sair encerrar sessão inatividade firewall ufw proteção"
 msgstr "password lock sleep screen saver log out session inactivity firewall ufw protection"
@@ -1447,12 +1027,6 @@ msgstr "Exposé & Dashboard"
 
 msgid "exposé expose cantos ativos janelas mesa painel de widgets dashboard f9 f10 f11 f12"
 msgstr "exposé expose hot corners windows desktop widgets dashboard f9 f10 f11 f12"
-
-msgid "Ondas"
-msgstr "Waves"
-
-msgid "Aurora"
-msgstr "Aurora"
 
 msgid "Liso"
 msgstr "Plain"
@@ -1522,9 +1096,6 @@ msgstr "All windows"
 
 msgid "Janelas do app"
 msgstr "Application windows"
-
-msgid "Painel de Widgets"
-msgstr "Widget Dashboard"
 
 msgid "Iniciar o protetor de tela"
 msgstr "Start the screen saver"
@@ -2423,17 +1994,11 @@ msgstr "Couldn’t change: {}"
 msgid "Comentários:"
 msgstr "Comments:"
 
-msgid "Pasta"
-msgstr "Folder"
-
 msgid "Documento de texto"
 msgstr "Text document"
 
 msgid "Código-fonte"
 msgstr "Source code"
-
-msgid "Áudio"
-msgstr "Audio"
 
 msgid "Arquivo compactado"
 msgstr "Archive"
@@ -2443,12 +2008,6 @@ msgstr "PDF document"
 
 msgid "Aplicativo"
 msgstr "Application"
-
-msgid "Servidor"
-msgstr "Server"
-
-msgid "Documento"
-msgstr "Document"
 
 msgid "Busca: {}"
 msgstr "Search: {}"
@@ -2579,9 +2138,6 @@ msgstr "“{}” went back to {}"
 msgid "Nova janela"
 msgstr "New window"
 
-msgid "Fechar janela"
-msgstr "Close window"
-
 msgid "Mostrar Barra de Ferramentas"
 msgstr "Show Toolbar"
 
@@ -2659,9 +2215,6 @@ msgstr "Light green"
 
 msgid "Bege"
 msgstr "Beige"
-
-msgid "Cinza"
-msgstr "Gray"
 
 msgid "Preferências do Arquivos"
 msgstr "Files Preferences"
@@ -2788,153 +2341,6 @@ msgstr "This disk doesn’t store comments ({})"
 
 msgid "Usar para todos deste tipo"
 msgstr "Use for all of this kind"
-
-msgid "Vermelho"
-msgstr "Red"
-
-msgid "Laranja"
-msgstr "Orange"
-
-msgid "Amarelo"
-msgstr "Yellow"
-
-msgid "Verde"
-msgstr "Green"
-
-msgid "Azul"
-msgstr "Blue"
-
-msgid "Roxo"
-msgstr "Purple"
-
-msgid "caminho inválido"
-msgstr "invalid path"
-
-msgid "{} em {}"
-msgstr "{} on {}"
-
-msgid "O disco “{}” está em uso. Feche os arquivos e os apps que usam o disco e tente de novo."
-msgstr "The disk “{}” is in use. Close the files and apps using it and try again."
-
-msgid "O sistema pediu permissão de administrador e ela não foi dada."
-msgstr "The system asked for administrator permission and it wasn’t given."
-
-msgid "Português (Brasil, ABNT2)"
-msgstr "Portuguese (Brazil, ABNT2)"
-
-msgid "Inglês (EUA, internacional)"
-msgstr "English (US, international)"
-
-msgid "Espanhol (América Latina)"
-msgstr "Spanish (Latin America)"
-
-msgid "Prata"
-msgstr "Silver"
-
-msgid "Dourado"
-msgstr "Gold"
-
-msgid "Abrir Terminal"
-msgstr "Open Terminal"
-
-msgid "Minimizar janela"
-msgstr "Minimize window"
-
-msgid "Ocultar o app"
-msgstr "Hide the app"
-
-msgid "Ocultar os outros apps"
-msgstr "Hide other apps"
-
-msgid "Zoom da janela"
-msgstr "Zoom window"
-
-msgid "Trocar de app"
-msgstr "Switch apps"
-
-msgid "Exposé: todas as janelas"
-msgstr "Exposé: all windows"
-
-msgid "Exposé: janelas do app"
-msgstr "Exposé: application windows"
-
-msgid "Exposé: mostrar a mesa"
-msgstr "Exposé: show the desktop"
-
-msgid "Abrir Preferências"
-msgstr "Open Preferences"
-
-msgid "Captura de tela"
-msgstr "Screenshot"
-
-msgid "Captura de uma área"
-msgstr "Screenshot of an area"
-
-msgid "Bloquear a tela"
-msgstr "Lock the screen"
-
-msgid "Próximo layout de teclado"
-msgstr "Next keyboard layout"
-
-msgid "Zoom: ligar e desligar"
-msgstr "Zoom: turn on and off"
-
-msgid "Zoom: aproximar"
-msgstr "Zoom: in"
-
-msgid "Zoom: afastar"
-msgstr "Zoom: out"
-
-msgid "Inverter as cores"
-msgstr "Invert colors"
-
-msgid "Sair do Glove"
-msgstr "Quit Glove"
-
-msgid "Acesso às Chaves"
-msgstr "Passwords"
-
-msgid "Utilitário de Rede"
-msgstr "Network Tools"
-
-msgid "Ethernet"
-msgstr "Ethernet"
-
-msgid "Celular"
-msgstr "Mobile"
-
-msgid "Este disco não guarda rótulos ({})"
-msgstr "This disk doesn’t store labels ({})"
-
-msgid "O servidor está em uso. Feche os arquivos abertos dele e tente de novo."
-msgstr "The server is in use. Close its open files and try again."
-
-msgid "Este disco não está montado."
-msgstr "This disk isn’t mounted."
-
-msgid "Não foi possível ejetar “{}”: {}"
-msgstr "Couldn’t eject “{}”: {}"
-
-msgid "o NetworkManager recusou"
-msgstr "NetworkManager refused"
-
-msgid "Gota"
-msgstr "Drop"
-
-msgid "Sino"
-msgstr "Bell"
-
-msgid "Vidro"
-msgstr "Glass"
-
-msgid "Bolha"
-msgstr "Bubble"
-
-msgid "Toque"
-msgstr "Tap"
-
-msgid "Sopro"
-msgstr "Breeze"
 
 msgid "Não deu para conectar a {}: {}"
 msgstr "Couldn’t connect to {}: {}"
@@ -3134,9 +2540,6 @@ msgstr "Sent"
 msgid "Rascunhos"
 msgstr "Drafts"
 
-msgid "Lixo"
-msgstr "Trash"
-
 msgid "Lixo Eletrônico"
 msgstr "Junk"
 
@@ -3169,12 +2572,6 @@ msgstr "Do you want to save the changes you made in the document “{}”?"
 
 msgid "Se você não salvar, as alterações serão perdidas."
 msgstr "Your changes will be lost if you don’t save them."
-
-msgid "Não salvar"
-msgstr "Don’t Save"
-
-msgid "Novo"
-msgstr "New"
 
 msgid "Abrir…"
 msgstr "Open…"
@@ -3652,9 +3049,6 @@ msgstr "Company"
 
 msgid "Trabalho"
 msgstr "Work"
-
-msgid "Casa"
-msgstr "Home"
 
 msgid "E-mail do trabalho"
 msgstr "Work email"
@@ -4169,9 +3563,6 @@ msgstr "Couldn’t shut down the computer."
 msgid "O sistema recusou o pedido. Talvez haja outra sessão aberta ou falte permissão."
 msgstr "The system refused the request. Maybe another session is open or permission is missing."
 
-msgid "Código"
-msgstr "Code"
-
 msgid "Parte do nome"
 msgstr "Part of the name"
 
@@ -4535,9 +3926,6 @@ msgstr "{} partition"
 msgid "{} · não montado"
 msgstr "{} · not mounted"
 
-msgid "Senha incorreta."
-msgstr "Wrong password."
-
 msgid "Um aplicativo"
 msgstr "An application"
 
@@ -4553,9 +3941,6 @@ msgstr " (limit)"
 msgid "o programa falhou"
 msgstr "the program failed"
 
-msgid "{} itens"
-msgstr "{} items"
-
 msgid "Xeque-mate. O computador venceu."
 msgstr "Checkmate. The computer won."
 
@@ -4570,40 +3955,4 @@ msgstr "Play as White"
 
 msgid "Nenhum vídeo aberto"
 msgstr "No video open"
-
-msgid "JAN"
-msgstr "JAN"
-
-msgid "FEV"
-msgstr "FEB"
-
-msgid "MAR"
-msgstr "MAR"
-
-msgid "ABR"
-msgstr "APR"
-
-msgid "MAI"
-msgstr "MAY"
-
-msgid "JUN"
-msgstr "JUN"
-
-msgid "JUL"
-msgstr "JUL"
-
-msgid "AGO"
-msgstr "AUG"
-
-msgid "SET"
-msgstr "SEP"
-
-msgid "OUT"
-msgstr "OCT"
-
-msgid "NOV"
-msgstr "NOV"
-
-msgid "DEZ"
-msgstr "DEC"
 

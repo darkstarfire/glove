@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run,
     ui::Key,
@@ -154,7 +154,7 @@ impl Musica {
     }
 
     /// Botão redondo de gel com um desenho (◀◀, ▶, ❚❚, ▶▶).
-    fn round(ui: &mut Ui, cx: f32, cy: f32, r: f32, draw: impl Fn(&mut glove_kit::paint::draw::Canvas, f32, f32, Color)) -> bool {
+    fn round(ui: &mut Ui, cx: f32, cy: f32, r: f32, draw: impl Fn(&mut glove_ui::paint::draw::Canvas, f32, f32, Color)) -> bool {
         let hit = ui.hit(Rect::new(cx - r, cy - r, 2.0 * r, 2.0 * r));
         let base = if hit.down { rgba(190, 190, 196, 255) } else { rgba(244, 244, 246, 255) };
         ui.c.fill(circle(cx, cy + 1.0, r), &solid(rgba(0, 0, 0, 50)));
@@ -233,8 +233,8 @@ impl App for Musica {
         ui.c.brushed_metal(0.0, 0.0, w, TOP_H, rgba(226, 226, 228, 255), rgba(184, 184, 188, 255));
         ui.c.hline(0.0, TOP_H - 1.0, w, rgba(120, 120, 126, 255));
         let cy = 30.0;
-        let tri = |c: &mut glove_kit::paint::draw::Canvas, x: f32, y: f32, s: f32, dir: f32, col: Color| {
-            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+        let tri = |c: &mut glove_ui::paint::draw::Canvas, x: f32, y: f32, s: f32, dir: f32, col: Color| {
+            let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
             pb.move_to(x - s * 0.5 * dir, y - s * 0.6);
             pb.line_to(x + s * 0.6 * dir, y);
             pb.line_to(x - s * 0.5 * dir, y + s * 0.6);

@@ -6,7 +6,7 @@
 use glove_config::tr;
 use std::path::PathBuf;
 
-use glove_kit::{run, App, Choice, FileBrowser, Ui, WindowOptions};
+use glove_ui::{run, App, Choice, FileBrowser, Ui, WindowOptions};
 
 struct Escolher {
     fb: FileBrowser,

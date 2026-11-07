@@ -10,6 +10,6 @@ license.workspace = true
 path = "src/main.rs"
 
 [dependencies]
-glove-config = { path = "../config" }
-glove-kit = { path = "../kit" }
+glove-config = { path = "../../ui/crates/config" }
+glove-ui = { path = "../../ui/crates/ui" }
 libc = "0.2.191"

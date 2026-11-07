@@ -7,7 +7,7 @@ use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::sync::{Arc, Mutex};
 
 use engine::{best_move, Mv, Pos, B, K, N, Q, R};
-use glove_kit::{
+use glove_ui::{
     paint::draw::*,
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };

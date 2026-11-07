@@ -7,7 +7,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{chrome, draw::*, Color, Pixmap},
     Choice, FileBrowser, Rect, Ui,
 };
@@ -202,8 +202,8 @@ impl Contas {
             Some(p) => {
                 let sc = ui.c.scale;
                 let k = s * sc / p.width().max(p.height()) as f32;
-                let t = glove_kit::paint::tiny_skia::Transform::from_scale(k, k).post_translate(x * sc, y * sc);
-                ui.c.draw_pixmap_t(p.as_ref(), &glove_kit::paint::tiny_skia::PixmapPaint { quality: glove_kit::paint::tiny_skia::FilterQuality::Bicubic, ..Default::default() }, t);
+                let t = glove_ui::paint::tiny_skia::Transform::from_scale(k, k).post_translate(x * sc, y * sc);
+                ui.c.draw_pixmap_t(p.as_ref(), &glove_ui::paint::tiny_skia::PixmapPaint { quality: glove_ui::paint::tiny_skia::FilterQuality::Bicubic, ..Default::default() }, t);
                 ui.c.stroke(rrect(x + 0.5, y + 0.5, s - 1.0, s - 1.0, 3.0), &solid(rgba(0, 0, 0, 90)), 1.0);
             }
             None => chrome::avatar(ui.c, x, y, s, chrome::avatar_seed(&u.login)),
@@ -418,7 +418,7 @@ impl Contas {
                 ok = ui.default_button(tr!("Mudar Senha"));
             });
         });
-        if cancel || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
+        if cancel || ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape) {
             return;
         }
         if ok || enter {

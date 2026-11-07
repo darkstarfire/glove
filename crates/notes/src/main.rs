@@ -13,8 +13,8 @@ use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 
-use glove_kit::paint::draw::*;
-use glove_kit::{run, App, Choice, ColorPanel, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
+use glove_ui::paint::draw::*;
+use glove_ui::{run, App, Choice, ColorPanel, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
 
 const COLORS: [(&str, &str, (u8, u8, u8)); 6] = [
     ("amarelo", "Amarelo", (255, 244, 160)),
@@ -222,7 +222,7 @@ impl Notes {
         }
         // ×
         for (x0, y0, x1, y1) in [(2.5, 2.5, 7.5, 7.5), (7.5, 2.5, 2.5, 7.5)] {
-            let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
             pb.move_to(close_r.x + x0, close_r.y + y0);
             pb.line_to(close_r.x + x1, close_r.y + y1);
             ui.c.stroke(pb.finish(), &solid(ink), 1.0);
@@ -489,7 +489,7 @@ pub fn main() {
     let opts = note.options();
     let mut windows = HashMap::new();
     windows.insert(0, first);
-    glove_kit::use_own_frame();
+    glove_ui::use_own_frame();
     let app = Notes { notes: vec![note], windows, to_open: ids, requests: Vec::new(), listener, active: first, file: None, titles: HashMap::new(), colors: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-notes: {e}");

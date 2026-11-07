@@ -7,7 +7,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{Ticks, Ui};
+use glove_ui::{Ticks, Ui};
 
 fn sibling(name: &str) -> std::path::PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(name))).filter(|p| p.is_file()).unwrap_or_else(|| name.into())

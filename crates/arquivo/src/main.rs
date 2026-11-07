@@ -17,8 +17,8 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::paint::icons::Icon;
-use glove_kit::{run, ui::AlertKind, App, Ui, WindowOptions};
+use glove_ui::paint::icons::Icon;
+use glove_ui::{run, ui::AlertKind, App, Ui, WindowOptions};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Op {
@@ -252,7 +252,7 @@ impl App for Arquivo {
         }
         let (w, h) = (ui.c.w, ui.c.h);
         let icon = if self.op == Op::Compress { Icon::ArchiveFile } else { Icon::Folder };
-        glove_kit::paint::icons::draw(ui.c, ui.fonts, icon, 16.0, 16.0, 32.0, None);
+        glove_ui::paint::icons::draw(ui.c, ui.fonts, icon, 16.0, 16.0, 32.0, None);
         let verb = if self.op == Op::Compress { "Compactando" } else { "Expandindo" };
         // Nome comprido perde o fim ("Compactando “Relatório do ano pass…”").
         let mut name: Vec<char> = self.what.chars().collect();
@@ -261,12 +261,12 @@ impl App for Arquivo {
             name.pop();
             shown = format!("{verb} “{}…”", name.iter().collect::<String>().trim_end());
         }
-        ui.fonts.draw(ui.c, &shown, 60.0, 26.0, 13.0, true, glove_kit::paint::draw::rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, &shown, 60.0, 26.0, 13.0, true, glove_ui::paint::draw::rgba(20, 20, 20, 255));
         let value = (total > 0).then(|| done as f32 / total as f32);
-        ui.progress_in(glove_kit::Rect::new(60.0, 36.0, w - 140.0, 12.0), value);
+        ui.progress_in(glove_ui::Rect::new(60.0, 36.0, w - 140.0, 12.0), value);
         let detail = if total > 0 { tr!("{} de {} itens", done, total) } else { "Preparando…".into() };
-        ui.fonts.draw(ui.c, &detail, 60.0, 66.0, 11.0, false, glove_kit::paint::draw::rgba(90, 90, 90, 255));
-        ui.area(glove_kit::Rect::new(w - 72.0, 30.0, 60.0, h), |ui| {
+        ui.fonts.draw(ui.c, &detail, 60.0, 66.0, 11.0, false, glove_ui::paint::draw::rgba(90, 90, 90, 255));
+        ui.area(glove_ui::Rect::new(w - 72.0, 30.0, 60.0, h), |ui| {
             if ui.small_button(tr!("Parar")) {
                 self.shared.lock().unwrap().stop = true;
             }

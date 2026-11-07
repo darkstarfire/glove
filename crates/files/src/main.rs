@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, icons::{self, Icon}, Color, Theme, Variant},
     run,
     ui::Key,
@@ -112,7 +112,7 @@ impl Entry {
         }
     }
     /// Desenha o ícone (com a marca de atalho, se for um link).
-    fn draw_icon(&self, c: &mut glove_kit::paint::draw::Canvas, fonts: &glove_kit::paint::Fonts, x: f32, y: f32, s: f32) {
+    fn draw_icon(&self, c: &mut glove_ui::paint::draw::Canvas, fonts: &glove_ui::paint::Fonts, x: f32, y: f32, s: f32) {
         icons::draw(c, fonts, self.icon(), x, y, s, None);
         if self.link {
             icons::alias_badge(c, x, y, s);
@@ -222,8 +222,8 @@ fn sort_entries(v: &mut [Entry], by: &str) {
 }
 
 /// Símbolo ⏏ (triângulo sobre uma barra) com centro em (cx, cy).
-fn draw_eject(c: &mut glove_kit::paint::draw::Canvas, cx: f32, cy: f32, r: f32, col: Color) {
-    let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+fn draw_eject(c: &mut glove_ui::paint::draw::Canvas, cx: f32, cy: f32, r: f32, col: Color) {
+    let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
     pb.move_to(cx, cy - r);
     pb.line_to(cx + r, cy + r * 0.25);
     pb.line_to(cx - r, cy + r * 0.25);
@@ -462,7 +462,7 @@ struct EmptyTrash {
 
 impl App for EmptyTrash {
     fn ui(&mut self, ui: &mut Ui) {
-        use glove_kit::AlertKind;
+        use glove_ui::AlertKind;
         if let Some(e) = self.error.clone() {
             if ui.alert_window(AlertKind::Stop, tr!("Não foi possível esvaziar a Lixeira."), &e, &["OK"]).is_some() {
                 ui.close = true;
@@ -512,7 +512,7 @@ fn open_file(e: &Entry) {
         // Sem padrão: os apps do Glove para o que eles abrem.
         match e.kind {
             Kind::Text => Command::new(sibling("glove-edit")),
-            Kind::Picture if glove_kit::image::format_of(&e.path).is_some() => Command::new(sibling("glove-view")),
+            Kind::Picture if glove_ui::image::format_of(&e.path).is_some() => Command::new(sibling("glove-view")),
             _ if ext == "pdf" => Command::new(sibling("glove-view")),
             _ if ["ttf", "otf", "ttc"].contains(&ext.as_str()) => Command::new(sibling("glove-fontes")),
             _ if ["mp4", "mkv", "webm", "mov", "avi", "m4v", "mpg", "mpeg", "ogv"].contains(&ext.as_str()) => Command::new(sibling("glove-video")),
@@ -730,7 +730,7 @@ impl Files {
             tr!("Já existem {} itens com esses nomes nesta pasta.", names.len())
         };
         let text = tr!("Deseja substituir pelo que está sendo copiado? Substituir apaga o que está lá agora.");
-        match ui.alert(glove_kit::AlertKind::Caution, &title, text, &[tr!("Parar"), tr!("Manter os dois"), tr!("Substituir")]) {
+        match ui.alert(glove_ui::AlertKind::Caution, &title, text, &[tr!("Parar"), tr!("Manter os dois"), tr!("Substituir")]) {
             Some(0) => self.ask = None,
             Some(c) => {
                 let (mut items, _, mv) = self.ask.take().unwrap();
@@ -1326,7 +1326,7 @@ impl Files {
             ui.fonts.draw(ui.c, &label, tx, y + 14.5, 13.0, false, col);
             // Submenu: o triângulo à direita (abre ao passar o mouse).
             if id.starts_with("sub:") {
-                let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+                let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
                 let (tx, ty) = (x + mw - 14.0, y + 10.0);
                 pb.move_to(tx - 3.0, ty - 4.5);
                 pb.line_to(tx + 3.0, ty);
@@ -1798,7 +1798,7 @@ impl Files {
                 let name = fonts.ellipsize(&glove_config::arquivos::shown_name(&e.name, e.kind == Kind::Folder, show_ext), 12.0, false, r.w - 44.0);
                 fonts.draw(c, &name, 26.0, y + 14.0, 12.0, false, ink);
                 if e.kind == Kind::Folder {
-                    let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+                    let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
                     let (ax, ay) = (r.w - 14.0, y + ROW_H / 2.0);
                     pb.move_to(ax, ay - 4.0);
                     pb.line_to(ax + 5.0, ay);
@@ -1886,8 +1886,8 @@ impl Files {
                         ui.c.fill_rect(dx + 1.0, dy + 2.0, dw, dh, &solid(rgba(0, 0, 0, 40)));
                     }
                     let k = dw * s / src.width() as f32;
-                    let paint = glove_kit::paint::tiny_skia::PixmapPaint { quality: glove_kit::paint::tiny_skia::FilterQuality::Bilinear, ..Default::default() };
-                    ui.c.draw_pixmap_t(src.as_ref(), &paint, glove_kit::paint::tiny_skia::Transform::from_row(k, 0.0, 0.0, k, (dx * s).round(), (dy * s).round()));
+                    let paint = glove_ui::paint::tiny_skia::PixmapPaint { quality: glove_ui::paint::tiny_skia::FilterQuality::Bilinear, ..Default::default() };
+                    ui.c.draw_pixmap_t(src.as_ref(), &paint, glove_ui::paint::tiny_skia::Transform::from_row(k, 0.0, 0.0, k, (dx * s).round(), (dy * s).round()));
                     ui.c.set_clip(old);
                     if dw <= bx.w && dh <= bx.h {
                         ui.c.stroke(rrect(dx - 0.5, dy - 0.5, dw + 1.0, dh + 1.0, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0 / s);
@@ -2014,11 +2014,11 @@ impl Files {
         }
         self.scroll.insert(dir.clone(), state.scroll);
         // Linha sob o ponto (botão direito e campo de renomear).
-        let row_top = |i: usize| area.y + glove_kit::TABLE_HEADER_H + i as f32 * ROW_H - state.scroll;
+        let row_top = |i: usize| area.y + glove_ui::TABLE_HEADER_H + i as f32 * ROW_H - state.scroll;
         if ui.right_clicked(area) {
             let py = ui.pointer().1;
-            let i = ((py - area.y - glove_kit::TABLE_HEADER_H + state.scroll) / ROW_H).floor();
-            if i >= 0.0 && (i as usize) < entries.len() && py > area.y + glove_kit::TABLE_HEADER_H {
+            let i = ((py - area.y - glove_ui::TABLE_HEADER_H + state.scroll) / ROW_H).floor();
+            if i >= 0.0 && (i as usize) < entries.len() && py > area.y + glove_ui::TABLE_HEADER_H {
                 let e = &entries[i as usize];
                 if !self.is_chosen(&e.path) {
                     self.selected = Some(e.path.clone());
@@ -2030,7 +2030,7 @@ impl Files {
         if let Some(i) = self.rename.as_ref().and_then(|(p, _, _)| entries.iter().position(|e| &e.path == p)) {
             let y = row_top(i);
             let path = entries[i].path.clone();
-            if y >= area.y + glove_kit::TABLE_HEADER_H && y + ROW_H <= area.y + area.h {
+            if y >= area.y + glove_ui::TABLE_HEADER_H && y + ROW_H <= area.y + area.h {
                 self.rename_field(ui, &path, Rect::new(area.x + 26.0, y + 1.0, area.w * 0.4, ROW_H - 2.0));
             } else {
                 // Fora da vista: desiste (as teclas voltam para a janela).
@@ -2540,7 +2540,7 @@ impl App for Files {
         if self.paste_wait {
             if let Some(t) = ui.take_paste() {
                 self.paste_wait = false;
-                let srcs: Vec<PathBuf> = glove_kit::clipfiles::parse(&t).into_iter().filter(|p| p.exists()).collect();
+                let srcs: Vec<PathBuf> = glove_ui::clipfiles::parse(&t).into_iter().filter(|p| p.exists()).collect();
                 let dir = self.current();
                 self.transfer(srcs, dir, false);
             }

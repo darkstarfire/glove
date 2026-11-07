@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use glove_config::rede::{self, Iface, IpInfo, Wifi};
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     Rect, Ui,
 };
@@ -411,7 +411,7 @@ impl Rede {
                 ok = ui.default_button(tr!("Conectar"));
             });
         });
-        let esc = ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape);
+        let esc = ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape);
         if cancel || esc {
             self.prompt = None;
         } else if (ok || enter) && !pw.is_empty() {

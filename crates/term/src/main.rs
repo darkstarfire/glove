@@ -17,7 +17,7 @@ use alacritty_terminal::{
     term::{cell::Flags, Config, Term, TermMode},
     vte::ansi::{Color as AColor, CursorShape, NamedColor, Processor, Rgb},
 };
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color, Fonts},
     run,
     ui::Key,
@@ -430,7 +430,7 @@ impl Terminal {
                 let uy = y + ch - 2.0;
                 if flags.contains(Flags::UNDERCURL) {
                     // Sublinhado ondulado (erros do LSP etc.).
-                    let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+                    let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
                     pb.move_to(x, uy);
                     let mut xx = x;
                     let step = (cw / 2.0).max(2.0);

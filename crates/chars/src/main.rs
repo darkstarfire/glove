@@ -4,7 +4,7 @@
 use glove_config::tr;
 mod fonte;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions, SCROLLBAR_W,
 };

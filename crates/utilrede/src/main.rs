@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glove_kit::{
+use glove_ui::{
     paint::{draw::*, Color, Fonts},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };

@@ -13,7 +13,7 @@ mod users;
 use std::sync::mpsc::{channel, Receiver};
 use std::time::{Duration, Instant};
 
-use glove_kit::{
+use glove_ui::{
     paint::{
         chrome::{avatar, avatar_seed, user_picture},
         draw::*,
@@ -119,7 +119,7 @@ fn picture(ui: &mut Ui, photo: Option<&Pixmap>, x: f32, y: f32, s: f32) {
             let sc = ui.c.scale;
             let k = s * sc / p.width().max(p.height()) as f32;
             let t = Transform::from_scale(k, k).post_translate(x * sc, y * sc);
-            ui.c.draw_pixmap_t(p.as_ref(), &PixmapPaint { quality: glove_kit::paint::tiny_skia::FilterQuality::Bicubic, ..Default::default() }, t);
+            ui.c.draw_pixmap_t(p.as_ref(), &PixmapPaint { quality: glove_ui::paint::tiny_skia::FilterQuality::Bicubic, ..Default::default() }, t);
             ui.c.stroke(rrect(x + 0.5, y + 0.5, s - 1.0, s - 1.0, 3.0), &solid(rgba(0, 0, 0, 90)), 1.0);
         }
         None => {
@@ -129,7 +129,7 @@ fn picture(ui: &mut Ui, photo: Option<&Pixmap>, x: f32, y: f32, s: f32) {
     }
 }
 
-fn center_text(ui: &mut Ui, t: &str, cx: f32, y: f32, px: f32, bold: bool, c: glove_kit::paint::Color) {
+fn center_text(ui: &mut Ui, t: &str, cx: f32, y: f32, px: f32, bold: bool, c: glove_ui::paint::Color) {
     let tw = ui.text_width(t, px, bold);
     ui.fonts.draw(ui.c, t, cx - tw / 2.0, y, px, bold, c);
 }
@@ -185,7 +185,7 @@ impl App for Login {
                     if resp.hover {
                         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(ui.theme.menu_hot));
                     }
-                    let text_c = if resp.hover { glove_kit::paint::Color::WHITE } else { ink };
+                    let text_c = if resp.hover { glove_ui::paint::Color::WHITE } else { ink };
                     let name = match self.users.get(i) {
                         Some(u) => {
                             let (photo, login) = (self.photos[i].as_ref(), u.login.clone());
@@ -206,7 +206,7 @@ impl App for Login {
                     }
                 }
                 // Enter com um usuário só: vai direto para a senha.
-                if self.users.len() == 1 && ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Enter) {
+                if self.users.len() == 1 && ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Enter) {
                     self.screen = Screen::Password(Some(0));
                     self.focus_password = true;
                 }
@@ -264,7 +264,7 @@ impl App for Login {
                     let mut go = enter;
                     ui.area(Rect::new(cx - 100.0, y + 30.0, 110.0, 24.0), |ui| back = ui.button(tr!("Voltar")));
                     ui.area(Rect::new(cx + 30.0, y + 30.0, 120.0, 24.0), |ui| go |= ui.default_button(tr!("Entrar")));
-                    if back || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
+                    if back || ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape) {
                         self.screen = Screen::List;
                         self.password.clear();
                         self.message = None;
@@ -301,7 +301,7 @@ impl App for Login {
 /// Símbolos dos botões de energia: lua (repouso), seta circular (reiniciar), liga/desliga.
 fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32) {
     let col = rgba(60, 60, 66, 255);
-    let mut pb = glove_kit::paint::tiny_skia::PathBuilder::new();
+    let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
     match k {
         0 => {
             // Lua: dois círculos (o de cima apaga parte do outro).
@@ -321,7 +321,7 @@ fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32) {
             ui.c.stroke_round(pb.finish(), &solid(col), 2.0);
             let a = -1.2f32;
             let (x, y) = (cx + r * a.cos(), cy + r * a.sin());
-            let mut tri = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut tri = glove_ui::paint::tiny_skia::PathBuilder::new();
             tri.move_to(x - 3.5, y - 1.0);
             tri.line_to(x + 3.0, y - 3.5);
             tri.line_to(x + 1.0, y + 3.5);
@@ -343,7 +343,7 @@ fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32) {
                 if i == 0 { pb.move_to(x, y) } else { pb.line_to(x, y) }
             }
             ui.c.stroke_round(pb.finish(), &solid(col), 2.0);
-            let mut l = glove_kit::paint::tiny_skia::PathBuilder::new();
+            let mut l = glove_ui::paint::tiny_skia::PathBuilder::new();
             l.move_to(cx, cy - 8.5);
             l.line_to(cx, cy - 1.5);
             ui.c.stroke_round(l.finish(), &solid(col), 2.0);

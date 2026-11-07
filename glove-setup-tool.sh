@@ -88,7 +88,17 @@ dependencias() {
 
 # --- compilação -------------------------------------------------------------------
 
+# A glove-ui (biblioteca dos apps) vem como submódulo do Git em ui/.
+submodulo() {
+    if [ ! -f ui/Cargo.toml ]; then
+        tem git || erro "$(t "falta a pasta ui/ (glove-ui): clone com git clone --recursive" "the ui/ folder (glove-ui) is missing: clone with git clone --recursive")"
+        msg "$(t "Baixando a glove-ui (submódulo)" "Downloading glove-ui (submodule)")"
+        git submodule update --init --recursive
+    fi
+}
+
 compilar() {
+    submodulo
     tem cargo || erro "$(t "falta o Rust (cargo). Rode: ./glove-setup-tool.sh dependencias" "Rust (cargo) is missing. Run: ./glove-setup-tool.sh deps")"
     msg "$(t "Compilando o Glove $versao (alguns minutos)" "Building Glove $versao (a few minutes)")"
     cargo build --release --locked
@@ -389,6 +399,7 @@ sha256sums=('SKIP')
 
 prepare() {
   cd glove
+  git submodule update --init --recursive
   cargo fetch --locked --target "\$(rustc -vV | sed -n 's/host: //p')"
 }
 
