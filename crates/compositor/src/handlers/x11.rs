@@ -104,6 +104,9 @@ impl XwmHandler for Glove {
         let w = Window::new_x11_window(window.clone());
         let area = st.work_area();
         st.space.map_element(w.clone(), (area.loc.x + 80, area.loc.y + 40), true);
+        if window.is_maximized() && !crate::shell::fixed_size(&w) {
+            st.mark_born_zoomed(&w);
+        }
         // Diálogos e janelas pequenas também passam pelo posicionamento do Glove.
         st.place_new_window(&w);
         st.sync_x11(&w);

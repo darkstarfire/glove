@@ -547,7 +547,7 @@ pub(crate) fn update(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 /// Disco de Início: o HD com o botão de ligar de gel azul.
 pub(crate) fn startup_disk(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    crate::tiger::disk(pm, x, y, s);
+    crate::tiger_real::disk(pm, x, y, s);
     let b = u.circ(0.72, 0.3, 0.17);
     soft_shadow(pm, b.clone(), s, 0.9);
     gel(pm, u, b, rgba(40, 120, 225, 255), 0.13, 0.47);
@@ -792,7 +792,7 @@ pub(crate) fn viewer(pm: &mut Canvas, x: f32, y: f32, s: f32) {
 /// Utilitário de Disco: o HD com a chave inglesa cromada atravessada.
 pub(crate) fn disk_utility(pm: &mut Canvas, x: f32, y: f32, s: f32) {
     let u = U { x, y, s };
-    crate::tiger::disk(pm, x, y, s);
+    crate::tiger_real::disk(pm, x, y, s);
     let t = Transform::from_rotate_at(-40.0, u.px(0.5), u.py(0.5));
     let mut pb = PathBuilder::new();
     if let Some(r) = rect(u, 0.22, 0.46, 0.52, 0.08) {

@@ -855,6 +855,14 @@ impl Glove {
         self.dirty = true;
     }
 
+    /// Janela que já nasce maximizada: o posicionamento a põe na área útil inteira.
+    pub fn mark_born_zoomed(&self, w: &Window) {
+        w.user_data().insert_if_missing(|| RefCell::new(Restore::default()));
+        if let Some(r) = w.user_data().get::<RefCell<Restore>>() {
+            r.borrow_mut().0.get_or_insert(Rectangle::default());
+        }
+    }
+
     /// Posiciona uma janela nova no centro da área útil (com cascata leve).
     pub fn place_new_window(&mut self, w: &Window) {
         if w.user_data().get::<Placed>().is_some() {
@@ -874,6 +882,38 @@ impl Glove {
         }
         let area = self.work_area();
         let top = deco_top(w);
+        // O app pediu para abrir maximizado (lembrou do estado ao fechar): ocupa
+        // a área útil de agora, sem cascata. Como ainda não tinha tamanho, o
+        // tamanho de "voltar" passa a ser 2/3 da área, centralizado.
+        if let Some(restore) = w.user_data().get::<RefCell<Restore>>() {
+            let saved = restore.borrow().0;
+            if let Some(r) = saved {
+                let zarea = self.zoom_area(w);
+                if r.size.w <= 0 || r.size.h <= 0 {
+                    let (rw, rh) = (zarea.size.w * 2 / 3, (zarea.size.h - top) * 2 / 3);
+                    let loc = (zarea.loc.x + (zarea.size.w - rw) / 2, zarea.loc.y + top + (zarea.size.h - top - rh) / 3);
+                    restore.replace(Restore(Some(Rectangle::new(loc.into(), (rw, rh).into()))));
+                }
+                let rect = Rectangle::new((zarea.loc.x, zarea.loc.y + top).into(), (zarea.size.w, zarea.size.h - top).into());
+                if size != rect.size {
+                    if let Some(x) = w.x11_surface() {
+                        let _ = x.configure(rect);
+                    } else if let Some(t) = w.toplevel() {
+                        t.with_pending_state(|s| {
+                            s.states.set(xdg_toplevel::State::Maximized);
+                            s.size = Some(rect.size);
+                        });
+                        t.send_pending_configure();
+                    }
+                }
+                self.space.map_element(w.clone(), rect.loc, false);
+                if self.focused_window().as_ref() == Some(w) {
+                    self.space.raise_element(w, true);
+                }
+                self.dirty = true;
+                return;
+            }
+        }
         let off = (self.cascade % 6) * 26;
         self.cascade += 1;
         let (x, y) = if self.greeter {

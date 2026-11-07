@@ -13,6 +13,7 @@ pub mod saver;
 pub mod theme;
 mod tiger;
 mod tiger_prefs;
+mod tiger_real;
 
 /// Quantas bolas de papel enchem o ícone do Lixo.
 pub use tiger::TRASH_FULL_AT;

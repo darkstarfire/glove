@@ -417,6 +417,21 @@ composição de um ícone da Apple nem usa marcas (rosto do Finder, bússola do 
   `glove-arte icones <pasta>` gera 84 ícones em 16 tamanhos (1.344 PNGs) com os nomes comuns do
   freedesktop/GNOME como atalhos; o tema é publicado em github.com/fabioaacarneiro/glove-icons
 
+## Fase 9.12 — Ícones mais realistas (pedido de 07/11/2026)
+
+Menos "desenho animado": nada de contorno preto grosso; luz de cima, chanfros, rebaixos e textura de
+material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar forma, marca ou composição).
+
+- [x] 9.12.1 Disco, Terminal, Monitor de Atividade, Navegador e Arquivos (`paint/src/tiger_real.rs`) (M)
+  — v0.9.16: HD em perspectiva de verdade (tampa de alumínio com os rebaixos do prato e da etiqueta,
+  parafusos Torx, frente com as fendas e a luz acesa); monitor de tubo bege de frente (moldura funda,
+  queixo com plaqueta, tecla de ligar e alto-falante, sobre o pé) para o Terminal e o Monitor;
+  bússola de bolso cromada com coroa, mostrador azul com meridianos e agulha vermelha e prata;
+  rosto em dois tons do Arquivos (perfil com nariz olhando para a direita, olhos redondos, sem traço
+  preto). Correção: a janela que o app pede para abrir maximizada (porque fechou assim) agora ocupa a
+  área útil certinha, e "restaurar" a devolve a 2/3 da tela, centralizada
+- [ ] 9.12.2 O mesmo acabamento nos outros ícones, em lotes (M)
+
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
 Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no
