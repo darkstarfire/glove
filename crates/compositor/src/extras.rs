@@ -393,7 +393,7 @@ impl Glove {
             .iter()
             .map(|id| {
                 let (l, var) = glove_config::split_layout(id);
-                let name = glove_config::KEYBOARD_LAYOUTS.iter().find(|x| x.0 == l && x.1 == var).map(|x| x.2.to_string()).unwrap_or_else(|| id.clone());
+                let name = glove_config::KEYBOARD_LAYOUTS.iter().find(|x| x.0 == l && x.1 == var).map(|x| glove_config::tr(x.2).to_string()).unwrap_or_else(|| id.clone());
                 MenuNode::new(MenuItem::check(name, *id == cur), Some(MenuAction::SetLayout(id.clone())))
             })
             .collect();

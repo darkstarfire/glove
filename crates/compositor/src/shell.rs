@@ -1599,8 +1599,8 @@ impl Glove {
             }
             items.push(DockItem {
                 icon,
-                label: app.name.clone(),
-                letter: app.name.chars().next(),
+                label: glove_config::tr_dyn(&app.name),
+                letter: glove_config::tr_dyn(&app.name).chars().next(),
                 running: !app.app_id.is_empty() && running.contains(&app.app_id.to_lowercase()),
                 separator_before: false,
                 bounce: self.dock_bounce(&app.app_id, self.config.dock.size.clamp(24, 128) as f32),

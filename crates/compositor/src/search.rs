@@ -190,7 +190,7 @@ fn installed_apps(glove_apps: &[glove_config::DockApp]) -> Vec<App> {
     let mut out: Vec<App> = glove_apps
         .iter()
         .chain(extras.iter())
-        .map(|a| App { name: a.name.clone(), keywords: normalize(&a.app_id), exec: a.command.clone(), icon: Icon::from_name(&a.icon), glove_id: Some(a.app_id.clone()) })
+        .map(|a| App { name: glove_config::tr_dyn(&a.name), keywords: normalize(&a.app_id), exec: a.command.clone(), icon: Icon::from_name(&a.icon), glove_id: Some(a.app_id.clone()) })
         .collect();
     for dir in app_dirs() {
         let mut files = Vec::new();

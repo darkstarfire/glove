@@ -649,7 +649,7 @@ impl Prefs {
             });
         });
         ui.space(4.0);
-        let names: Vec<String> = glove_config::HIGHLIGHTS.iter().map(|h| h.1.to_string()).collect();
+        let names: Vec<String> = glove_config::HIGHLIGHTS.iter().map(|h| tr(h.1).to_string()).collect();
         let mut h = glove_config::HIGHLIGHTS.iter().position(|h| h.0 == self.config.appearance.highlight).unwrap_or(0);
         ui.form_row(tr!("Cor de destaque"), LW, |ui| {
             ui.horizontal(|ui| {
@@ -1017,7 +1017,7 @@ impl Prefs {
                     }
                 });
                 ui.space(8.0);
-                let names: Vec<String> = LAYOUTS.iter().map(|l| l.2.to_string()).collect();
+                let names: Vec<String> = LAYOUTS.iter().map(|l| tr(l.2).to_string()).collect();
                 let mut cur = LAYOUTS
                     .iter()
                     .position(|l| l.0 == self.config.keyboard.layout && l.1 == self.config.keyboard.variant)
@@ -1393,7 +1393,7 @@ impl Prefs {
         for (l, v, name, badge) in LAYOUTS {
             let id = glove_config::layout_id(l, v);
             let mut on = self.config.keyboard.input_menu.contains(&id);
-            let label = format!("{name}  ({badge})");
+            let label = format!("{}  ({badge})", tr(name));
             ui.push_id(&id, |ui| {
                 if ui.checkbox(&mut on, &label) {
                     let list = &mut self.config.keyboard.input_menu;
@@ -1828,7 +1828,7 @@ impl Prefs {
         ui.tab_box(&mut tab, &[tr!("Efeitos Sonoros"), tr!("Saída"), tr!("Entrada")], 280.0, |ui| match shown {
             0 => {
                 ui.label(tr!("Escolher um alerta sonoro:"));
-                let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| a.to_string()).collect();
+                let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| tr(a).to_string()).collect();
                 let mut sel = glove_config::sons::ALERTS.iter().position(|a| *a == self.config.sound.alert);
                 let (lx, ly) = ui.cursor();
                 let list_r = Rect::new(lx, ly, ui.available_width(), 118.0);

@@ -2,6 +2,7 @@
 //! rótulos de cor (guardados no próprio arquivo, num atributo estendido) e os
 //! apps que abrem cada tipo de arquivo ("Abrir com").
 
+use crate::tr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -63,7 +64,9 @@ impl Files {
     /// Nome do rótulo `n` (1 a 7).
     pub fn label_name(&self, n: u8) -> String {
         let i = (n as usize).saturating_sub(1);
-        self.labels.get(i).filter(|s| !s.trim().is_empty()).cloned().unwrap_or_else(|| DEFAULT_LABELS.get(i).copied().unwrap_or("").to_string())
+        // Os nomes de fábrica aparecem no idioma em uso; os que a pessoa escreveu, como estão.
+        let name = self.labels.get(i).filter(|s| !s.trim().is_empty()).cloned().unwrap_or_else(|| DEFAULT_LABELS.get(i).copied().unwrap_or("").to_string());
+        crate::tr_dyn(&name)
     }
 
     /// Pasta das janelas novas.
@@ -127,7 +130,7 @@ pub fn label_of(p: &Path) -> u8 {
 
 /// Põe (1 a 7) ou tira (0) o rótulo.
 pub fn set_label(p: &Path, n: u8) -> Result<(), String> {
-    let path = cpath(p).ok_or("caminho inválido")?;
+    let path = cpath(p).ok_or(tr!("caminho inválido"))?;
     let attr = std::ffi::CString::new(LABEL_ATTR).unwrap();
     let r = unsafe {
         if n == 0 {
@@ -138,7 +141,7 @@ pub fn set_label(p: &Path, n: u8) -> Result<(), String> {
             libc::setxattr(path.as_ptr(), attr.as_ptr(), v.as_ptr() as *const _, v.len(), 0)
         }
     };
-    if r == 0 { Ok(()) } else { Err(format!("Este disco não guarda rótulos ({})", std::io::Error::last_os_error())) }
+    if r == 0 { Ok(()) } else { Err(tr!("Este disco não guarda rótulos ({})", std::io::Error::last_os_error())) }
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +222,7 @@ pub fn apps_for_mime(mime: &str) -> Vec<(String, String)> {
                 if let Some(v) = l.strip_prefix("Name=") {
                     name.get_or_insert(v);
                 }
-                if let Some(v) = l.strip_prefix("Name[pt_BR]=") {
+                if let Some(v) = l.strip_prefix("Name[").and_then(|r| r.split_once("]=")).filter(|(loc, _)| *loc == crate::idioma() || loc.starts_with(&format!("{}_", crate::idioma()))).map(|(_, v)| v) {
                     name_pt = Some(v);
                 }
                 if let Some(v) = l.strip_prefix("MimeType=") {

@@ -3,6 +3,7 @@
 //! ejetados pelo Glove, para o aviso de "disco removido sem ejetar" só aparecer
 //! quando o aparelho some sem ter sido ejetado.
 
+use crate::tr;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,7 +58,7 @@ pub fn server_name(dir_name: &str) -> String {
     let get = |k: &str| rest.split(',').find_map(|kv| kv.strip_prefix(&format!("{k}="))).map(|v| v.replace("%20", " "));
     let host = get("host").or_else(|| get("server")).unwrap_or_else(|| rest.to_string());
     match get("share") {
-        Some(share) => format!("{share} em {host}"),
+        Some(share) => tr!("{} em {}", share, host),
         None if scheme.is_empty() => host,
         None => host,
     }
@@ -88,7 +89,7 @@ pub fn disconnect(path: &Path) -> Result<(), String> {
         Ok(())
     } else {
         let e = String::from_utf8_lossy(&o.stderr);
-        Err(if e.to_lowercase().contains("busy") { "O servidor está em uso. Feche os arquivos abertos dele e tente de novo.".into() } else { e.trim().to_string() })
+        Err(if e.to_lowercase().contains("busy") { tr!("O servidor está em uso. Feche os arquivos abertos dele e tente de novo.").into() } else { e.trim().to_string() })
     }
 }
 
@@ -160,7 +161,7 @@ pub fn eject(mount: &Path) -> Result<String, String> {
         return disconnect(mount).map(|_| name);
     }
     let all = removable_mounts();
-    let Some(m) = all.iter().find(|m| m.path == mount) else { return Err("Este disco não está montado.".into()) };
+    let Some(m) = all.iter().find(|m| m.path == mount) else { return Err(tr!("Este disco não está montado.").into()) };
     let disk = parent_disk(&m.dev);
     let parts: Vec<&Mount> = all.iter().filter(|x| parent_disk(&x.dev) == disk).collect();
     mark_ejected(&format!("/dev/{disk}"));
@@ -170,11 +171,11 @@ pub fn eject(mount: &Path) -> Result<String, String> {
         if !o.status.success() {
             let e = String::from_utf8_lossy(&o.stderr).to_lowercase();
             return Err(if e.contains("busy") || e.contains("ocupado") {
-                format!("O disco “{}” está em uso. Feche os arquivos e os apps que usam o disco e tente de novo.", m.name)
+                tr!("O disco “{}” está em uso. Feche os arquivos e os apps que usam o disco e tente de novo.", m.name)
             } else if e.contains("notauthorized") {
-                "O sistema pediu permissão de administrador e ela não foi dada.".into()
+                tr!("O sistema pediu permissão de administrador e ela não foi dada.").into()
             } else {
-                format!("Não foi possível ejetar “{}”: {}", m.name, e.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").trim())
+                tr!("Não foi possível ejetar “{}”: {}", m.name, e.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").trim())
             });
         }
     }

@@ -2789,3 +2789,150 @@ msgstr "This disk doesn’t store comments ({})"
 msgid "Usar para todos deste tipo"
 msgstr "Use for all of this kind"
 
+msgid "Vermelho"
+msgstr "Red"
+
+msgid "Laranja"
+msgstr "Orange"
+
+msgid "Amarelo"
+msgstr "Yellow"
+
+msgid "Verde"
+msgstr "Green"
+
+msgid "Azul"
+msgstr "Blue"
+
+msgid "Roxo"
+msgstr "Purple"
+
+msgid "caminho inválido"
+msgstr "invalid path"
+
+msgid "{} em {}"
+msgstr "{} on {}"
+
+msgid "O disco “{}” está em uso. Feche os arquivos e os apps que usam o disco e tente de novo."
+msgstr "The disk “{}” is in use. Close the files and apps using it and try again."
+
+msgid "O sistema pediu permissão de administrador e ela não foi dada."
+msgstr "The system asked for administrator permission and it wasn’t given."
+
+msgid "Português (Brasil, ABNT2)"
+msgstr "Portuguese (Brazil, ABNT2)"
+
+msgid "Inglês (EUA, internacional)"
+msgstr "English (US, international)"
+
+msgid "Espanhol (América Latina)"
+msgstr "Spanish (Latin America)"
+
+msgid "Prata"
+msgstr "Silver"
+
+msgid "Dourado"
+msgstr "Gold"
+
+msgid "Abrir Terminal"
+msgstr "Open Terminal"
+
+msgid "Minimizar janela"
+msgstr "Minimize window"
+
+msgid "Ocultar o app"
+msgstr "Hide the app"
+
+msgid "Ocultar os outros apps"
+msgstr "Hide other apps"
+
+msgid "Zoom da janela"
+msgstr "Zoom window"
+
+msgid "Trocar de app"
+msgstr "Switch apps"
+
+msgid "Exposé: todas as janelas"
+msgstr "Exposé: all windows"
+
+msgid "Exposé: janelas do app"
+msgstr "Exposé: application windows"
+
+msgid "Exposé: mostrar a mesa"
+msgstr "Exposé: show the desktop"
+
+msgid "Abrir Preferências"
+msgstr "Open Preferences"
+
+msgid "Captura de tela"
+msgstr "Screenshot"
+
+msgid "Captura de uma área"
+msgstr "Screenshot of an area"
+
+msgid "Bloquear a tela"
+msgstr "Lock the screen"
+
+msgid "Próximo layout de teclado"
+msgstr "Next keyboard layout"
+
+msgid "Zoom: ligar e desligar"
+msgstr "Zoom: turn on and off"
+
+msgid "Zoom: aproximar"
+msgstr "Zoom: in"
+
+msgid "Zoom: afastar"
+msgstr "Zoom: out"
+
+msgid "Inverter as cores"
+msgstr "Invert colors"
+
+msgid "Sair do Glove"
+msgstr "Quit Glove"
+
+msgid "Acesso às Chaves"
+msgstr "Passwords"
+
+msgid "Utilitário de Rede"
+msgstr "Network Tools"
+
+msgid "Ethernet"
+msgstr "Ethernet"
+
+msgid "Celular"
+msgstr "Mobile"
+
+msgid "Este disco não guarda rótulos ({})"
+msgstr "This disk doesn’t store labels ({})"
+
+msgid "O servidor está em uso. Feche os arquivos abertos dele e tente de novo."
+msgstr "The server is in use. Close its open files and try again."
+
+msgid "Este disco não está montado."
+msgstr "This disk isn’t mounted."
+
+msgid "Não foi possível ejetar “{}”: {}"
+msgstr "Couldn’t eject “{}”: {}"
+
+msgid "o NetworkManager recusou"
+msgstr "NetworkManager refused"
+
+msgid "Gota"
+msgstr "Drop"
+
+msgid "Sino"
+msgstr "Bell"
+
+msgid "Vidro"
+msgstr "Glass"
+
+msgid "Bolha"
+msgstr "Bubble"
+
+msgid "Toque"
+msgstr "Tap"
+
+msgid "Sopro"
+msgstr "Breeze"
+

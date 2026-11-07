@@ -1,7 +1,6 @@
 //! Configuração do Glove (~/.config/glove/config.toml), compartilhada entre
 //! o compositor e os apps (Preferências, etc.).
 
-
 /// Traduções (ver o glove-i18n): a macro `tr!` com o texto em português.
 pub use glove_i18n::{idioma, tr, tr_dyn, virgula};
 
@@ -641,7 +640,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
 ];
 
 pub fn action_label(id: &str) -> &str {
-    ACTIONS.iter().find(|(a, _)| *a == id).map(|(_, l)| *l).unwrap_or(id)
+    ACTIONS.iter().find(|(a, _)| *a == id).map(|(_, l)| tr(l)).unwrap_or(id)
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -777,39 +776,39 @@ pub fn default_shortcuts() -> Vec<Shortcut> {
 
 pub fn default_dock_apps() -> Vec<DockApp> {
     vec![
-        app("Arquivos", "files", "glove-files", "glove.Files"),
+        app(tr!("Arquivos"), "files", "glove-files", "glove.Files"),
         app("Terminal", "terminal", "glove-term", "glove.Terminal"),
-        app("Navegador", "globe", "glove-navegador", "glove.Navegador"),
-        app("Correio", "mail", "glove-correio", "glove.Correio"),
-        app("Editor de Texto", "editor", "glove-edit", "glove.TextEditor"),
-        app("Lembretes", "notes", "glove-notes", "glove.Notes"),
-        app("Contatos", "contacts", "glove-contatos", "glove.Contatos"),
-        app("Agenda", "calendar", "glove-agenda", "glove.Agenda"),
-        app("Calculadora", "calculator", "glove-calc", "glove.Calculator"),
-        app("Relógio", "clock", "glove-clock", "glove.Clock"),
-        app("Visualizador", "viewer", "glove-view", "glove.Viewer"),
-        app("Música", "music", "glove-musica", "glove.Musica"),
-        app("Busca", "search", "glove-find", "glove.Find"),
-        app("Caracteres", "chars", "glove-chars", "glove.Chars"),
-        app("Captura", "camera", "glove-shot", "glove.Shot"),
-        app("Monitor", "monitor", "glove-monitor", "glove.Monitor"),
-        app("Discos", "diskutil", "glove-disks", "glove.Disks"),
-        app("Xadrez", "chess", "glove-chess", "glove.Chess"),
-        app("Preferências", "settings", "glove-prefs", "glove.Preferences"),
+        app(tr!("Navegador"), "globe", "glove-navegador", "glove.Navegador"),
+        app(tr!("Correio"), "mail", "glove-correio", "glove.Correio"),
+        app(tr!("Editor de Texto"), "editor", "glove-edit", "glove.TextEditor"),
+        app(tr!("Lembretes"), "notes", "glove-notes", "glove.Notes"),
+        app(tr!("Contatos"), "contacts", "glove-contatos", "glove.Contatos"),
+        app(tr!("Agenda"), "calendar", "glove-agenda", "glove.Agenda"),
+        app(tr!("Calculadora"), "calculator", "glove-calc", "glove.Calculator"),
+        app(tr!("Relógio"), "clock", "glove-clock", "glove.Clock"),
+        app(tr!("Visualizador"), "viewer", "glove-view", "glove.Viewer"),
+        app(tr!("Música"), "music", "glove-musica", "glove.Musica"),
+        app(tr!("Busca"), "search", "glove-find", "glove.Find"),
+        app(tr!("Caracteres"), "chars", "glove-chars", "glove.Chars"),
+        app(tr!("Captura"), "camera", "glove-shot", "glove.Shot"),
+        app(tr!("Monitor"), "monitor", "glove-monitor", "glove.Monitor"),
+        app(tr!("Discos"), "diskutil", "glove-disks", "glove.Disks"),
+        app(tr!("Xadrez"), "chess", "glove-chess", "glove.Chess"),
+        app(tr!("Preferências"), "settings", "glove-prefs", "glove.Preferences"),
     ]
 }
 
 /// Apps do Glove que não ficam no Dock de saída (acham-se na Busca e na pasta Aplicativos).
 pub fn extra_apps() -> Vec<DockApp> {
     vec![
-        app("Vídeo", "video", "glove-video", "glove.Video"),
-        app("Registros", "logs", "glove-registros", "glove.Registros"),
-        app("Informações do Sistema", "info", "glove-info", "glove.Info"),
-        app("Ajuda", "help", "glove-ajuda", "glove.Ajuda"),
-        app("Dicionário", "dictionary", "glove-dicionario", "glove.Dicionario"),
-        app("Livro de Fontes", "fontbook", "glove-fontes", "glove.Fontes"),
-        app("Acesso às Chaves", "keychain", "glove-chaves", "glove.Chaves"),
-        app("Utilitário de Rede", "netutil", "glove-utilrede", "glove.UtilRede"),
+        app(tr!("Vídeo"), "video", "glove-video", "glove.Video"),
+        app(tr!("Registros"), "logs", "glove-registros", "glove.Registros"),
+        app(tr!("Informações do Sistema"), "info", "glove-info", "glove.Info"),
+        app(tr!("Ajuda"), "help", "glove-ajuda", "glove.Ajuda"),
+        app(tr!("Dicionário"), "dictionary", "glove-dicionario", "glove.Dicionario"),
+        app(tr!("Livro de Fontes"), "fontbook", "glove-fontes", "glove.Fontes"),
+        app(tr!("Acesso às Chaves"), "keychain", "glove-chaves", "glove.Chaves"),
+        app(tr!("Utilitário de Rede"), "netutil", "glove-utilrede", "glove.UtilRede"),
     ]
 }
 
@@ -822,6 +821,11 @@ pub fn known_app(dock: &[DockApp], app_id: &str) -> Option<DockApp> {
         .find(|a| a.app_id.eq_ignore_ascii_case(app_id))
         .cloned()
         .or_else(|| default_dock_apps().into_iter().chain(extra_apps()).find(|a| a.app_id.eq_ignore_ascii_case(app_id)))
+        // O nome para mostrar, no idioma em uso (o gravado na configuração não muda).
+        .map(|mut a| {
+            a.name = tr_dyn(&a.name);
+            a
+        })
 }
 
 impl Default for Config {

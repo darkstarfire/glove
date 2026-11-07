@@ -1,6 +1,7 @@
 //! Rede pelo NetworkManager (`nmcli`): interfaces, redes Wi-Fi, conectar e
 //! TCP/IP. Usado pelo painel Rede e pelo menu Wi-Fi da barra.
 
+use crate::tr;
 use std::process::Command;
 
 /// Campos de uma linha do `nmcli -t` (":" separa; "\:" e "\\" são escapes).
@@ -46,9 +47,9 @@ impl Iface {
     pub fn label(&self) -> String {
         match self.kind.as_str() {
             "wifi" => "Wi-Fi".into(),
-            "ethernet" => "Ethernet".into(),
-            "bt" => "Bluetooth".into(),
-            "gsm" | "cdma" => "Celular".into(),
+            "ethernet" => tr!("Ethernet").into(),
+            "bt" => tr!("Bluetooth").into(),
+            "gsm" | "cdma" => tr!("Celular").into(),
             k => k.to_string(),
         }
     }
@@ -123,7 +124,7 @@ fn run(args: &[&str]) -> Result<(), String> {
         return Ok(());
     }
     let err = String::from_utf8_lossy(&out.stderr);
-    Err(err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("o NetworkManager recusou").trim().trim_start_matches("Error: ").to_string())
+    Err(err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or(tr!("o NetworkManager recusou")).trim().trim_start_matches("Error: ").to_string())
 }
 
 /// Conecta a uma rede (bloqueia até o NetworkManager responder: use numa thread).
