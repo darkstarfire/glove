@@ -1,5 +1,6 @@
 //! Calculadora do Glove.
 
+use glove_config::tr;
 use glove_kit::{
     paint::draw::*,
     run,
@@ -37,7 +38,7 @@ fn fmt(v: f64) -> String {
         return "Erro".into();
     }
     if v != 0.0 && (v.abs() >= 1e12 || v.abs() < 1e-9) {
-        return format!("{v:.6e}").replace('.', glove_config::virgula());
+        return format!("{v:.6e}").replace('.', ",");
     }
     let int_digits = (v.abs().log10().floor() as i32 + 1).max(1);
     let dec = (12 - int_digits).clamp(0, 10) as usize;
@@ -48,7 +49,7 @@ fn fmt(v: f64) -> String {
     if s == "-0" {
         s = "0".into();
     }
-    s.replace('.', glove_config::virgula())
+    s.replace('.', ",")
 }
 
 impl Calc {
@@ -309,7 +310,8 @@ impl App for Calc {
         ui.c.fill(rrect(dx - 1.0, dy - 1.0, dw + 2.0, dh + 2.0, 3.0), &vgrad(dy, dy + dh, &[(0.0, rgba(110, 112, 104, 255)), (1.0, rgba(235, 235, 230, 255))]));
         ui.c.fill(rrect(dx, dy, dw, dh, 2.0), &solid(rgba(236, 242, 200, 255)));
         ui.c.fill(rrect(dx, dy, dw, 4.0, 2.0), &vgrad(dy, dy + 4.0, &[(0.0, rgba(0, 0, 0, 45)), (1.0, rgba(0, 0, 0, 0))]));
-        let shown = if self.error { "Erro".to_string() } else { self.display.clone() };
+        // Por dentro sempre vírgula; no visor, o separador do idioma.
+        let shown = if self.error { tr!("Erro").to_string() } else { self.display.replace(',', glove_config::virgula()) };
         let mut px = 22.0;
         while ui.text_width(&shown, px, false) > dw - 20.0 && px > 11.0 {
             px -= 1.0;

@@ -145,7 +145,7 @@ fn fmt_num(v: f64) -> String {
         return tr!("Erro").into();
     }
     if v.abs() >= 1e12 {
-        return format!("{v:.4e}").replace('.', glove_config::virgula());
+        return format!("{v:.4e}").replace('.', ",");
     }
     let mut s = format!("{v:.10}");
     if s.contains('.') {
@@ -163,7 +163,7 @@ fn fmt_num(v: f64) -> String {
             s = s.trim_end_matches('0').trim_end_matches('.').to_string();
         }
     }
-    s.replace('.', glove_config::virgula())
+    s.replace('.', ",")
 }
 
 impl Calc {
@@ -511,7 +511,7 @@ impl Glove {
             let c = match w.kind {
                 WidgetKind::Clock => wg::clock(&self.fonts, h, m, s, &clock_city, sc),
                 WidgetKind::Calendar => wg::calendar(&self.fonts, today, w.cal_shown.unwrap_or((today.0, today.1)), sc),
-                WidgetKind::Calculator => wg::calculator(&self.fonts, &w.calc.display, w.calc.pressed, w.calc.memory != 0.0, sc),
+                WidgetKind::Calculator => wg::calculator(&self.fonts, &w.calc.display.replace(',', glove_config::virgula()), w.calc.pressed, w.calc.memory != 0.0, sc),
                 WidgetKind::Weather => {
                     let ed = editing.as_ref().filter(|e| e.0 == i).map(|e| e.1.as_str());
                     let city = if weather.city.is_empty() { w.city.as_str() } else { weather.city.as_str() };
