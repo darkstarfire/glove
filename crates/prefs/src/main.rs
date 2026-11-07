@@ -106,7 +106,7 @@ const PANES: [PaneInfo; 26] = [
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
     PaneInfo { pane: Pane::Seguranca, id: "seguranca", icon: Icon::Pref(PrefKind::Security), name: "Segurança", category: 0, keywords: "senha bloquear repouso protetor sair encerrar sessão inatividade firewall ufw proteção" },
     PaneInfo { pane: Pane::Busca, id: "busca", icon: Icon::Search, name: "Busca Rápida", category: 0, keywords: "spotlight buscar procurar categorias privacidade pastas excluir resultados" },
-    PaneInfo { pane: Pane::Expose, id: "expose", icon: Icon::Pref(PrefKind::Expose), name: "Exposé e Painel", category: 0, keywords: "exposé expose cantos ativos janelas mesa painel de widgets dashboard f9 f10 f11 f12" },
+    PaneInfo { pane: Pane::Expose, id: "expose", icon: Icon::Pref(PrefKind::Expose), name: "Exposé e Painel", category: 0, keywords: "exposé expose cantos ativos janelas mesa painel de widgets dashboard f9 f10 f11 f12 mesas virtuais desktops workspaces" },
 ];
 
 fn info(p: Pane) -> Option<&'static PaneInfo> {
@@ -218,7 +218,7 @@ struct Prefs {
     /// Aba aberta no painel Teclado.
     kbd_tab: usize,
     /// Grupos abertos no painel Atalhos.
-    open_groups: [bool; 3],
+    open_groups: [bool; 4],
     /// Aba do painel Som e os dispositivos (None = sem PipeWire).
     sound_tab: usize,
     /// Leitura dos dispositivos de som em andamento (numa thread).
@@ -265,8 +265,9 @@ struct Prefs {
 }
 
 /// Grupos de atalhos (como no painel de atalhos do 10.4).
-const SHORTCUT_GROUPS: [(&str, &[&str]); 3] = [
+const SHORTCUT_GROUPS: [(&str, &[&str]); 4] = [
     ("Janelas", &["close", "minimize", "zoom", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "grade", "cycle_windows"]),
+    ("Mesas virtuais", &["desk_prev", "desk_next", "desk_move_prev", "desk_move_next"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
     ("Sistema", &["screenshot", "screenshot_area", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
 ];
@@ -338,7 +339,7 @@ impl Prefs {
             mono_fonts: None,
             icon_themes: None,
             kbd_tab,
-            open_groups: [true, false, false],
+            open_groups: [true, false, false, false],
             desk_source: 0,
             desk_tab: 0,
             started: Instant::now(),
@@ -1626,9 +1627,23 @@ impl Prefs {
         ui.space(14.0);
         ui.separator();
         ui.space(8.0);
+        // Mesas virtuais: quantas (1 desliga); no Exposé (F9) a faixa no alto mostra todas.
+        let names: Vec<String> = (1..=glove_config::MAX_DESKTOPS).map(|n| n.to_string()).collect();
+        let mut n = (self.config.desktops.clamp(1, glove_config::MAX_DESKTOPS) - 1) as usize;
+        ui.horizontal(|ui| {
+            ui.label_right(tr!("Mesas virtuais:"), 220.0);
+            if ui.popup(&mut n, &names, 60.0) {
+                self.config.desktops = n as u32 + 1;
+                self.save();
+            }
+        });
+        ui.paragraph(tr!("Ctrl+Super+setas trocam de mesa; com Shift, levam a janela junto. No Exposé, arraste uma janela até outra mesa."));
+        ui.space(10.0);
+        ui.separator();
+        ui.space(8.0);
         ui.label(tr!("Atalhos de teclado:"));
         ui.space(4.0);
-        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard", "grade"] {
+        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard", "grade", "desk_prev", "desk_next"] {
             let label = glove_config::action_label(action);
             let mut keys = self.config.shortcut(action).unwrap_or("").to_string();
             let mut changed = false;

@@ -33,6 +33,8 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 est�
   Monitor e Dicionário sobre a tela escurecida, com a barra de widgets do "+"
 - **Todos os Apps** (F4 ou o Dock): todos os apps instalados em tela cheia, em páginas, com busca e a
   pasta Utilitários
+- **Mesas virtuais** (Ctrl+Super+setas; com Shift a janela vai junto), também na faixa do Exposé, onde dá
+  para arrastar janelas de uma mesa para outra
 - **Busca Rápida** (Super+Espaço): apps instalados, Preferências e arquivos
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
@@ -193,6 +195,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+Tab | Trocar de app: faixa de ícones no meio da tela (Tab/← → andam, Q encerra, H oculta, Esc cancela; soltar o Super troca) |
 | F12 | Painel de Widgets (de novo, Esc ou clique fora fecha) |
 | F4 | Todos os Apps (de novo, Esc ou clique fora fecha) |
+| Ctrl+Super+← / → | Mesa virtual anterior / próxima (com Shift, leva a janela) |
 | F9 / F10 / F11 | Exposé: todas as janelas / só as do app / mostrar a mesa (de novo, ou Esc, volta) |
 | Super+, | Preferências |
 | Print / Shift+Print | Captura da tela inteira / de uma área (ou de uma janela, pelo app Captura) |

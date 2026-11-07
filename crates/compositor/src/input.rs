@@ -86,6 +86,8 @@ enum KeyAction {
     Grade,
     /// Tecla com a grade aberta.
     GradeKey(crate::grade::GradeKey),
+    /// Mesas virtuais: (direção, levar a janela da frente).
+    VirtualDesk(i32, bool),
 }
 
 impl KeyAction {
@@ -113,6 +115,10 @@ impl KeyAction {
             "expose_desktop" => Self::ExposeDesktop,
             "dashboard" => Self::Dashboard,
             "grade" => Self::Grade,
+            "desk_prev" => Self::VirtualDesk(-1, false),
+            "desk_next" => Self::VirtualDesk(1, false),
+            "desk_move_prev" => Self::VirtualDesk(-1, true),
+            "desk_move_next" => Self::VirtualDesk(1, true),
             "cycle_windows" => Self::CycleWindows,
             "hide_others" => Self::HideOthers,
             "quit" => Self::Quit,
@@ -646,6 +652,7 @@ impl Glove {
             Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
             Some(KeyAction::Grade) => self.toggle_grade(),
+            Some(KeyAction::VirtualDesk(d, carry)) => self.step_desk(d, carry),
             Some(KeyAction::GradeKey(k)) => self.grade_key(k),
             Some(KeyAction::CycleWindows) => self.cycle_app_windows(),
             Some(KeyAction::DashKey(k)) => self.dashboard_key(k),
@@ -889,10 +896,17 @@ impl Glove {
             return;
         }
         if self.expose_active() {
-            if state == ButtonState::Pressed {
+            if button == BTN_LEFT {
                 let pos = self.pointer_pos;
-                self.expose_click(pos);
-                self.swallow_wake_release = true;
+                if state == ButtonState::Pressed {
+                    self.expose_press(pos);
+                    // Saindo do Exposé: o soltar não vai para o app que ficar embaixo.
+                    if self.expose.as_ref().is_none_or(|e| e.is_leaving()) {
+                        self.swallow_wake_release = true;
+                    }
+                } else {
+                    self.expose_release(pos);
+                }
             }
             return;
         }

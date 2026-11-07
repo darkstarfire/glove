@@ -632,6 +632,10 @@ impl Glove {
             // Menus e dicas X11 nunca levam o foco.
             Some(w) if self.x11_overlays.contains(&w) => return,
             Some(w) => {
+                // Janela de outra mesa virtual: vai até lá primeiro.
+                if self.desk_of(&w).is_some() {
+                    self.reveal_window(&w);
+                }
                 // Renomeando na mesa e clicou numa janela: o nome novo vale.
                 self.desk_commit_rename();
                 self.space.raise_element(&w, true);
@@ -1455,6 +1459,8 @@ impl Glove {
                 let was_hidden = !id.is_empty() && self.hidden.iter().any(|(w, _)| window_info(w).1.eq_ignore_ascii_case(&id));
                 if was_hidden {
                     self.unhide_where(|w| window_info(w).1.eq_ignore_ascii_case(&id));
+                } else if !id.is_empty() && self.reveal_app(|w| window_info(w).1.eq_ignore_ascii_case(&id)) {
+                    // Estava em outra mesa virtual: já foi até lá.
                 } else if let Some(w) = self.windows_of_app(&app.app_id).pop() {
                     self.focus_window(Some(w));
                 } else if let Some(idx) = self.minimized.iter().position(|(w, _)| window_info(w).1.eq_ignore_ascii_case(&app.app_id) && !app.app_id.is_empty()) {
@@ -1570,6 +1576,7 @@ impl Glove {
         self.prepare_desk();
         self.prepare_dashboard();
         self.prepare_grade();
+        self.prepare_mesas();
 
         self.prepare_force_quit();
         self.prepare_startup();
@@ -1590,7 +1597,7 @@ impl Glove {
         let running: Vec<String> = self
             .space
             .elements()
-            .chain(self.minimized.iter().chain(&self.hidden).map(|(w, _)| w))
+            .chain(self.stashed())
             .map(|w| window_info(w).1.to_lowercase())
             .collect();
         for (i, app) in self.config.dock_apps.iter().enumerate() {

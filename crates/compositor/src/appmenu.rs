@@ -125,6 +125,13 @@ impl Glove {
             .into_iter()
             .map(|w| MenuNode::new(MenuItem::check(title_of(&w), focused.as_ref() == Some(&w)), Some(MenuAction::FocusWindow(w))))
             .collect();
+        // As que estão em outras mesas virtuais, com o número da mesa (escolher vai até lá).
+        for (w, _, d) in &self.mesas.away {
+            if self.window_pid(w) == Some(pid) {
+                let t = format!("{} — {}", title_of(w), tr!("Mesa {}", d + 1));
+                list.push(MenuNode::new(MenuItem::item(t), Some(MenuAction::FocusWindow(w.clone()))));
+            }
+        }
         for (w, _) in &self.minimized {
             if self.window_pid(w) == Some(pid) {
                 let mut it = MenuItem::item(title_of(w));

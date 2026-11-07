@@ -56,7 +56,17 @@ pub struct Expose {
     pub hover: Option<usize>,
     pub dim: SolidColorBuffer,
     pub label: Option<(usize, Tex)>,
+    /// Arrastando uma janela: (item, onde apertou, onde está o mouse, já andou).
+    pub drag: Option<(usize, Point<f64, Logical>, Point<f64, Logical>, bool)>,
+    /// Mesa virtual da faixa sob o mouse.
+    pub desk_hover: Option<usize>,
+    /// Molduras e nomes da faixa de mesas: (chave, canto, textura).
+    pub strip: Option<(u64, Point<i32, Logical>, Tex)>,
 }
+
+/// Faixa das mesas virtuais no alto do Exposé: altura das miniaturas e o espaço todo.
+const MINI_H: f64 = 64.0;
+pub const STRIP_H: f64 = MINI_H + 40.0;
 
 impl Expose {
     /// Progresso de 0 (lugar normal) a 1 (Exposé), já suavizado.
@@ -75,6 +85,29 @@ impl Expose {
         let p = self.progress();
         let lerp = |a: f64, b: f64| a + (b - a) * p;
         Rectangle::new((lerp(it.from.loc.x, it.to.loc.x), lerp(it.from.loc.y, it.to.loc.y)).into(), (lerp(it.from.size.w, it.to.size.w), lerp(it.from.size.h, it.to.size.h)).into())
+    }
+
+    pub fn is_leaving(&self) -> bool {
+        self.leaving.is_some()
+    }
+
+    /// Onde a janela aparece: a animação, mais o arrasto.
+    pub fn shown(&self, i: usize) -> Rectangle<f64, Logical> {
+        let mut r = self.current(i);
+        if let Some((d, from, to, true)) = self.drag {
+            if d == i {
+                r.loc += to - from;
+                // Sobre a faixa das mesas: encolhe em volta do mouse, para ver onde cai.
+                if self.desk_hover.is_some() && r.size.w > 0.0 {
+                    let k = (180.0 / r.size.w).min(1.0);
+                    r.loc.x = to.x - (to.x - r.loc.x) * k;
+                    r.loc.y = to.y - (to.y - r.loc.y) * k;
+                    r.size.w *= k;
+                    r.size.h *= k;
+                }
+            }
+        }
+        r
     }
 
     pub fn item_of(&self, w: &Window) -> Option<usize> {
@@ -127,11 +160,17 @@ impl Glove {
             .filter(|w| mode != ExposeMode::App || (focused_pid.is_some() && self.window_pid(w) == focused_pid))
             .cloned()
             .collect();
-        if windows.is_empty() {
+        // Com mais de uma mesa virtual, o Exposé abre mesmo sem janelas (para ir a outra).
+        let strip = mode == ExposeMode::All && self.desk_count() > 1;
+        if windows.is_empty() && !strip {
             return;
         }
         let mut items: Vec<ExposeItem> = windows.into_iter().filter_map(|w| self.frame_rect(&w).map(|r| ExposeItem { window: w, from: r, to: r })).collect();
-        let area = self.work_area().to_f64();
+        let mut area = self.work_area().to_f64();
+        if strip {
+            area.loc.y += STRIP_H;
+            area.size.h -= STRIP_H;
+        }
         let (sw, sh) = self.output_size();
         match mode {
             ExposeMode::Desktop => {
@@ -162,7 +201,7 @@ impl Glove {
             }
         }
         let _ = sh;
-        self.expose = Some(Expose { mode, items, start: Instant::now(), leaving: None, hover: None, dim: SolidColorBuffer::new((sw, sh), [0.0, 0.0, 0.0, 0.45]), label: None });
+        self.expose = Some(Expose { mode, items, start: Instant::now(), leaving: None, hover: None, dim: SolidColorBuffer::new((sw, sh), [0.0, 0.0, 0.0, 0.45]), label: None, drag: None, desk_hover: None, strip: None });
         self.dirty = true;
         self.expose_timer();
     }
@@ -216,7 +255,7 @@ impl Glove {
         let e = self.expose.as_ref()?;
         for w in self.space.elements().rev() {
             if let Some(i) = e.item_of(w) {
-                if e.current(i).contains(pos) {
+                if e.shown(i).contains(pos) {
                     return Some(i);
                 }
             }
@@ -225,23 +264,139 @@ impl Glove {
     }
 
     pub fn expose_motion(&mut self, pos: Point<f64, Logical>) {
-        let hit = self.expose_hit(pos);
+        let desk = self.expose_desk_at(pos);
+        let dragging = self.expose.as_ref().is_some_and(|e| e.drag.is_some());
+        let hit = if dragging { None } else { self.expose_hit(pos) };
         if let Some(e) = &mut self.expose {
+            if let Some((_, from, to, moved)) = &mut e.drag {
+                *to = pos;
+                if !*moved && (pos.x - from.x).abs() + (pos.y - from.y).abs() > 5.0 {
+                    *moved = true;
+                    e.label = None;
+                }
+                self.dirty = true;
+            }
             if e.hover != hit && e.mode != ExposeMode::Desktop {
                 e.hover = hit;
+                self.dirty = true;
+            }
+            if e.desk_hover != desk {
+                e.desk_hover = desk;
                 self.dirty = true;
             }
         }
     }
 
-    /// Clique: na janela traz ela; fora volta como estava.
-    pub fn expose_click(&mut self, pos: Point<f64, Logical>) {
-        let hit = self.expose_hit(pos);
-        let w = hit.and_then(|i| self.expose.as_ref().map(|e| e.items[i].window.clone()));
-        self.leave_expose(w);
+    /// Apertou: numa mesa da faixa vai até ela; numa janela começa a arrastar
+    /// (ou, soltando sem andar, traz ela); fora volta como estava.
+    pub fn expose_press(&mut self, pos: Point<f64, Logical>) {
+        if self.expose.as_ref().is_none_or(|e| e.leaving.is_some()) {
+            return;
+        }
+        if let Some(d) = self.expose_desk_at(pos) {
+            if d != self.mesas.cur {
+                self.expose = None;
+                self.switch_desk(d, None);
+                self.mesas.slide = None;
+                self.hide_desk_hud();
+                self.toggle_expose(ExposeMode::All);
+            }
+            return;
+        }
+        match self.expose_hit(pos) {
+            Some(i) => {
+                if let Some(e) = &mut self.expose {
+                    e.drag = Some((i, pos, pos, false));
+                }
+            }
+            None => self.leave_expose(None),
+        }
+    }
+
+    pub fn expose_release(&mut self, pos: Point<f64, Logical>) {
+        let Some(e) = &mut self.expose else { return };
+        let Some((i, _, _, moved)) = e.drag.take() else { return };
+        self.dirty = true;
+        let w = e.items[i].window.clone();
+        if !moved {
+            self.leave_expose(Some(w));
+            return;
+        }
+        // Soltou numa mesa da faixa: a janela vai para lá.
+        if let Some(d) = self.expose_desk_at(pos).filter(|d| *d != self.mesas.cur) {
+            if let Some(e) = &mut self.expose {
+                e.items.remove(i);
+                e.hover = None;
+                e.label = None;
+            }
+            self.send_to_desk(&w, d);
+        }
+    }
+
+    /// As miniaturas das mesas na faixa (vazio sem faixa).
+    pub fn expose_desk_rects(&self) -> Vec<Rectangle<f64, Logical>> {
+        let n = self.desk_count();
+        if n < 2 || self.expose.as_ref().is_none_or(|e| e.mode != ExposeMode::All) {
+            return Vec::new();
+        }
+        let area = self.work_area().to_f64();
+        let (sw, sh) = self.output_size();
+        let mw = (MINI_H * sw as f64 / sh.max(1) as f64).round();
+        let gap = 26.0;
+        let total = n as f64 * mw + (n as f64 - 1.0) * gap;
+        let x0 = (area.loc.x + (area.size.w - total) / 2.0).round();
+        let y = area.loc.y + 14.0;
+        (0..n).map(|i| Rectangle::new((x0 + i as f64 * (mw + gap), y).into(), (mw, MINI_H).into())).collect()
+    }
+
+    fn expose_desk_at(&self, pos: Point<f64, Logical>) -> Option<usize> {
+        self.expose_desk_rects().iter().position(|r| {
+            let mut r = *r;
+            r.loc -= Point::from((6.0, 6.0));
+            r.size += smithay::utils::Size::from((12.0, 26.0));
+            r.contains(pos)
+        })
+    }
+
+    /// Janelas de uma mesa, de baixo para cima, com o lugar delas.
+    pub fn desk_windows(&self, d: usize) -> Vec<(Window, Point<i32, Logical>)> {
+        if d == self.mesas.cur {
+            self.space.elements().filter_map(|w| self.space.element_location(w).map(|l| (w.clone(), l))).collect()
+        } else {
+            self.mesas.away.iter().filter(|(_, _, k)| *k == d).map(|(w, l, _)| (w.clone(), *l)).collect()
+        }
+    }
+
+    /// Molduras e nomes das mesas da faixa (as miniaturas são desenhadas no render).
+    fn prepare_expose_strip(&mut self) {
+        let rects = self.expose_desk_rects();
+        let sc = self.scale() as f32;
+        let cur = self.mesas.cur;
+        let tgen = self.theme_gen ^ sc.to_bits() as u64;
+        let Some(e) = &mut self.expose else { return };
+        if rects.is_empty() {
+            e.strip = None;
+            return;
+        }
+        let target = e.desk_hover;
+        use std::hash::{Hash, Hasher};
+        let mut k = std::collections::hash_map::DefaultHasher::new();
+        (tgen, cur, target, rects.len(), rects[0].loc.x as i32, rects[0].size.w as i32).hash(&mut k);
+        let key = k.finish();
+        if e.strip.as_ref().is_some_and(|s| s.0 == key) {
+            return;
+        }
+        let m = 6.0;
+        let first = rects[0];
+        let last = rects[rects.len() - 1];
+        let origin = Point::<i32, Logical>::from(((first.loc.x - m) as i32, (first.loc.y - m) as i32));
+        let w = (last.loc.x + last.size.w - first.loc.x + 2.0 * m) as f32;
+        let h = (MINI_H + m + 30.0) as f32;
+        e.strip = chrome::desk_strip(&self.fonts, &rects.iter().map(|r| ((r.loc.x - origin.x as f64) as f32, (r.loc.y - origin.y as f64) as f32, r.size.w as f32, r.size.h as f32)).collect::<Vec<_>>(), cur, target, w, h, sc).map(|c| (key, origin, to_tex(c)));
     }
 
     pub fn prepare_expose(&mut self) {
+        self.prepare_expose_strip();
         let sc = self.scale() as f32;
         let (sw, sh) = self.output_size();
         let Some(e) = &mut self.expose else { return };
@@ -250,7 +405,7 @@ impl Glove {
         let a = (0.45 * e.progress()) as f32;
         e.dim.set_color([0.0, 0.0, 0.0, a]);
         match e.hover {
-            Some(i) if e.leaving.is_none() => {
+            Some(i) if e.leaving.is_none() && e.drag.is_none_or(|d| !d.3) => {
                 if e.label.as_ref().map(|l| l.0) != Some(i) {
                     let w = &e.items[i].window;
                     let (title, _) = window_info(w);

@@ -78,7 +78,7 @@ impl Ending {
 
 impl Glove {
     fn open_windows(&self) -> usize {
-        self.space.elements().count() + self.minimized.len() + self.hidden.len()
+        self.space.elements().count() + self.minimized.len() + self.hidden.len() + self.mesas.away.len()
     }
 
     /// A tela de encerramento está à frente (nada mais responde).

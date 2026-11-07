@@ -544,7 +544,13 @@ visual gel. Cada uma será detalhada antes de começar.
   Setas escolhem, Enter abre, Esc limpa a busca, sai da pasta ou fecha; roda do mouse, dois dedos
   no touchpad e Page Up/Down trocam de página; clicar fora fecha. O campo e a grade são texturas
   separadas (o cursor pisca sem redesenhar os ícones) e são soltas ao fechar.
-- [ ] 10.2 Espaços de trabalho (mesas virtuais) integrados ao Exposé
+- [x] 10.2 Mesas virtuais integradas ao Exposé (M) — v0.10.2: 4 mesas por padrão (1 a 9 em
+  Preferências ▸ Exposé e Painel; 1 desliga). Ctrl+Super+←/→ trocam de mesa (as janelas deslizam de
+  lado e um aviso mostra as mesas); com Shift, a janela da frente vai junto. No Exposé (F9), uma faixa
+  no alto mostra cada mesa com as janelas dela em miniatura: clicar vai até a mesa, arrastar uma
+  janela até outra mesa leva a janela para lá. O Dock, a troca de apps e o menu Janela (que lista as
+  janelas das outras mesas com o número) vão até a mesa da janela. As janelas das outras mesas saem
+  do espaço como as ocultas (`mesas.rs`), sem custo de desenho.
 - [ ] 10.3 Olhada Rápida: Espaço no Arquivos mostra a prévia do arquivo
 - [ ] 10.4 Central de notificações e avisos dos apps
 - [ ] 10.5 Gestos de trackpad com vários dedos (Exposé, trocar de mesa, voltar/avançar)

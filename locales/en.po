@@ -3956,3 +3956,12 @@ msgstr "Play as White"
 msgid "Nenhum vídeo aberto"
 msgstr "No video open"
 
+
+msgid "Mesas virtuais"
+msgstr "Desktops"
+
+msgid "Mesas virtuais:"
+msgstr "Desktops:"
+
+msgid "Ctrl+Super+setas trocam de mesa; com Shift, levam a janela junto. No Exposé, arraste uma janela até outra mesa."
+msgstr "Ctrl+Super+arrows switch desktops; with Shift, the window comes along. In Exposé, drag a window to another desktop."

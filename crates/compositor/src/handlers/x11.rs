@@ -29,7 +29,7 @@ impl XWaylandShellHandler for CalloopData {
 
 /// A janela do Glove que mostra essa superfície X11.
 fn find(state: &Glove, x: &X11Surface) -> Option<Window> {
-    state.space.elements().chain(state.minimized.iter().map(|(w, _)| w)).chain(state.hidden.iter().map(|(w, _)| w)).find(|w| w.x11_surface() == Some(x)).cloned()
+    state.space.elements().chain(state.stashed()).find(|w| w.x11_surface() == Some(x)).cloned()
 }
 
 impl Glove {
@@ -131,6 +131,7 @@ impl XwmHandler for Glove {
             st.space.unmap_elem(&w);
             st.minimized.retain(|(m, _)| *m != w);
             st.hidden.retain(|(h, _)| *h != w);
+            st.mesas.away.retain(|(h, _, _)| *h != w);
             if was_focused {
                 st.focus_topmost(None);
             }

@@ -10,6 +10,7 @@ mod dockmenu;
 mod ending;
 mod expose;
 mod grade;
+mod mesas;
 mod lock;
 mod extras;
 mod forcequit;
@@ -288,6 +289,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         data.state.popups.cleanup();
         data.state.minimized.retain(|(w, _)| w.alive());
         data.state.hidden.retain(|(w, _)| w.alive());
+        data.state.mesas.away.retain(|(w, _, _)| w.alive());
         let _ = data.display_handle.flush_clients();
         // Só redesenha quando algo mudou: sem trabalho, sem CPU.
         if let Some(vt) = data.state.vt_request.take() {

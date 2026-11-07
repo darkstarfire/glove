@@ -43,7 +43,7 @@ impl Glove {
 
     /// Apps com janela (visível, minimizada ou oculta), do mais recente para o mais antigo.
     fn switcher_apps(&self) -> Vec<(u32, Icon, String)> {
-        let windows: Vec<Window> = self.space.elements().rev().cloned().chain(self.minimized.iter().chain(&self.hidden).map(|(w, _)| w.clone())).collect();
+        let windows: Vec<Window> = self.space.elements().rev().cloned().chain(self.stashed().cloned()).collect();
         let mut apps: Vec<(u32, Icon, String)> = Vec::new();
         for w in windows {
             let Some(pid) = self.window_pid(&w) else { continue };
@@ -117,6 +117,14 @@ impl Glove {
     /// Traz o app à frente: mostra as ocultas, todas as janelas dele sobem e a
     /// de cima fica com o foco; só minimizadas: a última volta.
     pub fn activate_app(&mut self, pid: u32) {
+        // Só tem janelas em outra mesa virtual: vai até lá.
+        let mine = |st: &Self, w: &Window| st.window_pid(w) == Some(pid);
+        if !self.space.elements().any(|w| mine(self, w)) {
+            let d = self.mesas.away.iter().rev().find(|(w, _, _)| mine(self, w)).map(|(_, _, d)| *d);
+            if let Some(d) = d {
+                self.switch_desk(d, None);
+            }
+        }
         let hidden = self.hidden.iter().any(|(w, _)| self.window_pid(w) == Some(pid));
         if hidden {
             let mine: Vec<Window> = self.hidden.iter().filter(|(w, _)| self.window_pid(w) == Some(pid)).map(|(w, _)| w.clone()).collect();

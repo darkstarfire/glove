@@ -36,6 +36,8 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
   Monitor and Dictionary
 - **All Apps** (F4 or the Dock): every installed app full screen, in pages, with search and a
   Utilities folder
+- **Desktops** (Ctrl+Super+arrows; with Shift the window comes along), also in a strip in Exposé,
+  where windows can be dragged from one desktop to another
 - **Quick Search** (Super+Space): installed apps, Preferences panes and files
 - **Screenshots** of the whole screen, an area or a window, on any display
 - Force Quit that detects unresponsive apps; screen lock (PAM), screen blanking, laptop lid,
@@ -162,6 +164,7 @@ Inside another desktop, Alt works as Super.
 | Super+Tab | Switch apps |
 | F12 | Widget Dashboard |
 | F4 | All Apps |
+| Ctrl+Super+← / → | Previous / next desktop (with Shift, takes the window) |
 | F9 / F10 / F11 | Exposé: all windows / app windows / show the desktop |
 | Super+, | Preferences |
 | Print / Shift+Print | Screenshot of the screen / of an area |

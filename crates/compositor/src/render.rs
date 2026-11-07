@@ -413,6 +413,10 @@ impl Glove {
             return out;
         }
 
+        // Aviso da troca de mesa virtual.
+        if let (Some((_, t)), Some(p)) = (&self.mesas.hud, self.desk_hud_pos()) {
+            out.extend(mem_alpha(renderer, p, t, sc, Some(self.mesas.hud_alpha)));
+        }
         // Aviso de volume/brilho por cima de tudo (menos o cursor).
         if let Some(t) = self.extras.osd.as_ref().and_then(|o| o.tex.as_ref()) {
             out.extend(mem(renderer, self.osd_pos(), t, sc));
@@ -480,12 +484,19 @@ impl Glove {
         if self.expose.is_some() {
             self.expose_elements(renderer, sc, &mut out);
         } else {
-        for w in self.space.elements().rev() {
+        // Trocando de mesa virtual: as janelas novas entram de lado e as antigas saem.
+        let slide = self.desk_slide_offsets();
+        let (dx_in, dx_out) = slide.unwrap_or((0, 0));
+        let outgoing: Vec<(&smithay::desktop::Window, Point<i32, Logical>)> = match (&self.mesas.slide, slide) {
+            (Some(s), Some(_)) => s.out.iter().rev().map(|(w, l)| (w, *l + Point::from((dx_out, 0)))).collect(),
+            _ => Vec::new(),
+        };
+        let incoming = self.space.elements().rev().filter_map(|w| self.space.element_location(w).map(|l| (w, l + Point::from((dx_in, 0)))));
+        for (w, loc) in incoming.collect::<Vec<_>>().into_iter().chain(outgoing) {
             // Voltando do Dock: desenhada pela animação, acima.
             if self.min_animating(w) {
                 continue;
             }
-            let Some(loc) = self.space.element_location(w) else { continue };
             let render_loc = loc - w.geometry().loc;
             out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
             if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
@@ -529,8 +540,36 @@ impl Glove {
             let y = (r.loc.y + r.size.h / 2.0 - t.size.h as f64 / 2.0).round() as i32;
             out.extend(mem(renderer, (x, y).into(), t, sc));
         }
+        // A janela arrastada fica por cima de tudo, até da faixa.
+        let dragged = e.drag.filter(|d| d.3).map(|d| d.0);
+        if let Some(i) = dragged {
+            self.push_scaled_window(renderer, &e.items[i].window, e.shown(i), sc, out);
+        }
+        // Faixa das mesas virtuais: em cada miniatura, as janelas da mesa sobre o fundo.
+        let rects = self.expose_desk_rects();
+        if !rects.is_empty() {
+            let (sw, _) = self.output_size();
+            for (d, r) in rects.iter().enumerate() {
+                let k = r.size.w / sw as f64;
+                for (w, loc) in self.desk_windows(d).into_iter().rev() {
+                    let top = crate::shell::deco_top(&w) as f64;
+                    let size = w.geometry().size;
+                    let fr = Rectangle::new((r.loc.x + loc.x as f64 * k, r.loc.y + (loc.y as f64 - top) * k).into(), (size.w as f64 * k, (size.h as f64 + top) * k).into());
+                    self.push_scaled_window(renderer, &w, fr, sc, out);
+                }
+                if let Some(b) = &self.chrome.wallpaper {
+                    self.push_scaled_tex(renderer, b, *r, sc, out);
+                }
+            }
+            if let Some((_, o, t)) = &e.strip {
+                out.extend(mem(renderer, *o, t, sc));
+            }
+        }
         for w in self.space.elements().rev() {
             let Some(i) = e.item_of(w) else { continue };
+            if Some(i) == dragged {
+                continue;
+            }
             self.push_scaled_window(renderer, w, e.current(i), sc, out);
         }
         // Fundo escurecido (menos no modo mesa); no modo app, as outras janelas ficam embaixo dele.
@@ -549,6 +588,21 @@ impl Glove {
                     }
                 }
             }
+        }
+    }
+
+    /// Desenha a textura encolhida (ou esticada) para caber em `r`.
+    fn push_scaled_tex(&self, renderer: &mut GlesRenderer, t: &Tex, r: Rectangle<f64, Logical>, sc: f64, out: &mut Vec<GloveElement>) {
+        use smithay::backend::renderer::element::Kind;
+        if t.size.w <= 0 {
+            return;
+        }
+        let s = r.size.w / t.size.w as f64;
+        let o = Point::<f64, Logical>::from((r.loc.x, r.loc.y)).to_physical(sc).to_i32_round();
+        if let Some(buf) = t.upload(renderer) {
+            let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
+            let el = TextureRenderElement::from_texture_buffer(o.to_f64(), &buf, None, Some(src), Some(t.size), Kind::Unspecified);
+            out.push(GloveElement::ScaledTexture(RescaleRenderElement::from_element(el, o, s)));
         }
     }
 

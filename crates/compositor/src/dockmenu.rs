@@ -20,7 +20,7 @@ const NOT_IN_DOCK: [&str; 2] = ["glove.About", "glove.Sair"];
 impl Glove {
     /// Todas as janelas: na tela, minimizadas e ocultas.
     fn every_window(&self) -> Vec<Window> {
-        self.space.elements().cloned().chain(self.minimized.iter().chain(&self.hidden).map(|(w, _)| w.clone())).collect()
+        self.space.elements().cloned().chain(self.stashed().cloned()).collect()
     }
 
     /// Apps abertos que não estão fixos no Dock: (app_id, uma janela), na ordem em que abriram.

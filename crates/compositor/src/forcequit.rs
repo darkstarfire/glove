@@ -65,7 +65,7 @@ pub struct WaitCursor {
 
 impl Glove {
     fn all_windows(&self) -> Vec<Window> {
-        self.space.elements().cloned().chain(self.minimized.iter().chain(&self.hidden).map(|(w, _)| w.clone())).collect()
+        self.space.elements().cloned().chain(self.stashed().cloned()).collect()
     }
 
     /// Pergunta ao app da janela se ele está vivo (no máximo uma vez por segundo).

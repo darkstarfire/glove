@@ -125,6 +125,8 @@ pub struct Glove {
     /// Painel de Widgets (F12).
     pub dashboard: crate::dashboard::Dashboard,
     pub grade: crate::grade::Grade,
+    /// Mesas virtuais.
+    pub mesas: crate::mesas::Mesas,
     /// Exposé em andamento.
     pub expose: Option<crate::expose::Expose>,
     /// O mouse saiu dos cantos desde o último disparo.
@@ -253,6 +255,7 @@ impl Glove {
             desk: Default::default(),
             dashboard: Default::default(),
             grade: Default::default(),
+            mesas: Default::default(),
             expose: None,
             corner_armed: true,
             switcher: None,
@@ -359,6 +362,9 @@ impl Glove {
             self.apply_keyboard();
         }
         self.bindings = crate::input::parse_bindings(&self.config);
+        if old.desktops != self.config.desktops {
+            self.fit_desks();
+        }
         self.dirty = true;
         // Segundos ou dois-pontos piscando: um relógio de segundo em segundo já agora
         // (o de minuto só passaria a cada segundo na virada do próximo minuto).
