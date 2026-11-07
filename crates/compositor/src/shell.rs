@@ -1577,6 +1577,10 @@ impl Glove {
         self.prepare_dashboard();
         self.prepare_grade();
         self.prepare_mesas();
+        self.prepare_avisos();
+        if self.avisos_animating() {
+            self.dirty = true;
+        }
 
         self.prepare_force_quit();
         self.prepare_startup();

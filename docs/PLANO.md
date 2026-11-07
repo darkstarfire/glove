@@ -556,7 +556,12 @@ visual gel. Cada uma será detalhada antes de começar.
   (pelo `pdftoppm`), texto e código (o começo do arquivo, com rolagem) e, nos outros, o ícone grande. Ela
   segue a escolha: as setas, nela ou no Arquivos, passam de item. Espaço ou Esc fecham; Abrir abre no app
   do tipo. Na glove-ui, `ui.redraw_all_windows()` redesenha as outras janelas do app.
-- [ ] 10.4 Central de notificações e avisos dos apps
+- [x] 10.4 Central de avisos (M) — v0.10.4: o Glove atende o serviço padrão de notificações do Linux
+  (`org.freedesktop.Notifications`, o do `notify-send`, Firefox, Thunderbird…) numa thread (zbus) e mostra
+  cada aviso num balão fumê no canto de cima à direita (6 s; críticos ficam até clicar). O balãozinho
+  na barra de menu mostra quantos não foram lidos e abre a central, com os últimos 60 avisos, Não
+  perturbe (sem balões, menos os críticos) e Limpar. Clicar num aviso responde ao app ("default") e traz o
+  app à frente; o × dispensa. Se outro serviço já atende (dentro de outro desktop), o Glove não interfere.
 - [ ] 10.5 Gestos de trackpad com vários dedos (Exposé, trocar de mesa, voltar/avançar)
 - [ ] 10.6 Abas no Arquivos, no Editor e no Terminal; janelas em tela cheia
 - [ ] 10.7 Cópias de segurança automáticas com linha do tempo (como o Time Machine)

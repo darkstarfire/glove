@@ -413,6 +413,13 @@ impl Glove {
             return out;
         }
 
+        // Central de avisos e os balões.
+        if let Some((_, t)) = self.avisos.center.as_ref().and_then(|c| c.tex.as_ref()) {
+            out.extend(mem(renderer, self.center_origin(), t, sc));
+        }
+        for (p, t, a) in self.bubble_draws() {
+            out.extend(mem_alpha(renderer, p, t, sc, Some(a)));
+        }
         // Aviso da troca de mesa virtual.
         if let (Some((_, t)), Some(p)) = (&self.mesas.hud, self.desk_hud_pos()) {
             out.extend(mem_alpha(renderer, p, t, sc, Some(self.mesas.hud_alpha)));

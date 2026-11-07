@@ -3971,3 +3971,15 @@ msgstr "Quick Look"
 
 msgid "Nenhum item escolhido"
 msgstr "No item selected"
+
+msgid "Avisos"
+msgstr "Notifications"
+
+msgid "Não perturbe"
+msgstr "Do Not Disturb"
+
+msgid "Nenhum aviso"
+msgstr "No notifications"
+
+msgid "Avisos|Limpar"
+msgstr "Clear"

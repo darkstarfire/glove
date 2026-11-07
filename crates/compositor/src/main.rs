@@ -9,6 +9,7 @@ mod desk;
 mod dockmenu;
 mod ending;
 mod expose;
+mod avisos;
 mod grade;
 mod mesas;
 mod lock;
@@ -178,6 +179,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     state.refresh_extras();
     state.start_idle_timer();
+    // Avisos dos apps (notify-send e cia.).
+    if !greeter {
+        state.start_avisos();
+    }
     // Mesa: confere a cada segundo os discos montados (lê /proc/mounts) e se a
     // pasta Mesa mudou (só a data dela; a pasta só é relida quando muda).
     state.refresh_desk_items();

@@ -43,6 +43,7 @@ pub enum ExtraKind {
     Volume,
     Battery,
     Clock,
+    Notifications,
     User,
 }
 
@@ -226,6 +227,9 @@ impl Glove {
         if self.config.clock.show {
             v.push(ExtraKind::Clock);
         }
+        if self.avisos.conn.is_some() && !self.greeter {
+            v.push(ExtraKind::Notifications);
+        }
         if self.config.user_menu && !self.greeter {
             v.push(ExtraKind::User);
         }
@@ -256,6 +260,7 @@ impl Glove {
                     Extra::Battery { percent: b.percent, charging: b.charging, show_percent: self.config.battery_percent }
                 }
                 ExtraKind::User => Extra::User { name: crate::shell::user_full_name() },
+                ExtraKind::Notifications => Extra::Notifications { unread: self.avisos.unread, quiet: self.avisos.quiet },
             })
             .collect()
     }
@@ -298,6 +303,7 @@ impl Glove {
                 let nodes = self.user_menu();
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
+            ExtraKind::Notifications => self.toggle_avisos_center(),
         }
     }
 

@@ -125,6 +125,8 @@ pub struct Glove {
     /// Painel de Widgets (F12).
     pub dashboard: crate::dashboard::Dashboard,
     pub grade: crate::grade::Grade,
+    /// Avisos (notificações) e a central.
+    pub avisos: crate::avisos::Avisos,
     /// Mesas virtuais.
     pub mesas: crate::mesas::Mesas,
     /// Exposé em andamento.
@@ -255,6 +257,7 @@ impl Glove {
             desk: Default::default(),
             dashboard: Default::default(),
             grade: Default::default(),
+            avisos: Default::default(),
             mesas: Default::default(),
             expose: None,
             corner_armed: true,

@@ -86,6 +86,8 @@ enum KeyAction {
     Grade,
     /// Tecla com a grade aberta.
     GradeKey(crate::grade::GradeKey),
+    /// Fecha a central de avisos.
+    AvisosClose,
     /// Mesas virtuais: (direção, levar a janela da frente).
     VirtualDesk(i32, bool),
 }
@@ -344,6 +346,11 @@ impl Glove {
                 // os "cliques" da roda continuam sendo um clique cada).
                 let speed = self.config.pointer.scroll_speed.clamp(0.25, 4.0);
                 let amount = |a| sign * speed * event.amount(a).unwrap_or_else(|| event.amount_v120(a).unwrap_or(0.0) * 15.0 / 120.0);
+                // Central de avisos aberta: a rolagem é dela.
+                if self.avisos.center.is_some() {
+                    self.avisos_scroll(amount(Axis::Vertical));
+                    return;
+                }
                 // Grade aberta: a rolagem troca de página (vertical ou horizontal).
                 if self.grade_active() {
                     let v = amount(Axis::Vertical) + amount(Axis::Horizontal);
@@ -469,6 +476,11 @@ impl Glove {
                 let ch = handle.modified_sym().key_char();
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(crate::desk::desk_key_of(&name, ch, mods.ctrl, mods.shift, true).map(KeyAction::DashKey));
+            }
+            // Central de avisos: Esc fecha.
+            if st.avisos.center.is_some() && name == "escape" {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::AvisosClose));
             }
             // Grade de apps aberta: o texto vai para a busca; as teclas F seguem
             // para os atalhos (F4 fecha, F12 troca pelo Painel…).
@@ -652,6 +664,7 @@ impl Glove {
             Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
             Some(KeyAction::Grade) => self.toggle_grade(),
+            Some(KeyAction::AvisosClose) => self.toggle_avisos_center(),
             Some(KeyAction::VirtualDesk(d, carry)) => self.step_desk(d, carry),
             Some(KeyAction::GradeKey(k)) => self.grade_key(k),
             Some(KeyAction::CycleWindows) => self.cycle_app_windows(),
@@ -879,6 +892,14 @@ impl Glove {
         }
         if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {
             return;
+        }
+        // Balões de aviso e a central.
+        if button == BTN_LEFT && state == ButtonState::Pressed && !self.locked() {
+            let pos = self.pointer_pos;
+            if self.avisos_click(pos) {
+                self.swallow_wake_release = true;
+                return;
+            }
         }
         if self.grade_active() {
             if button == BTN_LEFT && state == ButtonState::Pressed {
