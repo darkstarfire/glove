@@ -496,7 +496,10 @@ com a tradução ou com outra coisa (o caminho, um identificador).
   sessão e o relatório do `--monitores`; datas e números no formato de cada idioma (ordem da data,
   vírgula decimal); nomes de apps lidos dos .desktop no idioma em uso; chaves com contexto
   (`"Monitor|tela"`) quando a mesma palavra tem dois sentidos
-- [ ] 9.15.3 Preferências (G)
+- [x] 9.15.3 Preferências (G) — v0.9.25: todos os painéis; a busca de painéis entende os dois idiomas;
+  listas fixas (painéis, idiomas, serviços, regiões) traduzidas onde são mostradas; nomes de apps dos
+  .desktop no idioma em uso; `tools/i18n.py candidatos|aplicar` marca uma pasta inteira e separa os
+  textos que também são chave da lógica
 - [ ] 9.15.4 Arquivos (M)
 - [ ] 9.15.5 Os outros apps, em lotes (G)
 - [ ] 9.15.6 Nomes do Dock e dos apps (configuração), tela de login e boas-vindas (M)

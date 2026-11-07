@@ -2,6 +2,7 @@
 //! horário e o relógio da barra de menu. Muda o sistema pelo `timedatectl`
 //! (o polkit pode pedir a senha de administrador).
 
+use glove_config::tr;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -94,10 +95,10 @@ fn timedatectl(args: &[&str]) -> Result<(), String> {
         return Ok(());
     }
     let err = String::from_utf8_lossy(&out.stderr);
-    let msg = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("o sistema recusou").trim().to_string();
+    let msg = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or(tr!("o sistema recusou")).trim().to_string();
     // Sem permissão: explica em português.
     if msg.contains("ccess denied") || msg.contains("nteractive authentication required") || msg.contains("not authorized") {
-        return Err("o sistema pediu permissão de administrador e ela não foi dada.".into());
+        return Err(tr!("o sistema pediu permissão de administrador e ela não foi dada.").into());
     }
     Err(msg)
 }
@@ -152,7 +153,7 @@ impl DataHora {
         let mut tab = self.tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &["Data e Hora", "Fuso Horário", "Relógio"], 300.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Data e Hora"), tr!("Fuso Horário"), tr!("Relógio")], 300.0, |ui| match shown {
             0 => self.date_tab(ui),
             1 => self.zone_tab(ui),
             _ => save = self.clock_tab(ui, clock),
@@ -160,7 +161,7 @@ impl DataHora {
         self.tab = tab;
         if let Some((ok, m)) = self.message.clone() {
             ui.space(6.0);
-            let t = if ok { m } else { format!("Não deu certo: {m}") };
+            let t = if ok { m } else { tr!("Não deu certo: {}", m) };
             ui.small(&t);
         }
         save
@@ -168,25 +169,25 @@ impl DataHora {
 
     fn date_tab(&mut self, ui: &mut Ui) {
         let Some((_, ntp, synced)) = self.status.clone() else {
-            ui.small("O timedatectl não respondeu.");
+            ui.small(tr!("O timedatectl não respondeu."));
             return;
         };
         let mut auto = ntp;
         ui.horizontal(|ui| {
-            if ui.checkbox(&mut auto, "Ajustar data e hora automaticamente (pela internet)") && !self.busy {
+            if ui.checkbox(&mut auto, tr!("Ajustar data e hora automaticamente (pela internet)")) && !self.busy {
                 let on = auto;
-                self.start(if on { "Hora automática ligada.".into() } else { "Hora automática desligada.".into() }, move || timedatectl(&["set-ntp", if on { "true" } else { "false" }]));
+                self.start(if on { tr!("Hora automática ligada.").into() } else { tr!("Hora automática desligada.").into() }, move || timedatectl(&["set-ntp", if on { "true" } else { "false" }]));
             }
         });
         if ntp {
-            ui.indent(22.0, |ui| ui.small(if synced { "Sincronizado com o servidor de hora." } else { "Esperando o servidor de hora…" }));
+            ui.indent(22.0, |ui| ui.small(if synced { tr!("Sincronizado com o servidor de hora.") } else { tr!("Esperando o servidor de hora…") }));
         }
         ui.space(8.0);
         let (year, month, day, _, h, m, s) = glove_kit::local_time();
         let (x0, y0) = ui.cursor();
         // Calendário do mês (à esquerda).
         let (cw, ch) = (28.0, 20.0);
-        let title = format!("{} de {year}", MESES[(month - 1) as usize]);
+        let title = tr!("{} de {}", tr(MESES[(month - 1) as usize]), year);
         ui.fonts.draw(ui.c, &title, x0 + 4.0, y0 + 13.0, 13.0, true, rgba(20, 20, 20, 255));
         let gy = y0 + 22.0;
         ui.c.fill_rect(x0, gy, cw * 7.0, ch * 7.0, &solid(Color::WHITE));
@@ -244,18 +245,18 @@ impl DataHora {
                 self.time = format!("{h:02}:{m:02}:{s:02}");
             }
             ui.horizontal(|ui| {
-                ui.label("Data:");
+                ui.label(tr!("Data:"));
                 ui.text_field(&mut self.date, 110.0);
-                ui.label("Hora:");
+                ui.label(tr!("Hora:"));
                 ui.text_field(&mut self.time, 90.0);
                 ui.set_active(!self.busy);
-                if ui.button("Definir") {
+                if ui.button(tr!("Definir")) {
                     match parse_datetime(&self.date, &self.time) {
                         Some(dt) => {
-                            self.start("Data e hora definidas.".into(), move || timedatectl(&["set-time", &dt]));
+                            self.start(tr!("Data e hora definidas.").into(), move || timedatectl(&["set-time", &dt]));
                             self.date.clear();
                         }
-                        None => self.message = Some((false, "use a data como 05/11/2026 e a hora como 14:30.".into())),
+                        None => self.message = Some((false, tr!("use a data como 05/11/2026 e a hora como 14:30.").into())),
                     }
                 }
                 ui.set_active(true);
@@ -265,7 +266,7 @@ impl DataHora {
 
     fn zone_tab(&mut self, ui: &mut Ui) {
         let Some((tz, ..)) = self.status.clone() else {
-            ui.small("O timedatectl não respondeu.");
+            ui.small(tr!("O timedatectl não respondeu."));
             return;
         };
         // Diferença do UTC pelo próprio libc.
@@ -281,9 +282,9 @@ impl DataHora {
         let t = format!("Fuso horário atual: {} (UTC {sign}{:02}:{:02})", city_name(&tz), offset.abs() / 3600, offset.abs() % 3600 / 60);
         ui.label(&t);
         ui.space(6.0);
-        let names: Vec<String> = REGIONS.iter().map(|(_, n)| n.to_string()).collect();
+        let names: Vec<String> = REGIONS.iter().map(|(_, n)| tr(n).to_string()).collect();
         ui.horizontal(|ui| {
-            ui.label("Região:");
+            ui.label(tr!("Região:"));
             if ui.popup(&mut self.region, &names, 160.0) {
                 self.city = None;
             }
@@ -303,9 +304,9 @@ impl DataHora {
         let can = !self.busy && chosen.as_ref().is_some_and(|z| *z != tz);
         ui.horizontal(|ui| {
             ui.set_active(can);
-            if ui.default_button("Definir Fuso Horário") {
+            if ui.default_button(tr!("Definir Fuso Horário")) {
                 if let Some(z) = chosen.clone() {
-                    let ok = format!("Fuso horário: {}.", city_name(&z));
+                    let ok = tr!("Fuso horário: {}.", city_name(&z));
                     self.start(ok, move || timedatectl(&["set-timezone", &z]));
                 }
             }
@@ -315,14 +316,14 @@ impl DataHora {
 
     fn clock_tab(&mut self, ui: &mut Ui, c: &mut glove_config::Clock) -> bool {
         let mut save = false;
-        save |= ui.checkbox(&mut c.show, "Mostrar data e hora na barra de menu");
+        save |= ui.checkbox(&mut c.show, tr!("Mostrar data e hora na barra de menu"));
         ui.space(6.0);
         ui.indent(22.0, |ui| {
             let mut v = usize::from(c.analog);
             ui.horizontal(|ui| {
-                ui.label("Ver como:");
+                ui.label(tr!("Ver como:"));
                 ui.spacing(14.0);
-                if ui.radio_group(&mut v, &["Digital", "Analógico"]) {
+                if ui.radio_group(&mut v, &["Digital", tr!("Analógico")]) {
                     c.analog = v == 1;
                     save = true;
                 }
@@ -330,18 +331,18 @@ impl DataHora {
             ui.space(4.0);
             let digital = !c.analog;
             ui.set_active(digital && c.show);
-            save |= ui.checkbox(&mut c.seconds, "Mostrar os segundos");
-            save |= ui.checkbox(&mut c.weekday, "Mostrar o dia da semana");
-            save |= ui.checkbox(&mut c.date, "Mostrar a data");
-            save |= ui.checkbox(&mut c.h24, "Usar o relógio de 24 horas");
-            save |= ui.checkbox(&mut c.blink, "Piscar os dois-pontos");
+            save |= ui.checkbox(&mut c.seconds, tr!("Mostrar os segundos"));
+            save |= ui.checkbox(&mut c.weekday, tr!("Mostrar o dia da semana"));
+            save |= ui.checkbox(&mut c.date, tr!("Mostrar a data"));
+            save |= ui.checkbox(&mut c.h24, tr!("Usar o relógio de 24 horas"));
+            save |= ui.checkbox(&mut c.blink, tr!("Piscar os dois-pontos"));
             ui.set_active(true);
         });
         ui.space(10.0);
         let (y, mo, d, wd, h, m, s) = glove_kit::local_time();
         let _ = y;
-        let preview = if c.analog { "Mostrador de ponteiros".to_string() } else { c.text(wd, d, mo, h, m, s) };
-        let t = format!("Na barra: {preview}");
+        let preview = if c.analog { tr!("Mostrador de ponteiros").to_string() } else { c.text(wd, d, mo, h, m, s) };
+        let t = tr!("Na barra: {}", preview);
         ui.small(&t);
         save
     }

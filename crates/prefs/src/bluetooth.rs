@@ -1,6 +1,7 @@
 //! Painel Bluetooth: ligar o rádio, aparelhos pareados (conectar, desconectar,
 //! esquecer) e procurar novos, pelo `bluetoothctl`.
 
+use glove_config::tr;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -41,7 +42,7 @@ fn run(args: &[&str]) -> Result<(), String> {
     if out.status.success() && !text.contains("Failed") && !text.contains("not available") {
         return Ok(());
     }
-    Err(text.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("o Bluetooth recusou").trim().to_string())
+    Err(text.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or(tr!("o Bluetooth recusou")).trim().to_string())
 }
 
 #[derive(Default)]
@@ -77,7 +78,7 @@ impl Bluetooth {
         let sel_mac = self.sel.and_then(|i| self.devices.get(i)).map(|d| d.mac.clone());
         let mut devs: Vec<Device> = all
             .iter()
-            .map(|(mac, name)| Device { mac: mac.clone(), name: if name.is_empty() || name.replace('-', ":") == *mac { "Aparelho sem nome".into() } else { name.clone() }, paired: paired.iter().any(|p| p.0 == *mac), connected: connected.iter().any(|c| c.0 == *mac) })
+            .map(|(mac, name)| Device { mac: mac.clone(), name: if name.is_empty() || name.replace('-', ":") == *mac { tr!("Aparelho sem nome").into() } else { name.clone() }, paired: paired.iter().any(|p| p.0 == *mac), connected: connected.iter().any(|c| c.0 == *mac) })
             .collect();
         // Pareados primeiro; os encontrados na busca depois.
         devs.sort_by_key(|d| (!d.paired, !d.connected, d.name.to_lowercase()));
@@ -112,19 +113,19 @@ impl Bluetooth {
             ui.wake_after(Duration::from_millis(250));
         }
         let Some(powered) = self.powered else {
-            ui.small("Nenhum adaptador Bluetooth encontrado (ou o bluetoothctl não está instalado).");
+            ui.small(tr!("Nenhum adaptador Bluetooth encontrado (ou o bluetoothctl não está instalado)."));
             return;
         };
         let mut on = powered;
         ui.horizontal(|ui| {
             ui.set_active(self.busy.is_none());
-            if ui.checkbox(&mut on, "Bluetooth ligado") {
+            if ui.checkbox(&mut on, tr!("Bluetooth ligado")) {
                 let arg = if on { "on" } else { "off" };
-                self.start(if on { "Ligando…".into() } else { "Desligando…".into() }, if on { "Bluetooth ligado.".into() } else { "Bluetooth desligado.".into() }, move || run(&["power", arg]));
+                self.start(if on { tr!("Ligando…").into() } else { tr!("Desligando…").into() }, if on { tr!("Bluetooth ligado.").into() } else { tr!("Bluetooth desligado.").into() }, move || run(&["power", arg]));
             }
             ui.set_active(true);
         });
-        let t = format!("Este computador aparece como “{}”.", self.name);
+        let t = tr!("Este computador aparece como “{}”.", self.name);
         ui.small(&t);
         ui.space(6.0);
         // Lista de aparelhos.
@@ -134,9 +135,9 @@ impl Bluetooth {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));
         if !powered {
-            ui.fonts.draw(ui.c, "O Bluetooth está desligado.", r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("O Bluetooth está desligado."), r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
         } else if self.devices.is_empty() {
-            ui.fonts.draw(ui.c, "Nenhum aparelho. Use “Procurar” para achar um por perto.", r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Nenhum aparelho. Use “Procurar” para achar um por perto."), r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
         }
         let mut clicked = None;
         for (k, d) in self.devices.iter().enumerate().take(((lh - 2.0) / row) as usize).filter(|_| powered) {
@@ -152,7 +153,7 @@ impl Bluetooth {
             let light = if d.connected { rgba(80, 190, 70, 255) } else if d.paired { rgba(200, 200, 204, 255) } else { rgba(120, 170, 240, 255) };
             gel_circle(ui.c, rr.x + 16.0, y + row / 2.0, 5.0, light);
             ui.fonts.draw(ui.c, &d.name, rr.x + 30.0, y + 15.0, 12.0, true, ink);
-            let state = if d.connected { "Conectado" } else if d.paired { "Pareado, desconectado" } else { "Encontrado por perto" };
+            let state = if d.connected { tr!("Conectado") } else if d.paired { tr!("Pareado, desconectado") } else { tr!("Encontrado por perto") };
             ui.fonts.draw(ui.c, state, rr.x + 30.0, y + 29.0, 10.0, false, if sel { Color::WHITE } else { rgba(100, 100, 106, 255) });
             if ui.hit(rr).clicked {
                 clicked = Some(k);
@@ -167,37 +168,37 @@ impl Bluetooth {
         let (mut scan, mut connect, mut forget) = (false, false, false);
         ui.horizontal(|ui| {
             ui.set_active(idle);
-            scan = ui.button("Procurar");
+            scan = ui.button(tr!("Procurar"));
             ui.set_active(idle && dev.is_some());
             connect = ui.default_button(match &dev {
-                Some(d) if d.connected => "Desconectar",
-                Some(d) if !d.paired => "Parear",
-                _ => "Conectar",
+                Some(d) if d.connected => tr!("Desconectar"),
+                Some(d) if !d.paired => tr!("Parear"),
+                _ => tr!("Conectar"),
             });
             ui.set_active(idle && dev.as_ref().is_some_and(|d| d.paired));
-            forget = ui.button("Esquecer");
+            forget = ui.button(tr!("Esquecer"));
             ui.set_active(true);
         });
         if scan {
-            self.start("Procurando aparelhos (10 s)…".into(), "Busca concluída.".into(), || run(&["--timeout", "10", "scan", "on"]));
+            self.start(tr!("Procurando aparelhos (10 s)…").into(), tr!("Busca concluída.").into(), || run(&["--timeout", "10", "scan", "on"]));
         }
         if let (true, Some(d)) = (connect, dev.clone()) {
             let mac = d.mac.clone();
             if d.connected {
-                self.start(format!("Desconectando “{}”…", d.name), "Desconectado.".into(), move || run(&["disconnect", &mac]));
+                self.start(tr!("Desconectando “{}”…", d.name), "Desconectado.".into(), move || run(&["disconnect", &mac]));
             } else if !d.paired {
-                self.start(format!("Pareando “{}”…", d.name), "Pareado e conectado.".into(), move || {
+                self.start(tr!("Pareando “{}”…", d.name), "Pareado e conectado.".into(), move || {
                     run(&["--timeout", "20", "pair", &mac])?;
                     let _ = run(&["trust", &mac]);
                     run(&["--timeout", "15", "connect", &mac])
                 });
             } else {
-                self.start(format!("Conectando “{}”…", d.name), "Conectado.".into(), move || run(&["--timeout", "15", "connect", &mac]));
+                self.start(tr!("Conectando “{}”…", d.name), "Conectado.".into(), move || run(&["--timeout", "15", "connect", &mac]));
             }
         }
         if let (true, Some(d)) = (forget, dev) {
             let mac = d.mac.clone();
-            self.start(format!("Esquecendo “{}”…", d.name), "Aparelho esquecido.".into(), move || run(&["remove", &mac]));
+            self.start(tr!("Esquecendo “{}”…", d.name), "Aparelho esquecido.".into(), move || run(&["remove", &mac]));
         }
         ui.space(4.0);
         if let Some(b) = &self.busy {
@@ -207,7 +208,7 @@ impl Bluetooth {
                 ui.small(&b);
             });
         } else if let Some((ok, m)) = self.message.clone() {
-            let t = if ok { m } else { format!("Não deu certo: {m}") };
+            let t = if ok { m } else { tr!("Não deu certo: {}", m) };
             ui.small(&t);
         }
     }

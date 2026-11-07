@@ -2,6 +2,7 @@
 //! moeda). Fica em ~/.config/glove/ambiente.conf (LANG e LC_*), que a sessão
 //! do Glove lê ao entrar; vale para os apps abertos depois disso.
 
+use glove_config::tr;
 use std::path::PathBuf;
 
 use glove_kit::Ui;
@@ -128,8 +129,8 @@ impl Internacional {
         LOCALES
             .iter()
             .map(|(id, lang, reg)| {
-                let base = if region { reg.to_string() } else { lang.to_string() };
-                if self.installed.iter().any(|i| i == id) { base } else { format!("{base} (não instalado)") }
+                let base = if region { tr(reg).to_string() } else { tr(lang).to_string() };
+                if self.installed.iter().any(|i| i == id) { base } else { tr!("{} (não instalado)", base) }
             })
             .collect()
     }
@@ -139,7 +140,7 @@ impl Internacional {
         if !self.loaded {
             self.refresh();
         }
-        ui.small("O Glove fala português. Aqui se escolhe o idioma dos outros apps:");
+        ui.small(tr!("Idioma do Glove e dos outros apps:"));
         ui.space(6.0);
         let names = self.locale_names(false);
         let mut sel = LOCALES.iter().position(|l| l.0 == self.lang).or(Some(0));
@@ -150,8 +151,8 @@ impl Internacional {
             }
         }
         ui.space(6.0);
-        ui.small("Idiomas marcados \"não instalado\" precisam do pacote de idioma do sistema.");
-        ui.small("Vale para os apps abertos depois da próxima entrada no Glove.");
+        ui.small(tr!("Idiomas marcados “não instalado” precisam do pacote de idioma do sistema."));
+        ui.small(tr!("Vale para os apps abertos depois da próxima entrada no Glove."));
         if let Some(m) = &self.message {
             let m = m.clone();
             ui.small(&m);
@@ -165,7 +166,7 @@ impl Internacional {
         let names = self.locale_names(true);
         let reg = if self.region.is_empty() { if self.lang.is_empty() { "pt_BR".to_string() } else { self.lang.clone() } } else { self.region.clone() };
         let mut cur = LOCALES.iter().position(|l| l.0 == reg).unwrap_or(0);
-        ui.form_row("Região", 120.0, |ui| {
+        ui.form_row(tr!("Região"), 120.0, |ui| {
             if ui.popup(&mut cur, &names, 240.0) {
                 self.region = LOCALES[cur].0.to_string();
                 self.write();
@@ -175,17 +176,17 @@ impl Internacional {
         let r = LOCALES[cur].0;
         let (y, mo, d, _, h, mi, _) = glove_kit::local_time();
         let (date, time) = date_time(r, (y, mo, d, h, mi));
-        ui.form_row("Data", 120.0, |ui| ui.label(&date));
-        ui.form_row("Hora", 120.0, |ui| ui.label(&time));
-        ui.form_row("Números", 120.0, |ui| ui.label(&number(r, 1_234_567.89)));
-        ui.form_row("Moeda", 120.0, |ui| ui.label(&money(r, 1_234.56)));
-        ui.form_row("Medidas", 120.0, |ui| ui.label(if matches!(r, "en_US") { "Americanas (polegadas, libras)" } else { "Métricas (centímetros, quilos)" }));
+        ui.form_row(tr!("Data"), 120.0, |ui| ui.label(&date));
+        ui.form_row(tr!("Hora"), 120.0, |ui| ui.label(&time));
+        ui.form_row(tr!("Números"), 120.0, |ui| ui.label(&number(r, 1_234_567.89)));
+        ui.form_row(tr!("Moeda"), 120.0, |ui| ui.label(&money(r, 1_234.56)));
+        ui.form_row(tr!("Medidas"), 120.0, |ui| ui.label(if matches!(r, "en_US") { tr!("Americanas (polegadas, libras)") } else { tr!("Métricas (centímetros, quilos)") }));
         ui.space(8.0);
-        ui.small("Exemplos de como os apps vão mostrar. Vale depois da próxima entrada.");
+        ui.small(tr!("Exemplos de como os apps vão mostrar. Vale depois da próxima entrada."));
     }
 
     fn write(&mut self) {
-        self.message = save(&self.lang, &self.region).err().map(|e| format!("Não foi possível salvar: {e}"));
+        self.message = save(&self.lang, &self.region).err().map(|e| tr!("Não foi possível salvar: {}", e));
     }
 }
 

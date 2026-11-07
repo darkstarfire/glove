@@ -1,6 +1,7 @@
 //! Painel Rede: estado das interfaces, Wi-Fi (redes, conectar com senha) e
 //! TCP/IP (DHCP ou manual), tudo pelo NetworkManager.
 
+use glove_config::tr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -39,20 +40,20 @@ fn status_line(i: &Iface, ip: &str) -> (Color, String, String) {
     if i.connected() {
         let addr = ip.split('/').next().unwrap_or("");
         let text = match (i.kind.as_str(), addr.is_empty()) {
-            ("wifi", false) => format!("{name} está conectado à rede “{}” e tem o endereço IP {addr}.", i.connection),
-            ("wifi", true) => format!("{name} está conectado à rede “{}”, mas ainda não tem endereço IP.", i.connection),
-            (_, false) => format!("{name} está ativo e tem o endereço IP {addr}."),
-            _ => format!("{name} está ativo, mas ainda não tem endereço IP."),
+            ("wifi", false) => tr!("{} está conectado à rede “{}” e tem o endereço IP {}.", name, i.connection, addr),
+            ("wifi", true) => tr!("{} está conectado à rede “{}”, mas ainda não tem endereço IP.", name, i.connection),
+            (_, false) => tr!("{} está ativo e tem o endereço IP {}.", name, addr),
+            _ => tr!("{} está ativo, mas ainda não tem endereço IP.", name),
         };
         (if addr.is_empty() { rgba(240, 190, 40, 255) } else { rgba(80, 190, 70, 255) }, name.clone(), text)
     } else if i.state.starts_with("connecting") {
-        (rgba(240, 190, 40, 255), name.clone(), format!("{name} está conectando…"))
+        (rgba(240, 190, 40, 255), name.clone(), tr!("{} está conectando…", name))
     } else if i.kind == "ethernet" {
-        (rgba(220, 70, 60, 255), name, "O cabo não está conectado.".into())
+        (rgba(220, 70, 60, 255), name, tr!("O cabo não está conectado.").into())
     } else if i.state == "unavailable" {
-        (rgba(220, 70, 60, 255), name.clone(), format!("{name} está desligado."))
+        (rgba(220, 70, 60, 255), name.clone(), tr!("{} está desligado.", name))
     } else {
-        (rgba(220, 70, 60, 255), name.clone(), format!("{name} está ligado, mas não está conectado a nenhuma rede."))
+        (rgba(220, 70, 60, 255), name.clone(), tr!("{} está ligado, mas não está conectado a nenhuma rede.", name))
     }
 }
 
@@ -126,7 +127,7 @@ impl Rede {
 
     fn join(&mut self, ssid: String, password: Option<String>) {
         let s = ssid.clone();
-        self.start(format!("Conectando a “{ssid}”…"), format!("Conectado a “{ssid}”."), move || rede::connect(&s, password.as_deref()));
+        self.start(tr!("Conectando a “{}”…", ssid), format!("Conectado a “{ssid}”."), move || rede::connect(&s, password.as_deref()));
     }
 
     /// Escolher uma rede: as abertas e as já salvas conectam direto; as outras pedem a senha.
@@ -155,14 +156,14 @@ impl Rede {
             ui.wake_after(Duration::from_millis(200));
         }
         let Some(ifaces) = self.ifaces.clone() else {
-            ui.small("O NetworkManager não respondeu (o comando nmcli não está disponível).");
+            ui.small(tr!("O NetworkManager não respondeu (o comando nmcli não está disponível)."));
             return false;
         };
-        let mut names = vec!["Status da Rede".to_string()];
+        let mut names = vec![tr!("Status da Rede").to_string()];
         names.extend(ifaces.iter().map(|i| i.label()));
         self.show = self.show.min(ifaces.len());
         ui.horizontal(|ui| {
-            ui.label_right("Mostrar:", 150.0);
+            ui.label_right(tr!("Mostrar:"), 150.0);
             if ui.popup(&mut self.show, &names, 200.0) {
                 self.tab = 0;
                 self.load_ip(true);
@@ -182,11 +183,11 @@ impl Rede {
                 ui.small(&b);
             });
         } else if let Some((ok, m)) = self.message.clone() {
-            let t = if ok { m } else { format!("Não deu certo: {m}") };
+            let t = if ok { m } else { tr!("Não deu certo: {}", m) };
             ui.small(&t);
         }
         ui.space(4.0);
-        if ui.checkbox(wifi_menu, "Mostrar o Wi-Fi na barra de menu") {
+        if ui.checkbox(wifi_menu, tr!("Mostrar o Wi-Fi na barra de menu")) {
             save = true;
         }
         save
@@ -200,7 +201,7 @@ impl Rede {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));
         if ifaces.is_empty() {
-            ui.fonts.draw(ui.c, "Nenhuma interface de rede encontrada.", r.x + 14.0, r.y + 30.0, 12.0, false, rgba(100, 100, 106, 255));
+            ui.fonts.draw(ui.c, tr!("Nenhuma interface de rede encontrada."), r.x + 14.0, r.y + 30.0, 12.0, false, rgba(100, 100, 106, 255));
         }
         let mut open = None;
         for (k, i) in ifaces.iter().enumerate() {
@@ -219,7 +220,7 @@ impl Rede {
             }
         }
         ui.space(6.0);
-        ui.small("Clique duas vezes numa interface para configurá-la.");
+        ui.small(tr!("Clique duas vezes numa interface para configurá-la."));
         if let Some(s) = open {
             self.show = s;
             self.tab = 0;
@@ -246,8 +247,8 @@ impl Rede {
     fn wifi_tab(&mut self, ui: &mut Ui, i: &Iface) {
         let mut on = self.wifi_on.unwrap_or(false);
         ui.horizontal(|ui| {
-            if ui.checkbox(&mut on, "Wi-Fi ligado") && self.busy.is_none() {
-                self.start(if on { "Ligando o Wi-Fi…".into() } else { "Desligando o Wi-Fi…".into() }, if on { "Wi-Fi ligado.".into() } else { "Wi-Fi desligado.".into() }, move || rede::set_wifi(on));
+            if ui.checkbox(&mut on, tr!("Wi-Fi ligado")) && self.busy.is_none() {
+                self.start(if on { tr!("Ligando o Wi-Fi…").into() } else { tr!("Desligando o Wi-Fi…").into() }, if on { tr!("Wi-Fi ligado.").into() } else { tr!("Wi-Fi desligado.").into() }, move || rede::set_wifi(on));
                 self.wifi_on = Some(on);
             }
         });
@@ -260,9 +261,9 @@ impl Rede {
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));
         if !on {
-            ui.fonts.draw(ui.c, "O Wi-Fi está desligado.", r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("O Wi-Fi está desligado."), r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
         } else if self.nets.is_empty() {
-            ui.fonts.draw(ui.c, "Nenhuma rede encontrada.", r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Nenhuma rede encontrada."), r.x + 12.0, r.y + 22.0, 11.0, false, rgba(110, 110, 116, 255));
         }
         let mut double = None;
         for (k, n) in self.nets.iter().enumerate().take(((list_h - 2.0) / row_h) as usize).filter(|_| on) {
@@ -297,22 +298,22 @@ impl Rede {
         let (mut join, mut leave, mut scan) = (false, false, false);
         ui.horizontal(|ui| {
             ui.set_active(idle && on);
-            scan = ui.button("Buscar Redes");
+            scan = ui.button(tr!("Buscar Redes"));
             ui.set_active(idle && on && i.connected());
-            leave = ui.button("Desconectar");
+            leave = ui.button(tr!("Desconectar"));
             ui.set_active(idle && on && sel.as_ref().is_some_and(|n| !n.in_use));
-            join = ui.default_button("Conectar…");
+            join = ui.default_button(tr!("Conectar…"));
             ui.set_active(true);
         });
         if scan {
-            self.start("Buscando redes…".into(), "Busca concluída.".into(), || {
+            self.start(tr!("Buscando redes…").into(), tr!("Busca concluída.").into(), || {
                 rede::wifi_list(true);
                 Ok(())
             });
         }
         if leave {
             let d = i.device.clone();
-            self.start("Desconectando…".into(), "Desconectado.".into(), move || rede::disconnect(&d));
+            self.start(tr!("Desconectando…").into(), tr!("Desconectado.").into(), move || rede::disconnect(&d));
         }
         if let Some(s) = double.or_else(|| join.then(|| sel.map(|n| n.ssid)).flatten()) {
             if idle {
@@ -324,14 +325,14 @@ impl Rede {
     fn tcpip_tab(&mut self, ui: &mut Ui, i: &Iface) {
         const LW: f32 = 170.0;
         let mut m = usize::from(self.manual);
-        ui.form_row("Configurar IPv4", LW, |ui| {
-            if ui.popup(&mut m, &["Usando DHCP".to_string(), "Manualmente".to_string()], 180.0) {
+        ui.form_row(tr!("Configurar IPv4"), LW, |ui| {
+            if ui.popup(&mut m, &[tr!("Usando DHCP").to_string(), tr!("Manualmente").to_string()], 180.0) {
                 self.manual = m == 1;
                 self.form_dirty = true;
             }
         });
         ui.space(4.0);
-        let labels = ["Endereço IP", "Máscara de sub-rede", "Roteador", "Servidores DNS"];
+        let labels = [tr!("Endereço IP"), tr!("Máscara de sub-rede"), tr!("Roteador"), tr!("Servidores DNS")];
         let manual = self.manual;
         for (k, l) in labels.iter().enumerate() {
             let mut v = self.form[k].clone();
@@ -351,7 +352,7 @@ impl Rede {
         }
         if let Some((_, info)) = &self.ip {
             if !info.hwaddr.is_empty() {
-                let t = format!("Endereço MAC: {}", info.hwaddr);
+                let t = tr!("Endereço MAC: {}", info.hwaddr);
                 ui.form_note(LW, &t);
             }
         }
@@ -362,8 +363,8 @@ impl Rede {
         ui.horizontal(|ui| {
             ui.space(LW);
             ui.set_active(can);
-            revert = ui.button("Reverter");
-            apply = ui.default_button("Aplicar");
+            revert = ui.button(tr!("Reverter"));
+            apply = ui.default_button(tr!("Aplicar"));
             ui.set_active(true);
         });
         if revert {
@@ -372,20 +373,20 @@ impl Rede {
         if apply {
             let conn = i.connection.clone();
             if !self.manual {
-                self.start("Aplicando…".into(), "Usando DHCP.".into(), move || rede::set_ipv4(&conn, None));
+                self.start(tr!("Aplicando…").into(), tr!("Usando DHCP.").into(), move || rede::set_ipv4(&conn, None));
                 return;
             }
             let Some(pre) = rede::prefix(&self.form[1]) else {
-                self.message = Some((false, "a máscara de sub-rede não é válida (ex.: 255.255.255.0).".into()));
+                self.message = Some((false, tr!("a máscara de sub-rede não é válida (ex.: 255.255.255.0).").into()));
                 return;
             };
             if self.form[0].parse::<std::net::Ipv4Addr>().is_err() {
-                self.message = Some((false, "o endereço IP não é válido (ex.: 192.168.0.20).".into()));
+                self.message = Some((false, tr!("o endereço IP não é válido (ex.: 192.168.0.20).").into()));
                 return;
             }
             let addr = format!("{}/{pre}", self.form[0].trim());
             let (gw, dns) = (self.form[2].trim().to_string(), self.form[3].replace(' ', ""));
-            self.start("Aplicando…".into(), "Endereço manual aplicado.".into(), move || rede::set_ipv4(&conn, Some((&addr, &gw, &dns))));
+            self.start(tr!("Aplicando…").into(), tr!("Endereço manual aplicado.").into(), move || rede::set_ipv4(&conn, Some((&addr, &gw, &dns))));
         }
     }
 
@@ -399,15 +400,15 @@ impl Rede {
         ui.c.fill(rrect(x - 6.0, y, sw + 12.0, sh + 8.0, 6.0), &solid(rgba(0, 0, 0, 40)));
         ui.c.fill_rect(x, y, sw, sh, &vgrad(y, y + sh, &[(0.0, rgba(236, 236, 238, 252)), (1.0, rgba(246, 246, 248, 252))]));
         ui.c.stroke(rrect(x + 0.5, y - 0.5, sw - 1.0, sh, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0);
-        let title = format!("A rede “{ssid}” pede uma senha.");
+        let title = tr!("A rede “{}” pede uma senha.", ssid);
         ui.fonts.draw(ui.c, &title, x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 20, 255));
-        ui.fonts.draw(ui.c, "Senha:", x + 20.0, y + 62.0, 13.0, false, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, tr!("Senha:"), x + 20.0, y + 62.0, 13.0, false, rgba(20, 20, 20, 255));
         let enter = ui.password_field_in(Rect::new(x + 80.0, y + 46.0, sw - 100.0, 22.0), &mut pw, true);
         let (mut cancel, mut ok) = (false, false);
         ui.area(Rect::new(x + sw - 210.0, y + sh - 40.0, 200.0, 30.0), |ui| {
             ui.horizontal(|ui| {
-                cancel = ui.button("Cancelar");
-                ok = ui.default_button("Conectar");
+                cancel = ui.button(tr!("Cancelar"));
+                ok = ui.default_button(tr!("Conectar"));
             });
         });
         let esc = ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape);

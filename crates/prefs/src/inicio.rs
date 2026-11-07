@@ -1,5 +1,6 @@
 //! Painel Itens de Início: apps que abrem sozinhos ao entrar (autostart do XDG).
 
+use glove_config::tr;
 use glove_config::inicio::{self, Item};
 use glove_kit::{
     paint::{draw::*, Color},
@@ -28,7 +29,7 @@ impl Inicio {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        ui.label("Estes itens abrem sozinhos quando você entra no Glove:");
+        ui.label(tr!("Estes itens abrem sozinhos quando você entra no Glove:"));
         ui.space(6.0);
         let w = ui.available_width();
         // A lista cresce com os itens (a janela acompanha), até 16 linhas.
@@ -41,11 +42,11 @@ impl Inicio {
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, head_h, &vgrad(r.y, r.y + head_h, &[(0.0, rgba(250, 250, 252, 255)), (1.0, rgba(222, 222, 226, 255))]));
         ui.c.hline(r.x + 1.0, r.y + head_h, r.w - 2.0, rgba(170, 170, 176, 255));
         let ink = rgba(20, 20, 20, 255);
-        ui.fonts.draw(ui.c, "Abrir", r.x + 8.0, r.y + 14.0, 11.0, false, ink);
-        ui.fonts.draw(ui.c, "Item", r.x + 56.0, r.y + 14.0, 11.0, false, ink);
-        ui.fonts.draw(ui.c, "Comando", r.x + r.w * 0.5, r.y + 14.0, 11.0, false, ink);
+        ui.fonts.draw(ui.c, tr!("Abrir"), r.x + 8.0, r.y + 14.0, 11.0, false, ink);
+        ui.fonts.draw(ui.c, tr!("Item"), r.x + 56.0, r.y + 14.0, 11.0, false, ink);
+        ui.fonts.draw(ui.c, tr!("Comando"), r.x + r.w * 0.5, r.y + 14.0, 11.0, false, ink);
         if self.items.is_empty() {
-            ui.fonts.draw(ui.c, "Nenhum item. Use + para escolher um aplicativo.", r.x + 12.0, r.y + head_h + 22.0, 11.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Nenhum item. Use + para escolher um aplicativo."), r.x + 12.0, r.y + head_h + 22.0, 11.0, false, rgba(110, 110, 116, 255));
         }
         let mut toggle = None;
         for (k, it) in self.items.iter().enumerate().take(((list_h - head_h - 2.0) / row_h) as usize) {
@@ -82,7 +83,7 @@ impl Inicio {
         if let Some(k) = toggle {
             let it = self.items[k].clone();
             if let Err(e) = inicio::set_enabled(&it.id, !it.enabled) {
-                self.message = Some(format!("Não foi possível mudar “{}”: {e}", it.name));
+                self.message = Some(tr!("Não foi possível mudar “{}”: {}", it.name, e));
             }
             self.refresh();
         }
@@ -101,14 +102,14 @@ impl Inicio {
         if minus {
             if let Some(it) = self.sel.and_then(|k| self.items.get(k)).cloned() {
                 if let Err(e) = inicio::remove(&it) {
-                    self.message = Some(format!("Não foi possível tirar “{}”: {e}", it.name));
+                    self.message = Some(tr!("Não foi possível tirar “{}”: {}", it.name, e));
                 }
                 self.sel = None;
                 self.refresh();
             }
         }
         ui.space(4.0);
-        ui.small("Itens do sistema não são apagados: tirar só faz com que não abram. Vale na próxima entrada.");
+        ui.small(tr!("Itens do sistema não são apagados: tirar só faz com que não abram. Vale na próxima entrada."));
         if let Some(m) = &self.message {
             let m = m.clone();
             ui.small(&m);
@@ -124,7 +125,7 @@ impl Inicio {
         ui.c.fill(rrect(x - 6.0, y, sw + 12.0, sh + 8.0, 6.0), &solid(rgba(0, 0, 0, 40)));
         ui.c.fill_rect(x, y, sw, sh, &vgrad(y, y + sh, &[(0.0, rgba(236, 236, 238, 252)), (1.0, rgba(246, 246, 248, 252))]));
         ui.c.stroke(rrect(x + 0.5, y - 0.5, sw - 1.0, sh, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0);
-        ui.fonts.draw(ui.c, "Escolha um aplicativo para abrir ao entrar:", x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 20, 255));
+        ui.fonts.draw(ui.c, tr!("Escolha um aplicativo para abrir ao entrar:"), x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 20, 255));
         let rows: Vec<String> = apps.iter().map(|a| a.0.clone()).collect();
         let (mut add, mut cancel) = (false, false);
         ui.area(Rect::new(x + 20.0, y + 40.0, sw - 40.0, sh - 50.0), |ui| {
@@ -132,9 +133,9 @@ impl Inicio {
             ui.space(8.0);
             ui.horizontal(|ui| {
                 ui.space(sw - 40.0 - 200.0);
-                cancel = ui.button("Cancelar");
+                cancel = ui.button(tr!("Cancelar"));
                 ui.set_active(sel.is_some());
-                add |= ui.default_button("Adicionar");
+                add |= ui.default_button(tr!("Adicionar"));
                 ui.set_active(true);
             });
         });
@@ -145,7 +146,7 @@ impl Inicio {
         if add {
             if let Some((name, exec)) = sel.and_then(|i| apps.get(i)) {
                 if let Err(e) = inicio::add(name, exec) {
-                    self.message = Some(format!("Não foi possível pôr “{name}”: {e}"));
+                    self.message = Some(tr!("Não foi possível pôr “{}”: {}", name, e));
                 }
                 self.refresh();
                 self.sel = self.items.iter().position(|i| i.name == *name);

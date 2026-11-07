@@ -1,6 +1,7 @@
 //! Preferências do Glove. Cada mudança é salva no config.toml e o
 //! compositor aplica na hora.
 
+use glove_config::tr;
 use std::time::{Duration, Instant};
 
 use glove_config::KEYBOARD_LAYOUTS as LAYOUTS;
@@ -137,7 +138,8 @@ fn matches(query: &str) -> Vec<Pane> {
     PANES
         .iter()
         .filter(|i| {
-            let hay = norm(&format!("{} {}", i.name, i.keywords));
+            // Busca nos dois idiomas: o nome e as palavras em português e traduzidos.
+            let hay = norm(&format!("{} {} {} {}", i.name, i.keywords, tr(i.name), tr(i.keywords)));
             words.iter().all(|w| hay.split_whitespace().any(|h| h.starts_with(w.as_str())))
         })
         .map(|i| i.pane)
@@ -186,10 +188,10 @@ const SOLID_COLORS: [(u8, u8, u8); 10] = [
 /// Nome do papel de parede para mostrar ("Ondas", "Cor sólida", "foto.png").
 fn wallpaper_name(style: &str) -> String {
     if let Some((_, n)) = WALLPAPERS.iter().find(|(i, _)| *i == style || (style.is_empty() && *i == "ondas")) {
-        return n.to_string();
+        return tr(n).to_string();
     }
     if style.starts_with("cor:") {
-        return "Cor sólida".into();
+        return tr!("Cor sólida").into();
     }
     std::path::Path::new(style).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| style.to_string())
 }
@@ -303,7 +305,7 @@ impl Prefs {
     fn build() -> Self {
         let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
         let mut images = Vec::new();
-        for d in ["Imagens", "Pictures"] {
+        for d in [tr!("Imagens"), "Pictures"] {
             if let Ok(rd) = std::fs::read_dir(home.join(d)) {
                 for e in rd.flatten() {
                     let p = e.path();
@@ -479,7 +481,7 @@ impl Prefs {
         ui.area(Rect::new(12.0 + 2.0 * SEGMENT_W + 10.0, 10.0, w - 340.0, TOOLBAR_H), |ui| {
             ui.spacing(4.0);
             ui.horizontal(|ui| {
-                if ui.icon_tile(Icon::Pref(PrefKind::ShowAll), "Mostrar Todos", false) {
+                if ui.icon_tile(Icon::Pref(PrefKind::ShowAll), tr!("Mostrar Todos"), false) {
                     chosen = Some(Pane::Todos);
                 }
                 // Divisória entre "Mostrar Todos" e os favoritos.
@@ -488,10 +490,10 @@ impl Prefs {
                 ui.c.vline(r.x + 5.0, r.y + 8.0, 42.0, rgba(255, 255, 255, 160));
                 for f in &favs {
                     // Os que não cabem antes da busca ficam de fora.
-                    if ui.available_width() < (ui.text_width(f.name, 11.0, false) + 12.0).max(64.0) {
+                    if ui.available_width() < (ui.text_width(tr(f.name), 11.0, false) + 12.0).max(64.0) {
                         break;
                     }
-                    if ui.icon_tile(f.icon, f.name, false) {
+                    if ui.icon_tile(f.icon, tr(f.name), false) {
                         chosen = Some(f.pane);
                     }
                 }
@@ -504,7 +506,7 @@ impl Prefs {
         }
         // Busca (como no 10.4): destaca os painéis que combinam.
         let before = self.search.clone();
-        ui.search_field_in(Rect::new(w - 172.0, mid - glove_kit::SEARCH_H / 2.0, 160.0, glove_kit::SEARCH_H), &mut self.search, "Buscar");
+        ui.search_field_in(Rect::new(w - 172.0, mid - glove_kit::SEARCH_H / 2.0, 160.0, glove_kit::SEARCH_H), &mut self.search, tr!("Buscar"));
         if self.search != before && !self.search.trim().is_empty() && self.pane != Pane::Todos {
             self.go(Pane::Todos);
         }
@@ -520,6 +522,7 @@ impl Prefs {
         let mut cells: Vec<(Rect, &'static PaneInfo)> = Vec::new();
         let mut band = 0;
         for (ci, cat) in CATEGORIES.iter().enumerate() {
+            let cat: &str = tr(cat);
             let items: Vec<&'static PaneInfo> = PANES.iter().filter(|i| i.category == ci).collect();
             if items.is_empty() {
                 continue;
@@ -543,7 +546,7 @@ impl Prefs {
         let draw_cell = |ui: &mut Ui, r: &Rect, i: &PaneInfo, ink: Color| {
             glove_kit::paint::icons::draw(ui.c, ui.fonts, i.icon, r.x + (r.w - 32.0) / 2.0, r.y + 6.0, 32.0, None);
             // Nome em até duas linhas, centrado.
-            for (n, l) in wrap2(ui, i.name, r.w - 4.0).iter().enumerate() {
+            for (n, l) in wrap2(ui, tr(i.name), r.w - 4.0).iter().enumerate() {
                 // Palavra comprida demais ("Compartilhamento") encolhe um pouco para caber.
                 let full = ui.text_width(l, 11.0, false);
                 let px = if full > r.w - 4.0 { (11.0 * (r.w - 4.0) / full).max(8.5) } else { 11.0 };
@@ -592,7 +595,7 @@ impl Prefs {
         let Some(((x, y), p)) = self.ctx else { return };
         let Some(i) = info(p) else { return };
         let fav = self.config.prefs_favorites.iter().any(|f| f == i.id);
-        let items = [format!("Abrir “{}”", i.name), if fav { "Tirar da Barra".to_string() } else { "Pôr na Barra".to_string() }];
+        let items = [tr!("Abrir “{}”", tr(i.name)), if fav { tr!("Tirar da Barra").to_string() } else { tr!("Pôr na Barra").to_string() }];
         let (mw, row) = (190.0, 20.0);
         let mh = row * items.len() as f32 + 8.0;
         let x = x.min(ui.c.w - mw - 4.0);
@@ -636,25 +639,25 @@ impl Prefs {
         ui.space(4.0);
         let names: Vec<String> = Variant::ALL.iter().map(|v| v.label().to_string()).collect();
         let mut v = Variant::ALL.iter().position(|v| v.id() == self.config.theme).unwrap_or(0);
-        ui.form_row("Aparência", LW, |ui| {
+        ui.form_row(tr!("Aparência"), LW, |ui| {
             ui.horizontal(|ui| {
                 if ui.popup(&mut v, &names, 130.0) {
                     self.config.theme = Variant::ALL[v].id().into();
                     self.save();
                 }
-                ui.small("Para botões, menus e janelas");
+                ui.small(tr!("Para botões, menus e janelas"));
             });
         });
         ui.space(4.0);
         let names: Vec<String> = glove_config::HIGHLIGHTS.iter().map(|h| h.1.to_string()).collect();
         let mut h = glove_config::HIGHLIGHTS.iter().position(|h| h.0 == self.config.appearance.highlight).unwrap_or(0);
-        ui.form_row("Cor de destaque", LW, |ui| {
+        ui.form_row(tr!("Cor de destaque"), LW, |ui| {
             ui.horizontal(|ui| {
                 if ui.popup(&mut h, &names, 130.0) {
                     self.config.appearance.highlight = glove_config::HIGHLIGHTS[h].0.into();
                     self.save();
                 }
-                ui.small("Para texto selecionado");
+                ui.small(tr!("Para texto selecionado"));
             });
         });
         ui.space(4.0);
@@ -664,10 +667,10 @@ impl Prefs {
             self.icon_themes = Some(glove_kit::paint::sysicons::installed_themes());
         }
         let themes = self.icon_themes.clone().unwrap_or_default();
-        let mut names: Vec<String> = vec!["Glove (desenhados)".into()];
+        let mut names: Vec<String> = vec![tr!("Glove (desenhados)").into()];
         names.extend(themes.iter().map(|t| t.1.clone()));
         let mut cur = themes.iter().position(|t| t.0 == self.config.appearance.icon_theme).map(|i| i + 1).unwrap_or(0);
-        ui.form_row("Ícones", LW, |ui| {
+        ui.form_row(tr!("Ícones"), LW, |ui| {
             if ui.popup(&mut cur, &names, 200.0) {
                 self.config.appearance.icon_theme = if cur == 0 { String::new() } else { themes[cur - 1].0.clone() };
                 glove_kit::paint::icons::set_theme(&self.config.appearance.icon_theme);
@@ -688,8 +691,8 @@ impl Prefs {
         ui.separator();
         ui.space(8.0);
         let mut jump = usize::from(self.config.appearance.scroll_jump);
-        ui.form_row("Clicar na barra de rolagem para", LW, |ui| {
-            if ui.radio_group(&mut jump, &["Ir para a página seguinte", "Ir para o ponto clicado"]) {
+        ui.form_row(tr!("Clicar na barra de rolagem para"), LW, |ui| {
+            if ui.radio_group(&mut jump, &[tr!("Ir para a página seguinte"), tr!("Ir para o ponto clicado")]) {
                 self.config.appearance.scroll_jump = jump == 1;
                 self.save();
             }
@@ -697,7 +700,7 @@ impl Prefs {
         ui.space(4.0);
         let mut dbl = self.config.appearance.double_click_minimizes;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut dbl, "Minimizar ao clicar duas vezes na barra de título") {
+            if ui.checkbox(&mut dbl, tr!("Minimizar ao clicar duas vezes na barra de título")) {
                 self.config.appearance.double_click_minimizes = dbl;
                 self.save();
             }
@@ -706,23 +709,23 @@ impl Prefs {
         ui.separator();
         ui.space(8.0);
         const COUNTS: [u32; 7] = [0, 5, 10, 15, 20, 30, 50];
-        let names: Vec<String> = COUNTS.iter().map(|n| if *n == 0 { "Nenhum".to_string() } else { n.to_string() }).collect();
+        let names: Vec<String> = COUNTS.iter().map(|n| if *n == 0 { tr!("Nenhum").to_string() } else { n.to_string() }).collect();
         let mut apps = COUNTS.iter().position(|n| *n == self.config.appearance.recent_apps).unwrap_or(2);
         let mut docs = COUNTS.iter().position(|n| *n == self.config.appearance.recent_docs).unwrap_or(2);
-        ui.form_row("Itens recentes", LW, |ui| {
+        ui.form_row(tr!("Itens recentes"), LW, |ui| {
             ui.horizontal(|ui| {
                 if ui.popup(&mut apps, &names, 90.0) {
                     self.config.appearance.recent_apps = COUNTS[apps];
                     self.save();
                 }
-                ui.small("Aplicativos");
+                ui.small(tr!("Aplicativos"));
             });
             ui.horizontal(|ui| {
                 if ui.popup(&mut docs, &names, 90.0) {
                     self.config.appearance.recent_docs = COUNTS[docs];
                     self.save();
                 }
-                ui.small("Documentos");
+                ui.small(tr!("Documentos"));
             });
         });
     }
@@ -732,7 +735,7 @@ impl Prefs {
         let mut tab = self.desk_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &["Mesa", "Protetor de Tela"], if shown == 0 { 400.0 } else { 456.0 }, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], if shown == 0 { 400.0 } else { 456.0 }, |ui| match shown {
             0 => self.mesa_tab(ui),
             _ => self.protetor_tab(ui),
         });
@@ -747,7 +750,7 @@ impl Prefs {
         let rows: Vec<String> = SAVERS.iter().map(|(_, n)| n.to_string()).collect();
         let mut sel = SAVERS.iter().position(|(id, _)| *id == self.config.saver.kind).or(Some(0));
         ui.area(Rect::new(x0, y0, 150.0, 190.0), |ui| {
-            ui.label("Protetores de tela");
+            ui.label(tr!("Protetores de tela"));
             if ui.list(&mut sel, &rows, 150.0, 166.0) {
                 if let Some(i) = sel {
                     self.config.saver.kind = SAVERS[i].0.to_string();
@@ -767,30 +770,30 @@ impl Prefs {
             glove_kit::paint::saver::draw(&mut c, ui.fonts, &self.config.saver.kind, pw, ph, self.started.elapsed().as_secs_f32(), (&time, &date));
             ui.c.draw_canvas(&c, px, py);
         }
-        ui.fonts.draw(ui.c, "Prévia", px + pw / 2.0 - ui.text_width("Prévia", 11.0, false) / 2.0, py + ph + 16.0, 11.0, false, rgba(90, 90, 96, 255));
+        ui.fonts.draw(ui.c, tr!("Prévia"), px + pw / 2.0 - ui.text_width(tr!("Prévia"), 11.0, false) / 2.0, py + ph + 16.0, 11.0, false, rgba(90, 90, 96, 255));
         ui.area(Rect::new(px + pw - 80.0, py + ph + 6.0, 80.0, 30.0), |ui| {
-            if ui.button("Testar") {
+            if ui.button(tr!("Testar")) {
                 ui.request_screensaver(&self.config.saver.kind);
             }
         });
         ui.wake_after_in(Duration::from_millis(66), Rect::new(px, py, pw, ph));
         ui.alloc(w, (20.0 + ph + 40.0).max(196.0));
-        if let Some(m) = Self::minutes_slider(ui, "Iniciar o protetor de tela quando inativo por:", self.config.saver.minutes) {
+        if let Some(m) = Self::minutes_slider(ui, tr!("Iniciar o protetor de tela quando inativo por:"), self.config.saver.minutes) {
             self.config.saver.minutes = m;
             self.save();
         }
         ui.space(8.0);
         // Cantos ativos: no painel Exposé e Painel (como no Tiger, um botão leva até lá).
-        if ui.button("Cantos Ativos…") {
+        if ui.button(tr!("Cantos Ativos…")) {
             self.go(Pane::Expose);
         }
     }
 
     /// Os quatro cantos da tela e o que cada um faz.
     fn hot_corners_ui(&mut self, ui: &mut Ui) {
-        ui.label("Cantos ativos:");
-        const ACTIONS: [(&str, &str); 6] = [("", "—"), ("todas", "Todas as janelas"), ("app", "Janelas do app"), ("mesa", "Mesa"), ("painel", "Painel de Widgets"), ("protetor", "Iniciar o protetor de tela")];
-        let names: Vec<String> = ACTIONS.iter().map(|a| a.1.to_string()).collect();
+        ui.label(tr!("Cantos ativos:"));
+        let actions: [(&str, &str); 6] = [("", "—"), ("todas", tr!("Todas as janelas")), ("app", tr!("Janelas do app")), ("mesa", tr!("Mesa")), ("painel", tr!("Painel de Widgets")), ("protetor", tr!("Iniciar o protetor de tela"))];
+        let names: Vec<String> = actions.iter().map(|a| a.1.to_string()).collect();
         let hc = self.config.hot_corners.clone();
         let mut corners = [hc.top_left, hc.top_right, hc.bottom_left, hc.bottom_right];
         let mut changed = false;
@@ -798,10 +801,10 @@ impl Prefs {
             ui.horizontal(|ui| {
                 ui.space(16.0);
                 for &k in pair {
-                    let mut cur = ACTIONS.iter().position(|a| a.0 == corners[k]).unwrap_or(0);
+                    let mut cur = actions.iter().position(|a| a.0 == corners[k]).unwrap_or(0);
                     ui.push_id(&format!("canto{k}"), |ui| {
                         if ui.popup(&mut cur, &names, 200.0) {
-                            corners[k] = ACTIONS[cur].0.to_string();
+                            corners[k] = actions[cur].0.to_string();
                             changed = true;
                         }
                     });
@@ -831,10 +834,10 @@ impl Prefs {
         ui.c.stroke(rrect(x0 - 2.5, y0 - 2.5, pw + 5.0, ph + 5.0, 3.0), &solid(rgba(0, 0, 0, 70)), 1.0);
         self.draw_thumb(ui, &cur, Rect::new(x0, y0, pw, ph));
         ui.fonts.draw(ui.c, &wallpaper_name(&cur), x0 + pw + 20.0, y0 + 40.0, 13.0, true, rgba(20, 20, 20, 255));
-        ui.fonts.draw(ui.c, "Clique numa imagem para usar na mesa.", x0 + pw + 20.0, y0 + 58.0, 11.0, false, rgba(90, 90, 96, 255));
+        ui.fonts.draw(ui.c, tr!("Clique numa imagem para usar na mesa."), x0 + pw + 20.0, y0 + 58.0, 11.0, false, rgba(90, 90, 96, 255));
         ui.alloc(w, ph + 16.0);
         // Coleções.
-        let sources = ["Imagens do Glove", "Cores Sólidas", "Pasta Imagens"];
+        let sources = [tr!("Imagens do Glove"), tr!("Cores Sólidas"), tr!("Pasta Imagens")];
         let mut sel = Some(self.desk_source);
         let rows: Vec<String> = sources.iter().map(|s| s.to_string()).collect();
         let (lx, ly) = ui.cursor();
@@ -857,7 +860,7 @@ impl Prefs {
         ui.c.fill_rect(gx, ly, gw, list_h, &solid(rgba(255, 255, 255, 255)));
         ui.c.stroke(rrect(gx + 0.5, ly + 0.5, gw - 1.0, list_h - 1.0, 0.0), &solid(rgba(130, 130, 135, 255)), 1.0);
         if items.is_empty() {
-            ui.fonts.draw(ui.c, "Ponha imagens PNG na sua pasta Imagens.", gx + 14.0, ly + 24.0, 11.0, false, rgba(110, 110, 116, 255));
+            ui.fonts.draw(ui.c, tr!("Ponha imagens PNG na sua pasta Imagens."), gx + 14.0, ly + 24.0, 11.0, false, rgba(110, 110, 116, 255));
         }
         let (tw, th, gap) = (88.0, 62.0, 10.0);
         let per_row = ((gw - gap) / (tw + gap)).floor().max(1.0) as usize;
@@ -901,8 +904,8 @@ impl Prefs {
         const LW: f32 = 190.0;
         ui.space(8.0);
         let mut size = self.config.dock.size as f32;
-        ui.form_row("Tamanho do Dock", LW, |ui| {
-            let t = Ticks { count: 2, labels: &[(0.0, "Pequeno"), (1.0, "Grande")], snap: false };
+        ui.form_row(tr!("Tamanho do Dock"), LW, |ui| {
+            let t = Ticks { count: 2, labels: &[(0.0, tr!("Pequeno")), (1.0, tr!("Grande"))], snap: false };
             ui.horizontal(|ui| {
                 if ui.slider_ticks(&mut size, 32.0, 72.0, 240.0, &t, true) {
                     self.config.dock.size = size.round() as u32;
@@ -910,7 +913,7 @@ impl Prefs {
                     self.save();
                 }
                 ui.spacing(6.0);
-                ui.label(&format!("{} px", self.config.dock.size));
+                ui.label(&tr!("{} px", self.config.dock.size));
             });
         });
         ui.space(6.0);
@@ -918,11 +921,11 @@ impl Prefs {
         let mut max = self.config.dock.max_size as f32;
         let min = self.config.dock.size as f32;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut mag, "Ampliação") {
+            if ui.checkbox(&mut mag, tr!("Ampliação")) {
                 self.config.dock.magnification = mag;
                 self.save();
             }
-            let t = Ticks { count: 2, labels: &[(0.0, "Mínima"), (1.0, "Máxima")], snap: false };
+            let t = Ticks { count: 2, labels: &[(0.0, tr!("Mínima")), (1.0, tr!("Máxima"))], snap: false };
             ui.horizontal(|ui| {
                 if ui.slider_ticks(&mut max, min, 128.0, 240.0, &t, mag) {
                     self.config.dock.max_size = max.round() as u32;
@@ -930,42 +933,42 @@ impl Prefs {
                 }
                 ui.spacing(6.0);
                 if mag {
-                    ui.label(&format!("{} px", self.config.dock.max_size));
+                    ui.label(&tr!("{} px", self.config.dock.max_size));
                 }
             });
         });
         ui.space(8.0);
         let words = ["esquerda", "embaixo", "direita"];
         let mut pos = words.iter().position(|w| *w == self.config.dock.position).unwrap_or(1);
-        ui.form_row("Posição na tela", LW, |ui| {
+        ui.form_row(tr!("Posição na tela"), LW, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing(14.0);
-                if ui.radio_group(&mut pos, &["Esquerda", "Embaixo", "Direita"]) {
+                if ui.radio_group(&mut pos, &[tr!("Esquerda"), tr!("Embaixo"), tr!("Direita")]) {
                     self.config.dock.position = words[pos].to_string();
                     self.save();
                 }
             });
         });
         ui.space(6.0);
-        const EFFECTS: [(&str, &str); 2] = [("escala", "Efeito Escala"), ("genio", "Efeito Lâmpada Mágica")];
-        let mut effect = EFFECTS.iter().position(|e| e.0 == self.config.dock.minimize_effect).unwrap_or(0);
-        ui.form_row("Minimizar usando", LW, |ui| {
-            if ui.popup(&mut effect, &EFFECTS.iter().map(|e| e.1.to_string()).collect::<Vec<_>>(), 200.0) {
-                self.config.dock.minimize_effect = EFFECTS[effect].0.into();
+        let effects: [(&str, &str); 2] = [("escala", tr!("Efeito Escala")), ("genio", tr!("Efeito Lâmpada Mágica"))];
+        let mut effect = effects.iter().position(|e| e.0 == self.config.dock.minimize_effect).unwrap_or(0);
+        ui.form_row(tr!("Minimizar usando"), LW, |ui| {
+            if ui.popup(&mut effect, &effects.iter().map(|e| e.1.to_string()).collect::<Vec<_>>(), 200.0) {
+                self.config.dock.minimize_effect = effects[effect].0.into();
                 self.save();
             }
         });
         ui.space(6.0);
         let mut anim = self.config.dock.animate_launch;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut anim, "Animar a abertura de aplicativos") {
+            if ui.checkbox(&mut anim, tr!("Animar a abertura de aplicativos")) {
                 self.config.dock.animate_launch = anim;
                 self.save();
             }
         });
         let mut hide = self.config.dock.autohide;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut hide, "Ocultar e mostrar o Dock automaticamente") {
+            if ui.checkbox(&mut hide, tr!("Ocultar e mostrar o Dock automaticamente")) {
                 self.config.dock.autohide = hide;
                 self.save();
             }
@@ -983,23 +986,23 @@ impl Prefs {
             2 => 380.0,
             _ => 240.0,
         };
-        ui.tab_box(&mut tab, &["Teclado", "Atalhos de Teclado", "Menu de Entrada"], height, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Teclado"), tr!("Atalhos de Teclado"), tr!("Menu de Entrada")], height, |ui| match shown {
             0 => {
                 const LW: f32 = 170.0;
                 let mut delay = self.config.keyboard.repeat_delay as f32;
                 let mut rate = self.config.keyboard.repeat_rate as f32;
-                ui.form_row("Velocidade de repetição", LW, |ui| {
-                    let t = Ticks { count: 8, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+                ui.form_row(tr!("Velocidade de repetição"), LW, |ui| {
+                    let t = Ticks { count: 8, labels: &[(0.0, tr!("Lenta")), (1.0, tr!("Rápida"))], snap: false };
                     if ui.slider_ticks(&mut rate, 2.0, 60.0, 220.0, &t, true) {
                         self.config.keyboard.repeat_rate = rate.round() as u32;
                         self.save();
                     }
                 });
                 ui.space(6.0);
-                ui.form_row("Atraso até repetir", LW, |ui| {
+                ui.form_row(tr!("Atraso até repetir"), LW, |ui| {
                     // Invertido: à direita = atraso menor.
                     let mut inv = 1000.0 - delay;
-                    let t = Ticks { count: 6, labels: &[(0.0, "Longo"), (1.0, "Curto")], snap: false };
+                    let t = Ticks { count: 6, labels: &[(0.0, tr!("Longo")), (1.0, tr!("Curto"))], snap: false };
                     if ui.slider_ticks(&mut inv, 0.0, 850.0, 220.0, &t, true) {
                         delay = 1000.0 - inv;
                         self.config.keyboard.repeat_delay = delay.round() as u32;
@@ -1007,7 +1010,7 @@ impl Prefs {
                     }
                 });
                 ui.space(8.0);
-                ui.form_row("Teste aqui", LW, |ui| {
+                ui.form_row(tr!("Teste aqui"), LW, |ui| {
                     let mut test = TEST.with(|t| t.borrow().clone());
                     if ui.text_field(&mut test, 220.0) {
                         TEST.with(|t| *t.borrow_mut() = test);
@@ -1019,14 +1022,14 @@ impl Prefs {
                     .iter()
                     .position(|l| l.0 == self.config.keyboard.layout && l.1 == self.config.keyboard.variant)
                     .unwrap_or(0);
-                ui.form_row("Layout do teclado", LW, |ui| {
+                ui.form_row(tr!("Layout do teclado"), LW, |ui| {
                     if ui.popup(&mut cur, &names, 240.0) {
                         self.config.keyboard.layout = LAYOUTS[cur].0.into();
                         self.config.keyboard.variant = LAYOUTS[cur].1.into();
                         self.save();
                     }
                 });
-                ui.form_note(LW, "Vale na hora para todos os apps.");
+                ui.form_note(LW, tr!("Vale na hora para todos os apps."));
             }
             1 => self.atalhos(ui),
             _ => self.menu_entrada(ui),
@@ -1051,15 +1054,15 @@ impl Prefs {
         let mut mode_cfg = if is_primary { self.config.monitor.mode.clone() } else { self.config.monitor.others.get(&active.name).map(|o| o.mode.clone()).unwrap_or_default() };
         let mut mode_changed = false;
         if nested {
-            ui.small("O Glove está numa janela dentro de outro desktop: a resolução é a da janela.");
-            ui.small("O que for escolhido aqui vale quando você entrar na sessão Glove.");
+            ui.small(tr!("O Glove está numa janela dentro de outro desktop: a resolução é a da janela."));
+            ui.small(tr!("O que for escolhido aqui vale quando você entrar na sessão Glove."));
             ui.space(10.0);
         } else {
             if extend {
-                let names: Vec<String> = outputs.outputs.iter().filter(|o| o.active).map(|o| if o.name == primary.name { format!("{} (principal)", o.description) } else { o.description.clone() }).collect();
+                let names: Vec<String> = outputs.outputs.iter().filter(|o| o.active).map(|o| if o.name == primary.name { tr!("{} (principal)", o.description) } else { o.description.clone() }).collect();
                 let ids: Vec<String> = outputs.outputs.iter().filter(|o| o.active).map(|o| o.name.clone()).collect();
                 let mut cur = ids.iter().position(|i| *i == active.name).unwrap_or(0);
-                ui.form_row("Ajustar o monitor", LW, |ui| {
+                ui.form_row(tr!("Ajustar o monitor"), LW, |ui| {
                     if ui.popup(&mut cur, &names, 260.0) {
                         self.mon_target = ids[cur].clone();
                     }
@@ -1076,13 +1079,13 @@ impl Prefs {
                 }
             }
             let current = glove_config::parse_mode(if mode_cfg.is_empty() { &active.current } else { &mode_cfg });
-            let mut rows = vec![format!("Recomendada ({})", mode_label(&active.preferred).split(',').next().unwrap_or(""))];
+            let mut rows = vec![tr!("Recomendada ({})", mode_label(&active.preferred).split(',').next().unwrap_or(""))];
             rows.extend(sizes.iter().map(|(w, h)| format!("{w} × {h}")));
             let mut sel = if mode_cfg.is_empty() { Some(0) } else { current.and_then(|(w, h, _)| sizes.iter().position(|s| *s == (w, h))).map(|i| i + 1) };
             ui.horizontal(|ui| {
                 ui.spacing(18.0);
                 ui.column(220.0, |ui| {
-                    ui.label("Resoluções:");
+                    ui.label(tr!("Resoluções:"));
                     if ui.list(&mut sel, &rows, 220.0, 180.0) {
                         self.ask_confirm();
                         mode_changed = true;
@@ -1099,14 +1102,14 @@ impl Prefs {
                 ui.column(ui.available_width(), |ui| {
                     ui.space(20.0);
                     if outputs.outputs.len() > 1 && is_primary {
-                        let mut names = vec!["Automático".to_string()];
+                        let mut names = vec![tr!("Automático").to_string()];
                         let mut ids = vec![String::new()];
                         for o in &outputs.outputs {
                             names.push(o.description.clone());
                             ids.push(o.name.clone());
                         }
                         let mut cur = ids.iter().position(|i| *i == self.config.monitor.output).unwrap_or(0);
-                        ui.label("Monitor principal (barra de menu):");
+                        ui.label(tr!("Monitor principal (barra de menu):"));
                         if ui.popup(&mut cur, &names, 220.0) {
                             self.ask_confirm();
                             self.config.monitor.output = ids[cur].clone();
@@ -1120,9 +1123,9 @@ impl Prefs {
                     // Frequências da resolução em uso.
                     if let (Some((w, h, _)), false) = (current, mode_cfg.is_empty()) {
                         let modes: Vec<&String> = active.modes.iter().filter(|m| glove_config::parse_mode(m).is_some_and(|(a, b, _)| (a, b) == (w, h))).collect();
-                        let names: Vec<String> = modes.iter().map(|m| glove_config::parse_mode(m).map(|x| format!("{} Hz", x.2)).unwrap_or_default()).collect();
+                        let names: Vec<String> = modes.iter().map(|m| glove_config::parse_mode(m).map(|x| tr!("{} Hz", x.2)).unwrap_or_default()).collect();
                         let mut cur = modes.iter().position(|m| **m == mode_cfg).unwrap_or(0);
-                        ui.label("Taxa de atualização:");
+                        ui.label(tr!("Taxa de atualização:"));
                         if ui.popup(&mut cur, &names, 120.0) {
                             self.ask_confirm();
                             mode_cfg = modes[cur].clone();
@@ -1131,7 +1134,7 @@ impl Prefs {
                         ui.space(6.0);
                     }
                     if !active.current.is_empty() {
-                        let t = format!("Em uso: {}", mode_label(&active.current));
+                        let t = tr!("Em uso: {}", mode_label(&active.current));
                         ui.small(&t);
                     }
                 });
@@ -1147,38 +1150,38 @@ impl Prefs {
             ui.space(10.0);
             // Organização: mais de um monitor ligado ao computador.
             if outputs.outputs.len() > 1 {
-                const ARR: [(&str, &str); 3] = [("estender", "Estender a mesa"), ("espelhar", "Espelhar (a mesma imagem)"), ("um", "Usar só o principal")];
-                const SIDES: [(&str, &str); 3] = [("direita", "À direita do principal"), ("esquerda", "À esquerda do principal"), ("abaixo", "Abaixo do principal")];
-                let names: Vec<String> = ARR.iter().map(|a| a.1.to_string()).collect();
-                let mut cur = ARR.iter().position(|a| a.0 == self.config.monitor.arrangement).unwrap_or(0);
-                ui.form_row("Com mais monitores", LW, |ui| {
+                let arr: [(&str, &str); 3] = [("estender", tr!("Estender a mesa")), ("espelhar", tr!("Espelhar (a mesma imagem)")), ("um", tr!("Usar só o principal"))];
+                let sides: [(&str, &str); 3] = [("direita", tr!("À direita do principal")), ("esquerda", tr!("À esquerda do principal")), ("abaixo", tr!("Abaixo do principal"))];
+                let names: Vec<String> = arr.iter().map(|a| a.1.to_string()).collect();
+                let mut cur = arr.iter().position(|a| a.0 == self.config.monitor.arrangement).unwrap_or(0);
+                ui.form_row(tr!("Com mais monitores"), LW, |ui| {
                     if ui.popup(&mut cur, &names, 220.0) {
                         self.ask_confirm();
-                        self.config.monitor.arrangement = ARR[cur].0.into();
+                        self.config.monitor.arrangement = arr[cur].0.into();
                         self.save();
                     }
                 });
                 if self.config.monitor.arrangement == "estender" {
-                    let names: Vec<String> = SIDES.iter().map(|a| a.1.to_string()).collect();
-                    let mut cur = SIDES.iter().position(|a| a.0 == self.config.monitor.side).unwrap_or(0);
-                    ui.form_row("Os outros ficam", LW, |ui| {
+                    let names: Vec<String> = sides.iter().map(|a| a.1.to_string()).collect();
+                    let mut cur = sides.iter().position(|a| a.0 == self.config.monitor.side).unwrap_or(0);
+                    ui.form_row(tr!("Os outros ficam"), LW, |ui| {
                         if ui.popup(&mut cur, &names, 220.0) {
-                            self.config.monitor.side = SIDES[cur].0.into();
+                            self.config.monitor.side = sides[cur].0.into();
                             self.save();
                         }
                     });
-                    ui.form_note(LW, "A barra de menu e o Dock ficam no principal; arraste janelas para os outros.");
+                    ui.form_note(LW, tr!("A barra de menu e o Dock ficam no principal; arraste janelas para os outros."));
                 } else if self.config.monitor.arrangement == "espelhar" {
-                    ui.form_note(LW, "Os monitores usam a maior resolução que todos aceitam.");
+                    ui.form_note(LW, tr!("Os monitores usam a maior resolução que todos aceitam."));
                 }
                 ui.space(10.0);
             }
         }
         let auto = active.auto_scale.max(1.0);
-        let names: Vec<String> = SCALES.iter().map(|v| if *v == 0.0 { format!("Automático ({})", scale_label(auto)) } else { scale_label(*v) }).collect();
+        let names: Vec<String> = SCALES.iter().map(|v| if *v == 0.0 { tr!("Automático ({})", scale_label(auto)) } else { scale_label(*v) }).collect();
         let scale_now = if is_primary { self.config.monitor.scale } else { self.config.monitor.others.get(&active.name).map_or(0.0, |o| o.scale) };
         let mut cur = SCALES.iter().position(|v| *v == scale_now).unwrap_or(0);
-        ui.form_row("Tamanho da interface", LW, |ui| {
+        ui.form_row(tr!("Tamanho da interface"), LW, |ui| {
             if ui.popup(&mut cur, &names, 180.0) {
                 if is_primary {
                     self.config.monitor.scale = SCALES[cur];
@@ -1188,11 +1191,11 @@ impl Prefs {
                 self.save();
             }
         });
-        ui.form_note(LW, "Maior = textos e janelas maiores. Automático segue a densidade da tela.");
+        ui.form_note(LW, tr!("Maior = textos e janelas maiores. Automático segue a densidade da tela."));
         ui.space(6.0);
         let mut extra = self.config.monitor.menu_extra;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut extra, "Mostrar monitores na barra de menu") {
+            if ui.checkbox(&mut extra, tr!("Mostrar monitores na barra de menu")) {
                 self.config.monitor.menu_extra = extra;
                 self.save();
             }
@@ -1203,12 +1206,12 @@ impl Prefs {
             ui.space(10.0);
             ui.separator();
             ui.space(6.0);
-            let t = format!("Manter esta resolução? Volta à anterior em {left} s.");
+            let t = tr!("Manter esta resolução? Volta à anterior em {} s.", left);
             ui.label(&t);
             let (mut keep, mut back) = (false, false);
             ui.horizontal(|ui| {
-                keep = ui.default_button("Manter");
-                back = ui.button("Voltar");
+                keep = ui.default_button(tr!("Manter"));
+                back = ui.button(tr!("Voltar"));
             });
             if keep {
                 self.confirm = None;
@@ -1249,8 +1252,8 @@ impl Prefs {
     /// Velocidade do clique duplo: slider de 0 (muito lenta, 900 ms) a 1 (rápida, 200 ms).
     fn double_click_row(&mut self, ui: &mut Ui, lw: f32) {
         let mut v = (900.0 - self.config.pointer.double_click_ms as f32) / 700.0;
-        ui.form_row("Velocidade do clique duplo", lw, |ui| {
-            let t = Ticks { count: 8, labels: &[(0.0, "Muito lenta"), (1.0, "Rápida")], snap: false };
+        ui.form_row(tr!("Velocidade do clique duplo"), lw, |ui| {
+            let t = Ticks { count: 8, labels: &[(0.0, tr!("Muito lenta")), (1.0, tr!("Rápida"))], snap: false };
             if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, true) {
                 self.config.pointer.double_click_ms = (900.0 - v * 700.0).round() as u32;
                 self.save();
@@ -1262,7 +1265,7 @@ impl Prefs {
             let ok = TEST_DBL.with(|t| t.get());
             ui.c.fill(rrect(r.x, r.y, r.w, r.h, 4.0), &solid(if ok { rgba(220, 238, 214, 255) } else { rgba(255, 255, 255, 200) }));
             ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 4.0), &solid(rgba(0, 0, 0, 60)), 1.0);
-            let t = if ok { "Clique duplo reconhecido!" } else { "Clique duas vezes aqui para testar" };
+            let t = if ok { tr!("Clique duplo reconhecido!") } else { tr!("Clique duas vezes aqui para testar") };
             let tw = ui.text_width(t, 11.0, false);
             ui.fonts.draw(ui.c, t, r.x + (r.w - tw) / 2.0, r.y + 19.0, 11.0, false, rgba(60, 60, 66, 255));
             let h = ui.hit(r);
@@ -1277,8 +1280,8 @@ impl Prefs {
         let p = self.config.pointer.clone();
         ui.space(6.0);
         let mut speed = p.speed as f32;
-        ui.form_row("Velocidade de rastreamento", LW, |ui| {
-            let t = Ticks { count: 10, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+        ui.form_row(tr!("Velocidade de rastreamento"), LW, |ui| {
+            let t = Ticks { count: 10, labels: &[(0.0, tr!("Lenta")), (1.0, tr!("Rápida"))], snap: false };
             if ui.slider_ticks(&mut speed, -1.0, 1.0, 240.0, &t, true) {
                 self.config.pointer.speed = (speed as f64 * 20.0).round() / 20.0;
                 self.save();
@@ -1286,8 +1289,8 @@ impl Prefs {
         });
         ui.space(6.0);
         let mut scroll = p.scroll_speed.clamp(0.25, 3.0) as f32;
-        ui.form_row("Velocidade de rolagem", LW, |ui| {
-            let t = Ticks { count: 8, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+        ui.form_row(tr!("Velocidade de rolagem"), LW, |ui| {
+            let t = Ticks { count: 8, labels: &[(0.0, tr!("Lenta")), (1.0, tr!("Rápida"))], snap: false };
             if ui.slider_ticks(&mut scroll, 0.25, 3.0, 240.0, &t, true) {
                 self.config.pointer.scroll_speed = (scroll as f64 * 20.0).round() / 20.0;
                 self.save();
@@ -1297,10 +1300,10 @@ impl Prefs {
         self.double_click_row(ui, LW);
         ui.space(10.0);
         let mut primary = usize::from(p.left_handed);
-        ui.form_row("Botão principal do mouse", LW, |ui| {
+        ui.form_row(tr!("Botão principal do mouse"), LW, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing(14.0);
-                if ui.radio_group(&mut primary, &["Esquerdo", "Direito"]) {
+                if ui.radio_group(&mut primary, &[tr!("Esquerdo"), tr!("Direito")]) {
                     self.config.pointer.left_handed = primary == 1;
                     self.save();
                 }
@@ -1309,12 +1312,12 @@ impl Prefs {
         ui.space(4.0);
         let mut acc = p.acceleration;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut acc, "Aceleração (anda mais quando o mouse se move rápido)") {
+            if ui.checkbox(&mut acc, tr!("Aceleração (anda mais quando o mouse se move rápido)")) {
                 self.config.pointer.acceleration = acc;
                 self.save();
             }
             let mut nat = p.natural_scroll;
-            if ui.checkbox(&mut nat, "Rolagem natural (o conteúdo acompanha a roda)") {
+            if ui.checkbox(&mut nat, tr!("Rolagem natural (o conteúdo acompanha a roda)")) {
                 self.config.pointer.natural_scroll = nat;
                 self.save();
             }
@@ -1323,7 +1326,7 @@ impl Prefs {
             ui.space(8.0);
             ui.separator();
             ui.space(4.0);
-            ui.small("Dentro de outro desktop só a rolagem e o clique duplo valem agora; o resto vale na sessão Glove.");
+            ui.small(tr!("Dentro de outro desktop só a rolagem e o clique duplo valem agora; o resto vale na sessão Glove."));
         }
     }
 
@@ -1332,8 +1335,8 @@ impl Prefs {
         let t = self.config.touchpad.clone();
         ui.space(6.0);
         let mut speed = t.speed as f32;
-        ui.form_row("Velocidade de rastreamento", LW, |ui| {
-            let ticks = Ticks { count: 10, labels: &[(0.0, "Lenta"), (1.0, "Rápida")], snap: false };
+        ui.form_row(tr!("Velocidade de rastreamento"), LW, |ui| {
+            let ticks = Ticks { count: 10, labels: &[(0.0, tr!("Lenta")), (1.0, tr!("Rápida"))], snap: false };
             if ui.slider_ticks(&mut speed, -1.0, 1.0, 240.0, &ticks, true) {
                 self.config.touchpad.speed = (speed as f64 * 20.0).round() / 20.0;
                 self.save();
@@ -1342,27 +1345,27 @@ impl Prefs {
         ui.space(6.0);
         self.double_click_row(ui, LW);
         ui.space(10.0);
-        ui.form_row("Gestos do trackpad", LW, |ui| {
+        ui.form_row(tr!("Gestos do trackpad"), LW, |ui| {
             let mut tap = t.tap_to_click;
-            if ui.checkbox(&mut tap, "Tocar para clicar") {
+            if ui.checkbox(&mut tap, tr!("Tocar para clicar")) {
                 self.config.touchpad.tap_to_click = tap;
                 self.save();
             }
             let mut drag = t.tap_drag;
-            if ui.checkbox(&mut drag, "Tocar duas vezes e arrastar") {
+            if ui.checkbox(&mut drag, tr!("Tocar duas vezes e arrastar")) {
                 self.config.touchpad.tap_drag = drag;
                 self.save();
             }
             let mut nat = t.natural_scroll;
-            if ui.checkbox(&mut nat, "Rolagem natural (o conteúdo acompanha os dedos)") {
+            if ui.checkbox(&mut nat, tr!("Rolagem natural (o conteúdo acompanha os dedos)")) {
                 self.config.touchpad.natural_scroll = nat;
                 self.save();
             }
         });
         ui.space(6.0);
         let mut v = if t.two_finger_right_click { 0 } else { 1 };
-        ui.form_row("Clique secundário", LW, |ui| {
-            if ui.radio_group(&mut v, &["Com dois dedos", "No canto inferior direito"]) {
+        ui.form_row(tr!("Clique secundário"), LW, |ui| {
+            if ui.radio_group(&mut v, &[tr!("Com dois dedos"), tr!("No canto inferior direito")]) {
                 self.config.touchpad.two_finger_right_click = v == 0;
                 self.save();
             }
@@ -1370,7 +1373,7 @@ impl Prefs {
         ui.space(6.0);
         let mut dwt = t.disable_while_typing;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut dwt, "Ignorar o trackpad enquanto digito") {
+            if ui.checkbox(&mut dwt, tr!("Ignorar o trackpad enquanto digito")) {
                 self.config.touchpad.disable_while_typing = dwt;
                 self.save();
             }
@@ -1379,13 +1382,13 @@ impl Prefs {
             ui.space(8.0);
             ui.separator();
             ui.space(4.0);
-            ui.small("Dentro de outro desktop o trackpad segue o desktop de lá; isto vale na sessão Glove.");
+            ui.small(tr!("Dentro de outro desktop o trackpad segue o desktop de lá; isto vale na sessão Glove."));
         }
     }
 
     /// Menu de Entrada: os layouts que a barra e a tecla de troca oferecem.
     fn menu_entrada(&mut self, ui: &mut Ui) {
-        ui.small("Marque os layouts que você usa. A barra de menu e Super+Alt+espaço passam por eles.");
+        ui.small(tr!("Marque os layouts que você usa. A barra de menu e Super+Alt+espaço passam por eles."));
         ui.space(6.0);
         for (l, v, name, badge) in LAYOUTS {
             let id = glove_config::layout_id(l, v);
@@ -1407,18 +1410,18 @@ impl Prefs {
         }
         ui.space(8.0);
         let mut show = self.config.keyboard.show_input_menu;
-        if ui.checkbox(&mut show, "Mostrar o Menu de Entrada na barra de menu") {
+        if ui.checkbox(&mut show, tr!("Mostrar o Menu de Entrada na barra de menu")) {
             self.config.keyboard.show_input_menu = show;
             self.save();
         }
     }
 
     fn atalhos(&mut self, ui: &mut Ui) {
-        ui.small("Clique num atalho e pressione a nova combinação (Esc cancela).");
+        ui.small(tr!("Clique num atalho e pressione a nova combinação (Esc cancela)."));
         ui.space(4.0);
         for (gi, (group, actions)) in SHORTCUT_GROUPS.iter().enumerate() {
             ui.push_id(group, |ui| {
-                ui.disclosure(&mut self.open_groups[gi], group);
+                ui.disclosure(&mut self.open_groups[gi], tr(group));
             });
             if !self.open_groups[gi] {
                 continue;
@@ -1444,7 +1447,7 @@ impl Prefs {
             ui.space(2.0);
         }
         ui.space(6.0);
-        if ui.button("Restaurar padrões") {
+        if ui.button(tr!("Restaurar padrões")) {
             self.config.shortcuts = glove_config::default_shortcuts();
             self.save();
         }
@@ -1456,11 +1459,11 @@ const ENERGY_STEPS: [u32; 14] = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 18
 
 fn minutes_label(m: u32) -> String {
     match m {
-        0 => "Nunca".into(),
-        m if m < 60 => format!("{m} min"),
-        60 => "1 hora".into(),
-        m if m % 60 == 0 => format!("{} horas", m / 60),
-        m => format!("{} h {} min", m / 60, m % 60),
+        0 => tr!("Nunca").into(),
+        m if m < 60 => tr!("{} min", m),
+        60 => tr!("1 hora").into(),
+        m if m % 60 == 0 => tr!("{} horas", m / 60),
+        m => tr!("{} h {} min", m / 60, m % 60),
     }
 }
 
@@ -1483,32 +1486,32 @@ impl Prefs {
     fn midia(&mut self, ui: &mut Ui) {
         const LW: f32 = 230.0;
         ui.space(8.0);
-        let opts = ["Abrir no Arquivos".to_string(), "Não fazer nada".to_string()];
+        let opts = [tr!("Abrir no Arquivos").to_string(), tr!("Não fazer nada").to_string()];
         let ids = ["abrir", "nada"];
         let mut cur = ids.iter().position(|i| *i == self.config.removable_action).unwrap_or(0);
-        ui.form_row("Ao conectar um pendrive ou disco", LW, |ui| {
+        ui.form_row(tr!("Ao conectar um pendrive ou disco"), LW, |ui| {
             if ui.popup(&mut cur, &opts, 200.0) {
                 self.config.removable_action = ids[cur].to_string();
                 self.save();
             }
         });
-        ui.form_note(LW, "Ele também aparece na mesa, ao lado do Disco.");
+        ui.form_note(LW, tr!("Ele também aparece na mesa, ao lado do Disco."));
         ui.space(14.0);
         // CDs e DVDs (como o painel do Tiger).
-        let data_opts = ["Abrir no Arquivos".to_string(), "Não fazer nada".to_string()];
+        let data_opts = [tr!("Abrir no Arquivos").to_string(), tr!("Não fazer nada").to_string()];
         let data_ids = ["abrir", "nada"];
         let mut cur = data_ids.iter().position(|i| *i == self.config.media.data_disc).unwrap_or(0);
-        ui.form_row("Ao inserir um CD ou DVD de dados", LW, |ui| {
+        ui.form_row(tr!("Ao inserir um CD ou DVD de dados"), LW, |ui| {
             if ui.popup(&mut cur, &data_opts, 200.0) {
                 self.config.media.data_disc = data_ids[cur].to_string();
                 self.save();
             }
         });
         ui.space(6.0);
-        let dvd_opts = ["Abrir no Vídeo".to_string(), "Abrir no Arquivos".to_string(), "Não fazer nada".to_string()];
+        let dvd_opts = [tr!("Abrir no Vídeo").to_string(), tr!("Abrir no Arquivos").to_string(), tr!("Não fazer nada").to_string()];
         let dvd_ids = ["video", "abrir", "nada"];
         let mut cur = dvd_ids.iter().position(|i| *i == self.config.media.video_dvd).unwrap_or(0);
-        ui.form_row("Ao inserir um DVD de vídeo", LW, |ui| {
+        ui.form_row(tr!("Ao inserir um DVD de vídeo"), LW, |ui| {
             if ui.popup(&mut cur, &dvd_opts, 200.0) {
                 self.config.media.video_dvd = dvd_ids[cur].to_string();
                 self.save();
@@ -1520,23 +1523,23 @@ impl Prefs {
     fn seguranca(&mut self, ui: &mut Ui) {
         ui.space(8.0);
         let mut pw = self.config.energy.require_password;
-        if ui.checkbox(&mut pw, "Pedir a senha ao sair do repouso ou do protetor de tela") {
+        if ui.checkbox(&mut pw, tr!("Pedir a senha ao sair do repouso ou do protetor de tela")) {
             self.config.energy.require_password = pw;
             self.save();
         }
         ui.space(10.0);
         let mut on = self.config.security.logout_minutes > 0;
-        if ui.checkbox(&mut on, "Encerrar a sessão depois de um tempo sem uso") {
+        if ui.checkbox(&mut on, tr!("Encerrar a sessão depois de um tempo sem uso")) {
             self.config.security.logout_minutes = if on { 60 } else { 0 };
             self.save();
         }
         if on {
             ui.indent(20.0, |ui| {
-                if let Some(m) = Self::minutes_slider(ui, "Depois de:", self.config.security.logout_minutes) {
+                if let Some(m) = Self::minutes_slider(ui, tr!("Depois de:"), self.config.security.logout_minutes) {
                     self.config.security.logout_minutes = m;
                     self.save();
                 }
-                ui.small("Antes de sair, aparece o aviso com a contagem (mexer no mouse cancela).");
+                ui.small(tr!("Antes de sair, aparece o aviso com a contagem (mexer no mouse cancela)."));
             });
         }
         ui.space(14.0);
@@ -1546,13 +1549,13 @@ impl Prefs {
         ui.space(4.0);
         let installed = std::path::Path::new("/usr/sbin/ufw").exists() || std::path::Path::new("/sbin/ufw").exists();
         if !installed {
-            ui.small("O firewall (ufw) não está instalado. Para instalar: sudo apt install ufw");
+            ui.small(tr!("O firewall (ufw) não está instalado. Para instalar: sudo apt install ufw"));
             return;
         }
         let enabled = std::fs::read_to_string("/etc/ufw/ufw.conf").ok().is_some_and(|t| t.lines().any(|l| l.trim().eq_ignore_ascii_case("ENABLED=yes")));
-        ui.label(if enabled { "Ligado: as conexões que chegam de fora são bloqueadas (as que você abre passam)." } else { "Desligado: o computador aceita conexões de fora." });
+        ui.label(if enabled { tr!("Ligado: as conexões que chegam de fora são bloqueadas (as que você abre passam).") } else { tr!("Desligado: o computador aceita conexões de fora.") });
         ui.space(6.0);
-        if ui.button(if enabled { "Desligar o firewall" } else { "Ligar o firewall" }) {
+        if ui.button(if enabled { tr!("Desligar o firewall") } else { tr!("Ligar o firewall") }) {
             let arg = if enabled { "disable" } else { "enable" };
             // Pede a senha de administrador pelo polkit.
             std::thread::spawn(move || {
@@ -1565,17 +1568,17 @@ impl Prefs {
     /// Busca Rápida: o que aparece nos resultados e as pastas que ficam de fora.
     fn busca(&mut self, ui: &mut Ui) {
         ui.space(8.0);
-        ui.label("Mostrar nos resultados:");
+        ui.label(tr!("Mostrar nos resultados:"));
         ui.space(4.0);
         let mut sp = self.config.search.clone();
         let mut changed = false;
         ui.indent(16.0, |ui| {
-            changed |= ui.checkbox(&mut sp.apps, "Aplicativos");
-            changed |= ui.checkbox(&mut sp.prefs, "Preferências do Sistema");
-            changed |= ui.checkbox(&mut sp.files, "Pastas e arquivos");
+            changed |= ui.checkbox(&mut sp.apps, tr!("Aplicativos"));
+            changed |= ui.checkbox(&mut sp.prefs, tr!("Preferências do Sistema"));
+            changed |= ui.checkbox(&mut sp.files, tr!("Pastas e arquivos"));
         });
         ui.space(12.0);
-        ui.label("Privacidade: a busca não olha estas pastas.");
+        ui.label(tr!("Privacidade: a busca não olha estas pastas."));
         ui.space(4.0);
         let rows: Vec<String> = sp.excluded.clone();
         ui.indent(16.0, |ui| {
@@ -1584,7 +1587,7 @@ impl Prefs {
             ui.horizontal(|ui| {
                 ui.text_field(&mut self.busca_nova, 300.0);
                 ui.spacing(8.0);
-                if ui.button("Adicionar") && !self.busca_nova.trim().is_empty() {
+                if ui.button(tr!("Adicionar")) && !self.busca_nova.trim().is_empty() {
                     let t = self.busca_nova.trim();
                     let p = match t.strip_prefix("~/") {
                         Some(rest) => std::env::var("HOME").map(|h| format!("{h}/{rest}")).unwrap_or_else(|_| t.to_string()),
@@ -1598,7 +1601,7 @@ impl Prefs {
                 }
                 ui.spacing(8.0);
                 ui.set_enabled(self.busca_sel.is_some());
-                if ui.button("Remover") {
+                if ui.button(tr!("Remover")) {
                     if let Some(i) = self.busca_sel.take() {
                         if i < sp.excluded.len() {
                             sp.excluded.remove(i);
@@ -1623,7 +1626,7 @@ impl Prefs {
         ui.space(14.0);
         ui.separator();
         ui.space(8.0);
-        ui.label("Atalhos de teclado:");
+        ui.label(tr!("Atalhos de teclado:"));
         ui.space(4.0);
         for action in ["expose_all", "expose_app", "expose_desktop", "dashboard"] {
             let label = glove_config::action_label(action);
@@ -1650,40 +1653,40 @@ impl Prefs {
         let mut tab = self.access_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &["Visão", "Mouse"], 290.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Visão"), tr!("Mouse")], 290.0, |ui| match shown {
             0 => {
                 let mut a = self.config.access.clone();
                 let mut zoom = usize::from(!a.zoom);
-                ui.form_row("Zoom", LW, |ui| {
+                ui.form_row(tr!("Zoom"), LW, |ui| {
                     ui.horizontal(|ui| {
                         ui.spacing(14.0);
-                        if ui.radio_group(&mut zoom, &["Ligado", "Desligado"]) {
+                        if ui.radio_group(&mut zoom, &[tr!("Ligado"), tr!("Desligado")]) {
                             a.zoom = zoom == 0;
                         }
                     });
                 });
                 let mut lvl = a.zoom_level;
-                ui.form_row("Ampliação", LW, |ui| {
-                    let t = Ticks { count: 8, labels: &[(0.0, "1,5×"), (1.0, "8×")], snap: false };
+                ui.form_row(tr!("Ampliação"), LW, |ui| {
+                    let t = Ticks { count: 8, labels: &[(0.0, tr!("1,5×")), (1.0, "8×")], snap: false };
                     if ui.slider_ticks(&mut lvl, 1.5, 8.0, 260.0, &t, a.zoom) {
                         a.zoom_level = (lvl * 4.0).round() / 4.0;
                     }
                 });
-                ui.form_note(LW, "Super+Alt+8 liga e desliga; Super+Alt+= e Super+Alt+− aproximam e afastam.");
+                ui.form_note(LW, tr!("Super+Alt+8 liga e desliga; Super+Alt+= e Super+Alt+− aproximam e afastam."));
                 ui.space(10.0);
                 let mut inv = usize::from(a.invert);
-                ui.form_row("Monitor", LW, |ui| {
+                ui.form_row(tr!("Monitor"), LW, |ui| {
                     ui.horizontal(|ui| {
                         ui.spacing(14.0);
-                        if ui.radio_group(&mut inv, &["Preto no branco", "Branco no preto"]) {
+                        if ui.radio_group(&mut inv, &[tr!("Preto no branco"), tr!("Branco no preto")]) {
                             a.invert = inv == 1;
                         }
                     });
-                    ui.checkbox(&mut a.grayscale, "Usar escala de cinza");
+                    ui.checkbox(&mut a.grayscale, tr!("Usar escala de cinza"));
                 });
                 let mut ct = a.contrast;
-                ui.form_row("Melhorar o contraste", LW, |ui| {
-                    let t = Ticks { count: 5, labels: &[(0.0, "Normal"), (1.0, "Máximo")], snap: false };
+                ui.form_row(tr!("Melhorar o contraste"), LW, |ui| {
+                    let t = Ticks { count: 5, labels: &[(0.0, "Normal"), (1.0, tr!("Máximo"))], snap: false };
                     if ui.slider_ticks(&mut ct, 0.0, 1.0, 260.0, &t, true) {
                         a.contrast = (ct * 20.0).round() / 20.0;
                     }
@@ -1695,8 +1698,8 @@ impl Prefs {
             }
             _ => {
                 let mut k = self.config.access.cursor_size;
-                ui.form_row("Tamanho do cursor", LW, |ui| {
-                    let t = Ticks { count: 7, labels: &[(0.0, "Normal"), (1.0, "Grande")], snap: false };
+                ui.form_row(tr!("Tamanho do cursor"), LW, |ui| {
+                    let t = Ticks { count: 7, labels: &[(0.0, "Normal"), (1.0, tr!("Grande"))], snap: false };
                     if ui.slider_ticks(&mut k, 1.0, 4.0, 260.0, &t, true) {
                         self.config.access.cursor_size = (k * 4.0).round() / 4.0;
                         self.save();
@@ -1711,7 +1714,7 @@ impl Prefs {
                     }
                 });
                 if self.nested() {
-                    ui.form_note(LW, "Dentro de outro desktop a seta é a dele; isto vale na sessão Glove.");
+                    ui.form_note(LW, tr!("Dentro de outro desktop a seta é a dele; isto vale na sessão Glove."));
                 }
             }
         });
@@ -1725,7 +1728,7 @@ impl Prefs {
         ui.label(label);
         ui.indent(16.0, |ui| {
             ui.horizontal(|ui| {
-                let t = Ticks { count: ENERGY_STEPS.len(), labels: &[(0.0, "1 min"), (5.0 / 13.0, "15 min"), (9.0 / 13.0, "1 h"), (1.0, "Nunca")], snap: true };
+                let t = Ticks { count: ENERGY_STEPS.len(), labels: &[(0.0, "1 min"), (5.0 / 13.0, "15 min"), (9.0 / 13.0, "1 h"), (1.0, tr!("Nunca"))], snap: true };
                 if ui.slider_ticks(&mut idx, 0.0, (ENERGY_STEPS.len() - 1) as f32, 380.0, &t, true) {
                     out = Some(ENERGY_STEPS[idx.round() as usize]);
                 }
@@ -1740,8 +1743,8 @@ impl Prefs {
         let battery = has_battery();
         if battery {
             ui.horizontal(|ui| {
-                ui.label_right("Configurações para:", 200.0);
-                let names = vec!["Adaptador de energia".to_string(), "Bateria".to_string()];
+                ui.label_right(tr!("Configurações para:"), 200.0);
+                let names = vec![tr!("Adaptador de energia").to_string(), tr!("Bateria").to_string()];
                 ui.popup(&mut self.energy_source, &names, 200.0);
             });
             ui.space(8.0);
@@ -1749,15 +1752,15 @@ impl Prefs {
         let on_bat = battery && self.energy_source == 1;
         let mut tab = self.energy_tab;
         let shown = tab;
-        ui.tab_box(&mut tab, &["Repouso", "Opções"], 200.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Repouso"), tr!("Opções")], 200.0, |ui| match shown {
             0 => {
                 let (screen, sleep) = self.config.energy.timeouts(on_bat);
-                if let Some(m) = Self::minutes_slider(ui, "Colocar o computador em repouso quando inativo por:", sleep) {
+                if let Some(m) = Self::minutes_slider(ui, tr!("Colocar o computador em repouso quando inativo por:"), sleep) {
                     if on_bat { self.config.energy.battery_sleep_minutes = m } else { self.config.energy.sleep_minutes = m }
                     self.save();
                 }
                 ui.space(10.0);
-                if let Some(m) = Self::minutes_slider(ui, "Apagar a tela quando inativo por:", screen) {
+                if let Some(m) = Self::minutes_slider(ui, tr!("Apagar a tela quando inativo por:"), screen) {
                     if on_bat { self.config.energy.battery_screen_off_minutes = m } else { self.config.energy.screen_off_minutes = m }
                     self.save();
                 }
@@ -1765,44 +1768,44 @@ impl Prefs {
                 let (screen, sleep) = self.config.energy.timeouts(on_bat);
                 if sleep > 0 && (screen == 0 || screen >= sleep) {
                     ui.space(6.0);
-                    ui.small("A tela não vai apagar antes: o computador entra em repouso primeiro.");
+                    ui.small(tr!("A tela não vai apagar antes: o computador entra em repouso primeiro."));
                 }
             }
             _ => {
                 let e = self.config.energy.clone();
                 let mut pw = e.require_password;
-                if ui.checkbox(&mut pw, "Pedir senha ao sair do repouso ou da tela apagada") {
+                if ui.checkbox(&mut pw, tr!("Pedir senha ao sair do repouso ou da tela apagada")) {
                     self.config.energy.require_password = pw;
                     self.save();
                 }
                 if battery {
                     let mut dim = e.dim_on_battery;
-                    if ui.checkbox(&mut dim, "Diminuir um pouco o brilho da tela ao usar a bateria") {
+                    if ui.checkbox(&mut dim, tr!("Diminuir um pouco o brilho da tela ao usar a bateria")) {
                         self.config.energy.dim_on_battery = dim;
                         self.save();
                     }
                     let mut menu = e.battery_menu;
-                    if ui.checkbox(&mut menu, "Mostrar o estado da bateria na barra de menu") {
+                    if ui.checkbox(&mut menu, tr!("Mostrar o estado da bateria na barra de menu")) {
                         self.config.energy.battery_menu = menu;
                         self.save();
                     }
                     let mut pct = self.config.battery_percent;
                     ui.indent(22.0, |ui| {
-                        if ui.checkbox(&mut pct, "Mostrar a porcentagem") {
+                        if ui.checkbox(&mut pct, tr!("Mostrar a porcentagem")) {
                             self.config.battery_percent = pct;
                             self.save();
                         }
                     });
                 }
                 ui.space(8.0);
-                ui.small("O botão de ligar e a tampa seguem o sistema (logind); fechar a tampa apaga a tela.");
+                ui.small(tr!("O botão de ligar e a tampa seguem o sistema (logind); fechar a tampa apaga a tela."));
             }
         });
         self.energy_tab = tab;
         ui.space(8.0);
         ui.horizontal(|ui| {
             ui.space(ui.available_width() - 160.0);
-            if ui.button("Restaurar Padrões") {
+            if ui.button(tr!("Restaurar Padrões")) {
                 let d = glove_config::Energy::default();
                 if on_bat {
                     self.config.energy.battery_screen_off_minutes = d.battery_screen_off_minutes;
@@ -1822,9 +1825,9 @@ impl Prefs {
         let mut tab = self.sound_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &["Efeitos Sonoros", "Saída", "Entrada"], 280.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Efeitos Sonoros"), tr!("Saída"), tr!("Entrada")], 280.0, |ui| match shown {
             0 => {
-                ui.label("Escolher um alerta sonoro:");
+                ui.label(tr!("Escolher um alerta sonoro:"));
                 let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| a.to_string()).collect();
                 let mut sel = glove_config::sons::ALERTS.iter().position(|a| *a == self.config.sound.alert);
                 let (lx, ly) = ui.cursor();
@@ -1842,8 +1845,8 @@ impl Prefs {
                 }
                 ui.space(6.0);
                 let mut v = self.config.sound.alert_volume;
-                ui.form_row("Volume do alerta", 150.0, |ui| {
-                    let t = Ticks { count: 2, labels: &[(0.0, "Baixo"), (1.0, "Alto")], snap: false };
+                ui.form_row(tr!("Volume do alerta"), 150.0, |ui| {
+                    let t = Ticks { count: 2, labels: &[(0.0, tr!("Baixo")), (1.0, "Alto")], snap: false };
                     if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, true) {
                         self.config.sound.alert_volume = (v * 20.0).round() / 20.0;
                         self.save();
@@ -1851,7 +1854,7 @@ impl Prefs {
                 });
                 let mut fb = self.config.sound.volume_feedback;
                 ui.form_row("", 150.0, |ui| {
-                    if ui.checkbox(&mut fb, "Tocar retorno ao mudar o volume") {
+                    if ui.checkbox(&mut fb, tr!("Tocar retorno ao mudar o volume")) {
                         self.config.sound.volume_feedback = fb;
                         self.save();
                     }
@@ -1859,11 +1862,11 @@ impl Prefs {
             }
             n => {
                 let Some((sinks, sources)) = self.audio.clone() else {
-                    ui.small("O PipeWire não respondeu (o comando wpctl não está disponível).");
+                    ui.small(tr!("O PipeWire não respondeu (o comando wpctl não está disponível)."));
                     return;
                 };
-                let (list, what) = if n == 1 { (&sinks, "a saída") } else { (&sources, "a entrada") };
-                let t = format!("Escolher um dispositivo para {what} de som:");
+                let (list, what) = if n == 1 { (&sinks, tr!("a saída")) } else { (&sources, tr!("a entrada")) };
+                let t = tr!("Escolher um dispositivo para {} de som:", what);
                 ui.label(&t);
                 let rows: Vec<String> = list.iter().map(|d| d.name.clone()).collect();
                 let mut sel = list.iter().position(|d| d.default);
@@ -1879,13 +1882,13 @@ impl Prefs {
                     }
                 }
                 if rows.is_empty() {
-                    ui.small("Nenhum dispositivo encontrado.");
+                    ui.small(tr!("Nenhum dispositivo encontrado."));
                 }
                 if n == 2 {
                     ui.space(8.0);
                     let mut v = sources.iter().find(|d| d.default).map_or(0.0, |d| d.volume);
-                    ui.form_row("Volume de entrada", 150.0, |ui| {
-                        let t = Ticks { count: 2, labels: &[(0.0, "Baixo"), (1.0, "Alto")], snap: false };
+                    ui.form_row(tr!("Volume de entrada"), 150.0, |ui| {
+                        let t = Ticks { count: 2, labels: &[(0.0, tr!("Baixo")), (1.0, "Alto")], snap: false };
                         if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, !sources.is_empty()) {
                             som::set_volume(SOURCE, v);
                             if let Some(d) = self.audio.as_mut().and_then(|a| a.1.iter_mut().find(|d| d.default)) {
@@ -1902,7 +1905,7 @@ impl Prefs {
         let out = self.audio.as_ref().and_then(|a| a.0.iter().find(|d| d.default).cloned());
         let has = out.is_some();
         let (mut vol, mut muted) = out.map_or((0.0, false), |d| (d.volume, d.muted));
-        ui.form_row("Volume de saída", 150.0, |ui| {
+        ui.form_row(tr!("Volume de saída"), 150.0, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing(14.0);
                 if ui.slider_ticks(&mut vol, 0.0, 1.0, 240.0, &Ticks { count: 0, labels: &[], snap: false }, has) {
@@ -1916,7 +1919,7 @@ impl Prefs {
                         d.muted = muted;
                     }
                 }
-                if ui.checkbox(&mut muted, "Mudo") && has {
+                if ui.checkbox(&mut muted, tr!("Mudo")) && has {
                     som::set_mute(SINK, muted);
                     if let Some(d) = self.audio.as_mut().and_then(|a| a.0.iter_mut().find(|d| d.default)) {
                         d.muted = muted;
@@ -1926,7 +1929,7 @@ impl Prefs {
         });
         let mut extra = self.config.sound.menu_extra;
         ui.form_row("", 150.0, |ui| {
-            if ui.checkbox(&mut extra, "Mostrar volume na barra de menu") {
+            if ui.checkbox(&mut extra, tr!("Mostrar volume na barra de menu")) {
                 self.config.sound.menu_extra = extra;
                 self.save();
             }
@@ -1941,11 +1944,11 @@ impl Prefs {
         ui.space(10.0);
         ui.separator();
         ui.space(6.0);
-        ui.label("Programas que o Glove abre:");
+        ui.label(tr!("Programas que o Glove abre:"));
         ui.space(4.0);
         // Terminal (atalho Abrir Terminal e Super+Enter).
-        let mut terms: Vec<(String, String)> = vec![("glove-term".into(), "Terminal (Glove)".into())];
-        for (cmd, name) in [("gnome-terminal", "Terminal do GNOME"), ("kitty", "kitty"), ("alacritty", "Alacritty"), ("foot", "foot"), ("wezterm", "WezTerm"), ("konsole", "Konsole"), ("xfce4-terminal", "Terminal do Xfce"), ("tilix", "Tilix"), ("xterm", "XTerm")] {
+        let mut terms: Vec<(String, String)> = vec![("glove-term".into(), tr!("Terminal (Glove)").into())];
+        for (cmd, name) in [("gnome-terminal", tr!("Terminal do GNOME")), ("kitty", "kitty"), ("alacritty", "Alacritty"), ("foot", "foot"), ("wezterm", "WezTerm"), ("konsole", "Konsole"), ("xfce4-terminal", tr!("Terminal do Xfce")), ("tilix", "Tilix"), ("xterm", "XTerm")] {
             if in_path(cmd) {
                 terms.push((cmd.into(), name.into()));
             }
@@ -1955,29 +1958,29 @@ impl Prefs {
         }
         let names: Vec<String> = terms.iter().map(|t| t.1.clone()).collect();
         let mut cur = terms.iter().position(|t| t.0 == self.config.terminal).unwrap_or(0);
-        ui.form_row("Terminal", LW, |ui| {
+        ui.form_row(tr!("Terminal"), LW, |ui| {
             if ui.popup(&mut cur, &names, 260.0) {
                 self.config.terminal = terms[cur].0.clone();
                 self.save();
             }
         });
         // Navegador do app Navegador (Automático = pela memória do computador).
-        let mut browsers: Vec<(String, String)> = vec![(String::new(), "Automático (pela memória)".into())];
-        for (cmd, name) in [("firefox", "Firefox"), ("netsurf-gtk3", "NetSurf"), ("chromium", "Chromium"), ("chromium-browser", "Chromium"), ("google-chrome", "Google Chrome"), ("brave-browser", "Brave"), ("epiphany", "Web (GNOME)"), ("falkon", "Falkon")] {
+        let mut browsers: Vec<(String, String)> = vec![(String::new(), tr!("Automático (pela memória)").into())];
+        for (cmd, name) in [("firefox", "Firefox"), ("netsurf-gtk3", "NetSurf"), ("chromium", "Chromium"), ("chromium-browser", "Chromium"), ("google-chrome", "Google Chrome"), ("brave-browser", "Brave"), ("epiphany", tr!("Web (GNOME)")), ("falkon", "Falkon")] {
             if in_path(cmd) {
                 browsers.push((cmd.into(), name.into()));
             }
         }
         let names: Vec<String> = browsers.iter().map(|t| t.1.clone()).collect();
         let mut cur = browsers.iter().position(|t| t.0 == self.config.navegador).unwrap_or(0);
-        ui.form_row("Navegador", LW, |ui| {
+        ui.form_row(tr!("Navegador"), LW, |ui| {
             if ui.popup(&mut cur, &names, 260.0) {
                 self.config.navegador = browsers[cur].0.clone();
                 self.save();
             }
         });
         // Lixeira do Dock: no Arquivos do Glove ou em outro gerenciador.
-        let mut trash: Vec<(String, String)> = vec![("glove-files ~/.local/share/Trash/files".into(), "Arquivos (Glove)".into())];
+        let mut trash: Vec<(String, String)> = vec![("glove-files ~/.local/share/Trash/files".into(), tr!("Arquivos (Glove)").into())];
         for (cmd, name) in [("nautilus trash:///", "Nautilus"), ("thunar trash:///", "Thunar"), ("dolphin trash:/", "Dolphin"), ("nemo trash:///", "Nemo")] {
             if in_path(cmd.split_whitespace().next().unwrap_or("")) {
                 trash.push((cmd.into(), name.into()));
@@ -1985,7 +1988,7 @@ impl Prefs {
         }
         let names: Vec<String> = trash.iter().map(|t| t.1.clone()).collect();
         let mut cur = trash.iter().position(|t| t.0 == self.config.trash_command).unwrap_or(0);
-        ui.form_row("Lixeira abre no", LW, |ui| {
+        ui.form_row(tr!("Lixeira abre no"), LW, |ui| {
             if ui.popup(&mut cur, &names, 260.0) {
                 self.config.trash_command = trash[cur].0.clone();
                 self.save();
@@ -1993,18 +1996,18 @@ impl Prefs {
         });
         let mut x11 = self.config.x11_apps;
         ui.form_row("", LW, |ui| {
-            if ui.checkbox(&mut x11, "Abrir apps X11 (Xwayland, uns 20 MB a mais)") {
+            if ui.checkbox(&mut x11, tr!("Abrir apps X11 (Xwayland, uns 20 MB a mais)")) {
                 self.config.x11_apps = x11;
                 self.save();
             }
         });
-        ui.form_note(LW, "Os apps X11 ligam ou desligam na próxima sessão.");
+        ui.form_note(LW, tr!("Os apps X11 ligam ou desligam na próxima sessão."));
     }
 
     fn terminal(&mut self, ui: &mut Ui) {
         const LW: f32 = 120.0;
         // Temas: amostras clicáveis com o fundo, o texto e algumas cores do tema.
-        ui.label("Tema de cores:");
+        ui.label(tr!("Tema de cores:"));
         ui.space(4.0);
         let themes = glove_config::term_themes();
         let (sw, sh, gap) = (112.0, 62.0, 10.0);
@@ -2036,7 +2039,7 @@ impl Prefs {
             }
         }
         let _ = r;
-        ui.form_note(0.0, "As janelas do Terminal abertas mudam na hora.");
+        ui.form_note(0.0, tr!("As janelas do Terminal abertas mudam na hora."));
         ui.space(10.0);
         // Fonte: as famílias de largura fixa instaladas.
         if self.mono_fonts.is_none() {
@@ -2044,30 +2047,30 @@ impl Prefs {
             let mut v: Vec<String> = out.lines().filter_map(|l| l.split(',').next()).map(|f| f.trim().to_string()).filter(|f| !f.is_empty()).collect();
             v.sort_by_key(|f| f.to_lowercase());
             v.dedup();
-            v.insert(0, "Padrão (DejaVu Sans Mono)".into());
+            v.insert(0, tr!("Padrão (DejaVu Sans Mono)").into());
             self.mono_fonts = Some(v);
         }
         let fonts = self.mono_fonts.clone().unwrap_or_default();
         let mut cur = fonts.iter().position(|f| *f == self.config.terminal_font).unwrap_or(0);
-        ui.form_row("Fonte", LW, |ui| {
+        ui.form_row(tr!("Fonte"), LW, |ui| {
             if ui.popup(&mut cur, &fonts, 280.0) {
                 self.config.terminal_font = if cur == 0 { String::new() } else { fonts[cur].clone() };
                 self.save();
             }
         });
-        ui.form_note(LW, "Ícones de Nerd Font aparecem mesmo com outra fonte, se houver uma instalada.");
+        ui.form_note(LW, tr!("Ícones de Nerd Font aparecem mesmo com outra fonte, se houver uma instalada."));
         let mut px = self.config.terminal_font_size.clamp(8.0, 24.0);
-        ui.form_row("Tamanho", LW, |ui| {
+        ui.form_row(tr!("Tamanho"), LW, |ui| {
             ui.horizontal(|ui| {
                 if ui.slider(&mut px, 8.0, 24.0, 220.0) {
                     self.config.terminal_font_size = px.round();
                     self.save();
                 }
-                let t = format!("{} pt", self.config.terminal_font_size.round());
+                let t = tr!("{} pt", self.config.terminal_font_size.round());
                 ui.small(&t);
             });
         });
-        ui.form_note(LW, "Fonte e tamanho valem para as próximas janelas do Terminal.");
+        ui.form_note(LW, tr!("Fonte e tamanho valem para as próximas janelas do Terminal."));
     }
 }
 
@@ -2100,7 +2103,7 @@ impl App for Prefs {
         }
         self.toolbar(ui);
         let (w, h) = (ui.c.w, ui.c.h);
-        ui.set_title(info(self.pane).map_or("Preferências", |i| i.name));
+        ui.set_title(info(self.pane).map_or(tr!("Preferências"), |i| tr(i.name)));
         let (_, used) = ui.area_size(Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0), |ui| match self.pane {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
@@ -2119,7 +2122,7 @@ impl App for Prefs {
                 self.contas.ui(ui, &mut self.inicio);
                 ui.space(8.0);
                 let mut on = self.config.user_menu;
-                if ui.checkbox(&mut on, "Ativar a troca rápida de usuário (nome na barra de menu)") {
+                if ui.checkbox(&mut on, tr!("Ativar a troca rápida de usuário (nome na barra de menu)")) {
                     self.config.user_menu = on;
                     self.save();
                 }
@@ -2139,7 +2142,7 @@ impl App for Prefs {
                 let mut tab = self.internacional.tab;
                 let shown = tab;
                 ui.space(4.0);
-                ui.tab_box(&mut tab, &["Idioma", "Formatos", "Menu de Entrada"], 380.0, |ui| match shown {
+                ui.tab_box(&mut tab, &[tr!("Idioma"), tr!("Formatos"), tr!("Menu de Entrada")], 380.0, |ui| match shown {
                     0 => self.internacional.idioma(ui),
                     1 => self.internacional.formatos(ui),
                     _ => self.menu_entrada(ui),
@@ -2180,11 +2183,11 @@ impl App for Prefs {
     }
 
     fn menus(&self) -> Vec<Menu> {
-        let mut items = vec![MenuItem::new("todos", "Mostrar Todos", "Ctrl+L"), MenuItem::Separator];
+        let mut items = vec![MenuItem::new("todos", tr!("Mostrar Todos"), "Ctrl+L"), MenuItem::Separator];
         let mut sorted: Vec<&PaneInfo> = PANES.iter().collect();
         sorted.sort_by_key(|i| norm(i.name));
         items.extend(sorted.into_iter().map(|i| MenuItem::new(&format!("pane:{}", i.id), i.name, "").checked(self.pane == i.pane)));
-        vec![Menu::new("Visualizar", items)]
+        vec![Menu::new(tr!("Visualizar"), items)]
     }
 
     fn config_changed(&mut self) {
@@ -2278,7 +2281,7 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: "Preferências".into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Preferências").into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true, min_size: None };
     if let Err(e) = run(opts, Prefs::new()) {
         eprintln!("glove-prefs: {e}");
     }

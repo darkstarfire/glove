@@ -2,6 +2,7 @@
 //! Inicialização, Fala e Impressão. O que precisa de administrador abre no
 //! Terminal (com sudo), onde a senha é pedida.
 
+use glove_config::tr;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -77,21 +78,21 @@ impl Atualizacao {
         if self.busy {
             ui.wake_after(Duration::from_millis(300));
         }
-        let t = format!("Sistema: {}", os_name());
+        let t = tr!("Sistema: {}", os_name());
         ui.label(&t);
         ui.space(6.0);
         let Some((check, install)) = package_manager() else {
-            ui.small("Não achei o gerenciador de pacotes deste sistema (apt, pacman, dnf ou zypper).");
+            ui.small(tr!("Não achei o gerenciador de pacotes deste sistema (apt, pacman, dnf ou zypper)."));
             return;
         };
         let mut go = false;
         ui.horizontal(|ui| {
             ui.set_active(!self.busy);
-            go = ui.default_button("Verificar Agora");
+            go = ui.default_button(tr!("Verificar Agora"));
             ui.set_active(true);
             if self.busy {
                 ui.spinner(16.0);
-                ui.small("Verificando…");
+                ui.small(tr!("Verificando…"));
             }
         });
         if go {
@@ -104,18 +105,18 @@ impl Atualizacao {
         }
         ui.space(8.0);
         match &self.list {
-            None => ui.small("Clique em Verificar Agora para ver as atualizações disponíveis."),
-            Some(l) if l.is_empty() => ui.small("Nenhuma atualização encontrada. (A lista vem da última consulta do sistema.)"),
+            None => ui.small(tr!("Clique em Verificar Agora para ver as atualizações disponíveis.")),
+            Some(l) if l.is_empty() => ui.small(tr!("Nenhuma atualização encontrada. (A lista vem da última consulta do sistema.)")),
             Some(l) => {
-                let t = format!("{} atualizações disponíveis:", l.len());
+                let t = tr!("{} atualizações disponíveis:", l.len());
                 ui.label(&t);
                 let mut sel = None;
                 ui.list(&mut sel, l, ui.available_width(), 180.0);
                 ui.space(6.0);
-                if ui.button("Instalar no Terminal…") {
+                if ui.button(tr!("Instalar no Terminal…")) {
                     in_terminal(install);
                 }
-                ui.small("O Terminal pede a sua senha de administrador.");
+                ui.small(tr!("O Terminal pede a sua senha de administrador."));
             }
         }
     }
@@ -171,20 +172,20 @@ impl Inicializacao {
             }
         }
         if self.entries.is_empty() {
-            ui.small("Não foi possível ler as opções de inicialização (precisa de UEFI e do efibootmgr).");
+            ui.small(tr!("Não foi possível ler as opções de inicialização (precisa de UEFI e do efibootmgr)."));
             return;
         }
-        ui.label("Escolha o sistema para iniciar o computador:");
+        ui.label(tr!("Escolha o sistema para iniciar o computador:"));
         ui.space(6.0);
-        let rows: Vec<String> = self.entries.iter().map(|e| if e.num == self.current { format!("{} (em uso agora)", e.name) } else { e.name.clone() }).collect();
+        let rows: Vec<String> = self.entries.iter().map(|e| if e.num == self.current { tr!("{} (em uso agora)", e.name) } else { e.name.clone() }).collect();
         ui.list(&mut self.sel, &rows, ui.available_width(), 150.0);
         ui.space(8.0);
         let chosen = self.sel.and_then(|i| self.entries.get(i)).cloned();
         let (mut once, mut always) = (false, false);
         ui.horizontal(|ui| {
             ui.set_active(chosen.is_some());
-            always = ui.button("Usar Sempre…");
-            once = ui.default_button("Reiniciar Nele…");
+            always = ui.button(tr!("Usar Sempre…"));
+            once = ui.default_button(tr!("Reiniciar Nele…"));
             ui.set_active(true);
         });
         if let (true, Some(e)) = (once, chosen.clone()) {
@@ -196,7 +197,7 @@ impl Inicializacao {
             in_terminal(&format!("sudo efibootmgr -o {order}"));
         }
         ui.space(4.0);
-        ui.small("As mudanças abrem no Terminal, que pede a senha de administrador.");
+        ui.small(tr!("As mudanças abrem no Terminal, que pede a senha de administrador."));
     }
 }
 
@@ -235,23 +236,23 @@ pub struct Fala {
 impl Fala {
     pub fn ui(&mut self, ui: &mut Ui) {
         if !has("spd-say") {
-            ui.small("A fala precisa do speech-dispatcher (spd-say) instalado.");
+            ui.small(tr!("A fala precisa do speech-dispatcher (spd-say) instalado."));
             return;
         }
         let voices = self.voices.get_or_insert_with(voices).clone();
-        ui.label("Voz:");
+        ui.label(tr!("Voz:"));
         let rows: Vec<String> = voices.iter().map(|v| v.0.clone()).collect();
         if self.sel.is_none() && !rows.is_empty() {
             self.sel = Some(0);
         }
         ui.list(&mut self.sel, &rows, ui.available_width(), 150.0);
         ui.space(8.0);
-        ui.form_row("Velocidade", 100.0, |ui| {
-            let t = Ticks { count: 5, labels: &[(0.0, "Devagar"), (1.0, "Depressa")], snap: false };
+        ui.form_row(tr!("Velocidade"), 100.0, |ui| {
+            let t = Ticks { count: 5, labels: &[(0.0, tr!("Devagar")), (1.0, tr!("Depressa"))], snap: false };
             ui.slider_ticks(&mut self.rate, -60.0, 60.0, 260.0, &t, true);
         });
         ui.space(8.0);
-        if ui.default_button("Ouvir") {
+        if ui.default_button(tr!("Ouvir")) {
             let mut c = Command::new("spd-say");
             c.arg("-r").arg((self.rate.round() as i32).to_string());
             if let Some((name, lang)) = self.sel.and_then(|i| voices.get(i)) {
@@ -266,7 +267,7 @@ impl Fala {
             }
         }
         ui.space(4.0);
-        ui.small("As vozes vêm do speech-dispatcher; apps que leem texto em voz alta usam a mesma.");
+        ui.small(tr!("As vozes vêm do speech-dispatcher; apps que leem texto em voz alta usam a mesma."));
     }
 }
 
@@ -308,30 +309,30 @@ impl Impressao {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         if !has("lpstat") {
-            ui.small("A impressão precisa do CUPS instalado.");
+            ui.small(tr!("A impressão precisa do CUPS instalado."));
             return;
         }
         if !self.loaded {
             self.load();
         }
-        ui.label("Impressoras:");
+        ui.label(tr!("Impressoras:"));
         let rows: Vec<String> = self
             .printers
             .iter()
-            .map(|(n, idle)| format!("{n}{}{}", if Some(n) == self.default.as_ref() { " (padrão)" } else { "" }, if *idle { "" } else { " — ocupada" }))
+            .map(|(n, idle)| format!("{n}{}{}", if Some(n) == self.default.as_ref() { tr!(" (padrão)") } else { "" }, if *idle { "" } else { tr!(" — ocupada") }))
             .collect();
         ui.list(&mut self.sel, &rows, ui.available_width(), 150.0);
         if rows.is_empty() {
-            ui.small("Nenhuma impressora configurada.");
+            ui.small(tr!("Nenhuma impressora configurada."));
         }
         ui.space(8.0);
         let chosen = self.sel.and_then(|i| self.printers.get(i)).map(|p| p.0.clone());
         let (mut add, mut def, mut queue) = (false, false, false);
         ui.horizontal(|ui| {
-            add = ui.button("Adicionar…");
+            add = ui.button(tr!("Adicionar…"));
             ui.set_active(chosen.is_some());
-            def = ui.button("Tornar Padrão");
-            queue = ui.button("Ver Fila…");
+            def = ui.button(tr!("Tornar Padrão"));
+            queue = ui.button(tr!("Ver Fila…"));
             ui.set_active(true);
         });
         let open = |url: &str| {
@@ -348,13 +349,13 @@ impl Impressao {
         if let (true, Some(p)) = (def, chosen) {
             // lpoptions -d sem root vale só para este usuário (~/.cups/lpoptions).
             self.message = Some(match Command::new("lpoptions").args(["-d", &p]).status() {
-                Ok(s) if s.success() => format!("“{p}” é a impressora padrão."),
-                _ => "Não foi possível mudar a impressora padrão.".into(),
+                Ok(s) if s.success() => tr!("“{}” é a impressora padrão.", p),
+                _ => tr!("Não foi possível mudar a impressora padrão.").into(),
             });
             self.load();
         }
         ui.space(4.0);
-        ui.small("Adicionar e a fila abrem a página do CUPS no navegador.");
+        ui.small(tr!("Adicionar e a fila abrem a página do CUPS no navegador."));
         if let Some(m) = &self.message {
             let m = m.clone();
             ui.small(&m);

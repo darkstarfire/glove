@@ -1,6 +1,7 @@
 //! Painel Contas: usuários (AccountsService), nome, senha (pelo `passwd` num
 //! pseudoterminal), imagem e os Itens de Início. Cada um só muda a própria conta.
 
+use glove_config::tr;
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -81,11 +82,11 @@ pub fn change_password(old: &str, new: &str) -> Result<(), String> {
     unsafe {
         let (mut master, mut slave) = (0, 0);
         if libc::openpty(&mut master, &mut slave, std::ptr::null_mut(), std::ptr::null(), std::ptr::null()) != 0 {
-            return Err("não foi possível abrir um terminal para o passwd".into());
+            return Err(tr!("não foi possível abrir um terminal para o passwd").into());
         }
         let pid = libc::fork();
         if pid < 0 {
-            return Err("não foi possível abrir o passwd".into());
+            return Err(tr!("não foi possível abrir o passwd").into());
         }
         if pid == 0 {
             // Filho: o terminal novo vira o dele, em inglês (as perguntas são previsíveis).
@@ -131,21 +132,21 @@ pub fn change_password(old: &str, new: &str) -> Result<(), String> {
                 } else {
                     let low = seen.to_lowercase();
                     Err(if low.contains("authentication") || low.contains("incorrect") {
-                        "a senha atual não confere.".into()
+                        tr!("a senha atual não confere.").into()
                     } else {
-                        seen.lines().rev().find(|l| !l.trim().is_empty() && !l.to_lowercase().contains("password:")).unwrap_or("o passwd recusou a senha nova").trim().trim_start_matches("passwd: ").to_string()
+                        seen.lines().rev().find(|l| !l.trim().is_empty() && !l.to_lowercase().contains("password:")).unwrap_or(tr!("o passwd recusou a senha nova")).trim().trim_start_matches("passwd: ").to_string()
                     })
                 };
             }
             if started.elapsed() > Duration::from_secs(20) {
                 libc::kill(pid, libc::SIGKILL);
                 libc::waitpid(pid, std::ptr::null_mut(), 0);
-                return Err("o passwd não respondeu.".into());
+                return Err(tr!("o passwd não respondeu.").into());
             }
         }
         let mut status = 0;
         libc::waitpid(pid, &mut status, 0);
-        if libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0 { Ok(()) } else { Err("a senha atual não confere.".into()) }
+        if libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0 { Ok(()) } else { Err(tr!("a senha atual não confere.").into()) }
     }
 }
 
@@ -234,7 +235,7 @@ impl Contas {
         let mut clicked = None;
         let users = self.users.clone();
         for (i, u) in users.iter().enumerate() {
-            let header = if i == 0 && u.me { Some("Minha Conta") } else if (i == 0 && !u.me) || (i == 1 && users[0].me) { Some("Outras Contas") } else { None };
+            let header = if i == 0 && u.me { Some(tr!("Minha Conta")) } else if (i == 0 && !u.me) || (i == 1 && users[0].me) { Some(tr!("Outras Contas")) } else { None };
             if let Some(h) = header {
                 ui.fonts.draw(ui.c, h, x0 + 8.0, y + 12.0, 10.0, true, rgba(110, 110, 118, 255));
                 y += 18.0;
@@ -247,7 +248,7 @@ impl Contas {
             let ink = if self.sel == Some(i) { Color::WHITE } else { rgba(20, 20, 20, 255) };
             let name = ui.fonts.ellipsize(if u.real.is_empty() { &u.login } else { &u.real }, 12.0, true, lw - 52.0);
             ui.fonts.draw(ui.c, &name, r.x + 44.0, r.y + 17.0, 12.0, true, ink);
-            let kind = if u.admin { "Administrador" } else { "Padrão" };
+            let kind = if u.admin { tr!("Administrador") } else { tr!("Padrão") };
             ui.fonts.draw(ui.c, kind, r.x + 44.0, r.y + 32.0, 10.0, false, if self.sel == Some(i) { Color::WHITE } else { rgba(100, 100, 106, 255) });
             if ui.hit(r).clicked {
                 clicked = Some(i);
@@ -265,7 +266,7 @@ impl Contas {
         };
         let mut tab = self.tab;
         let shown = tab;
-        let labels: &[&str] = if u.me { &["Senha", "Imagem", "Itens de Início"] } else { &["Senha", "Imagem"] };
+        let labels: &[&str] = if u.me { &[tr!("Senha"), tr!("Imagem"), tr!("Itens de Início")] } else { &[tr!("Senha"), tr!("Imagem")] };
         tab = tab.min(labels.len() - 1);
         let rx = x0 + lw + 14.0;
         let rw = w - lw - 14.0;
@@ -280,7 +281,7 @@ impl Contas {
         ui.alloc(w, lh);
         if let Some((ok, m)) = self.message.clone() {
             ui.space(6.0);
-            let t = if ok { m } else { format!("Não deu certo: {m}") };
+            let t = if ok { m } else { tr!("Não deu certo: {}", m) };
             ui.small(&t);
         }
     }
@@ -290,18 +291,18 @@ impl Contas {
         ui.space(4.0);
         if u.me {
             let before = self.name.clone();
-            ui.form_row("Nome", LW, |ui| {
+            ui.form_row(tr!("Nome"), LW, |ui| {
                 ui.text_field(&mut self.name, 220.0);
             });
             let _ = before;
         } else {
-            ui.form_row("Nome", LW, |ui| ui.label(&u.real));
+            ui.form_row(tr!("Nome"), LW, |ui| ui.label(&u.real));
         }
-        ui.form_row("Nome curto", LW, |ui| ui.label(&u.login));
-        ui.form_row("Tipo", LW, |ui| ui.label(if u.admin { "Administrador" } else { "Padrão" }));
+        ui.form_row(tr!("Nome curto"), LW, |ui| ui.label(&u.login));
+        ui.form_row(tr!("Tipo"), LW, |ui| ui.label(if u.admin { tr!("Administrador") } else { tr!("Padrão") }));
         ui.space(10.0);
         if !u.me {
-            ui.small("Só dá para mudar a própria conta por aqui.");
+            ui.small(tr!("Só dá para mudar a própria conta por aqui."));
             return;
         }
         let changed = self.name.trim() != u.real && !self.name.trim().is_empty();
@@ -309,14 +310,14 @@ impl Contas {
         ui.horizontal(|ui| {
             ui.space(LW);
             ui.set_active(changed && !self.busy);
-            save = ui.default_button("Salvar Nome");
+            save = ui.default_button(tr!("Salvar Nome"));
             ui.set_active(!self.busy);
-            pw = ui.button("Mudar Senha…");
+            pw = ui.button(tr!("Mudar Senha…"));
             ui.set_active(true);
         });
         if save {
             let (path, name) = (u.path.clone(), self.name.trim().to_string());
-            self.start("Nome salvo.".into(), move || {
+            self.start(tr!("Nome salvo.").into(), move || {
                 let out = Command::new("busctl").args(["call", "org.freedesktop.Accounts", &path, "org.freedesktop.Accounts.User", "SetRealName", "s", &name]).output().map_err(|e| e.to_string())?;
                 if out.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&out.stderr).trim().to_string()) }
             });
@@ -330,12 +331,12 @@ impl Contas {
         ui.space(4.0);
         let (x, y) = ui.cursor();
         self.draw_picture(ui, u, x, y, 72.0);
-        ui.fonts.draw(ui.c, "Imagem desta conta (na tela de entrada e de bloqueio).", x + 88.0, y + 30.0, 11.0, false, rgba(80, 80, 86, 255));
+        ui.fonts.draw(ui.c, tr!("Imagem desta conta (na tela de entrada e de bloqueio)."), x + 88.0, y + 30.0, 11.0, false, rgba(80, 80, 86, 255));
         ui.alloc(ui.available_width(), 80.0);
         if !u.me {
             return;
         }
-        ui.label("Escolha um retrato:");
+        ui.label(tr!("Escolha um retrato:"));
         // Retratos desenhados (os mesmos da tela de entrada, com cores diferentes).
         let (gx, gy) = ui.cursor();
         let s = 48.0;
@@ -351,7 +352,7 @@ impl Contas {
         let mut choose = false;
         ui.horizontal(|ui| {
             ui.set_active(!self.busy);
-            choose = ui.button("Escolher Imagem…");
+            choose = ui.button(tr!("Escolher Imagem…"));
             ui.set_active(true);
         });
         if choose {
@@ -363,7 +364,7 @@ impl Contas {
             if let Some(mut c) = Canvas::new(96.0, 96.0, 1.0) {
                 chrome::avatar(&mut c, 0.0, 0.0, 96.0, seed);
                 if let Err(e) = c.pm.save_png(&face) {
-                    self.message = Some((false, format!("não foi possível gravar o retrato: {e}")));
+                    self.message = Some((false, tr!("não foi possível gravar o retrato: {}", e)));
                     return;
                 }
                 self.set_icon(u, face.to_string_lossy().into_owned());
@@ -373,7 +374,7 @@ impl Contas {
 
     fn set_icon(&mut self, u: &Account, file: String) {
         let path = u.path.clone();
-        self.start("Imagem trocada.".into(), move || {
+        self.start(tr!("Imagem trocada.").into(), move || {
             let out = Command::new("busctl").args(["call", "org.freedesktop.Accounts", &path, "org.freedesktop.Accounts.User", "SetIconFile", "s", &file]).output().map_err(|e| e.to_string())?;
             if out.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&out.stderr).trim().to_string()) }
         });
@@ -400,8 +401,8 @@ impl Contas {
         ui.c.fill(rrect(x - 6.0, y, sw + 12.0, sh + 8.0, 6.0), &solid(rgba(0, 0, 0, 40)));
         ui.c.fill_rect(x, y, sw, sh, &vgrad(y, y + sh, &[(0.0, rgba(236, 236, 238, 252)), (1.0, rgba(246, 246, 248, 252))]));
         ui.c.stroke(rrect(x + 0.5, y - 0.5, sw - 1.0, sh, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0);
-        ui.fonts.draw(ui.c, "Mudar a senha desta conta", x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 20, 255));
-        let labels = ["Senha atual:", "Senha nova:", "Confirmar:"];
+        ui.fonts.draw(ui.c, tr!("Mudar a senha desta conta"), x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 20, 255));
+        let labels = [tr!("Senha atual:"), tr!("Senha nova:"), tr!("Confirmar:")];
         let mut enter = false;
         let fresh = f.iter().all(String::is_empty);
         for (k, l) in labels.iter().enumerate() {
@@ -413,8 +414,8 @@ impl Contas {
         let (mut cancel, mut ok) = (false, false);
         ui.area(Rect::new(x + sw - 230.0, y + sh - 40.0, 220.0, 30.0), |ui| {
             ui.horizontal(|ui| {
-                cancel = ui.button("Cancelar");
-                ok = ui.default_button("Mudar Senha");
+                cancel = ui.button(tr!("Cancelar"));
+                ok = ui.default_button(tr!("Mudar Senha"));
             });
         });
         if cancel || ui.keys().iter().any(|k| k.key == glove_kit::ui::Key::Escape) {
@@ -422,10 +423,10 @@ impl Contas {
         }
         if ok || enter {
             if f[1].is_empty() || f[1] != f[2] {
-                self.message = Some((false, "a senha nova e a confirmação precisam ser iguais.".into()));
+                self.message = Some((false, tr!("a senha nova e a confirmação precisam ser iguais.").into()));
             } else {
                 let (old, new) = (f[0].clone(), f[1].clone());
-                self.start("Senha trocada.".into(), move || change_password(&old, &new));
+                self.start(tr!("Senha trocada.").into(), move || change_password(&old, &new));
                 return;
             }
         }

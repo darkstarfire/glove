@@ -2,6 +2,7 @@
 //! usuário). Os apps do Glove ganham um .desktop em ~/.local/share/applications
 //! quando escolhidos, para o xdg-open saber abri-los.
 
+use glove_config::tr;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -45,7 +46,7 @@ fn desktop_name(id: &str) -> Option<String> {
     apps_dirs().into_iter().find_map(|d| {
         let full = std::fs::read_to_string(d.join(id)).ok()?;
         let t = main_group(&full);
-        t.lines().find_map(|l| l.strip_prefix("Name[pt_BR]=")).or_else(|| t.lines().find_map(|l| l.strip_prefix("Name="))).map(|n| n.trim().to_string())
+        nome_local(t).or_else(|| t.lines().find_map(|l| l.strip_prefix("Name="))).map(|n| n.trim().to_string())
     })
 }
 
@@ -67,7 +68,7 @@ fn handlers(mimes: &[&str]) -> Vec<(String, String)> {
             }
             let types = get("MimeType").unwrap_or("");
             if mimes.iter().any(|m| types.split(';').any(|x| x == *m)) {
-                let name = get("Name[pt_BR]").or(get("Name")).unwrap_or(&id).to_string();
+                let name = nome_local(&t).or(get("Name")).unwrap_or(&id).to_string();
                 out.push((id, name));
             }
         }
@@ -106,9 +107,9 @@ impl Padrao {
         self.rows = KINDS
             .iter()
             .map(|(mimes, _, glove)| {
-                let mut opts = vec![(String::new(), "— (nenhum escolhido)".to_string())];
+                let mut opts = vec![(String::new(), tr!("— (nenhum escolhido)").to_string())];
                 if let Some((id, name, _)) = glove {
-                    opts.push((id.to_string(), name.to_string()));
+                    opts.push((id.to_string(), tr(name).to_string()));
                 }
                 for h in handlers(mimes) {
                     if !opts.iter().any(|(i, _)| *i == h.0) {
@@ -135,14 +136,14 @@ impl Padrao {
         if !self.loaded {
             self.refresh();
         }
-        ui.small("Escolha o app que abre cada tipo de arquivo ou link:");
+        ui.small(tr!("Escolha o app que abre cada tipo de arquivo ou link:"));
         ui.space(8.0);
         let mut set = None;
         for (k, (mimes, label, glove)) in KINDS.iter().enumerate() {
             let (opts, sel) = &mut self.rows[k];
             let names: Vec<String> = opts.iter().map(|(_, n)| n.clone()).collect();
             ui.push_id(label, |ui| {
-                ui.form_row(label, 120.0, |ui| {
+                ui.form_row(tr(label), 120.0, |ui| {
                     if ui.popup(sel, &names, 300.0) && *sel > 0 {
                         set = Some((k, opts[*sel].0.clone(), *mimes, *glove));
                     }
@@ -152,18 +153,18 @@ impl Padrao {
         if let Some((_, id, mimes, glove)) = set {
             if let Some((gid, name, bin)) = glove.filter(|g| g.0 == id) {
                 if let Err(e) = ensure_glove_desktop(gid, name, bin, mimes) {
-                    self.message = Some(format!("Não foi possível preparar o app: {e}"));
+                    self.message = Some(tr!("Não foi possível preparar o app: {}", e));
                 }
             }
             let mut args = vec!["default", id.as_str()];
             args.extend(mimes.iter());
             self.message = match Command::new("xdg-mime").args(&args).status() {
-                Ok(s) if s.success() => Some("Pronto.".into()),
-                _ => Some("Não foi possível mudar (o xdg-mime falhou).".into()),
+                Ok(s) if s.success() => Some(tr!("Pronto.").into()),
+                _ => Some(tr!("Não foi possível mudar (o xdg-mime falhou).").into()),
             };
         }
         ui.space(8.0);
-        ui.small("Vale para o Arquivos (clique duplo) e para os links abertos pelos apps.");
+        ui.small(tr!("Vale para o Arquivos (clique duplo) e para os links abertos pelos apps."));
         if let Some(m) = &self.message {
             let m = m.clone();
             ui.small(&m);
@@ -179,4 +180,14 @@ mod tests {
         assert!(super::main_group(t).contains("Name=Chrome"));
         assert!(!super::main_group(t).contains("Nova janela"));
     }
+}
+
+/// O Name[…] do .desktop no idioma em uso (Name[pt_BR], Name[en]…), se houver.
+fn nome_local(t: &str) -> Option<&str> {
+    let lang = glove_config::idioma();
+    let region = std::env::var("LANG").ok().and_then(|l| l.split('.').next().map(String::from)).unwrap_or_default();
+    t.lines()
+        .filter_map(|l| l.strip_prefix("Name[").and_then(|r| r.split_once("]=")))
+        .find(|(loc, _)| *loc == region || *loc == lang)
+        .map(|(_, v)| v)
 }

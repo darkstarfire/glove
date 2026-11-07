@@ -869,3 +869,1473 @@ msgstr "Dec"
 msgid "{0} {1} "
 msgstr "{1} {0} "
 
+msgid "Nenhum adaptador Bluetooth encontrado (ou o bluetoothctl não está instalado)."
+msgstr "No Bluetooth adapter found (or bluetoothctl isn’t installed)."
+
+msgid "Bluetooth ligado"
+msgstr "Bluetooth on"
+
+msgid "Ligando…"
+msgstr "Turning on…"
+
+msgid "Bluetooth ligado."
+msgstr "Bluetooth is on."
+
+msgid "Bluetooth desligado."
+msgstr "Bluetooth is off."
+
+msgid "Este computador aparece como “{}”."
+msgstr "This computer appears as “{}”."
+
+msgid "O Bluetooth está desligado."
+msgstr "Bluetooth is off."
+
+msgid "Nenhum aparelho. Use “Procurar” para achar um por perto."
+msgstr "No devices. Use “Search” to find one nearby."
+
+msgid "Conectado"
+msgstr "Connected"
+
+msgid "Pareado, desconectado"
+msgstr "Paired, not connected"
+
+msgid "Encontrado por perto"
+msgstr "Found nearby"
+
+msgid "Procurar"
+msgstr "Search"
+
+msgid "Desconectar"
+msgstr "Disconnect"
+
+msgid "Parear"
+msgstr "Pair"
+
+msgid "Conectar"
+msgstr "Connect"
+
+msgid "Esquecer"
+msgstr "Forget"
+
+msgid "Procurando aparelhos (10 s)…"
+msgstr "Searching for devices (10 s)…"
+
+msgid "Busca concluída."
+msgstr "Search finished."
+
+msgid "Desconectando “{}”…"
+msgstr "Disconnecting “{}”…"
+
+msgid "Pareando “{}”…"
+msgstr "Pairing “{}”…"
+
+msgid "Conectando “{}”…"
+msgstr "Connecting “{}”…"
+
+msgid "Esquecendo “{}”…"
+msgstr "Forgetting “{}”…"
+
+msgid "Não deu certo: {}"
+msgstr "It didn’t work: {}"
+
+msgid "Sessão Remota"
+msgstr "Remote Login"
+
+msgid "Outros computadores entram neste pelo SSH."
+msgstr "Other computers log in to this one over SSH."
+
+msgid "Compartilhamento de Arquivos"
+msgstr "File Sharing"
+
+msgid "Pastas compartilhadas com Windows e outros (Samba)."
+msgstr "Folders shared with Windows and others (Samba)."
+
+msgid "Compartilhamento de Impressoras"
+msgstr "Printer Sharing"
+
+msgid "Outros computadores usam as impressoras deste."
+msgstr "Other computers use this computer’s printers."
+
+msgid "o sistema pediu permissão de administrador e ela não foi dada."
+msgstr "the system asked for administrator permission and it wasn’t given."
+
+msgid "Nome do computador"
+msgstr "Computer Name"
+
+msgid "Mudar"
+msgstr "Change"
+
+msgid "Nome do computador trocado."
+msgstr "Computer name changed."
+
+msgid "Na rede: {}.local"
+msgstr "On the network: {}.local"
+
+msgid "Serviços:"
+msgstr "Services:"
+
+msgid "Nenhum serviço de compartilhamento instalado."
+msgstr "No sharing service installed."
+
+msgid "Instale o OpenSSH (sessão remota) ou o Samba (arquivos) pelo sistema."
+msgstr "Install OpenSSH (remote login) or Samba (files) from the system."
+
+msgid "Ligado."
+msgstr "On."
+
+msgid "{} desligado."
+msgstr "{} is off."
+
+msgid "Aplicando…"
+msgstr "Applying…"
+
+msgid "não foi possível abrir um terminal para o passwd"
+msgstr "couldn’t open a terminal for passwd"
+
+msgid "não foi possível abrir o passwd"
+msgstr "couldn’t open passwd"
+
+msgid "o passwd não respondeu."
+msgstr "passwd didn’t respond."
+
+msgid "Administrador"
+msgstr "Administrator"
+
+msgid "Padrão"
+msgstr "Standard"
+
+msgid "Senha"
+msgstr "Password"
+
+msgid "Imagem"
+msgstr "Picture"
+
+msgid "Nome curto"
+msgstr "Short name"
+
+msgid "Só dá para mudar a própria conta por aqui."
+msgstr "Only your own account can be changed here."
+
+msgid "Salvar Nome"
+msgstr "Save Name"
+
+msgid "Mudar Senha…"
+msgstr "Change Password…"
+
+msgid "Nome salvo."
+msgstr "Name saved."
+
+msgid "Imagem desta conta (na tela de entrada e de bloqueio)."
+msgstr "This account’s picture (on the login and lock screens)."
+
+msgid "Escolha um retrato:"
+msgstr "Choose a picture:"
+
+msgid "Escolher Imagem…"
+msgstr "Choose Picture…"
+
+msgid "não foi possível gravar o retrato: {}"
+msgstr "couldn’t save the picture: {}"
+
+msgid "Imagem trocada."
+msgstr "Picture changed."
+
+msgid "Mudar a senha desta conta"
+msgstr "Change this account’s password"
+
+msgid "Senha atual:"
+msgstr "Current password:"
+
+msgid "Senha nova:"
+msgstr "New password:"
+
+msgid "Confirmar:"
+msgstr "Verify:"
+
+msgid "Mudar Senha"
+msgstr "Change Password"
+
+msgid "a senha nova e a confirmação precisam ser iguais."
+msgstr "the new password and the verification must match."
+
+msgid "Senha trocada."
+msgstr "Password changed."
+
+msgid "América"
+msgstr "Americas"
+
+msgid "Europa"
+msgstr "Europe"
+
+msgid "África"
+msgstr "Africa"
+
+msgid "Ásia"
+msgstr "Asia"
+
+msgid "Austrália"
+msgstr "Australia"
+
+msgid "Pacífico"
+msgstr "Pacific"
+
+msgid "Atlântico"
+msgstr "Atlantic"
+
+msgid "Índico"
+msgstr "Indian"
+
+msgid "Antártida"
+msgstr "Antarctica"
+
+msgid "Ártico"
+msgstr "Arctic"
+
+msgid "Janeiro"
+msgstr "January"
+
+msgid "Fevereiro"
+msgstr "February"
+
+msgid "Março"
+msgstr "March"
+
+msgid "Abril"
+msgstr "April"
+
+msgid "Maio"
+msgstr "May"
+
+msgid "Junho"
+msgstr "June"
+
+msgid "Julho"
+msgstr "July"
+
+msgid "Agosto"
+msgstr "August"
+
+msgid "Setembro"
+msgstr "September"
+
+msgid "Outubro"
+msgstr "October"
+
+msgid "Novembro"
+msgstr "November"
+
+msgid "Dezembro"
+msgstr "December"
+
+msgid "Data e Hora"
+msgstr "Date & Time"
+
+msgid "Fuso Horário"
+msgstr "Time Zone"
+
+msgid "O timedatectl não respondeu."
+msgstr "timedatectl didn’t respond."
+
+msgid "Ajustar data e hora automaticamente (pela internet)"
+msgstr "Set date and time automatically (over the internet)"
+
+msgid "Hora automática ligada."
+msgstr "Automatic time on."
+
+msgid "Hora automática desligada."
+msgstr "Automatic time off."
+
+msgid "Sincronizado com o servidor de hora."
+msgstr "Synchronized with the time server."
+
+msgid "Esperando o servidor de hora…"
+msgstr "Waiting for the time server…"
+
+msgid "{} de {}"
+msgstr "{} {}"
+
+msgid "Data:"
+msgstr "Date:"
+
+msgid "Hora:"
+msgstr "Time:"
+
+msgid "Definir"
+msgstr "Set"
+
+msgid "Data e hora definidas."
+msgstr "Date and time set."
+
+msgid "use a data como 05/11/2026 e a hora como 14:30."
+msgstr "write the date like 05/11/2026 and the time like 14:30."
+
+msgid "Região:"
+msgstr "Region:"
+
+msgid "Definir Fuso Horário"
+msgstr "Set Time Zone"
+
+msgid "Fuso horário: {}."
+msgstr "Time zone: {}."
+
+msgid "Mostrar data e hora na barra de menu"
+msgstr "Show date and time in the menu bar"
+
+msgid "Ver como:"
+msgstr "View as:"
+
+msgid "Analógico"
+msgstr "Analog"
+
+msgid "Mostrar os segundos"
+msgstr "Show seconds"
+
+msgid "Mostrar o dia da semana"
+msgstr "Show the day of the week"
+
+msgid "Mostrar a data"
+msgstr "Show the date"
+
+msgid "Usar o relógio de 24 horas"
+msgstr "Use a 24-hour clock"
+
+msgid "Piscar os dois-pontos"
+msgstr "Flash the time separators"
+
+msgid "Mostrador de ponteiros"
+msgstr "Clock face"
+
+msgid "Na barra: {}"
+msgstr "In the bar: {}"
+
+msgid "Estes itens abrem sozinhos quando você entra no Glove:"
+msgstr "These items open automatically when you log in to Glove:"
+
+msgid "Item"
+msgstr "Item"
+
+msgid "Comando"
+msgstr "Command"
+
+msgid "Nenhum item. Use + para escolher um aplicativo."
+msgstr "No items. Use + to choose an application."
+
+msgid "Não foi possível mudar “{}”: {}"
+msgstr "Couldn’t change “{}”: {}"
+
+msgid "Não foi possível tirar “{}”: {}"
+msgstr "Couldn’t remove “{}”: {}"
+
+msgid "Itens do sistema não são apagados: tirar só faz com que não abram. Vale na próxima entrada."
+msgstr "System items aren’t deleted: removing only keeps them from opening. Takes effect at the next login."
+
+msgid "Escolha um aplicativo para abrir ao entrar:"
+msgstr "Choose an application to open at login:"
+
+msgid "Adicionar"
+msgstr "Add"
+
+msgid "Não foi possível pôr “{}”: {}"
+msgstr "Couldn’t add “{}”: {}"
+
+msgid "Português (Brasil)"
+msgstr "Portuguese (Brazil)"
+
+msgid "Brasil"
+msgstr "Brazil"
+
+msgid "Português (Portugal)"
+msgstr "Portuguese (Portugal)"
+
+msgid "Portugal"
+msgstr "Portugal"
+
+msgid "Inglês (EUA)"
+msgstr "English (US)"
+
+msgid "Estados Unidos"
+msgstr "United States"
+
+msgid "Inglês (Reino Unido)"
+msgstr "English (UK)"
+
+msgid "Reino Unido"
+msgstr "United Kingdom"
+
+msgid "Espanhol (Espanha)"
+msgstr "Spanish (Spain)"
+
+msgid "Espanha"
+msgstr "Spain"
+
+msgid "Espanhol (Argentina)"
+msgstr "Spanish (Argentina)"
+
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Francês"
+msgstr "French"
+
+msgid "França"
+msgstr "France"
+
+msgid "Alemão"
+msgstr "German"
+
+msgid "Alemanha"
+msgstr "Germany"
+
+msgid "Italiano"
+msgstr "Italian"
+
+msgid "Itália"
+msgstr "Italy"
+
+msgid "Japonês"
+msgstr "Japanese"
+
+msgid "Japão"
+msgstr "Japan"
+
+msgid "{} (não instalado)"
+msgstr "{} (not installed)"
+
+msgid "Vale para os apps abertos depois da próxima entrada no Glove."
+msgstr "Applies to apps opened after the next login to Glove."
+
+msgid "Região"
+msgstr "Region"
+
+msgid "Data"
+msgstr "Date"
+
+msgid "Hora"
+msgstr "Time"
+
+msgid "Números"
+msgstr "Numbers"
+
+msgid "Moeda"
+msgstr "Currency"
+
+msgid "Exemplos de como os apps vão mostrar. Vale depois da próxima entrada."
+msgstr "Examples of how apps will show them. Takes effect after the next login."
+
+msgid "Pessoal"
+msgstr "Personal"
+
+msgid "Internet e Rede"
+msgstr "Internet & Network"
+
+msgid "Sistema"
+msgstr "System"
+
+msgid "Mesa e Protetor de Tela"
+msgstr "Desktop & Screen Saver"
+
+msgid "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas"
+msgstr "wallpaper background picture solid color photo screen saver hot corners aurora stars bubbles"
+
+msgid "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título"
+msgstr "color highlight theme selection scroll bar graphite blue recent items minimize double click title"
+
+msgid "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito"
+msgstr "size magnification hide automatically position left right minimize effect"
+
+msgid "tela resolução escala tamanho hz frequência monitores"
+msgstr "screen resolution scale size hz refresh displays monitors"
+
+msgid "Som"
+msgstr "Sound"
+
+msgid "volume mudo alto-falante fone saída entrada microfone alerta efeitos sonoros"
+msgstr "volume mute speaker headphones output input microphone alert sound effects"
+
+msgid "repouso dormir suspender tela apagar bateria tomada adaptador brilho senha energia"
+msgstr "sleep suspend screen off battery power adapter brightness password energy"
+
+msgid "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear"
+msgstr "layout language key repeat abnt2 typing keyboard shortcuts combination exposé screenshot lock"
+
+msgid "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto"
+msgstr "speed tracking pointer scrolling double click primary button left-handed"
+
+msgid "toque tocar para clicar rolagem natural dois dedos touchpad"
+msgstr "tap tap to click natural scrolling two fingers touchpad"
+
+msgid "Rede"
+msgstr "Network"
+
+msgid "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar"
+msgstr "wi-fi wifi internet wireless ethernet cable ip dhcp dns router password connect"
+
+msgid "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu"
+msgstr "clock time time zone calendar ntp automatic seconds 24 hours menu bar"
+
+msgid "Contas"
+msgstr "Accounts"
+
+msgid "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart"
+msgstr "user account password name picture photo startup items open at login autostart"
+
+msgid "Internacional"
+msgstr "International"
+
+msgid "idioma língua formatos data número moeda região menu de entrada layout teclado"
+msgstr "language formats date number currency region input menu layout keyboard"
+
+msgid "Acesso Universal"
+msgstr "Accessibility"
+
+msgid "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade"
+msgstr "zoom magnify magnifier invert colors white on black gray contrast large cursor vision accessibility"
+
+msgid "Mídia Removível"
+msgstr "Removable Media"
+
+msgid "pendrive usb disco externo cartão cd dvd abrir automaticamente"
+msgstr "usb drive external disk card cd dvd open automatically"
+
+msgid "fone teclado mouse sem fio parear conectar aparelho"
+msgstr "headphones keyboard mouse wireless pair connect device"
+
+msgid "Compartilhamento"
+msgstr "Sharing"
+
+msgid "nome do computador ssh sessão remota samba arquivos impressoras rede"
+msgstr "computer name ssh remote login samba files printers network"
+
+msgid "Aplicativos Padrão"
+msgstr "Default Apps"
+
+msgid "navegador e-mail abrir com texto imagens pdf música vídeo padrão"
+msgstr "browser email open with text pictures pdf music video default"
+
+msgid "Impressão"
+msgstr "Printing"
+
+msgid "impressora imprimir cups fila padrão"
+msgstr "printer print cups queue default"
+
+msgid "atualizar pacotes apt sistema versão upgrade"
+msgstr "update packages apt system version upgrade"
+
+msgid "boot iniciar sistema operacional uefi reiniciar disco"
+msgstr "boot start operating system uefi restart disk"
+
+msgid "Fala"
+msgstr "Speech"
+
+msgid "voz ler em voz alta falar sintetizador"
+msgstr "voice read aloud speak synthesizer"
+
+msgid "fonte shell linha de comando"
+msgstr "font shell command line"
+
+msgid "Segurança"
+msgstr "Security"
+
+msgid "senha bloquear repouso protetor sair encerrar sessão inatividade firewall ufw proteção"
+msgstr "password lock sleep screen saver log out session inactivity firewall ufw protection"
+
+msgid "spotlight buscar procurar categorias privacidade pastas excluir resultados"
+msgstr "quick search find categories privacy folders exclude results"
+
+msgid "Exposé e Painel"
+msgstr "Exposé & Dashboard"
+
+msgid "exposé expose cantos ativos janelas mesa painel de widgets dashboard f9 f10 f11 f12"
+msgstr "exposé expose hot corners windows desktop widgets dashboard f9 f10 f11 f12"
+
+msgid "Ondas"
+msgstr "Waves"
+
+msgid "Aurora"
+msgstr "Aurora"
+
+msgid "Liso"
+msgstr "Plain"
+
+msgid "Cor sólida"
+msgstr "Solid color"
+
+msgid "Janelas"
+msgstr "Windows"
+
+msgid "Buscar"
+msgstr "Search"
+
+msgid "Abrir “{}”"
+msgstr "Open “{}”"
+
+msgid "Para botões, menus e janelas"
+msgstr "For buttons, menus and windows"
+
+msgid "Cor de destaque"
+msgstr "Highlight color"
+
+msgid "Para texto selecionado"
+msgstr "For selected text"
+
+msgid "Glove (desenhados)"
+msgstr "Glove (drawn)"
+
+msgid "Ícones"
+msgstr "Icons"
+
+msgid "Clicar na barra de rolagem para"
+msgstr "Click in the scroll bar to"
+
+msgid "Ir para a página seguinte"
+msgstr "Jump to the next page"
+
+msgid "Ir para o ponto clicado"
+msgstr "Jump to here"
+
+msgid "Minimizar ao clicar duas vezes na barra de título"
+msgstr "Minimize when double-clicking a window title bar"
+
+msgid "Itens recentes"
+msgstr "Recent items"
+
+msgid "Protetores de tela"
+msgstr "Screen savers"
+
+msgid "Prévia"
+msgstr "Preview"
+
+msgid "Testar"
+msgstr "Test"
+
+msgid "Iniciar o protetor de tela quando inativo por:"
+msgstr "Start the screen saver when inactive for:"
+
+msgid "Cantos Ativos…"
+msgstr "Hot Corners…"
+
+msgid "Cantos ativos:"
+msgstr "Hot corners:"
+
+msgid "Todas as janelas"
+msgstr "All windows"
+
+msgid "Janelas do app"
+msgstr "Application windows"
+
+msgid "Painel de Widgets"
+msgstr "Widget Dashboard"
+
+msgid "Iniciar o protetor de tela"
+msgstr "Start the screen saver"
+
+msgid "Clique numa imagem para usar na mesa."
+msgstr "Click a picture to use it on the desktop."
+
+msgid "Imagens do Glove"
+msgstr "Glove Pictures"
+
+msgid "Cores Sólidas"
+msgstr "Solid Colors"
+
+msgid "Pasta Imagens"
+msgstr "Pictures Folder"
+
+msgid "Ponha imagens PNG na sua pasta Imagens."
+msgstr "Put PNG pictures in your Pictures folder."
+
+msgid "Tamanho do Dock"
+msgstr "Dock Size"
+
+msgid "Pequeno"
+msgstr "Small"
+
+msgid "Grande"
+msgstr "Large"
+
+msgid "{} px"
+msgstr "{} px"
+
+msgid "Ampliação"
+msgstr "Magnification"
+
+msgid "Mínima"
+msgstr "Min"
+
+msgid "Máxima"
+msgstr "Max"
+
+msgid "Posição na tela"
+msgstr "Position on screen"
+
+msgid "Esquerda"
+msgstr "Left"
+
+msgid "Embaixo"
+msgstr "Bottom"
+
+msgid "Direita"
+msgstr "Right"
+
+msgid "Efeito Escala"
+msgstr "Scale Effect"
+
+msgid "Efeito Lâmpada Mágica"
+msgstr "Genie Effect"
+
+msgid "Minimizar usando"
+msgstr "Minimize using"
+
+msgid "Animar a abertura de aplicativos"
+msgstr "Animate opening applications"
+
+msgid "Ocultar e mostrar o Dock automaticamente"
+msgstr "Automatically hide and show the Dock"
+
+msgid "Atalhos de Teclado"
+msgstr "Keyboard Shortcuts"
+
+msgid "Menu de Entrada"
+msgstr "Input Menu"
+
+msgid "Velocidade de repetição"
+msgstr "Key Repeat Rate"
+
+msgid "Lenta"
+msgstr "Slow"
+
+msgid "Rápida"
+msgstr "Fast"
+
+msgid "Atraso até repetir"
+msgstr "Delay Until Repeat"
+
+msgid "Longo"
+msgstr "Long"
+
+msgid "Curto"
+msgstr "Short"
+
+msgid "Teste aqui"
+msgstr "Type here to test"
+
+msgid "Layout do teclado"
+msgstr "Keyboard layout"
+
+msgid "Vale na hora para todos os apps."
+msgstr "Applies to all apps right away."
+
+msgid "O Glove está numa janela dentro de outro desktop: a resolução é a da janela."
+msgstr "Glove is in a window inside another desktop: the resolution is the window’s."
+
+msgid "O que for escolhido aqui vale quando você entrar na sessão Glove."
+msgstr "What you choose here applies when you log in to the Glove session."
+
+msgid "Ajustar o monitor"
+msgstr "Adjust the display"
+
+msgid "Recomendada ({})"
+msgstr "Recommended ({})"
+
+msgid "Resoluções:"
+msgstr "Resolutions:"
+
+msgid "Automático"
+msgstr "Automatic"
+
+msgid "Monitor principal (barra de menu):"
+msgstr "Main display (menu bar):"
+
+msgid "{} Hz"
+msgstr "{} Hz"
+
+msgid "Taxa de atualização:"
+msgstr "Refresh rate:"
+
+msgid "Em uso: {}"
+msgstr "In use: {}"
+
+msgid "Estender a mesa"
+msgstr "Extend the desktop"
+
+msgid "Espelhar (a mesma imagem)"
+msgstr "Mirror (the same picture)"
+
+msgid "Usar só o principal"
+msgstr "Use only the main display"
+
+msgid "À direita do principal"
+msgstr "Right of the main display"
+
+msgid "À esquerda do principal"
+msgstr "Left of the main display"
+
+msgid "Abaixo do principal"
+msgstr "Below the main display"
+
+msgid "Com mais monitores"
+msgstr "With more displays"
+
+msgid "Os outros ficam"
+msgstr "The others go"
+
+msgid "A barra de menu e o Dock ficam no principal; arraste janelas para os outros."
+msgstr "The menu bar and the Dock stay on the main display; drag windows to the others."
+
+msgid "Os monitores usam a maior resolução que todos aceitam."
+msgstr "The displays use the largest resolution they all accept."
+
+msgid "Tamanho da interface"
+msgstr "Interface size"
+
+msgid "Maior = textos e janelas maiores. Automático segue a densidade da tela."
+msgstr "Larger = bigger text and windows. Automatic follows the screen density."
+
+msgid "Mostrar monitores na barra de menu"
+msgstr "Show displays in the menu bar"
+
+msgid "Manter esta resolução? Volta à anterior em {} s."
+msgstr "Keep this resolution? Reverting in {} s."
+
+msgid "Manter"
+msgstr "Keep"
+
+msgid "Voltar"
+msgstr "Revert"
+
+msgid "Velocidade do clique duplo"
+msgstr "Double-Click Speed"
+
+msgid "Muito lenta"
+msgstr "Very slow"
+
+msgid "Clique duplo reconhecido!"
+msgstr "Double click recognized!"
+
+msgid "Clique duas vezes aqui para testar"
+msgstr "Double-click here to test"
+
+msgid "Velocidade de rastreamento"
+msgstr "Tracking Speed"
+
+msgid "Velocidade de rolagem"
+msgstr "Scrolling Speed"
+
+msgid "Botão principal do mouse"
+msgstr "Primary mouse button"
+
+msgid "Esquerdo"
+msgstr "Left"
+
+msgid "Direito"
+msgstr "Right"
+
+msgid "Aceleração (anda mais quando o mouse se move rápido)"
+msgstr "Acceleration (moves farther when the mouse moves fast)"
+
+msgid "Rolagem natural (o conteúdo acompanha a roda)"
+msgstr "Natural scrolling (content follows the wheel)"
+
+msgid "Dentro de outro desktop só a rolagem e o clique duplo valem agora; o resto vale na sessão Glove."
+msgstr "Inside another desktop only scrolling and double-click apply now; the rest applies in the Glove session."
+
+msgid "Gestos do trackpad"
+msgstr "Trackpad gestures"
+
+msgid "Tocar para clicar"
+msgstr "Tap to click"
+
+msgid "Tocar duas vezes e arrastar"
+msgstr "Double-tap and drag"
+
+msgid "Rolagem natural (o conteúdo acompanha os dedos)"
+msgstr "Natural scrolling (content follows your fingers)"
+
+msgid "Clique secundário"
+msgstr "Secondary click"
+
+msgid "Com dois dedos"
+msgstr "With two fingers"
+
+msgid "No canto inferior direito"
+msgstr "In the bottom right corner"
+
+msgid "Ignorar o trackpad enquanto digito"
+msgstr "Ignore the trackpad while typing"
+
+msgid "Dentro de outro desktop o trackpad segue o desktop de lá; isto vale na sessão Glove."
+msgstr "Inside another desktop the trackpad follows that desktop; this applies in the Glove session."
+
+msgid "Marque os layouts que você usa. A barra de menu e Super+Alt+espaço passam por eles."
+msgstr "Check the layouts you use. The menu bar and Super+Alt+Space switch between them."
+
+msgid "Mostrar o Menu de Entrada na barra de menu"
+msgstr "Show the Input Menu in the menu bar"
+
+msgid "Clique num atalho e pressione a nova combinação (Esc cancela)."
+msgstr "Click a shortcut and press the new combination (Esc cancels)."
+
+msgid "Restaurar padrões"
+msgstr "Restore defaults"
+
+msgid "Nunca"
+msgstr "Never"
+
+msgid "{} min"
+msgstr "{} min"
+
+msgid "1 hora"
+msgstr "1 hour"
+
+msgid "{} h {} min"
+msgstr "{} h {} min"
+
+msgid "Abrir no Arquivos"
+msgstr "Open in Files"
+
+msgid "Não fazer nada"
+msgstr "Do nothing"
+
+msgid "Ao conectar um pendrive ou disco"
+msgstr "When you connect a USB drive or disk"
+
+msgid "Ele também aparece na mesa, ao lado do Disco."
+msgstr "It also appears on the desktop, next to the Disk."
+
+msgid "Ao inserir um CD ou DVD de dados"
+msgstr "When you insert a data CD or DVD"
+
+msgid "Abrir no Vídeo"
+msgstr "Open in Video"
+
+msgid "Ao inserir um DVD de vídeo"
+msgstr "When you insert a video DVD"
+
+msgid "Pedir a senha ao sair do repouso ou do protetor de tela"
+msgstr "Require password to wake from sleep or screen saver"
+
+msgid "Encerrar a sessão depois de um tempo sem uso"
+msgstr "Log out after a period of inactivity"
+
+msgid "Depois de:"
+msgstr "After:"
+
+msgid "Antes de sair, aparece o aviso com a contagem (mexer no mouse cancela)."
+msgstr "Before logging out, a countdown warning appears (moving the mouse cancels)."
+
+msgid "O firewall (ufw) não está instalado. Para instalar: sudo apt install ufw"
+msgstr "The firewall (ufw) isn’t installed. To install it: sudo apt install ufw"
+
+msgid "Ligado: as conexões que chegam de fora são bloqueadas (as que você abre passam)."
+msgstr "On: incoming connections are blocked (the ones you open go through)."
+
+msgid "Desligado: o computador aceita conexões de fora."
+msgstr "Off: the computer accepts incoming connections."
+
+msgid "Desligar o firewall"
+msgstr "Turn the firewall off"
+
+msgid "Ligar o firewall"
+msgstr "Turn the firewall on"
+
+msgid "Mostrar nos resultados:"
+msgstr "Show in results:"
+
+msgid "Preferências do Sistema"
+msgstr "Preferences"
+
+msgid "Pastas e arquivos"
+msgstr "Folders and files"
+
+msgid "Privacidade: a busca não olha estas pastas."
+msgstr "Privacy: search doesn’t look in these folders."
+
+msgid "Remover"
+msgstr "Remove"
+
+msgid "Atalhos de teclado:"
+msgstr "Keyboard shortcuts:"
+
+msgid "Visão"
+msgstr "Seeing"
+
+msgid "Ligado"
+msgstr "On"
+
+msgid "Desligado"
+msgstr "Off"
+
+msgid "1,5×"
+msgstr "1.5×"
+
+msgid "Super+Alt+8 liga e desliga; Super+Alt+= e Super+Alt+− aproximam e afastam."
+msgstr "Super+Alt+8 turns it on and off; Super+Alt+= and Super+Alt+− zoom in and out."
+
+msgid "Preto no branco"
+msgstr "Black on white"
+
+msgid "Branco no preto"
+msgstr "White on black"
+
+msgid "Usar escala de cinza"
+msgstr "Use grayscale"
+
+msgid "Melhorar o contraste"
+msgstr "Enhance contrast"
+
+msgid "Máximo"
+msgstr "Maximum"
+
+msgid "Tamanho do cursor"
+msgstr "Cursor size"
+
+msgid "Dentro de outro desktop a seta é a dele; isto vale na sessão Glove."
+msgstr "Inside another desktop the pointer is that desktop’s; this applies in the Glove session."
+
+msgid "Configurações para:"
+msgstr "Settings for:"
+
+msgid "Adaptador de energia"
+msgstr "Power Adapter"
+
+msgid "Opções"
+msgstr "Options"
+
+msgid "Colocar o computador em repouso quando inativo por:"
+msgstr "Put the computer to sleep when inactive for:"
+
+msgid "Apagar a tela quando inativo por:"
+msgstr "Turn the screen off when inactive for:"
+
+msgid "A tela não vai apagar antes: o computador entra em repouso primeiro."
+msgstr "The screen won’t turn off first: the computer sleeps before that."
+
+msgid "Pedir senha ao sair do repouso ou da tela apagada"
+msgstr "Require password after sleep or screen off"
+
+msgid "Diminuir um pouco o brilho da tela ao usar a bateria"
+msgstr "Slightly dim the screen on battery"
+
+msgid "Mostrar o estado da bateria na barra de menu"
+msgstr "Show battery status in the menu bar"
+
+msgid "Mostrar a porcentagem"
+msgstr "Show percentage"
+
+msgid "O botão de ligar e a tampa seguem o sistema (logind); fechar a tampa apaga a tela."
+msgstr "The power button and the lid follow the system (logind); closing the lid turns the screen off."
+
+msgid "Restaurar Padrões"
+msgstr "Restore Defaults"
+
+msgid "Efeitos Sonoros"
+msgstr "Sound Effects"
+
+msgid "Saída"
+msgstr "Output"
+
+msgid "Entrada"
+msgstr "Input"
+
+msgid "Escolher um alerta sonoro:"
+msgstr "Choose an alert sound:"
+
+msgid "Volume do alerta"
+msgstr "Alert volume"
+
+msgid "Baixo"
+msgstr "Low"
+
+msgid "Tocar retorno ao mudar o volume"
+msgstr "Play feedback when volume is changed"
+
+msgid "O PipeWire não respondeu (o comando wpctl não está disponível)."
+msgstr "PipeWire didn’t respond (the wpctl command isn’t available)."
+
+msgid "Escolher um dispositivo para {} de som:"
+msgstr "Choose a device for sound {}:"
+
+msgid "Nenhum dispositivo encontrado."
+msgstr "No device found."
+
+msgid "Volume de entrada"
+msgstr "Input volume"
+
+msgid "Volume de saída"
+msgstr "Output volume"
+
+msgid "Mudo"
+msgstr "Mute"
+
+msgid "Mostrar volume na barra de menu"
+msgstr "Show volume in the menu bar"
+
+msgid "Programas que o Glove abre:"
+msgstr "Programs Glove opens:"
+
+msgid "Terminal (Glove)"
+msgstr "Terminal (Glove)"
+
+msgid "Terminal do GNOME"
+msgstr "GNOME Terminal"
+
+msgid "Terminal do Xfce"
+msgstr "Xfce Terminal"
+
+msgid "Automático (pela memória)"
+msgstr "Automatic (by memory)"
+
+msgid "Web (GNOME)"
+msgstr "Web (GNOME)"
+
+msgid "Arquivos (Glove)"
+msgstr "Files (Glove)"
+
+msgid "Lixeira abre no"
+msgstr "Trash opens in"
+
+msgid "Abrir apps X11 (Xwayland, uns 20 MB a mais)"
+msgstr "Open X11 apps (Xwayland, about 20 MB more)"
+
+msgid "Os apps X11 ligam ou desligam na próxima sessão."
+msgstr "X11 apps turn on or off at the next session."
+
+msgid "Tema de cores:"
+msgstr "Color theme:"
+
+msgid "As janelas do Terminal abertas mudam na hora."
+msgstr "Open Terminal windows change right away."
+
+msgid "Padrão (DejaVu Sans Mono)"
+msgstr "Default (DejaVu Sans Mono)"
+
+msgid "Fonte"
+msgstr "Font"
+
+msgid "Ícones de Nerd Font aparecem mesmo com outra fonte, se houver uma instalada."
+msgstr "Nerd Font icons show even with another font, if one is installed."
+
+msgid "{} pt"
+msgstr "{} pt"
+
+msgid "Fonte e tamanho valem para as próximas janelas do Terminal."
+msgstr "Font and size apply to new Terminal windows."
+
+msgid "Ativar a troca rápida de usuário (nome na barra de menu)"
+msgstr "Enable fast user switching (name in the menu bar)"
+
+msgid "Idioma"
+msgstr "Language"
+
+msgid "Formatos"
+msgstr "Formats"
+
+msgid "Sistema: {}"
+msgstr "System: {}"
+
+msgid "Não achei o gerenciador de pacotes deste sistema (apt, pacman, dnf ou zypper)."
+msgstr "Couldn’t find this system’s package manager (apt, pacman, dnf or zypper)."
+
+msgid "Verificar Agora"
+msgstr "Check Now"
+
+msgid "Verificando…"
+msgstr "Checking…"
+
+msgid "Clique em Verificar Agora para ver as atualizações disponíveis."
+msgstr "Click Check Now to see the available updates."
+
+msgid "Nenhuma atualização encontrada. (A lista vem da última consulta do sistema.)"
+msgstr "No updates found. (The list comes from the system’s last check.)"
+
+msgid "{} atualizações disponíveis:"
+msgstr "{} updates available:"
+
+msgid "Instalar no Terminal…"
+msgstr "Install in Terminal…"
+
+msgid "O Terminal pede a sua senha de administrador."
+msgstr "The Terminal asks for your administrator password."
+
+msgid "Não foi possível ler as opções de inicialização (precisa de UEFI e do efibootmgr)."
+msgstr "Couldn’t read the boot options (needs UEFI and efibootmgr)."
+
+msgid "Escolha o sistema para iniciar o computador:"
+msgstr "Choose the system to start the computer:"
+
+msgid "Usar Sempre…"
+msgstr "Always Use…"
+
+msgid "Reiniciar Nele…"
+msgstr "Restart Into It…"
+
+msgid "As mudanças abrem no Terminal, que pede a senha de administrador."
+msgstr "Changes open in the Terminal, which asks for the administrator password."
+
+msgid "A fala precisa do speech-dispatcher (spd-say) instalado."
+msgstr "Speech needs speech-dispatcher (spd-say) installed."
+
+msgid "Voz:"
+msgstr "Voice:"
+
+msgid "Velocidade"
+msgstr "Rate"
+
+msgid "Devagar"
+msgstr "Slow"
+
+msgid "Depressa"
+msgstr "Fast"
+
+msgid "Ouvir"
+msgstr "Play"
+
+msgid "As vozes vêm do speech-dispatcher; apps que leem texto em voz alta usam a mesma."
+msgstr "Voices come from speech-dispatcher; apps that read text aloud use the same one."
+
+msgid "A impressão precisa do CUPS instalado."
+msgstr "Printing needs CUPS installed."
+
+msgid "Impressoras:"
+msgstr "Printers:"
+
+msgid "Tornar Padrão"
+msgstr "Make Default"
+
+msgid "Ver Fila…"
+msgstr "Open Queue…"
+
+msgid "“{}” é a impressora padrão."
+msgstr "“{}” is the default printer."
+
+msgid "Não foi possível mudar a impressora padrão."
+msgstr "Couldn’t change the default printer."
+
+msgid "Adicionar e a fila abrem a página do CUPS no navegador."
+msgstr "Add and the queue open the CUPS page in the browser."
+
+msgid "E-mail"
+msgstr "Email"
+
+msgid "Texto"
+msgstr "Text"
+
+msgid "Editor de Texto (Glove)"
+msgstr "Text Editor (Glove)"
+
+msgid "Visualizador (Glove)"
+msgstr "Viewer (Glove)"
+
+msgid "— (nenhum escolhido)"
+msgstr "— (none chosen)"
+
+msgid "Escolha o app que abre cada tipo de arquivo ou link:"
+msgstr "Choose the app that opens each kind of file or link:"
+
+msgid "Não foi possível preparar o app: {}"
+msgstr "Couldn’t prepare the app: {}"
+
+msgid "Pronto."
+msgstr "Done."
+
+msgid "Não foi possível mudar (o xdg-mime falhou)."
+msgstr "Couldn’t change it (xdg-mime failed)."
+
+msgid "Vale para o Arquivos (clique duplo) e para os links abertos pelos apps."
+msgstr "Applies to Files (double-click) and to links opened by apps."
+
+msgid "{} está conectado à rede “{}” e tem o endereço IP {}."
+msgstr "{} is connected to “{}” and has the IP address {}."
+
+msgid "{} está conectado à rede “{}”, mas ainda não tem endereço IP."
+msgstr "{} is connected to “{}” but doesn’t have an IP address yet."
+
+msgid "{} está ativo e tem o endereço IP {}."
+msgstr "{} is active and has the IP address {}."
+
+msgid "{} está ativo, mas ainda não tem endereço IP."
+msgstr "{} is active but doesn’t have an IP address yet."
+
+msgid "{} está conectando…"
+msgstr "{} is connecting…"
+
+msgid "O cabo não está conectado."
+msgstr "The cable isn’t connected."
+
+msgid "{} está desligado."
+msgstr "{} is off."
+
+msgid "{} está ligado, mas não está conectado a nenhuma rede."
+msgstr "{} is on but not connected to a network."
+
+msgid "Conectando a “{}”…"
+msgstr "Connecting to “{}”…"
+
+msgid "O NetworkManager não respondeu (o comando nmcli não está disponível)."
+msgstr "NetworkManager didn’t respond (the nmcli command isn’t available)."
+
+msgid "Status da Rede"
+msgstr "Network Status"
+
+msgid "Mostrar:"
+msgstr "Show:"
+
+msgid "Mostrar o Wi-Fi na barra de menu"
+msgstr "Show Wi-Fi in the menu bar"
+
+msgid "Nenhuma interface de rede encontrada."
+msgstr "No network interface found."
+
+msgid "Clique duas vezes numa interface para configurá-la."
+msgstr "Double-click an interface to configure it."
+
+msgid "Wi-Fi ligado"
+msgstr "Wi-Fi on"
+
+msgid "Ligando o Wi-Fi…"
+msgstr "Turning Wi-Fi on…"
+
+msgid "Desligando o Wi-Fi…"
+msgstr "Turning Wi-Fi off…"
+
+msgid "Wi-Fi ligado."
+msgstr "Wi-Fi is on."
+
+msgid "Wi-Fi desligado."
+msgstr "Wi-Fi is off."
+
+msgid "O Wi-Fi está desligado."
+msgstr "Wi-Fi is off."
+
+msgid "Nenhuma rede encontrada."
+msgstr "No networks found."
+
+msgid "Buscar Redes"
+msgstr "Find Networks"
+
+msgid "Conectar…"
+msgstr "Connect…"
+
+msgid "Buscando redes…"
+msgstr "Looking for networks…"
+
+msgid "Desconectando…"
+msgstr "Disconnecting…"
+
+msgid "Desconectado."
+msgstr "Disconnected."
+
+msgid "Configurar IPv4"
+msgstr "Configure IPv4"
+
+msgid "Usando DHCP"
+msgstr "Using DHCP"
+
+msgid "Manualmente"
+msgstr "Manually"
+
+msgid "Endereço IP"
+msgstr "IP Address"
+
+msgid "Máscara de sub-rede"
+msgstr "Subnet Mask"
+
+msgid "Roteador"
+msgstr "Router"
+
+msgid "Servidores DNS"
+msgstr "DNS Servers"
+
+msgid "Endereço MAC: {}"
+msgstr "MAC address: {}"
+
+msgid "Reverter"
+msgstr "Revert"
+
+msgid "Aplicar"
+msgstr "Apply"
+
+msgid "Usando DHCP."
+msgstr "Using DHCP."
+
+msgid "a máscara de sub-rede não é válida (ex.: 255.255.255.0)."
+msgstr "the subnet mask isn’t valid (e.g. 255.255.255.0)."
+
+msgid "o endereço IP não é válido (ex.: 192.168.0.20)."
+msgstr "the IP address isn’t valid (e.g. 192.168.0.20)."
+
+msgid "Endereço manual aplicado."
+msgstr "Manual address applied."
+
+msgid "A rede “{}” pede uma senha."
+msgstr "The network “{}” needs a password."
+
+msgid "Senha:"
+msgstr "Password:"
+
+msgid "o Bluetooth recusou"
+msgstr "Bluetooth refused"
+
+msgid "Aparelho sem nome"
+msgstr "Unnamed device"
+
+msgid "o sistema recusou"
+msgstr "the system refused"
+
+msgid "a senha atual não confere."
+msgstr "the current password doesn’t match."
+
+msgid "o passwd recusou a senha nova"
+msgstr "passwd refused the new password"
+
+msgid "Minha Conta"
+msgstr "My Account"
+
+msgid "Outras Contas"
+msgstr "Other Accounts"
+
+msgid "Medidas"
+msgstr "Measurements"
+
+msgid "Americanas (polegadas, libras)"
+msgstr "US (inches, pounds)"
+
+msgid "Métricas (centímetros, quilos)"
+msgstr "Metric (centimeters, kilograms)"
+
+msgid "{} (principal)"
+msgstr "{} (main)"
+
+msgid "Automático ({})"
+msgstr "Automatic ({})"
+
+msgid "{} horas"
+msgstr "{} hours"
+
+msgid "a saída"
+msgstr "output"
+
+msgid "a entrada"
+msgstr "input"
+
+msgid "{} (em uso agora)"
+msgstr "{} (in use now)"
+
+msgid " (padrão)"
+msgstr " (default)"
+
+msgid " — ocupada"
+msgstr " — busy"
+
+msgid "Idioma do Glove e dos outros apps:"
+msgstr "Language for Glove and other apps:"
+
+msgid "Idiomas marcados “não instalado” precisam do pacote de idioma do sistema."
+msgstr "Languages marked “not installed” need the system’s language package."
+
+msgid "Pôr na Barra"
+msgstr "Add to Toolbar"
+
+msgid "Tirar da Barra"
+msgstr "Remove from Toolbar"
+
