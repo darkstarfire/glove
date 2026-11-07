@@ -427,7 +427,7 @@ impl App for Contatos {
     }
 }
 
-fn main() {
+pub fn main() {
     let all = load_all();
     let selected = all.first().map(|c| c.uid.clone());
     let app = Contatos { all, group: None, selected, filter: String::new(), editing: None, file: None, message: None, name_scroll: 0.0 };

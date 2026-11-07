@@ -349,7 +349,7 @@ impl App for Disks {
     }
 }
 
-fn main() {
+pub fn main() {
     let devs = read_devs();
     // Começa no disco do sistema.
     let selected = devs.iter().position(|d| d.mount == "/");

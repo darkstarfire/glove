@@ -322,7 +322,7 @@ impl App for Chaves {
     }
 }
 
-fn main() {
+pub fn main() {
     let mut backend = Backend::new();
     // Diagnóstico sem mostrar nada pessoal: só quantos chaveiros e itens o serviço tem.
     if std::env::args().any(|a| a == "--contar") {

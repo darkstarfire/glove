@@ -106,7 +106,7 @@ fn kind_arg(s: Option<String>) -> Option<&'static str> {
     KINDS.into_iter().find(|k| *k == s)
 }
 
-fn main() {
+pub fn main() {
     let mut args = std::env::args().skip(1);
     let first = args.next();
     let mode = match first.as_deref() {

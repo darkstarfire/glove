@@ -274,7 +274,7 @@ impl App for Welcome {
     }
 }
 
-fn main() {
+pub fn main() {
     let config = Config::load();
     let layout = LAYOUTS.iter().position(|(l, v, _)| *l == config.keyboard.layout && *v == config.keyboard.variant).unwrap_or(0);
     let theme = Variant::ALL.iter().position(|v| v.id() == config.theme).unwrap_or(0);

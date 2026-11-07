@@ -2705,7 +2705,7 @@ impl App for Files {
     }
 }
 
-fn main() {
+pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(i) = args.iter().position(|a| a == "--info") {
         let Some(p) = args.get(i + 1).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok()) else { return };

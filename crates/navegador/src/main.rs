@@ -76,7 +76,7 @@ impl App for NoBrowser {
     }
 }
 
-fn main() {
+pub fn main() {
     let urls: Vec<String> = std::env::args().skip(1).collect();
     let mem = mem_total_mb(&std::fs::read_to_string("/proc/meminfo").unwrap_or_default());
     let preferred = glove_config::Config::load().navegador;

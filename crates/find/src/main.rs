@@ -444,7 +444,7 @@ impl App for Find {
     }
 }
 
-fn main() {
+pub fn main() {
     let opts = WindowOptions { title: "Busca".into(), app_id: "glove.Find".into(), size: (680, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Find::from_args()) {
         eprintln!("glove-find: {e}");

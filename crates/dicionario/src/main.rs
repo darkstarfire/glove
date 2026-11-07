@@ -313,7 +313,7 @@ impl App for Dicionario {
     }
 }
 
-fn main() {
+pub fn main() {
     let query = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
     let mut app = Dicionario {
         dicts: Arc::default(),

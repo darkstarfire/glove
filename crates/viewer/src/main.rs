@@ -929,7 +929,7 @@ impl App for Viewer {
     }
 }
 
-fn main() {
+pub fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);
     let viewer = Viewer::new(path);
     // Janela do tamanho da imagem (dentro de limites razoáveis); PDF em formato de página.

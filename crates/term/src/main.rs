@@ -704,7 +704,7 @@ impl App for Terminal {
     }
 }
 
-fn main() {
+pub fn main() {
     let term = match Terminal::new() {
         Ok(t) => t,
         Err(e) => {

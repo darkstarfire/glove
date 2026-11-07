@@ -4,7 +4,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use ab_glyph::{Font, FontVec, GlyphId, PxScale, ScaleFont, point};
+use ab_glyph::{Font, FontRef, GlyphId, PxScale, ScaleFont, point};
+
+/// Fonte lida do arquivo mapeado na memória (ver `map_file`).
+type FontVec = FontRef<'static>;
 use tiny_skia::Color;
 
 use crate::draw::Canvas;
@@ -22,8 +25,40 @@ const BOLD: &[&str] = &[
     "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
 ];
 
+/// O arquivo da fonte mapeado na memória (só leitura), em vez de copiado:
+/// as páginas vêm do cache de disco do sistema e são as mesmas para todos os
+/// processos do Glove que usam a fonte. Cada arquivo é mapeado uma vez só.
+fn map_file(path: &std::path::Path) -> Option<&'static [u8]> {
+    use std::collections::HashMap;
+    use std::os::fd::AsRawFd;
+    static MAPS: std::sync::Mutex<Option<HashMap<std::path::PathBuf, (usize, usize)>>> = std::sync::Mutex::new(None);
+    let mut maps = MAPS.lock().ok()?;
+    let maps = maps.get_or_insert_with(HashMap::new);
+    if let Some(&(ptr, len)) = maps.get(path) {
+        return Some(unsafe { std::slice::from_raw_parts(ptr as *const u8, len) });
+    }
+    let file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len() as usize;
+    if len == 0 {
+        return None;
+    }
+    let ptr = unsafe { libc::mmap(std::ptr::null_mut(), len, libc::PROT_READ, libc::MAP_PRIVATE, file.as_raw_fd(), 0) };
+    if ptr == libc::MAP_FAILED {
+        // Sem mapeamento (sistema de arquivos estranho): lê e guarda para sempre.
+        let data: &'static [u8] = Box::leak(std::fs::read(path).ok()?.into_boxed_slice());
+        maps.insert(path.to_path_buf(), (data.as_ptr() as usize, data.len()));
+        return Some(data);
+    }
+    maps.insert(path.to_path_buf(), (ptr as usize, len));
+    Some(unsafe { std::slice::from_raw_parts(ptr as *const u8, len) })
+}
+
+fn open_font(path: &std::path::Path, index: u32) -> Option<FontVec> {
+    FontRef::try_from_slice_and_index(map_file(path)?, index).ok()
+}
+
 fn load(paths: &[&str]) -> Option<FontVec> {
-    paths.iter().find_map(|p| FontVec::try_from_vec(std::fs::read(p).ok()?).ok())
+    paths.iter().find_map(|p| open_font(std::path::Path::new(p), 0))
 }
 
 /// Bitmap de um caractere já rasterizado.
@@ -44,6 +79,14 @@ pub struct Fonts {
     /// Fontes reserva (ícones Nerd Font, símbolos), lidas só na primeira vez
     /// que aparece um caractere que a fonte principal não tem.
     fallbacks: std::cell::OnceCell<Vec<(String, std::cell::OnceCell<Option<FontVec>>)>>,
+}
+
+impl Fonts {
+    /// Letras desenhadas guardadas: quantas e quantos bytes (para medir a memória).
+    pub fn glyph_bytes(&self) -> (usize, usize) {
+        let c = self.cache.borrow();
+        (c.len(), c.values().map(|g| g.cov.len() + std::mem::size_of::<Glyph>()).sum())
+    }
 }
 
 fn new_fonts(regular: FontVec, bold: Option<FontVec>) -> Fonts {
@@ -116,10 +159,10 @@ impl Fonts {
         if family.trim().is_empty() {
             return Self::load_mono();
         }
-        let reg = fc_match(family).and_then(|p| FontVec::try_from_vec(std::fs::read(p).ok()?).ok());
+        let reg = fc_match(family).and_then(|p| open_font(&p, 0));
         match reg {
             Some(r) => {
-                let bold = fc_match(&format!("{family}:bold")).and_then(|p| FontVec::try_from_vec(std::fs::read(p).ok()?).ok());
+                let bold = fc_match(&format!("{family}:bold")).and_then(|p| open_font(&p, 0));
                 Some(new_fonts(r, bold))
             }
             None => Self::load_mono(),
@@ -128,8 +171,7 @@ impl Fonts {
 
     /// Fonte de um arquivo (o `index` escolhe a fonte dentro de um .ttc).
     pub fn load_file(path: &std::path::Path, index: u32) -> Option<Self> {
-        let data = std::fs::read(path).ok()?;
-        Some(new_fonts(FontVec::try_from_vec_and_index(data, index).ok()?, None))
+        Some(new_fonts(open_font(path, index)?, None))
     }
 
     /// Todos os caracteres que a fonte principal desenha, em ordem.
@@ -186,7 +228,7 @@ impl Fonts {
             return f;
         }
         for (path, cell) in self.fallbacks.get_or_init(fallback_fonts) {
-            let font = cell.get_or_init(|| FontVec::try_from_vec(std::fs::read(path).ok()?).ok());
+            let font = cell.get_or_init(|| open_font(std::path::Path::new(path), 0));
             if let Some(fb) = font {
                 if fb.glyph_id(ch).0 != 0 {
                     return fb;

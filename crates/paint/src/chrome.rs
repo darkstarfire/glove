@@ -730,6 +730,11 @@ thread_local! {
     static ICON_SHADOWS: std::cell::RefCell<Vec<((String, u32), std::rc::Rc<Canvas>)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// Bytes das sombras de ícone guardadas (para medir a memória).
+pub fn shadow_bytes() -> (usize, usize) {
+    ICON_SHADOWS.with(|m| (m.borrow().len(), m.borrow().iter().map(|(_, c)| c.data().len()).sum()))
+}
+
 /// Sombra com a forma do ícone: o contorno dele, desfocado e escuro (como os
 /// ícones do Dock do Tiger). Devolve a sombra e a margem em volta do ícone.
 fn icon_shadow(fonts: &Fonts, icon: icons::Icon, letter: Option<char>, size: f32, scale: f32) -> Option<(std::rc::Rc<Canvas>, f32)> {

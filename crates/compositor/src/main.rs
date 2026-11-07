@@ -87,6 +87,41 @@ fn secs_to_next_minute() -> u64 {
     60 - (now % 60)
 }
 
+/// Contador das alocações feitas pelo Rust (compilação de medição: `--features memstats`).
+#[cfg(feature = "memstats")]
+pub mod memstats {
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    pub static LIVE: AtomicUsize = AtomicUsize::new(0);
+    pub static PEAK: AtomicUsize = AtomicUsize::new(0);
+    pub struct Counting;
+    unsafe impl GlobalAlloc for Counting {
+        unsafe fn alloc(&self, l: Layout) -> *mut u8 {
+            let p = unsafe { System.alloc(l) };
+            if !p.is_null() {
+                let n = LIVE.fetch_add(l.size(), Ordering::Relaxed) + l.size();
+                PEAK.fetch_max(n, Ordering::Relaxed);
+            }
+            p
+        }
+        unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
+            unsafe { System.dealloc(p, l) };
+            LIVE.fetch_sub(l.size(), Ordering::Relaxed);
+        }
+        unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
+            let q = unsafe { System.realloc(p, l, n) };
+            if !q.is_null() {
+                LIVE.fetch_sub(l.size(), Ordering::Relaxed);
+                let v = LIVE.fetch_add(n, Ordering::Relaxed) + n;
+                PEAK.fetch_max(v, Ordering::Relaxed);
+            }
+            q
+        }
+    }
+    #[global_allocator]
+    static A: Counting = Counting;
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(filter) = tracing_subscriber::EnvFilter::try_from_default_env() {
         tracing_subscriber::fmt().with_env_filter(filter).init();

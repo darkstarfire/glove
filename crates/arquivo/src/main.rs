@@ -274,7 +274,7 @@ impl App for Arquivo {
     }
 }
 
-fn main() {
+pub fn main() {
     let mut args = std::env::args_os().skip(1);
     let op = match args.next().and_then(|a| a.into_string().ok()).as_deref() {
         Some("compactar") => Op::Compress,

@@ -2277,7 +2277,7 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
     vec![t.to_string()]
 }
 
-fn main() {
+pub fn main() {
     let opts = WindowOptions { title: "Preferências".into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true, min_size: None };
     if let Err(e) = run(opts, Prefs::new()) {
         eprintln!("glove-prefs: {e}");

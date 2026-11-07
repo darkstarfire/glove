@@ -3,6 +3,10 @@ name = "glove"
 version.workspace = true
 edition.workspace = true
 
+[features]
+# Conta as alocações do Rust (só para medir memória; deixa o Glove um pouco mais lento).
+memstats = []
+
 [dependencies]
 bitflags = "2"
 glove-config = { path = "../config" }

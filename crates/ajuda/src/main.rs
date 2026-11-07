@@ -112,7 +112,7 @@ impl App for Ajuda {
     }
 }
 
-fn main() {
+pub fn main() {
     // "glove-ajuda tópico" abre direto num tópico (pela primeira palavra do título).
     let want = std::env::args().nth(1).map(|a| a.to_lowercase());
     let page = want.and_then(|w| PAGES.iter().position(|(t, _)| t.to_lowercase().contains(&w))).or(Some(0));

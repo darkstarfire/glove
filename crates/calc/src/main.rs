@@ -408,7 +408,7 @@ fn sizes(scientific: bool) -> (u32, u32) {
     (w as u32, h as u32)
 }
 
-fn main() {
+pub fn main() {
     let opts = WindowOptions { title: "Calculadora".into(), app_id: "glove.Calculator".into(), size: sizes(false), fixed: true, min_size: None };
     if let Err(e) = run(opts, Calc::new()) {
         eprintln!("glove-calc: {e}");

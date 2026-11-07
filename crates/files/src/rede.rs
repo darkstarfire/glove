@@ -228,7 +228,7 @@ impl App for Connect {
             match done {
                 Some(Mounted::Ok(p)) => {
                     self.remember();
-                    let _ = super::launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(p));
+                    let _ = super::launch(std::process::Command::new(std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).unwrap_or_else(|| "glove-files".into())).arg(p));
                     ui.close = true;
                     return;
                 }
@@ -360,7 +360,7 @@ impl App for Connect {
                 ui.set_enabled(true);
                 ui.spacing(w - 40.0 - 90.0 - 200.0);
                 if ui.button("Navegar") {
-                    let _ = super::launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(ROOT));
+                    let _ = super::launch(std::process::Command::new(std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).unwrap_or_else(|| "glove-files".into())).arg(ROOT));
                     ui.close = true;
                 }
                 ui.spacing(10.0);

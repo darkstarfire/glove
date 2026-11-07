@@ -204,6 +204,7 @@ crates/paint       desenho: Canvas com escala, gel, metal, sombras, ícones no e
 crates/config      configuração compartilhada (config.toml + aviso de mudança via inotify)
 crates/kit         toolkit dos apps (widgets, janela Wayland, Abrir/Salvar, arrastar e soltar)
 crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)
+crates/apps        `glove-apps`: um executável só para todos os apps (glove-files, glove-prefs… são atalhos para ele; ver docs/MEMORIA.md)
 crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`
 crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
 crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`)

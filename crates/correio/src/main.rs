@@ -1092,7 +1092,7 @@ impl App for Correio {
     }
 }
 
-fn main() {
+pub fn main() {
     let accounts = store::load_accounts();
     let shared: Arc<Mutex<Shared>> = Arc::default();
     let tx = worker::start(shared.clone(), accounts.clone());

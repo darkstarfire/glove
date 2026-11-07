@@ -416,7 +416,7 @@ impl Editor {
 }
 
 fn spawn_self(path: Option<&Path>) {
-    let exe = std::env::current_exe().unwrap_or_else(|_| "glove-edit".into());
+    let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-edit"))).unwrap_or_else(|| "glove-edit".into());
     let mut cmd = std::process::Command::new(exe);
     if let Some(p) = path {
         cmd.arg(p);
@@ -583,7 +583,7 @@ impl App for Editor {
     }
 }
 
-fn main() {
+pub fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);
     let ed = Editor::new(path);
     let title = ed.name();

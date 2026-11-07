@@ -436,7 +436,7 @@ impl App for Util {
     }
 }
 
-fn main() {
+pub fn main() {
     let app = Util {
         tab: 0,
         host: String::new(),

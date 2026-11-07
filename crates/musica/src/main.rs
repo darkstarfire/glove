@@ -369,7 +369,7 @@ impl App for Musica {
     }
 }
 
-fn main() {
+pub fn main() {
     let opts = WindowOptions { title: "Música".into(), app_id: "glove.Musica".into(), size: (760, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Musica::new()) {
         eprintln!("glove-musica: {e}");

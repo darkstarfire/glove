@@ -406,6 +406,11 @@ thread_local! {
     static CACHE: std::cell::RefCell<Vec<((String, u32, u32), std::rc::Rc<Canvas>)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// Bytes guardados no cache de ícones desenhados (para medir a memória).
+pub fn cache_bytes() -> usize {
+    CACHE.with(|m| m.borrow().iter().map(|(_, c)| c.data().len()).sum())
+}
+
 /// O ícone pronto no tamanho `s` (em pixels inteiros), com uma margem para a sombra.
 fn cached(fonts: &Fonts, icon: Icon, letter: Option<char>, s: f32, scale: f32) -> Option<(std::rc::Rc<Canvas>, f32, f32)> {
     // Grandes (ampliação do Dock): de 2 em 2 pixels, metade dos desenhos.

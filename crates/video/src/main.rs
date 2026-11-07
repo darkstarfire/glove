@@ -331,7 +331,7 @@ fn acts_open(fb: &mut Option<FileBrowser>, file: &Option<PathBuf>) {
     *fb = Some(FileBrowser::open(dir, &EXTS));
 }
 
-fn main() {
+pub fn main() {
     let mut app = Video { mpv: has_mpv(), player: None, state: Arc::default(), file: None, volume: 0.8, open_fb: None, error: None };
     if let Some(p) = std::env::args().nth(1).map(PathBuf::from) {
         app.load(p);

@@ -170,6 +170,11 @@ thread_local! {
     static RASTER: RefCell<Vec<((PathBuf, u32), Option<std::rc::Rc<Pixmap>>)>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Bytes das imagens de tema guardadas (para medir a memória).
+pub fn raster_bytes() -> (usize, usize) {
+    RASTER.with(|m| (m.borrow().len(), m.borrow().iter().filter_map(|(_, p)| p.as_ref()).map(|p| p.data().len()).sum()))
+}
+
 fn rasterize(path: &Path, px: u32) -> Option<Pixmap> {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     if ext == "svg" {

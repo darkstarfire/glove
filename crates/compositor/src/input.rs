@@ -187,6 +187,27 @@ impl Glove {
                     self.dirty = true;
                 }
             }
+            // "mem": quanto ocupa cada cache e o heap (no registro). "trim": devolve
+            // ao sistema a memória livre que o malloc segura, e mede de novo.
+            Some(cmd @ ("mem" | "trim")) => {
+                if cmd == "trim" {
+                    unsafe { libc::malloc_trim(0) };
+                }
+                let mi = unsafe { libc::mallinfo2() };
+                let rss = std::fs::read_to_string("/proc/self/status").ok().and_then(|s| s.lines().find(|l| l.starts_with("VmRSS")).map(|l| l.to_string())).unwrap_or_default();
+                let kb = |b: usize| b / 1024;
+                let (gn, gb) = self.fonts.glyph_bytes();
+                let (sn, sb) = glove_paint::chrome::shadow_bytes();
+                let (mn, mb) = glove_paint::draw::metal_bytes();
+                let (rn, rb) = glove_paint::sysicons::raster_bytes();
+                #[cfg(feature = "memstats")]
+                tracing::info!("mem rust: vivo {} KB, pico {} KB", kb(crate::memstats::LIVE.load(std::sync::atomic::Ordering::Relaxed)), kb(crate::memstats::PEAK.load(std::sync::atomic::Ordering::Relaxed)));
+                tracing::info!(
+                    "mem: {rss}; heap total {} KB, em uso {} KB, livre retido {} KB, mmap {} KB; ícones {} KB; sombras {sn} = {} KB; metal {mn} = {} KB; tema {rn} = {} KB; letras {gn} = {} KB",
+                    kb(mi.arena), kb(mi.uordblks), kb(mi.fordblks), kb(mi.hblkhd),
+                    kb(glove_paint::icons::cache_bytes()), kb(sb), kb(mb), kb(rb), kb(gb)
+                );
+            }
             // "run comando": abre um programa nesta sessão (como o Dock abriria).
             Some("run") => {
                 let cmd = line.splitn(2, ' ').nth(1).unwrap_or("").trim();

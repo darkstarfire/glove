@@ -149,7 +149,7 @@ impl App for AppAbout {
     }
 }
 
-fn main() {
+pub fn main() {
     let mut args = std::env::args().skip(1);
     if args.next().as_deref() == Some("--app") {
         let id = args.next().unwrap_or_default();

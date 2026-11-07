@@ -449,6 +449,16 @@ material. Os ícones-símbolo do Mac servem de homenagem (lembrar, sem copiar fo
   as versões 2× que têm os mesmos pixels de um tamanho 1× viram atalhos para ele (840 imagens em vez de
   1.344; 7,5 MB → 4,0 MB)
 
+## Fase 9.13 — Mais leve (pedido de 07/11/2026)
+
+Estudo completo em `docs/MEMORIA.md`.
+
+- [x] 9.13.1 Medição e as mudanças que valem (M) — v0.9.20: comandos `mem`/`trim` no modo de teste e a
+  opção `memstats` (conta as alocações do Rust); um executável só para os 32 apps (`glove-apps`, os
+  outros viram atalhos: o código fica uma vez na memória e no disco, 166 MB → 44 MB); fontes mapeadas
+  do arquivo (divididas entre todos os processos). Três apps abertos: 35,0 MB → 26,0 MB. O resto da
+  memória do compositor é da Mesa (custo fixo do OpenGL); parado, o Glove usa 0,1% de um núcleo
+
 ## Fase 10 — O "Tiger" "como deveria ter sido" (depois de cumprir toda a era)
 
 Ideias para depois das fases 1 a 9.11: o que veio depois do Tiger (ou nunca veio), redesenhado no

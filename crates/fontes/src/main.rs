@@ -482,7 +482,7 @@ impl App for Livro {
     }
 }
 
-fn main() {
+pub fn main() {
     // "glove-fontes arquivo.ttf" (clique duplo numa fonte no Arquivos): pergunta se instala.
     let pending: Vec<PathBuf> = std::env::args().skip(1).map(PathBuf::from).filter(|p| p.is_file()).collect();
     let mut app = Livro {

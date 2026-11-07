@@ -444,7 +444,7 @@ impl App for Agenda {
     }
 }
 
-fn main() {
+pub fn main() {
     let (y, m, d, ..) = glove_kit::local_time();
     let events = std::fs::read_to_string(file()).map(|t| ics::parse(&t)).unwrap_or_default();
     let app = Agenda { events, month: (y, m), day: (y, m, d), today: (y, m, d), sheet: None, import: None, message: None };

@@ -19,7 +19,7 @@ pub fn open_paths(paths: &[PathBuf]) {
     for p in paths {
         let Ok(meta) = std::fs::metadata(p) else { continue };
         if meta.is_dir() {
-            let exe = std::env::current_exe().unwrap_or_else(|_| "glove-files".into());
+            let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).unwrap_or_else(|| "glove-files".into());
             let _ = launch(std::process::Command::new(exe).arg(p));
             continue;
         }

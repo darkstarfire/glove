@@ -350,7 +350,7 @@ fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32) {
     }
 }
 
-fn main() {
+pub fn main() {
     let fake = std::env::args().any(|a| a == "--fake");
     let users = users::list();
     let photos = users.iter().map(|u| u.photo.as_ref().and_then(|p| Pixmap::load_png(p).ok())).collect();

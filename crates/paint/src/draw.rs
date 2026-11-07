@@ -193,6 +193,11 @@ thread_local! {
     static METAL: std::cell::RefCell<Vec<(MetalKey, Vec<u8>)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// Bytes das faixas de metal guardadas (para medir a memória).
+pub fn metal_bytes() -> (usize, usize) {
+    METAL.with(|m| (m.borrow().len(), m.borrow().iter().map(|(_, v)| v.len()).sum()))
+}
+
 impl Canvas {
     pub fn new(w: f32, h: f32, scale: f32) -> Option<Self> {
         let pw = (w * scale).ceil().max(1.0) as u32;

@@ -454,7 +454,7 @@ impl App for Notes {
     }
 }
 
-fn main() {
+pub fn main() {
     let req = match std::env::args().nth(1).as_deref() {
         Some("novo") => "novo".to_string(),
         Some(n) if n.parse::<u32>().is_ok() => n.to_string(),

@@ -294,7 +294,7 @@ impl App for Chars {
     }
 }
 
-fn main() {
+pub fn main() {
     let opts = WindowOptions { title: "Caracteres".into(), app_id: "glove.Chars".into(), size: (760, 470), fixed: false, min_size: Some((600, 380)) };
     if let Err(e) = run(opts, Chars { block: Some(1), selected: None, scroll: 0.0, copied: None, mode: 0, font: fonte::FontView::default(), shift: false, text: String::new(), lit: None }) {
         eprintln!("glove-chars: {e}");

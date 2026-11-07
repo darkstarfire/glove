@@ -1,0 +1,46 @@
+[package]
+name = "glove-apps"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "build.rs"
+
+# Um executável só para todos os apps do Glove (como o BusyBox): glove-files,
+# glove-prefs e os outros são atalhos para ele, e ele abre o app pelo nome com
+# que foi chamado. Cada app continua um processo separado, mas o código fica
+# uma vez só na memória (as páginas do executável são divididas entre eles) e
+# no disco.
+
+[dependencies]
+glove-about = { path = "../about" }
+glove-agenda = { path = "../agenda" }
+glove-ajuda = { path = "../ajuda" }
+glove-arquivo = { path = "../arquivo" }
+glove-boasvindas = { path = "../boasvindas" }
+glove-calc = { path = "../calc" }
+glove-chars = { path = "../chars" }
+glove-chaves = { path = "../chaves" }
+glove-chess = { path = "../chess" }
+glove-clock = { path = "../clock" }
+glove-contatos = { path = "../contatos" }
+glove-correio = { path = "../correio" }
+glove-dicionario = { path = "../dicionario" }
+glove-disks = { path = "../disks" }
+glove-edit = { path = "../editor" }
+glove-files = { path = "../files" }
+glove-find = { path = "../find" }
+glove-fontes = { path = "../fontes" }
+glove-info = { path = "../info" }
+glove-login = { path = "../login" }
+glove-monitor = { path = "../monitor" }
+glove-musica = { path = "../musica" }
+glove-navegador = { path = "../navegador" }
+glove-notes = { path = "../notes" }
+glove-prefs = { path = "../prefs" }
+glove-registros = { path = "../registros" }
+glove-sair = { path = "../sair" }
+glove-shot = { path = "../shot" }
+glove-term = { path = "../term" }
+glove-utilrede = { path = "../utilrede" }
+glove-video = { path = "../video" }
+glove-view = { path = "../viewer" }

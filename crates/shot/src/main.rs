@@ -108,7 +108,7 @@ impl App for Shot {
     }
 }
 
-fn main() {
+pub fn main() {
     let opts = WindowOptions { title: "Captura".into(), app_id: "glove.Shot".into(), size: (380, 252), fixed: true, min_size: None };
     if let Err(e) = run(opts, Shot { open: true, delay: 0, what: 0 }) {
         eprintln!("glove-shot: {e}");
