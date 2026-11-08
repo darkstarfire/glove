@@ -562,7 +562,7 @@ impl Musica {
                     let _ = Command::new(exe).arg(dir).spawn();
                 }
             }
-            "prefs" => ui.open_window(PREFS_WIN, WindowOptions { title: tr!("Preferências da Música").into(), app_id: "glove.Musica".into(), size: (460, 330), fixed: true, min_size: None }),
+            "prefs" => ui.open_window(PREFS_WIN, WindowOptions { title: tr!("Preferências da Música").into(), app_id: "glove.Musica".into(), size: (480, 430), fixed: false, min_size: Some((420, 380)) }),
             "close" => ui.close = true,
             _ => {}
         }

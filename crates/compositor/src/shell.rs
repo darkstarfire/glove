@@ -754,6 +754,12 @@ impl Glove {
 
     pub fn minimize_window(&mut self, w: &Window) {
         let Some(loc) = self.space.element_location(w) else { return };
+        // Sai de ativa (e o app fica sabendo): ao voltar, a ativação é uma mudança de
+        // verdade e o app recebe uma configuração nova.
+        w.set_activated(false);
+        if let Some(t) = w.toplevel() {
+            t.send_pending_configure();
+        }
         self.space.unmap_elem(w);
         self.minimized.push((w.clone(), loc));
         self.animate_minimize(w, loc);
@@ -768,7 +774,12 @@ impl Glove {
         let (w, loc) = self.minimized.remove(idx);
         self.space.map_element(w.clone(), loc, true);
         self.animate_restore(&w, loc, slot);
-        self.focus_window(Some(w));
+        self.focus_window(Some(w.clone()));
+        // Apps Chromium/Electron (VS Code, navegadores) que pediram para minimizar só
+        // voltam a desenhar quando recebem uma configuração nova: manda sempre uma.
+        if let Some(t) = w.toplevel() {
+            t.send_configure();
+        }
     }
 
     /// Área para o zoom da janela: num monitor extra, ele inteiro (lá não há

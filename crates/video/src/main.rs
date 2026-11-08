@@ -457,7 +457,7 @@ impl Video {
                 }
             }
             "close" => ui.close = true,
-            "prefs" => ui.open_window(PREFS_WIN, WindowOptions { title: tr!("Preferências do Vídeo").into(), app_id: "glove.Video".into(), size: (440, 330), fixed: true, min_size: None }),
+            "prefs" => ui.open_window(PREFS_WIN, WindowOptions { title: tr!("Preferências do Vídeo").into(), app_id: "glove.Video".into(), size: (460, 380), fixed: false, min_size: Some((420, 370)) }),
             "toggle" => match self.player.is_some() {
                 true => self.cmd(json!(["cycle", "pause"])),
                 false => match self.target.clone() {

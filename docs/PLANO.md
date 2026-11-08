@@ -660,3 +660,8 @@ visual gel. Cada uma será detalhada antes de começar.
   pastas extras de biblioteca, etiquetas pelas pastas quando faltam, aviso de música nova e
   preferências guardadas. A luva entra no lugar da bolinha também na tela de encerramento, no painel
   "Iniciando sessão", no tema do Plymouth e na Ajuda.
+- [x] 11.7 Correções (P) — v0.11.7 (glove-ui v0.2.8): apps Chromium/Electron (VS Code) voltavam
+  congelados depois de minimizar: a janela minimizada continuava "ativa" e, ao voltar, não recebia
+  configuração nova (o Chromium só volta a desenhar com ela). Agora minimizar desativa e restaurar
+  sempre manda uma configuração. A folha Abrir/Salvar numa janela que cresceu para ela ocupa a
+  janela inteira (sem margem cinza). Preferências do Vídeo e da Música maiores e redimensionáveis.
