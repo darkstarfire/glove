@@ -1,0 +1,17 @@
+#!/bin/sh
+# Glove OS: desvia os arquivos de identidade do Debian (ficam com ".debian") e
+# escreve os do Glove OS. Tudo o que é mecânico continua do Debian.
+set -e
+desviar() {
+    dpkg-divert --package glove-os --add --rename --divert "$1.debian" "$1" >/dev/null
+}
+case "$1" in
+    configure)
+        desviar /usr/lib/os-release
+        desviar /etc/issue
+        desviar /etc/issue.net
+        /usr/share/glove-os/identidade
+        command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
+        ;;
+esac
+exit 0

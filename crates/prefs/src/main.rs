@@ -187,6 +187,9 @@ const SOLID_COLORS: [(u8, u8, u8); 10] = [
 
 /// Nome do papel de parede para mostrar ("Ondas", "Cor sólida", "foto.png").
 fn wallpaper_name(style: &str) -> String {
+    if style == glove_config::GLOVE_OS_WALLPAPER {
+        return "Glove OS".into();
+    }
     if let Some((_, n)) = WALLPAPERS.iter().find(|(i, _)| *i == style || (style.is_empty() && *i == "ondas")) {
         return tr(n).to_string();
     }
@@ -852,7 +855,12 @@ impl Prefs {
         });
         // Miniaturas da coleção.
         let items: Vec<String> = match self.desk_source {
-            0 => WALLPAPERS.iter().map(|(i, _)| i.to_string()).collect(),
+            0 => std::path::Path::new(glove_config::GLOVE_OS_WALLPAPER)
+                .exists()
+                .then(|| glove_config::GLOVE_OS_WALLPAPER.to_string())
+                .into_iter()
+                .chain(WALLPAPERS.iter().map(|(i, _)| i.to_string()))
+                .collect(),
             1 => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
             _ => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
         };

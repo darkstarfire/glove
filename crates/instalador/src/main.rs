@@ -239,7 +239,7 @@ impl Instalador {
         let area = Rect::new(SIDE_W + 28.0, 86.0, w - SIDE_W - 56.0, h - 86.0 - BOTTOM_H - 10.0);
         match self.pagina {
             0 => {
-                Self::titulo(ui, tr!("Bem-vindo ao instalador do Glove"), tr!("O Glove vai ser copiado para o disco deste computador."));
+                Self::titulo(ui, tr!("Bem-vindo ao instalador do Glove OS"), tr!("O Glove OS vai ser copiado para o disco deste computador."));
                 ui.area(area, |ui| {
                     ui.paragraph(tr!("Em poucos passos você escolhe o idioma, o teclado, o fuso horário, o disco e cria a sua conta. A instalação leva alguns minutos."));
                     ui.space(10.0);
@@ -249,7 +249,7 @@ impl Instalador {
                     ui.small(tipo);
                     if !self.simular && !motor::ao_vivo() {
                         ui.space(8.0);
-                        ui.small(tr!("Atenção: isto não é o Glove ao vivo (a imagem do sistema não foi encontrada)."));
+                        ui.small(tr!("Atenção: isto não é o Glove OS ao vivo (a imagem do sistema não foi encontrada)."));
                     }
                 });
             }
@@ -288,9 +288,9 @@ impl Instalador {
                 }
             }
             3 => {
-                Self::titulo(ui, tr!("Disco"), tr!("Onde instalar o Glove."));
+                Self::titulo(ui, tr!("Disco"), tr!("Onde instalar o Glove OS."));
                 if self.discos.is_empty() {
-                    ui.area(area, |ui| ui.paragraph(tr!("Nenhum disco encontrado (é preciso um disco de pelo menos 8 GB, sem contar o pendrive do Glove ao vivo).")));
+                    ui.area(area, |ui| ui.paragraph(tr!("Nenhum disco encontrado (é preciso um disco de pelo menos 8 GB, sem contar o pendrive do Glove OS ao vivo).")));
                     return;
                 }
                 let nomes: Vec<String> = self.discos.iter().map(|d| format!("{} — {} ({})", d.nome, discos::tamanho(d.tamanho), d.path)).collect();
@@ -313,7 +313,7 @@ impl Instalador {
                     }
                     ui.space(10.0);
                     let livre_txt = if livre { tr!("Instalar ao lado, no espaço livre ({})", discos::tamanho(d.livre_bytes())) } else { tr!("Instalar ao lado do sistema atual").to_string() };
-                    let ops = [tr!("Apagar o disco inteiro e instalar o Glove").to_string(), livre_txt];
+                    let ops = [tr!("Apagar o disco inteiro e instalar o Glove OS").to_string(), livre_txt];
                     let ops_ref: Vec<&str> = ops.iter().map(String::as_str).collect();
                     ui.radio_group(&mut self.modo, &ops_ref);
                     if self.modo == 1 && !livre {
@@ -331,7 +331,7 @@ impl Instalador {
                 });
             }
             4 => {
-                Self::titulo(ui, tr!("Conta"), tr!("A sua conta de administrador no Glove."));
+                Self::titulo(ui, tr!("Conta"), tr!("A sua conta de administrador no Glove OS."));
                 let antes = (self.nome.clone(), self.usuario.clone());
                 ui.area(area, |ui| {
                     let lw = 150.0;
@@ -416,7 +416,7 @@ impl Instalador {
                 Self::titulo(ui, tr!("Instalando…"), &texto);
                 ui.wake_after(Duration::from_millis(200));
             }
-            Some(Ok(())) => Self::titulo(ui, tr!("Pronto!"), if self.simular { tr!("Simulação concluída: nada foi alterado.") } else { tr!("O Glove foi instalado. Tire o pendrive e reinicie.") }),
+            Some(Ok(())) => Self::titulo(ui, tr!("Pronto!"), if self.simular { tr!("Simulação concluída: nada foi alterado.") } else { tr!("O Glove OS foi instalado. Tire o pendrive e reinicie.") }),
             Some(Err(_)) => Self::titulo(ui, tr!("A instalação não terminou"), tr!("Nada mais foi alterado depois do erro. Veja o registro abaixo.")),
         }
         ui.area(Rect::new(area.x, area.y, area.w, 24.0), |ui| ui.progress(Some(if fim.is_some() { 1.0 } else { feito.min(1.0) }), area.w));
@@ -527,7 +527,7 @@ struct SoAoVivo;
 
 impl App for SoAoVivo {
     fn ui(&mut self, ui: &mut Ui) {
-        if ui.alert_window(AlertKind::Caution, tr!("O instalador funciona só no Glove ao vivo."), tr!("Inicie o computador pelo pendrive ou DVD do Glove para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."), &["OK"]).is_some() {
+        if ui.alert_window(AlertKind::Caution, tr!("O instalador funciona só no Glove OS ao vivo."), tr!("Inicie o computador pelo pendrive ou DVD do Glove OS para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."), &["OK"]).is_some() {
             ui.close = true;
         }
     }
@@ -536,11 +536,11 @@ impl App for SoAoVivo {
 pub fn main() {
     let simular = std::env::args().any(|a| a == "--simular");
     if !simular && !motor::ao_vivo() {
-        let opts = WindowOptions { title: tr!("Instalar o Glove").into(), app_id: "glove.Instalador".into(), size: (460, 160), fixed: true, min_size: None };
+        let opts = WindowOptions { title: tr!("Instalar o Glove OS").into(), app_id: "glove.Instalador".into(), size: (460, 160), fixed: true, min_size: None };
         let _ = run(opts, SoAoVivo);
         return;
     }
-    let opts = WindowOptions { title: tr!("Instalar o Glove").into(), app_id: "glove.Instalador".into(), size: (760, 520), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Instalar o Glove OS").into(), app_id: "glove.Instalador".into(), size: (760, 520), fixed: true, min_size: None };
     if let Err(e) = run(opts, Instalador::new(simular)) {
         eprintln!("glove-instalador: {e}");
     }

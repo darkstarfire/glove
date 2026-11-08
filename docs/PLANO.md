@@ -641,3 +641,12 @@ visual gel. Cada uma será detalhada antes de começar.
   então o balanço custa pouco. Na glove-ui, a folha Abrir/Salvar faz a janela crescer quando ela é
   pequena demais (e voltar depois): o painel do Vídeo abria a folha espremida; ele também passa a
   ser redimensionável.
+- [x] 11.5 Glove OS (G) — v0.11.5 (glove-ui v0.2.6): a ISO vira a distro **Glove OS**, Debian 13 por
+  dentro. Pacote `glove-os` (só na ISO): desvia o `os-release` e o `/etc/issue` do Debian (ficam com
+  `.debian`) e escreve os do Glove OS, refeitos depois de cada apt (`NAME="Glove OS"`,
+  `PRETTY_NAME="Glove OS 0.11.5 (Debian 13 trixie)"`, mas `ID=debian`, `VERSION_ID` e o codinome do
+  Debian, para os programas); logo da luva de gel mordida (ícones hicolor `glove-os`), fastfetch e
+  neofetch com a luva em blocos, `GRUB_DISTRIBUTOR="Glove OS"`, papel de parede do Glove OS como
+  padrão onde ele existe. A logo substitui a bolinha na barra de menu, no Sobre (que mostra "Glove
+  OS" e a base Debian no Glove OS), no login, nas boas-vindas e no instalador. A ISO se chama
+  `glove-os-VERSÃO-amd64.iso`, o menu de boot diz "Glove OS" e tem imagem de fundo própria.

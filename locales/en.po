@@ -4329,20 +4329,20 @@ msgstr "The installation did not finish"
 msgid "A senha precisa de pelo menos 4 caracteres."
 msgstr "The password needs at least 4 characters."
 
-msgid "A sua conta de administrador no Glove."
-msgstr "Your administrator account on Glove."
+msgid "A sua conta de administrador no Glove OS."
+msgstr "Your administrator account on Glove OS."
 
-msgid "Apagar o disco inteiro e instalar o Glove"
-msgstr "Erase the whole disk and install Glove"
+msgid "Apagar o disco inteiro e instalar o Glove OS"
+msgstr "Erase the whole disk and install Glove OS"
 
 msgid "As senhas não são iguais."
 msgstr "The passwords don't match."
 
-msgid "Atenção: isto não é o Glove ao vivo (a imagem do sistema não foi encontrada)."
-msgstr "Warning: this is not the Glove live system (the system image was not found)."
+msgid "Atenção: isto não é o Glove OS ao vivo (a imagem do sistema não foi encontrada)."
+msgstr "Warning: this is not the Glove OS live system (the system image was not found)."
 
-msgid "Bem-vindo ao instalador do Glove"
-msgstr "Welcome to the Glove installer"
+msgid "Bem-vindo ao instalador do Glove OS"
+msgstr "Welcome to the Glove OS installer"
 
 msgid "Como:"
 msgstr "How:"
@@ -4398,16 +4398,16 @@ msgstr "Language and Keyboard"
 msgid "Idioma:"
 msgstr "Language:"
 
-msgid "Inicie o computador pelo pendrive ou DVD do Glove para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."
-msgstr "Start the computer from the Glove USB stick or DVD to install. To see the installer without changing anything, use glove-instalador --simular."
+msgid "Inicie o computador pelo pendrive ou DVD do Glove OS para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."
+msgstr "Start the computer from the Glove OS USB stick or DVD to install. To see the installer without changing anything, use glove-instalador --simular."
 
 msgid "Instalando o carregador de boot"
 msgstr "Installing the boot loader"
 
 
 
-msgid "Instalar o Glove"
-msgstr "Install Glove"
+msgid "Instalar o Glove OS"
+msgstr "Install Glove OS"
 
 msgid "Montando"
 msgstr "Mounting"
@@ -4415,8 +4415,8 @@ msgstr "Mounting"
 msgid "Nada mais foi alterado depois do erro. Veja o registro abaixo."
 msgstr "Nothing else was changed after the error. See the log below."
 
-msgid "Nenhum disco encontrado (é preciso um disco de pelo menos 8 GB, sem contar o pendrive do Glove ao vivo)."
-msgstr "No disk found (a disk of at least 8 GB is needed, not counting the Glove live USB stick)."
+msgid "Nenhum disco encontrado (é preciso um disco de pelo menos 8 GB, sem contar o pendrive do Glove OS ao vivo)."
+msgstr "No disk found (a disk of at least 8 GB is needed, not counting the Glove OS live USB stick)."
 
 msgid "Nome de usuário:"
 msgstr "User name:"
@@ -4424,11 +4424,11 @@ msgstr "User name:"
 msgid "Nome do computador:"
 msgstr "Computer name:"
 
-msgid "O Glove foi instalado. Tire o pendrive e reinicie."
-msgstr "Glove is installed. Remove the USB stick and restart."
+msgid "O Glove OS foi instalado. Tire o pendrive e reinicie."
+msgstr "Glove OS is installed. Remove the USB stick and restart."
 
-msgid "O Glove vai ser copiado para o disco deste computador."
-msgstr "Glove will be copied to this computer's disk."
+msgid "O Glove OS vai ser copiado para o disco deste computador."
+msgstr "Glove OS will be copied to this computer's disk."
 
 msgid "O disco está vazio."
 msgstr "The disk is empty."
@@ -4436,8 +4436,8 @@ msgstr "The disk is empty."
 msgid "O idioma do sistema e o tipo do seu teclado."
 msgstr "The system language and your keyboard type."
 
-msgid "O instalador funciona só no Glove ao vivo."
-msgstr "The installer only works on the Glove live system."
+msgid "O instalador funciona só no Glove OS ao vivo."
+msgstr "The installer only works on the Glove OS live system."
 
 msgid "O nome de usuário usa só letras minúsculas, números, - e _, começando por letra."
 msgstr "The user name uses only lowercase letters, numbers, - and _, starting with a letter."
@@ -4445,8 +4445,8 @@ msgstr "The user name uses only lowercase letters, numbers, - and _, starting wi
 msgid "O nome do computador usa só letras sem acento, números e -."
 msgstr "The computer name uses only unaccented letters, numbers and -."
 
-msgid "Onde instalar o Glove."
-msgstr "Where to install Glove."
+msgid "Onde instalar o Glove OS."
+msgstr "Where to install Glove OS."
 
 
 msgid "Para mexer nos discos, digite a senha deste sistema."
@@ -4517,3 +4517,9 @@ msgstr "Installing alongside needs UEFI start-up, an EFI partition and 20 GB fre
 
 msgid "Libere espaço antes no outro sistema (ou com o Discos)."
 msgstr "Free up space first in the other system (or with Disks)."
+
+msgid "Versão {} (base {})"
+msgstr "Version {} ({} based)"
+
+msgid "Versão {}"
+msgstr "Version {}"

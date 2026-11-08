@@ -174,7 +174,7 @@ pub fn plano(e: &Escolhas) -> Vec<Passo> {
         boot.push(rodar(&["mount", "--rbind", &format!("/{d}"), &format!("{ALVO}/{d}")]));
         boot.push(opcional(&["mount", "--make-rslave", &format!("{ALVO}/{d}")]));
     }
-    boot.push(escrever("/etc/default/grub", "GRUB_DEFAULT=0\nGRUB_TIMEOUT=3\nGRUB_DISTRIBUTOR=\"Glove\"\nGRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"\nGRUB_CMDLINE_LINUX=\"\"\nGRUB_DISABLE_OS_PROBER=false\n".into()));
+    boot.push(escrever("/etc/default/grub", "GRUB_DEFAULT=0\nGRUB_TIMEOUT=3\nGRUB_DISTRIBUTOR=\"Glove OS\"\nGRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"\nGRUB_CMDLINE_LINUX=\"\"\nGRUB_DISABLE_OS_PROBER=false\n".into()));
     boot.push(chroot(&["update-initramfs", "-u", "-k", "all"]));
     if e.uefi {
         boot.push(chroot(&["grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=Glove", "--recheck"]));

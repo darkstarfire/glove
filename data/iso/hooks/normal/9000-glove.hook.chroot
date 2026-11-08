@@ -1,5 +1,5 @@
 #!/bin/sh
-# Ajustes do Glove ao vivo (roda dentro da imagem, durante a montagem da ISO).
+# Ajustes do Glove OS ao vivo (roda dentro da imagem, durante a montagem da ISO).
 # O instalador desfaz o que é só do sistema ao vivo ao copiar para o disco.
 set -e
 
@@ -20,16 +20,16 @@ mkdir -p /etc/xdg/autostart /usr/share/applications
 cat > /etc/xdg/autostart/glove-instalador.desktop <<FIM
 [Desktop Entry]
 Type=Application
-Name=Instalar o Glove
-Name[en]=Install Glove
+Name=Instalar o Glove OS
+Name[en]=Install Glove OS
 Exec=glove-instalador
 OnlyShowIn=Glove;
 FIM
 cat > /usr/share/applications/glove-instalador.desktop <<FIM
 [Desktop Entry]
 Type=Application
-Name=Instalar o Glove
-Name[en]=Install Glove
+Name=Instalar o Glove OS
+Name[en]=Install Glove OS
 Exec=glove-instalador
 Icon=drive-harddisk
 Categories=System;

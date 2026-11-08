@@ -165,7 +165,7 @@ impl App for Login {
         let accent = ui.theme.accent;
 
         // Cabeçalho: orbe, nome e computador.
-        gel_circle(ui.c, cx, 44.0, 24.0, accent);
+        glove_ui::paint::icons::logo(ui.c, cx - 28.0, 16.0, 56.0, accent);
         center_text(ui, "Glove", cx, 96.0, 22.0, true, ink);
         let host = self.host.clone();
         center_text(ui, &host, cx, 114.0, 11.0, false, rgba(90, 90, 90, 255));

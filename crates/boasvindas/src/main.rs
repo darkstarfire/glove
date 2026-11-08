@@ -11,7 +11,7 @@ use glove_config::Config;
 use glove_ui::{
     paint::{
         chrome::avatar,
-        draw::{gel_circle, rgba, rrect, solid, Canvas},
+        draw::{rgba, rrect, solid, Canvas},
         Variant,
     },
     run, App, Rect, Ui, WindowOptions,
@@ -161,7 +161,7 @@ impl App for Welcome {
         let accent = ui.theme.accent;
         match self.step {
             0 => {
-                gel_circle(ui.c, w / 2.0, 120.0, 48.0, accent);
+                glove_ui::paint::icons::logo(ui.c, w / 2.0 - 56.0, 64.0, 112.0, accent);
                 let t = tr!("Bem-vindo ao Glove");
                 let tw = ui.text_width(t, 24.0, true);
                 ui.fonts.draw(ui.c, t, (w - tw) / 2.0, 214.0, 24.0, true, rgba(20, 20, 20, 255));
@@ -229,7 +229,7 @@ impl App for Welcome {
                 }
             }
             _ => {
-                gel_circle(ui.c, w / 2.0, 120.0, 40.0, accent);
+                glove_ui::paint::icons::logo(ui.c, w / 2.0 - 48.0, 72.0, 96.0, accent);
                 let t = tr!("Tudo pronto");
                 let tw = ui.text_width(t, 24.0, true);
                 ui.fonts.draw(ui.c, t, (w - tw) / 2.0, 204.0, 24.0, true, rgba(20, 20, 20, 255));

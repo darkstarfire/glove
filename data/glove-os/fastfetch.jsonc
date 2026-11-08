@@ -1,0 +1,32 @@
+// Glove OS: o fastfetch mostra a luva e o nome do sistema (base Debian).
+{
+  "logo": {
+    "type": "file",
+    "source": "/usr/share/glove-os/logo.txt",
+    "color": { "1": "blue" },
+    "padding": { "top": 1, "right": 3 }
+  },
+  "modules": [
+    "title",
+    "separator",
+    { "type": "os", "format": "{pretty-name} {arch}" },
+    "host",
+    "kernel",
+    "uptime",
+    "packages",
+    "shell",
+    "display",
+    "de",
+    "wm",
+    "terminal",
+    "cpu",
+    "gpu",
+    "memory",
+    "swap",
+    "disk",
+    "battery",
+    "locale",
+    "break",
+    "colors"
+  ]
+}

@@ -149,12 +149,18 @@ login screen and brings your display, scale, keyboard and theme settings to it;
 login screen was the main one, removing it switches back to the previous one, so the computer
 is never left without a login screen. Personal settings (`~/.config/glove`) stay.
 
-## Glove live ISO (Debian)
+## Glove OS (the distribution, as an ISO)
 
-A complete system for a USB stick or DVD: Debian 13 with Glove, Firefox and the installer. Started
-from the stick, it logs into Glove by itself (in Portuguese, ABNT2 keyboard) and opens **Install
-Glove**, which copies the system to the disk (whole disk or alongside another system). How to use
-the installer: [docs/USAGE.md](docs/USAGE.md#installing-glove-from-the-iso).
+**Glove OS** is the distribution: Debian 13 inside (same packages, repositories and updates, 100%
+compatible) with Glove as the desktop and its own identity: the name "Glove OS" in `os-release`
+(with `ID=debian`, for programs), the glove logo, the wallpaper, fastfetch and neofetch with the
+glove, the console and the GRUB menu. That identity comes in the `glove-os` package, which only
+ships in the ISO; the `glove` package installed on another distribution does not rename it.
+
+The ISO works on a USB stick or DVD, with Glove, Firefox and the installer. Booting from the stick
+logs into Glove by itself and opens **Install Glove OS**, which copies the system to the disk
+(whole disk or alongside another system). How to use the installer:
+[docs/USAGE.md](docs/USAGE.md#installing-glove-from-the-iso).
 
 ```sh
 ./glove-setup-tool.sh iso        # builds the ISO into iso/ (asks for the sudo password; 15 to 40 min)

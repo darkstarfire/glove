@@ -11,11 +11,18 @@ struct About {
     processor: String,
 }
 
+/// No Glove OS (`NAME="Glove OS"` no os-release), a base dele: "Debian 13".
+fn glove_os() -> Option<String> {
+    let text = std::fs::read_to_string("/etc/os-release").ok()?;
+    let get = |k: &str| text.lines().find_map(|l| l.strip_prefix(&format!("{k}="))).map(|v| v.trim_matches('"').to_string());
+    (get("NAME")? == "Glove OS").then(|| format!("Debian {}", get("VERSION_ID").unwrap_or_default()).trim().to_string())
+}
+
 impl App for About {
     fn ui(&mut self, ui: &mut Ui) {
         let w = ui.c.w;
         let accent = ui.theme.accent;
-        gel_circle(ui.c, w / 2.0, 66.0, 44.0, accent);
+        glove_ui::paint::icons::logo(ui.c, w / 2.0 - 48.0, 18.0, 96.0, accent);
         let center = |ui: &mut Ui, t: &str, y: f32, px: f32, bold: bool, c| {
             // Encolhe a fonte se o texto não couber (nomes de processador longos).
             let mut px = px;
@@ -25,8 +32,13 @@ impl App for About {
             let tw = ui.text_width(t, px, bold);
             ui.fonts.draw(ui.c, t, (w - tw) / 2.0, y, px, bold, c);
         };
-        center(ui, "Glove", 150.0, 30.0, true, rgba(20, 20, 20, 255));
-        center(ui, concat!("Versão ", env!("CARGO_PKG_VERSION")), 170.0, 11.0, false, rgba(60, 60, 60, 255));
+        // No Glove OS, o nome do sistema e a base Debian; em outra distro, só a área de trabalho.
+        let (name, version) = match glove_os() {
+            Some(base) => ("Glove OS", tr!("Versão {} (base {})", env!("CARGO_PKG_VERSION"), base)),
+            None => ("Glove", tr!("Versão {}", env!("CARGO_PKG_VERSION"))),
+        };
+        center(ui, name, 150.0, 30.0, true, rgba(20, 20, 20, 255));
+        center(ui, &version, 170.0, 11.0, false, rgba(60, 60, 60, 255));
         center(ui, &tr!("Memória: {}", self.memory), 202.0, 13.0, false, rgba(20, 20, 20, 255));
         center(ui, &tr!("Processador: {}", self.processor), 221.0, 13.0, false, rgba(20, 20, 20, 255));
 

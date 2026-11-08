@@ -71,3 +71,4 @@ grub-efi-amd64-bin
 grub-pc-bin
 grub2-common
 os-prober
+fastfetch

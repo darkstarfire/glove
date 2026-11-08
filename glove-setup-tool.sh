@@ -287,6 +287,54 @@ EOF
     msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
+# Pacote glove-os: a identidade da distro Glove OS (nome, logo, papel de parede,
+# fastfetch e neofetch, GRUB). Só para o Glove OS (a ISO): o pacote glove sozinho,
+# instalado em outra distro, não muda o nome dela.
+pacote_glove_os() {
+    tem dpkg-deb || erro "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
+    d="$raiz/data/glove-os"
+    tmp=$(mktemp -d)
+    o="$tmp/usr/share/glove-os"
+    mkdir -p "$o" "$tmp/DEBIAN" "$tmp/etc/xdg/fastfetch" "$tmp/etc/skel/.config/neofetch" "$tmp/etc/apt/apt.conf.d" "$tmp/etc/default/grub.d" "$tmp/usr/share/pixmaps"
+    echo "$versao" > "$o/versao"
+    install -m 755 "$d/identidade" "$o/identidade"
+    install -m 644 "$d/logo.txt" "$d/logo-neofetch.txt" "$o/"
+    install -m 644 "$d/glove-os.png" "$o/logo.png"
+    if [ -f "$d/papel-de-parede.png" ]; then install -m 644 "$d/papel-de-parede.png" "$o/papel-de-parede.png"; fi
+    install -m 644 "$d/fastfetch.jsonc" "$tmp/etc/xdg/fastfetch/config.jsonc"
+    install -m 644 "$d/neofetch.conf" "$tmp/etc/skel/.config/neofetch/config.conf"
+    install -m 644 "$d/apt-glove-os.conf" "$tmp/etc/apt/apt.conf.d/99glove-os"
+    install -m 644 "$d/grub-glove-os.cfg" "$tmp/etc/default/grub.d/glove-os.cfg"
+    for f in "$d"/icones/glove-os-*.png; do
+        s=$(basename "$f" .png | sed 's/glove-os-//')
+        mkdir -p "$tmp/usr/share/icons/hicolor/${s}x${s}/apps"
+        install -m 644 "$f" "$tmp/usr/share/icons/hicolor/${s}x${s}/apps/glove-os.png"
+    done
+    install -m 644 "$d/icones/glove-os-256.png" "$tmp/usr/share/pixmaps/glove-os.png"
+    install -m 755 "$d/postinst" "$d/postrm" "$tmp/DEBIAN/"
+    (cd "$tmp" && find etc -type f | sed 's|^|/|') > "$tmp/DEBIAN/conffiles"
+    {
+        echo "Package: glove-os"
+        echo "Version: $versao"
+        echo "Architecture: all"
+        echo "Maintainer: Fabio Carneiro <$(git config user.email 2>/dev/null || echo glove@localhost)>"
+        echo "Installed-Size: $(tamanho_kb "$tmp")"
+        echo "Depends: glove (>= $versao), base-files"
+        echo "Section: misc"
+        echo "Priority: optional"
+        echo "Homepage: $url"
+        echo "Description: Glove OS: identidade da distro (Debian por dentro)"
+        echo " Faz o sistema se apresentar como Glove OS: nome no os-release (ID=debian e a"
+        echo " versão do Debian continuam iguais, para os programas), logo, papel de parede,"
+        echo " fastfetch, neofetch, tela de console e menu do GRUB. Só para o Glove OS."
+    } > "$tmp/DEBIAN/control"
+    mkdir -p "$saida"
+    f="$saida/glove-os_${versao}_all.deb"
+    dpkg-deb --root-owner-group -Zxz --build "$tmp" "$f" >/dev/null
+    rm -rf "$tmp"
+    msg "$(t "Pacote da identidade Glove OS: $f" "Glove OS identity package: $f")"
+}
+
 pacote_slackware() {
     tmp=$(mktemp -d)
     montar "$tmp" /usr outro
@@ -561,6 +609,7 @@ fazer_iso() {
     tem dpkg-deb || erro "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
     tem sudo || erro "$(t "falta o sudo" "sudo is missing")"
     pacote_deb
+    pacote_glove_os
     base="$raiz/iso"
     ferr="$base/ferramentas"
     mkdir -p "$ferr"
@@ -579,6 +628,9 @@ fazer_iso() {
     export LIVE_BUILD="$lbt"
     # A versão dele vem de /usr/share; fora do sistema, lê a da árvore baixada.
     sed -i 's#cat /usr/share/live/build/VERSION#cat "${LIVE_BUILD}/share/VERSION"#' "$ferr/live-build/usr/share/live/build/functions/common.sh"
+    # O menu de boot com o nome do Glove OS (no lugar de "Live system").
+    sed -i 's/"Live system/"Glove OS/g' "$ferr/live-build/usr/lib/live/build/binary_grub_cfg"
+    sed -i 's/Live system/Glove OS/g' "$ferr/live-build/usr/share/live/build/bootloaders/syslinux_common/live.cfg.in"
     export DEBOOTSTRAP_DIR="$ferr/debootstrap/usr/share/debootstrap"
     construir="$base/build"
     # Uma montagem anterior: começa limpo (os pacotes baixados ficam no cache).
@@ -597,18 +649,21 @@ fazer_iso() {
         --apt-recommends false \
         --firmware-chroot true \
         --memtest none \
-        --iso-application "Glove" --iso-publisher "Glove - $url" --iso-volume "Glove $versao" \
-        --bootappend-live "boot=live components quiet splash username=glove user-fullname=Glove hostname=glove locales=pt_BR.UTF-8 keyboard-layouts=br"
+        --iso-application "Glove OS" --iso-publisher "Glove OS - $url" --iso-volume "Glove OS $versao" \
+        --bootappend-live "boot=live components quiet splash username=glove user-fullname=Glove hostname=glove-os locales=pt_BR.UTF-8 keyboard-layouts=br"
     cp -r "$raiz/data/iso/package-lists/." config/package-lists/
     mkdir -p config/hooks/normal config/packages.chroot
     cp -r "$raiz/data/iso/hooks/normal/." config/hooks/normal/
-    rm -f config/packages.chroot/glove_*.deb
-    cp "$saida/glove_${versao}_amd64.deb" config/packages.chroot/
+    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb
+    cp "$saida/glove_${versao}_amd64.deb" "$saida/glove-os_${versao}_all.deb" config/packages.chroot/
+    # Imagem de fundo do menu de boot (BIOS e UEFI).
+    mkdir -p config/includes.binary
+    cp -r "$raiz/data/iso/includes.binary/." config/includes.binary/
     msg "$(t "Montando a ISO (pede a senha do sudo; leva de 15 a 40 minutos e baixa uns 1,5 GB)" "Building the ISO (asks for the sudo password; takes 15 to 40 minutes and downloads about 1.5 GB)")"
     sudo env PATH="$PATH" LIVE_BUILD="$LIVE_BUILD" DEBOOTSTRAP_DIR="$DEBOOTSTRAP_DIR" lb build
     iso=$(ls -t ./*.iso 2>/dev/null | head -1)
     [ -n "$iso" ] || erro "$(t "a ISO não foi gerada; veja $construir/build.log" "the ISO was not built; see $construir/build.log")"
-    final="$base/glove-${versao}-amd64.iso"
+    final="$base/glove-os-${versao}-amd64.iso"
     sudo mv "$iso" "$final"
     sudo chown "$(id -u):$(id -g)" "$final"
     cd "$raiz"
@@ -619,7 +674,7 @@ fazer_iso() {
 
 # Liga a ISO numa máquina virtual (QEMU), com um disco virtual de 32 GB para testar o instalador.
 testar_iso() {
-    final=$(ls -t "$raiz"/iso/glove-*-amd64.iso 2>/dev/null | head -1)
+    final=$(ls -t "$raiz"/iso/glove-os-*-amd64.iso "$raiz"/iso/glove-*-amd64.iso 2>/dev/null | head -1)
     [ -n "$final" ] || erro "$(t "nenhuma ISO em iso/; rode ./glove-setup-tool.sh iso" "no ISO in iso/; run ./glove-setup-tool.sh iso")"
     tem qemu-system-x86_64 || erro "$(t "falta o QEMU (sudo apt install qemu-system-x86 ovmf)" "QEMU is missing (sudo apt install qemu-system-x86 ovmf)")"
     disco="$raiz/iso/disco-teste.qcow2"
@@ -716,6 +771,7 @@ case "${1:-}" in
     instalar|install) instalar "$2" ;;
     desinstalar|remover|uninstall|remove) desinstalar "$2" ;;
     deb) pacote_deb ;;
+    glove-os) pacote_glove_os ;;
     slackware|slack|tgz) pacote_slackware ;;
     rpm|fedora) pacote_rpm ;;
     arch|pacman) pacote_arch ;;
