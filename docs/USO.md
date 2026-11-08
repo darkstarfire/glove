@@ -181,6 +181,41 @@ Bate-papo no IRC.
 - **Conta…** muda o servidor e o apelido. A conta fica em `~/.config/glove/mensagens.toml`.
   Senhas do NickServ ainda não são guardadas.
 
+## Instalar o Glove pela ISO
+
+1. **Montar a ISO** (no computador onde está o código): `./glove-setup-tool.sh iso`. Ela fica em
+   `iso/glove-VERSÃO-amd64.iso`.
+2. **Testar numa máquina virtual** antes de usar num computador de verdade:
+   `./glove-setup-tool.sh iso testar` (precisa do QEMU: `sudo apt install qemu-system-x86 ovmf`). O
+   disco virtual de 32 GB fica em `iso/disco-teste.qcow2`. GNOME Boxes e VirtualBox também abrem a ISO.
+3. **Gravar num pendrive** (apaga o pendrive): `sudo dd if=iso/glove-VERSÃO-amd64.iso of=/dev/sdX
+   bs=4M status=progress oflag=sync`, trocando `sdX` pelo pendrive (confira com `lsblk`).
+4. **Ligar o computador pelo pendrive** (menu de boot do computador). O Glove ao vivo entra sozinho e
+   abre **Instalar o Glove**. Dá para usar o Glove ao vivo antes de instalar; o instalador também está
+   na Busca Rápida.
+
+O instalador pergunta:
+
+- **Idioma e teclado** do sistema instalado (com um campo para testar o teclado).
+- **Fuso horário:** procure a cidade.
+- **Disco:**
+  - **Apagar o disco inteiro e instalar o Glove**: o aviso em vermelho mostra qual disco será apagado;
+  - **Instalar ao lado do sistema atual**: usa o maior espaço livre do disco. Precisa de UEFI, de uma
+    partição EFI e de 20 GB livres. O instalador não diminui partições: libere o espaço antes, no
+    outro sistema (no Windows, "Gerenciamento de Disco ▸ Diminuir volume") ou com o Discos.
+- **Conta:** nome, nome de usuário, senha e nome do computador. A conta é de administrador (`sudo`).
+- **Resumo:** confira e marque "Entendi. Pode instalar".
+
+A instalação mostra o andamento e o registro dos comandos. No fim, **Reiniciar**: tire o pendrive.
+O sistema instalado já vem com o idioma, o teclado e o fuso escolhidos, sem o assistente de
+boas-vindas.
+
+Observações:
+
+- **Secure Boot:** o GRUB instalado não é assinado. Desligue o Secure Boot no computador.
+- O instalador só instala no Glove ao vivo. Em outro sistema, `glove-instalador --simular` mostra
+  todas as páginas e os comandos que seriam executados, sem mexer em nada.
+
 ## Atalhos novos
 
 | Atalho | O que faz |

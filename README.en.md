@@ -13,7 +13,7 @@ languages are added with a `.po` file — see [Languages](#languages).
 ## Current state
 
 Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for the
-10.0–10.2 look). Phases 1 to 10 of the [plan](docs/PLANO.md) (in Portuguese) are done. How to use each feature: [docs/USAGE.md](docs/USAGE.md).
+10.0–10.2 look). Phases 1 to 10 of the [plan](docs/PLANO.md) (in Portuguese) are done; phase 11 (installer and ISO) is being tested. How to use each feature: [docs/USAGE.md](docs/USAGE.md).
 
 **System (the `glove` compositor)**
 
@@ -148,6 +148,21 @@ login screen and brings your display, scale, keyboard and theme settings to it;
 **Removing:** `sudo apt remove glove` (or `rpm -e`, `pacman -R`, `removepkg`). If the Glove
 login screen was the main one, removing it switches back to the previous one, so the computer
 is never left without a login screen. Personal settings (`~/.config/glove`) stay.
+
+## Glove live ISO (Debian)
+
+A complete system for a USB stick or DVD: Debian 13 with Glove, Firefox and the installer. Started
+from the stick, it logs into Glove by itself (in Portuguese, ABNT2 keyboard) and opens **Install
+Glove**, which copies the system to the disk (whole disk or alongside another system). How to use
+the installer: [docs/USAGE.md](docs/USAGE.md#installing-glove-from-the-iso).
+
+```sh
+./glove-setup-tool.sh iso        # builds the ISO into iso/ (asks for the sudo password; 15 to 40 min)
+./glove-setup-tool.sh iso test   # starts the ISO in a virtual machine (QEMU) with a test disk
+```
+
+The script downloads Debian's official live-build and debootstrap into `iso/ferramentas` (other
+distributions' live-build is usually too old). Everything heavy stays in `iso/`, outside Git.
 
 ## Development session
 

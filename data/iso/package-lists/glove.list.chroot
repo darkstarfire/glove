@@ -1,0 +1,73 @@
+# Pacotes do Glove ao vivo (Debian). O pacote do Glove em si vai à parte
+# (config/packages.chroot) e traz as dependências dele.
+
+# Base
+systemd-sysv
+udev
+dbus
+libpam-systemd
+user-setup
+sudo
+iproute2
+pciutils
+usbutils
+xdg-desktop-portal
+locales
+console-setup
+keyboard-configuration
+dbus-user-session
+systemd-timesyncd
+bash-completion
+nano
+less
+curl
+ca-certificates
+
+# Rede
+network-manager
+wpasupplicant
+iw
+rfkill
+
+# Firmware (Wi-Fi, vídeo e som dos computadores mais comuns)
+firmware-linux-free
+firmware-misc-nonfree
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-sof-signed
+amd64-microcode
+intel-microcode
+
+# Som e o que o Glove recomenda
+pipewire
+pipewire-pulse
+pipewire-bin
+wireplumber
+xwayland
+mpv
+poppler-utils
+xdg-utils
+desktop-file-utils
+libnotify-bin
+fonts-dejavu
+fonts-noto-core
+fonts-noto-color-emoji
+
+# Navegador
+firefox-esr
+firefox-esr-l10n-pt-br
+
+# Apps
+flatpak
+
+# Instalador (partições, cópia do sistema e o carregador de boot)
+fdisk
+dosfstools
+e2fsprogs
+squashfs-tools
+efibootmgr
+grub-efi-amd64-bin
+grub-pc-bin
+grub2-common
+os-prober

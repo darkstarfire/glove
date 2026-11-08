@@ -183,6 +183,42 @@ IRC chat.
 - **Account…** changes the server and nickname. The account is kept in
   `~/.config/glove/mensagens.toml`. NickServ passwords are not stored yet.
 
+## Installing Glove from the ISO
+
+1. **Build the ISO** (on the computer with the source code): `./glove-setup-tool.sh iso`. It goes to
+   `iso/glove-VERSION-amd64.iso`.
+2. **Try it in a virtual machine** before using it on a real computer: `./glove-setup-tool.sh iso test`
+   (needs QEMU: `sudo apt install qemu-system-x86 ovmf`). The 32 GB virtual disk is
+   `iso/disco-teste.qcow2`. GNOME Boxes and VirtualBox also open the ISO.
+3. **Write it to a USB stick** (erases the stick): `sudo dd if=iso/glove-VERSION-amd64.iso
+   of=/dev/sdX bs=4M status=progress oflag=sync`, replacing `sdX` with the stick (check with `lsblk`).
+4. **Start the computer from the stick** (the computer's boot menu). The Glove live system logs in
+   by itself and opens **Install Glove**. You can use the live system before installing; the
+   installer is also in Quick Search.
+
+The installer asks for:
+
+- **Language and keyboard** of the installed system (with a field to test the keyboard).
+- **Time zone:** search for the city.
+- **Disk:**
+  - **Erase the whole disk and install Glove**: the red warning shows which disk will be erased;
+  - **Install alongside the current system**: uses the disk's largest free space. Needs UEFI, an EFI
+    partition and 20 GB free. The installer does not shrink partitions: free the space first, in
+    the other system (on Windows, "Disk Management ▸ Shrink Volume") or with Disks.
+- **Account:** name, user name, password and computer name. The account is an administrator (`sudo`).
+- **Summary:** check it and tick "I understand. Install."
+
+The installation shows its progress and the command log. At the end, **Restart** and remove the
+stick. The installed system already has the chosen language, keyboard and time zone, without the
+welcome assistant.
+
+Notes:
+
+- **Secure Boot:** the installed GRUB is not signed. Turn Secure Boot off on the computer.
+- The installer only installs from the Glove live system. On any other system,
+  `glove-instalador --simular` shows every page and the commands it would run, without changing
+  anything.
+
 ## New shortcuts
 
 | Shortcut | What it does |

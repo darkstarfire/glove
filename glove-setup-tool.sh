@@ -527,6 +527,119 @@ login() {
     fi
 }
 
+# --- ISO do Glove ao vivo (Debian) ----------------------------------------------------
+# Baixa o live-build e o debootstrap oficiais do Debian (o live-build das outras
+# distribuições costuma ser velho demais) para iso/ferramentas, monta a imagem em
+# iso/build e deixa a ISO em iso/. A pasta iso/ fica fora do Git.
+
+debian_suite=${GLOVE_DEBIAN:-trixie}
+espelho=${GLOVE_ESPELHO:-http://deb.debian.org/debian}
+
+baixar() {
+    if tem curl; then curl -fsSL "$1" -o "$2"; elif tem wget; then wget -q "$1" -O "$2"; else erro "$(t "falta o curl ou o wget" "curl or wget is missing")"; fi
+}
+
+# Baixa a versão mais nova (sem backports) de um pacote "all" do Debian e extrai em $2.
+ferramenta() {
+    nome=$1; destino=$2
+    [ -d "$destino/usr" ] && return 0
+    pasta="$espelho/pool/main/$(printf %s "$nome" | cut -c1)/$nome/"
+    lista=$(mktemp)
+    baixar "$pasta" "$lista"
+    deb=$(grep -o "${nome}_[^\"]*_all.deb" "$lista" | grep -v '~bpo' | sort -uV | tail -1)
+    rm -f "$lista"
+    [ -n "$deb" ] || erro "$(t "não achei o $nome em $pasta" "could not find $nome in $pasta")"
+    msg "$(t "Baixando $deb" "Downloading $deb")"
+    baixar "$pasta$deb" "$destino.deb"
+    mkdir -p "$destino"
+    dpkg-deb -x "$destino.deb" "$destino"
+    rm -f "$destino.deb"
+}
+
+fazer_iso() {
+    case $arq in x86_64) ;; *) erro "$(t "a ISO é só para x86_64 (amd64)" "the ISO is x86_64 (amd64) only")" ;; esac
+    tem dpkg-deb || erro "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
+    tem sudo || erro "$(t "falta o sudo" "sudo is missing")"
+    pacote_deb
+    base="$raiz/iso"
+    ferr="$base/ferramentas"
+    mkdir -p "$ferr"
+    ferramenta live-build "$ferr/live-build"
+    ferramenta debootstrap "$ferr/debootstrap"
+    # A árvore que o live-build usa fora do sistema (como a do código-fonte dele).
+    lbt="$ferr/lb"
+    if [ ! -e "$lbt/scripts/build.sh" ]; then
+        mkdir -p "$lbt"
+        ln -sfn ../live-build/usr/lib/live "$lbt/scripts"
+        ln -sfn ../live-build/usr/share/live/build "$lbt/share"
+        ln -sfn ../live-build/usr/share/live/build/functions "$lbt/functions"
+        ln -sfn ../live-build/usr/share/live/build/data "$lbt/data"
+    fi
+    export PATH="$ferr/live-build/usr/bin:$ferr/debootstrap/usr/sbin:$PATH"
+    export LIVE_BUILD="$lbt"
+    # A versão dele vem de /usr/share; fora do sistema, lê a da árvore baixada.
+    sed -i 's#cat /usr/share/live/build/VERSION#cat "${LIVE_BUILD}/share/VERSION"#' "$ferr/live-build/usr/share/live/build/functions/common.sh"
+    export DEBOOTSTRAP_DIR="$ferr/debootstrap/usr/share/debootstrap"
+    construir="$base/build"
+    # Uma montagem anterior: começa limpo (os pacotes baixados ficam no cache).
+    if [ -d "$construir" ]; then
+        (cd "$construir" && sudo env PATH="$PATH" LIVE_BUILD="$LIVE_BUILD" DEBOOTSTRAP_DIR="$DEBOOTSTRAP_DIR" lb clean) || true
+    fi
+    mkdir -p "$construir"
+    cd "$construir"
+    msg "$(t "Configurando a imagem (Debian $debian_suite)" "Configuring the image (Debian $debian_suite)")"
+    lb config \
+        --distribution "$debian_suite" \
+        --archive-areas "main contrib non-free non-free-firmware" \
+        --mirror-bootstrap "$espelho" --mirror-chroot "$espelho" --mirror-binary "$espelho" \
+        --debian-installer none \
+        --binary-images iso-hybrid \
+        --apt-recommends false \
+        --firmware-chroot true \
+        --memtest none \
+        --iso-application "Glove" --iso-publisher "Glove - $url" --iso-volume "Glove $versao" \
+        --bootappend-live "boot=live components quiet splash username=glove user-fullname=Glove hostname=glove locales=pt_BR.UTF-8 keyboard-layouts=br"
+    cp -r "$raiz/data/iso/package-lists/." config/package-lists/
+    mkdir -p config/hooks/normal config/packages.chroot
+    cp -r "$raiz/data/iso/hooks/normal/." config/hooks/normal/
+    rm -f config/packages.chroot/glove_*.deb
+    cp "$saida/glove_${versao}_amd64.deb" config/packages.chroot/
+    msg "$(t "Montando a ISO (pede a senha do sudo; leva de 15 a 40 minutos e baixa uns 1,5 GB)" "Building the ISO (asks for the sudo password; takes 15 to 40 minutes and downloads about 1.5 GB)")"
+    sudo env PATH="$PATH" LIVE_BUILD="$LIVE_BUILD" DEBOOTSTRAP_DIR="$DEBOOTSTRAP_DIR" lb build
+    iso=$(ls -t ./*.iso 2>/dev/null | head -1)
+    [ -n "$iso" ] || erro "$(t "a ISO não foi gerada; veja $construir/build.log" "the ISO was not built; see $construir/build.log")"
+    final="$base/glove-${versao}-amd64.iso"
+    sudo mv "$iso" "$final"
+    sudo chown "$(id -u):$(id -g)" "$final"
+    cd "$raiz"
+    msg "$(t "ISO pronta: $final" "ISO ready: $final")"
+    echo "$(t "Para testar numa máquina virtual: ./glove-setup-tool.sh iso testar" "To try it in a virtual machine: ./glove-setup-tool.sh iso test")"
+    echo "$(t "Para gravar num pendrive (apaga o pendrive!): sudo dd if=$final of=/dev/sdX bs=4M status=progress oflag=sync" "To write it to a USB stick (erases the stick!): sudo dd if=$final of=/dev/sdX bs=4M status=progress oflag=sync")"
+}
+
+# Liga a ISO numa máquina virtual (QEMU), com um disco virtual de 32 GB para testar o instalador.
+testar_iso() {
+    final=$(ls -t "$raiz"/iso/glove-*-amd64.iso 2>/dev/null | head -1)
+    [ -n "$final" ] || erro "$(t "nenhuma ISO em iso/; rode ./glove-setup-tool.sh iso" "no ISO in iso/; run ./glove-setup-tool.sh iso")"
+    tem qemu-system-x86_64 || erro "$(t "falta o QEMU (sudo apt install qemu-system-x86 ovmf)" "QEMU is missing (sudo apt install qemu-system-x86 ovmf)")"
+    disco="$raiz/iso/disco-teste.qcow2"
+    [ -f "$disco" ] || qemu-img create -f qcow2 "$disco" 32G >/dev/null
+    uefi=""
+    for f in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/ovmf/OVMF.fd; do
+        if [ -f "$f" ]; then
+            vars="$raiz/iso/ovmf-vars.fd"
+            [ -f "$vars" ] || cp "$(dirname "$f")/$(basename "$f" | sed 's/CODE/VARS/')" "$vars" 2>/dev/null || true
+            if [ -f "$vars" ]; then uefi="-drive if=pflash,format=raw,readonly=on,file=$f -drive if=pflash,format=raw,file=$vars"; else uefi="-bios $f"; fi
+            break
+        fi
+    done
+    kvm=""
+    [ -w /dev/kvm ] && kvm="-enable-kvm -cpu host"
+    msg "$(t "Ligando a máquina virtual (feche a janela para desligar)" "Starting the virtual machine (close the window to turn it off)")"
+    # shellcheck disable=SC2086
+    qemu-system-x86_64 $kvm -m 4096 -smp 2 $uefi -drive file="$disco",if=virtio -cdrom "$final" -boot menu=on -vga virtio -display gtk,gl=off -device intel-hda -device hda-duplex -nic user
+}
+
 ajuda() {
     if [ "$idioma" = pt ]; then cat <<'FIM'
 Ferramenta de instalação do Glove (qualquer Linux)
@@ -538,6 +651,8 @@ Ferramenta de instalação do Glove (qualquer Linux)
   ./glove-setup-tool.sh dependencias         instala o que falta para compilar
   ./glove-setup-tool.sh login [remover]      torna a tela de login do Glove a principal
                                              (= sudo systemctl enable --force glove-login)
+  ./glove-setup-tool.sh iso                  monta a ISO do Glove ao vivo (Debian) em iso/
+  ./glove-setup-tool.sh iso testar           liga a ISO numa máquina virtual (QEMU)
 
 O pacote e o "instalar" trazem tudo, inclusive a tela de login (serviço glove-login,
 sobre o greetd). Detalhes: README.md, seção "Instalar no sistema".
@@ -553,6 +668,8 @@ Glove setup tool (any Linux)
   ./glove-setup-tool.sh deps                 install what's missing to build
   ./glove-setup-tool.sh login [remove]       make the Glove login screen the main one
                                              (= sudo systemctl enable --force glove-login)
+  ./glove-setup-tool.sh iso                  build the Glove live ISO (Debian) into iso/
+  ./glove-setup-tool.sh iso test             start the ISO in a virtual machine (QEMU)
 
 The package and "install" bring everything, including the login screen (the glove-login
 service, on top of greetd). Details: README.en.md, "Installing" section.
@@ -575,6 +692,7 @@ menu() {
     echo "$(t "  7) Todos os pacotes" "  7) All packages")"
     echo "$(t "  8) Instalar o que falta para compilar" "  8) Install what’s missing to build")"
     echo "$(t "  9) Tela de login do Glove (greetd)" "  9) Glove login screen (greetd)")"
+    echo "$(t " 10) ISO do Glove ao vivo (Debian)" " 10) Glove live ISO (Debian)")"
     echo "$(t "  0) Sair" "  0) Quit")"
     printf '%s ' "$(t 'Escolha:' 'Choose:')"
     read -r op || op=0
@@ -588,6 +706,7 @@ menu() {
         7) pacote_deb; pacote_slackware; pacote_rpm; pacote_arch ;;
         8) dependencias ;;
         9) login ;;
+        10) fazer_iso ;;
         *) exit 0 ;;
     esac
 }
@@ -603,6 +722,7 @@ case "${1:-}" in
     todos|pacotes|all|packages) pacote_deb; pacote_slackware; pacote_rpm; pacote_arch ;;
     dependencias|deps|dependencies) dependencias ;;
     login) shift; login "$@" ;;
+    iso) case "${2:-}" in testar|test) testar_iso ;; *) fazer_iso ;; esac ;;
     _montar) montar "$2" "$3" "$4" ;;
     -h|--help|ajuda|help) ajuda ;;
     *) erro "$(t "opção desconhecida: $1 (veja ./glove-setup-tool.sh ajuda)" "unknown option: $1 (see ./glove-setup-tool.sh help)")" ;;

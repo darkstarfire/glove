@@ -1,0 +1,43 @@
+#!/bin/sh
+# Ajustes do Glove ao vivo (roda dentro da imagem, durante a montagem da ISO).
+# O instalador desfaz o que é só do sistema ao vivo ao copiar para o disco.
+set -e
+
+# Tela de login do Glove como a principal, entrando sozinha com o usuário ao vivo.
+systemctl enable glove-login.service || true
+for dm in gdm3 lightdm sddm; do systemctl disable "$dm.service" 2>/dev/null || true; done
+mkdir -p /etc/glove
+echo glove > /etc/glove/autologin
+
+# Idiomas que o instalador oferece, já prontos.
+for l in pt_BR en_US en_GB pt_PT es_ES fr_FR de_DE it_IT; do
+    sed -i "s/^# *$l.UTF-8 UTF-8/$l.UTF-8 UTF-8/" /etc/locale.gen
+done
+locale-gen
+
+# O instalador abre sozinho ao entrar e fica na Busca Rápida.
+mkdir -p /etc/xdg/autostart /usr/share/applications
+cat > /etc/xdg/autostart/glove-instalador.desktop <<FIM
+[Desktop Entry]
+Type=Application
+Name=Instalar o Glove
+Name[en]=Install Glove
+Exec=glove-instalador
+OnlyShowIn=Glove;
+FIM
+cat > /usr/share/applications/glove-instalador.desktop <<FIM
+[Desktop Entry]
+Type=Application
+Name=Instalar o Glove
+Name[en]=Install Glove
+Exec=glove-instalador
+Icon=drive-harddisk
+Categories=System;
+FIM
+
+# Sem o assistente de boas-vindas no sistema ao vivo (o instalador pergunta tudo).
+mkdir -p /etc/skel/.config/glove
+echo 'welcome_done = true' > /etc/skel/.config/glove/config.toml
+
+# Flathub disponível para a Central de Apps.
+flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true

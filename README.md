@@ -166,6 +166,21 @@ login do Glove era a principal, a remoção volta sozinha à anterior (GDM, Ligh
 para o computador não ficar sem tela de login. A configuração pessoal (`~/.config/glove`)
 fica.
 
+## ISO do Glove ao vivo (Debian)
+
+Um sistema completo para pendrive ou DVD: Debian 13 com o Glove, o Firefox e o instalador. Ao ligar
+pelo pendrive, ele entra sozinho no Glove (em português, teclado ABNT2) e abre o **Instalar o
+Glove**, que copia o sistema para o disco (inteiro ou ao lado de outro sistema). Como usar o
+instalador: [docs/USO.md](docs/USO.md#instalar-o-glove-pela-iso).
+
+```sh
+./glove-setup-tool.sh iso          # monta a ISO em iso/ (pede a senha do sudo; 15 a 40 min)
+./glove-setup-tool.sh iso testar   # liga a ISO numa máquina virtual (QEMU) com um disco de teste
+```
+
+O script baixa o live-build e o debootstrap oficiais do Debian para `iso/ferramentas` (o live-build
+de outras distribuições costuma ser velho demais). Tudo o que é pesado fica em `iso/`, fora do Git.
+
 ## Sessão própria (escolher "Glove" na tela de login)
 
 ```sh
