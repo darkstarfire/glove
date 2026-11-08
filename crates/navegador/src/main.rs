@@ -1,6 +1,6 @@
 //! glove-navegador: abre o navegador que cabe na máquina. Abaixo de 1 GB de
-//! RAM, o NetSurf (leve); acima, o Firefox num perfil do Glove com ajustes de
-//! memória. A escolha das Preferências (navegador = "...") vale antes de tudo.
+//! RAM, o NetSurf (leve); acima, o Firefox (com o perfil de sempre do usuário).
+//! A escolha das Preferências (navegador = "...") vale antes de tudo.
 //! O processo vira o navegador (exec), com os endereços passados adiante.
 
 use glove_config::tr;
@@ -37,35 +37,6 @@ pub fn choose(mem_mb: u64, preferred: &str, has: &dyn Fn(&str) -> bool) -> Optio
     }
 }
 
-/// O Firefox é um snap (Ubuntu)? O snap não enxerga pastas ocultas da casa.
-fn firefox_is_snap() -> bool {
-    std::path::Path::new("/snap/bin/firefox").exists() || which("firefox").and_then(|p| std::fs::read_to_string(p).ok()).is_some_and(|t| t.contains("/snap/"))
-}
-
-/// Perfil do Firefox do Glove, com ajustes para gastar menos memória.
-fn firefox_profile(mem_mb: u64) -> PathBuf {
-    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
-    let dir = if firefox_is_snap() {
-        home.join("snap/firefox/common/glove-perfil")
-    } else {
-        std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".cache")).join("glove/firefox")
-    };
-    let _ = std::fs::create_dir_all(&dir);
-    let processes = if mem_mb < 2048 { 2 } else { 4 };
-    let prefs = format!(
-        "// Escrito pelo glove-navegador a cada abertura: ajustes de memória do Glove.\n\
-         user_pref(\"dom.ipc.processCount\", {processes});\n\
-         user_pref(\"browser.sessionhistory.max_total_viewers\", 0);\n\
-         user_pref(\"browser.cache.memory.capacity\", 32768);\n\
-         user_pref(\"browser.tabs.unloadOnLowMemory\", true);\n\
-         user_pref(\"browser.aboutwelcome.enabled\", false);\n\
-         user_pref(\"browser.startup.homepage_override.mstone\", \"ignore\");\n\
-         user_pref(\"intl.locale.requested\", \"pt-BR\");\n"
-    );
-    let _ = std::fs::write(dir.join("user.js"), prefs);
-    dir
-}
-
 struct NoBrowser;
 
 impl App for NoBrowser {
@@ -86,11 +57,10 @@ pub fn main() {
         let _ = run(opts, NoBrowser);
         return;
     };
+    // O Firefox abre com o perfil de sempre do usuário (favoritos, senhas, abas), igual
+    // a abrir pelo Todos os Apps. (Antes ele abria num perfil separado do Glove.)
+    let _ = glove_firefox;
     let mut cmd = Command::new(&prog);
-    if glove_firefox {
-        // Perfil próprio (não mexe no Firefox de outro desktop) e sem conversar com ele.
-        cmd.arg("--no-remote").arg("--profile").arg(firefox_profile(mem));
-    }
     cmd.args(&urls);
     let err = cmd.exec();
     eprintln!("glove-navegador: não foi possível abrir {prog}: {err}");

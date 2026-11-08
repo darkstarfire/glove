@@ -97,7 +97,9 @@ Mesa OpenGL driver, a fixed cost of any accelerated compositor. Details (in Port
 ## Running
 
 The apps' library ([glove-ui](https://github.com/fabioaacarneiro/glove-ui)) is a git submodule
-in `ui/`: clone with `git clone --recursive` (or run `git submodule update --init` afterwards).
+in `ui/`: clone with `git clone --recursive` (or run `git submodule update --init` afterwards). **After
+every `git pull`**, update glove-ui too with `git submodule update --init` (`./glove-setup-tool.sh`
+does it by itself); with an old glove-ui the build fails.
 
 ```sh
 cargo build --release

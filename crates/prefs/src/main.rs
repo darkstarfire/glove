@@ -199,9 +199,18 @@ fn wallpaper_name(style: &str) -> String {
     std::path::Path::new(style).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| style.to_string())
 }
 
+/// Altura máxima da janela (cabe numa tela de 768 linhas com a barra e o Dock);
+/// painel maior ganha rolagem.
+const MAX_H: f32 = 640.0;
+
 struct Prefs {
     config: Config,
     pane: Pane,
+    /// Rolagem do painel (quando ele não cabe na janela), a altura dele no quadro
+    /// anterior e o painel em que estava a rolagem.
+    pane_scroll: f32,
+    pane_h: f32,
+    pane_scrolled: Option<Pane>,
     /// Imagens PNG encontradas em ~/Imagens (para usar de papel de parede).
     images: Vec<std::path::PathBuf>,
     /// Monitores conectados (escritos pelo compositor).
@@ -333,6 +342,9 @@ impl Prefs {
         Self {
             config: Config::load(),
             pane,
+            pane_scroll: 0.0,
+            pane_h: 0.0,
+            pane_scrolled: None,
             images,
             outputs: OutputsInfo::load(),
             confirm: None,
@@ -1437,6 +1449,11 @@ impl Prefs {
     fn atalhos(&mut self, ui: &mut Ui) {
         ui.small(tr!("Clique num atalho e pressione a nova combinação (Esc cancela)."));
         ui.space(4.0);
+        // A coluna dos nomes cabe o maior nome (a mesma em todos os grupos); o campo fica com o resto.
+        let avail = ui.available_width();
+        let names_w = SHORTCUT_GROUPS.iter().flat_map(|(_, a)| a.iter()).map(|a| ui.label_width(glove_config::action_label(a))).fold(0.0_f32, f32::max) + 8.0;
+        let field_w = (avail - names_w - 12.0).clamp(150.0, 220.0);
+        let label_w = names_w.min(avail - field_w - 12.0).max(80.0);
         for (gi, (group, actions)) in SHORTCUT_GROUPS.iter().enumerate() {
             ui.push_id(group, |ui| {
                 ui.disclosure(&mut self.open_groups[gi], tr(group));
@@ -1450,8 +1467,8 @@ impl Prefs {
                 let mut changed = false;
                 ui.push_id(action, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label_right(label, 200.0);
-                        changed = ui.shortcut_field(&mut keys, 220.0);
+                        ui.label_right(label, label_w);
+                        changed = ui.shortcut_field(&mut keys, field_w);
                     });
                 });
                 if changed {
@@ -2132,7 +2149,17 @@ impl App for Prefs {
         self.toolbar(ui);
         let (w, h) = (ui.c.w, ui.c.h);
         ui.set_title(info(self.pane).map_or(tr!("Preferências"), |i| tr(i.name)));
-        let (_, used) = ui.area_size(Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0), |ui| match self.pane {
+        // Outro painel: a rolagem volta ao topo.
+        if self.pane_scrolled != Some(self.pane) {
+            self.pane_scrolled = Some(self.pane);
+            self.pane_scroll = 0.0;
+        }
+        // O painel com rolagem: a janela cresce até o máximo e, se ainda não couber,
+        // aparece a barra (nada fica cortado sem jeito de ver).
+        let view = Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0);
+        let mut scroll = self.pane_scroll;
+        let content = self.pane_h;
+        let used = ui.scroll_view(view, &mut scroll, content, |ui| match self.pane {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
             Pane::Mesa => self.mesa(ui),
@@ -2205,8 +2232,13 @@ impl App for Prefs {
                 self.inicio.picker_sheet(ui);
             }
         }
+        self.pane_scroll = scroll;
+        if (used - self.pane_h).abs() > 0.5 {
+            self.pane_h = used;
+            ui.redraw = true;
+        }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
-        ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, 720.0), true);
+        ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, MAX_H), true);
         self.flush_save(ui);
     }
 

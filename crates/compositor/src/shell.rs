@@ -214,6 +214,9 @@ struct Restore(Option<Rectangle<i32, Logical>>);
 /// Marca que a janela já foi posicionada na primeira exibição.
 pub struct Placed;
 
+/// Último tamanho visto da janela (para saber quando o app mudou o tamanho dela).
+struct LastSize(std::cell::Cell<(i32, i32)>);
+
 // ---------------------------------------------------------------------------
 // Peças globais (barra de menu, Dock, menu aberto, papel de parede)
 // ---------------------------------------------------------------------------
@@ -952,6 +955,39 @@ impl Glove {
     }
 
     /// Posiciona uma janela nova no centro da área útil (com cascata leve).
+    /// O app mudou o tamanho da janela (ex.: as Preferências crescem com o painel) e
+    /// ela passou do fim da área útil: sobe o que for preciso (sem passar da barra de
+    /// menu). Não mexe enquanto o usuário arrasta ou redimensiona, nem em tela cheia.
+    pub fn keep_on_screen_after_resize(&mut self, w: &Window) {
+        let size = w.geometry().size;
+        if size.w <= 0 || size.h <= 0 || w.user_data().get::<Placed>().is_none() {
+            return;
+        }
+        let now = (size.w, size.h);
+        w.user_data().insert_if_missing(|| LastSize(std::cell::Cell::new(now)));
+        let Some(last) = w.user_data().get::<LastSize>() else { return };
+        if last.0.replace(now) == now {
+            return;
+        }
+        if is_fullscreen(w) || self.seat.get_pointer().is_some_and(|p| p.is_grabbed()) {
+            return;
+        }
+        let Some(loc) = self.space.element_location(w) else { return };
+        let area = self.work_area();
+        // Só na tela principal (onde estão a barra e o Dock).
+        if loc.x + size.w / 2 < area.loc.x || loc.x + size.w / 2 > area.loc.x + area.size.w {
+            return;
+        }
+        let bottom = area.loc.y + area.size.h;
+        if loc.y + size.h > bottom {
+            let ny = (bottom - size.h).max(area.loc.y + deco_top(w));
+            if ny < loc.y {
+                self.space.map_element(w.clone(), (loc.x, ny), false);
+                self.dirty = true;
+            }
+        }
+    }
+
     pub fn place_new_window(&mut self, w: &Window) {
         if w.user_data().get::<Placed>().is_some() {
             return;

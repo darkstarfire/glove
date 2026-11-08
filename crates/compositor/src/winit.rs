@@ -24,7 +24,8 @@ pub fn init(
     let attrs = WindowAttributes::default()
         .with_title("Glove")
         .with_inner_size(LogicalSize::new(1280.0, 800.0));
-    let (backend, winit) = winit::init_from_attributes::<GlesRenderer>(attrs)?;
+    let (mut backend, winit) = winit::init_from_attributes::<GlesRenderer>(attrs)?;
+    crate::dmabuf::init(state, dh, backend.renderer(), None);
 
     let mode = Mode { size: backend.window_size(), refresh: 60_000 };
     let output = Output::new(

@@ -111,7 +111,9 @@ na RAM, buffers reaproveitados entre quadros e o alocador devolve memória ao si
 ## Como rodar
 
 A biblioteca dos apps ([glove-ui](https://github.com/fabioaacarneiro/glove-ui)) vem como submódulo
-em `ui/`: clone com `git clone --recursive` (ou rode `git submodule update --init` depois).
+em `ui/`: clone com `git clone --recursive` (ou rode `git submodule update --init` depois). **Depois de
+cada `git pull`**, atualize também a glove-ui com `git submodule update --init` (o
+`./glove-setup-tool.sh` já faz isso sozinho); com a glove-ui velha, a compilação falha.
 
 ```sh
 cargo build --release

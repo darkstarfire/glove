@@ -89,11 +89,23 @@ dependencias() {
 # --- compilação -------------------------------------------------------------------
 
 # A glove-ui (biblioteca dos apps) vem como submódulo do Git em ui/.
+# A glove-ui (pasta ui/) na versão que este Glove pede. O "git pull" não atualiza
+# o submódulo sozinho: sem isto, o Glove novo compila com a glove-ui velha e falha.
 submodulo() {
-    if [ ! -f ui/Cargo.toml ]; then
-        tem git || erro "$(t "falta a pasta ui/ (glove-ui): clone com git clone --recursive" "the ui/ folder (glove-ui) is missing: clone with git clone --recursive")"
-        msg "$(t "Baixando a glove-ui (submódulo)" "Downloading glove-ui (submodule)")"
-        git submodule update --init --recursive
+    if [ -d .git ] && tem git; then
+        if [ ! -f ui/Cargo.toml ]; then
+            msg "$(t "Baixando a glove-ui (submódulo)" "Downloading glove-ui (submodule)")"
+        fi
+        # Quem desenvolve pode estar com a glove-ui à frente da versão registrada: aí não mexe.
+        reg=$(git ls-tree HEAD ui 2>/dev/null | awk '{print $3}')
+        atual=$(git -C ui rev-parse HEAD 2>/dev/null || true)
+        if [ -n "$atual" ] && [ -n "$reg" ] && [ "$atual" != "$reg" ] && git -C ui merge-base --is-ancestor "$reg" "$atual" 2>/dev/null; then
+            return 0
+        fi
+        git submodule sync --quiet
+        git submodule update --init --recursive || erro "$(t "não deu para atualizar a glove-ui (pasta ui/); rode: git submodule update --init --recursive" "could not update glove-ui (ui/ folder); run: git submodule update --init --recursive")"
+    elif [ ! -f ui/Cargo.toml ]; then
+        erro "$(t "falta a pasta ui/ (glove-ui): clone com git clone --recursive" "the ui/ folder (glove-ui) is missing: clone with git clone --recursive")"
     fi
 }
 

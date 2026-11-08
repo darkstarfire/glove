@@ -11,6 +11,7 @@ mod ending;
 mod expose;
 mod avisos;
 mod gestos;
+mod dmabuf;
 mod grade;
 mod mesas;
 mod lock;

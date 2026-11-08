@@ -42,6 +42,7 @@ impl CompositorHandler for Glove {
             if let Some(window) = window {
                 window.on_commit();
                 self.place_new_window(&window);
+                self.keep_on_screen_after_resize(&window);
             } else if let Some(window) = { let found = self.stashed().find(|w| w.wl_surface().is_some_and(|s| *s == root)).cloned(); found } {
                 // Minimizada (miniatura viva no Dock) ou oculta: o conteúdo mudou.
                 window.on_commit();

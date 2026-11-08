@@ -570,6 +570,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
     let context = EGLContext::new(&egl)?;
     // SAFETY: contexto recém-criado, usado só por este renderizador.
     let renderer = unsafe { GlesRenderer::new(context)? };
+    crate::dmabuf::init(state, dh, &renderer, Some(&path));
 
     let cursor_size = {
         use smithay::reexports::drm::{Device as _, DriverCapability};

@@ -668,3 +668,12 @@ visual gel. Cada uma será detalhada antes de começar.
 - [x] 11.8 Papel de parede do Glove OS (P) — v0.11.8 (glove-ui v0.2.9): a imagem "Glove OS" (a luva
   sobre o azul) vem no pacote glove, em `share/glove/papeis/glove-os.png`; é o padrão de quem ainda
   não escolheu um e o primeiro de Preferências ▸ Mesa ▸ Imagens do Glove.
+- [x] 11.9 Placa de vídeo para os apps e correções (M) — v0.11.9 (glove-ui v0.2.10): o Glove anuncia o
+  **linux-dmabuf** (v4, com a placa principal; nos dois modos), então mpv, Firefox, VS Code, jogos e o
+  XWayland desenham pela placa de vídeo (antes o Mesa não achava a placa: caía no llvmpipe, o OpenGL
+  no processador, ou o mpv nem abria). O ícone do Navegador abre o Firefox com o perfil de sempre do
+  usuário (antes, um perfil separado do Glove). As Preferências ganham rolagem (`scroll_view` na
+  glove-ui) quando o painel não cabe, a janela que cresce sozinha sobe para não passar do Dock, e os
+  nomes dos atalhos cabem na coluna (rótulo maior que a coluna termina em "…"). O
+  `glove-setup-tool.sh` sincroniza a glove-ui (pasta `ui/`) antes de compilar: depois de um
+  `git pull`, a glove-ui velha fazia a compilação falhar.

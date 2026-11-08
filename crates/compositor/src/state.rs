@@ -43,6 +43,9 @@ pub struct Glove {
     pub xdg_decoration_state: XdgDecorationState,
     pub fractional_scale_state: FractionalScaleManagerState,
     pub viewporter_state: ViewporterState,
+    /// linux-dmabuf (anunciado pelo backend, que sabe qual é a placa).
+    pub dmabuf_state: smithay::wayland::dmabuf::DmabufState,
+    pub dmabuf_global: Option<smithay::wayland::dmabuf::DmabufGlobal>,
     pub shm_state: ShmState,
     pub output_manager_state: OutputManagerState,
     pub seat_state: SeatState<Glove>,
@@ -217,6 +220,8 @@ impl Glove {
             xdg_decoration_state,
             fractional_scale_state,
             viewporter_state,
+            dmabuf_state: smithay::wayland::dmabuf::DmabufState::new(),
+            dmabuf_global: None,
             shm_state,
             output_manager_state,
             seat_state,
