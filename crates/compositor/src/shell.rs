@@ -1510,6 +1510,8 @@ impl Glove {
                 return;
             }
         }
+        // Outro item do Dock com a grade aberta: a grade sai da frente.
+        self.close_grade();
         // Ctrl (ou Super) + clique num app: abre mais uma instância dele, mesmo já aberto.
         let extra = self.seat.get_keyboard().is_some_and(|k| {
             let m = k.modifier_state();

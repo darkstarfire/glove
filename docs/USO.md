@@ -9,17 +9,29 @@ podem ser trocados em **Preferências ▸ Teclado ▸ Atalhos de teclado**.
 
 ## Todos os Apps (grade de apps)
 
-Todos os programas instalados em tela cheia, em páginas.
+Todos os programas instalados em tela cheia, em páginas, sobre o papel de parede desfocado. O Dock
+continua na frente (clicar num app dele abre o app e fecha a grade).
 
-- **Abrir:** o ícone de grade no Dock (logo depois do Arquivos), a tecla **F4** ou um canto
+- **Abrir:** o ícone do foguete no Dock (logo depois do Arquivos), a tecla **F4** ou um canto
   ativo (Preferências ▸ Exposé e Painel ▸ Cantos ativos ▸ Todos os Apps). No touchpad, **pinçar
   com quatro dedos**.
-- **Procurar:** é só digitar; a busca mostra todos os apps, utilitários incluídos.
+- **Procurar:** é só digitar; a busca mostra todos os apps, inclusive os que estão em pastas.
 - **Escolher:** setas e Enter, ou clique.
 - **Páginas:** roda do mouse, dois dedos no touchpad, Page Up/Down ou os pontinhos embaixo.
-- **Utilitários:** os apps de sistema ficam na pasta Utilitários (o primeiro quadro).
-- **Fechar:** Esc (primeiro limpa a busca, depois sai da pasta), F4 de novo ou clique fora dos
-  ícones.
+- **Pastas:** clicar numa pasta abre uma faixa embaixo dela com os apps. Clicar no nome (no canto
+  da faixa) muda o nome. Clicar fora fecha a pasta. Os apps de sistema começam na pasta
+  Utilitários.
+- **Arrumar:** **segure** um ícone até todos balançarem (ou já comece a arrastar):
+  - arraste para mudar o lugar; na borda da esquerda ou da direita, a página vira;
+  - pare um instante **sobre outro app** e solte: os dois viram uma pasta, já aberta para você
+    dar o nome;
+  - solte sobre uma pasta para pôr o app nela;
+  - arraste um app para fora da faixa para tirá-lo da pasta (pasta vazia some);
+  - **Esc** ou um clique no vazio param o balanço.
+  A arrumação fica salva (`~/.config/glove/grade.json`); apps instalados depois entram no fim (os
+  utilitários, na pasta Utilitários).
+- **Fechar:** Esc (primeiro limpa a busca, depois fecha a pasta e para o balanço), F4 de novo ou
+  clique fora dos ícones.
 
 ## Mesas virtuais
 

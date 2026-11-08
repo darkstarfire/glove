@@ -923,12 +923,24 @@ impl Glove {
             }
         }
         if self.grade_active() {
-            if button == BTN_LEFT && state == ButtonState::Pressed {
-                let pos = self.pointer_pos;
-                self.grade_button(pos);
-                self.swallow_wake_release = true;
+            // O Dock continua na frente da grade e responde ao clique.
+            let pos = self.pointer_pos;
+            let on_dock = button == BTN_LEFT && state == ButtonState::Pressed && !self.grade_busy() && matches!(self.hit_test(pos), Hit::Dock(_));
+            let dock_release = state == ButtonState::Released && self.chrome.dock_pressed.is_some();
+            if !on_dock && !dock_release {
+                if button == BTN_LEFT {
+                    if state == ButtonState::Pressed {
+                        self.grade_press(pos);
+                        // Fechou no aperto: o soltar não vai para o app de baixo.
+                        if !self.grade_active() {
+                            self.swallow_wake_release = true;
+                        }
+                    } else {
+                        self.grade_release(pos);
+                    }
+                }
+                return;
             }
-            return;
         }
         if self.dashboard_active() {
             if button == BTN_LEFT {

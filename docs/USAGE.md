@@ -9,17 +9,28 @@ in a window inside another desktop, **Alt** works as Super. Every shortcut can b
 
 ## All Apps (app grid)
 
-Every installed program, full screen, in pages.
+Every installed program, full screen, in pages, over the blurred wallpaper. The Dock stays in
+front (clicking an app in it opens the app and closes the grid).
 
-- **Open:** the grid icon in the Dock (right after Files), the **F4** key or a hot corner
+- **Open:** the rocket icon in the Dock (right after Files), the **F4** key or a hot corner
   (Preferences ▸ Exposé & Dashboard ▸ Hot corners ▸ All Apps). On the touchpad, **pinch with four
   fingers**.
-- **Search:** just type; the search shows every app, utilities included.
+- **Search:** just type; the search shows every app, including the ones in folders.
 - **Choose:** arrows and Enter, or click.
 - **Pages:** mouse wheel, two fingers on the touchpad, Page Up/Down or the dots at the bottom.
-- **Utilities:** system apps live in the Utilities folder (the first tile).
-- **Close:** Esc (first clears the search, then leaves the folder), F4 again or a click outside
-  the icons.
+- **Folders:** clicking a folder opens a strip below it with its apps. Click the name (in the
+  strip's corner) to rename it. Click outside to close the folder. System apps start in the
+  Utilities folder.
+- **Arrange:** **hold** an icon until they all wiggle (or just start dragging):
+  - drag to move it; at the left or right edge, the page turns;
+  - pause **over another app** and let go: both become a folder, already open so you can name it;
+  - drop on a folder to put the app in it;
+  - drag an app out of the strip to take it out of the folder (an empty folder goes away);
+  - **Esc** or a click on empty space stops the wiggle.
+  The arrangement is saved (`~/.config/glove/grade.json`); apps installed later go at the end
+  (utilities, in the Utilities folder).
+- **Close:** Esc (first clears the search, then closes the folder and stops the wiggle), F4 again
+  or a click outside the icons.
 
 ## Desktops
 

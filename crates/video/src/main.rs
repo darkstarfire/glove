@@ -337,7 +337,7 @@ pub fn main() {
     if let Some(p) = std::env::args().nth(1).map(PathBuf::from) {
         app.load(p);
     }
-    let opts = WindowOptions { title: tr!("Vídeo").into(), app_id: "glove.Video".into(), size: (440, 120), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Vídeo").into(), app_id: "glove.Video".into(), size: (440, 120), fixed: false, min_size: Some((380, 120)) };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-video: {e}");
     }

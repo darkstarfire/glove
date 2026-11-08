@@ -631,3 +631,13 @@ visual gel. Cada uma será detalhada antes de começar.
   mostra também "na tomada, sem carregar", a potência, a saúde e os ciclos. Corrigidas as chaves de
   tradução com contexto da Fase 10 (em português apareciam "Avisos", "Gravador" e "Instalador" no
   lugar de "Limpar", "Gravação" e "Voltar"; a pasta das gravações passa a ser Música ▸ Gravações).
+- [x] 11.4 Todos os Apps como deveria ter sido (G) — v0.11.4 (glove-ui v0.2.5): ícone novo (disco de
+  alumínio com aro de vidro azul e um foguete retrô, arte própria); a grade fica sobre o papel de
+  parede desfocado, com o Dock na frente e sem a barra de menu, janelas e ícones da mesa. Pastas
+  abrem numa faixa de tecido escuro que separa a grade, com bico e brilho azul, e nome editável.
+  Modo de edição: segurar faz os ícones balançarem; arrastar muda a ordem e vira a página na
+  borda; app sobre app cria pasta; sobre pasta, entra nela; para fora da faixa, sai (pasta vazia
+  some). A arrumação fica em `grade.json`. Os ícones viram imagens prontas e a grade só as compõe,
+  então o balanço custa pouco. Na glove-ui, a folha Abrir/Salvar faz a janela crescer quando ela é
+  pequena demais (e voltar depois): o painel do Vídeo abria a folha espremida; ele também passa a
+  ser redimensionável.

@@ -294,18 +294,25 @@ impl Glove {
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
         }
-        // Grade de apps: por cima de tudo (menos do cursor), sobre a tela escurecida.
+        // Grade de apps: por cima de tudo (menos do cursor e do Dock), sobre o papel de
+        // parede desfocado. Aberta de todo, nada mais aparece embaixo.
         let g = &self.grade;
         if g.alpha > 0.0 {
             let a = Some(g.alpha);
+            if let Some(b) = c.dock.as_ref() {
+                out.extend(mem(renderer, c.dock_pos(), b, sc));
+            }
             if let Some((_, t)) = &g.field_tex {
                 out.extend(mem_alpha(renderer, self.grade_field_pos(), t, sc, a));
             }
             if let Some((_, t)) = &g.grid_tex {
                 out.extend(mem_alpha(renderer, self.grade_grid_pos(), t, sc, a));
             }
-            if let Some(d) = &g.dim {
-                out.push(GloveElement::Solid(SolidColorRenderElement::from_buffer(d, (0, 0), sc, 1.0, Kind::Unspecified)));
+            if let Some((_, t)) = &g.bg {
+                out.extend(mem_alpha(renderer, (0, 0).into(), t, sc, a));
+            }
+            if g.alpha >= 1.0 && g.bg.is_some() {
+                return out;
             }
         }
         // Painel de Widgets: por cima de tudo (menos do cursor), sobre a tela escurecida.
@@ -485,7 +492,7 @@ impl Glove {
                 self.push_scaled_window(renderer, w, r, sc, &mut out);
             }
         }
-        if let Some(b) = c.dock.as_ref().filter(|_| !covered) {
+        if let Some(b) = c.dock.as_ref().filter(|_| !covered && self.grade.alpha <= 0.0) {
             out.extend(mem(renderer, c.dock_pos(), b, sc));
         }
 
