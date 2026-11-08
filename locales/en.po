@@ -3866,8 +3866,8 @@ msgstr "Screenshots go to your Pictures folder.\n# Ways to capture\n- Print: the
 msgid "Os ícones da barra de menu dão acesso rápido:\n- O alto-falante mostra o controle de volume; as teclas de volume do teclado também funcionam.\n- O leque do Wi-Fi lista as redes; as que pedem senha abrem as Preferências pedindo a senha.\n- A bateria mostra a carga e quanto tempo falta.\n# Mais ajustes\n- Preferências ▸ Som, Rede e Economizador de Energia."
 msgstr "The menu bar icons give quick access:\n- The speaker shows the volume control; the keyboard’s volume keys also work.\n- The Wi-Fi fan lists the networks; those that need a password open Preferences asking for it.\n- The battery shows the charge and how much time is left.\n# More settings\n- Preferences ▸ Sound, Network and Power Saving."
 
-msgid "Pelo menu do Glove (a bolinha no canto):\n- Bloquear Tela pede a sua senha para voltar.\n- Repouso deixa o computador dormindo.\n- Reiniciar, Desligar e Encerrar Sessão pedem confirmação e fecham os apps antes; um app com documento não salvo pode cancelar o encerramento."
-msgstr "From the Glove menu (the little ball in the corner):\n- Lock Screen asks for your password to come back.\n- Sleep puts the computer to sleep.\n- Restart, Shut Down and Log Out ask for confirmation and close the apps first; an app with an unsaved document can cancel it."
+msgid "Pelo menu do Glove (a luva no canto):\n- Bloquear Tela pede a sua senha para voltar.\n- Repouso deixa o computador dormindo.\n- Reiniciar, Desligar e Encerrar Sessão pedem confirmação e fecham os apps antes; um app com documento não salvo pode cancelar o encerramento."
+msgstr "From the Glove menu (the glove in the corner):\n- Lock Screen asks for your password to come back.\n- Sleep puts the computer to sleep.\n- Restart, Shut Down and Log Out ask for confirmation and close the apps first; an app with an unsaved document can cancel it."
 
 msgid "# Um app parou de responder\n- O cursor vira o disco girando sobre ele. Use Forçar Encerrar (Ctrl+Alt+Esc) para fechá-lo.\n# Sem som\n- Veja se o som não está mudo no ícone da barra e em Preferências ▸ Som ▸ Saída.\n# Sem rede\n- Abra Preferências ▸ Rede e veja a luz de cada interface; Wi-Fi desligado aparece em vermelho.\n# Ver o que aconteceu\n- O app Registros mostra o registro da sessão do Glove e do sistema."
 msgstr "# An app stopped responding\n- The pointer turns into a spinning disc over it. Use Force Quit (Ctrl+Alt+Esc) to close it.\n# No sound\n- Check that sound isn’t muted in the menu bar icon and in Preferences ▸ Sound ▸ Output.\n# No network\n- Open Preferences ▸ Network and look at each interface’s light; Wi-Fi turned off shows in red.\n# See what happened\n- The Logs app shows the Glove session log and the system log."
@@ -4523,3 +4523,286 @@ msgstr "Version {} ({} based)"
 
 msgid "Versão {}"
 msgstr "Version {}"
+
+# Vídeo (Etapa 11.6)
+
+msgid "Faixa {}"
+msgstr "Track {}"
+
+msgid "arquivo"
+msgstr "file"
+
+msgid "Português"
+msgstr "Portuguese"
+
+msgid "Inglês"
+msgstr "English"
+
+msgid "O mpv não abriu esse vídeo."
+msgstr "mpv could not open this video."
+
+msgid "Este é o último vídeo da pasta."
+msgstr "This is the last video in the folder."
+
+msgid "Este é o primeiro vídeo da pasta."
+msgstr "This is the first video in the folder."
+
+msgid "Preferências do Vídeo"
+msgstr "Video Preferences"
+
+msgid "Quadro salvo na pasta Imagens."
+msgstr "Frame saved in the Pictures folder."
+
+msgid "Endereço do vídeo (link ou caminho do arquivo):"
+msgstr "Video address (link or file path):"
+
+msgid "Reprodução"
+msgstr "Playback"
+
+msgid "Continuar de onde parou"
+msgstr "Resume where you left off"
+
+msgid "Ao terminar, tocar o próximo vídeo da pasta"
+msgstr "When finished, play the next video in the folder"
+
+msgid "Usar a placa de vídeo para decodificar (mais leve)"
+msgstr "Use the graphics card to decode (lighter)"
+
+msgid "Legendas e áudio"
+msgstr "Subtitles and audio"
+
+msgid "Carregar legendas da pasta com nome parecido"
+msgstr "Load subtitles from the folder with a similar name"
+
+msgid "Idiomas preferidos das legendas (códigos, na ordem):"
+msgstr "Preferred subtitle languages (codes, in order):"
+
+msgid "Idiomas preferidos do áudio (vazio = o padrão do vídeo):"
+msgstr "Preferred audio languages (empty = the video's default):"
+
+msgid "Exemplos: pt, en, es. As mudanças valem a partir do próximo vídeo."
+msgstr "Examples: pt, en, es. Changes apply from the next video."
+
+msgid "Repetindo"
+msgstr "Repeating"
+
+msgid "Sem som"
+msgstr "Muted"
+
+msgid "Nenhuma"
+msgstr "None"
+
+msgid "Atraso atual: {} s"
+msgstr "Current delay: {} s"
+
+msgid "Abrir Endereço…"
+msgstr "Open Location…"
+
+msgid "Abrir Recente"
+msgstr "Open Recent"
+
+msgid "Voltar 1 min"
+msgstr "Back 1 min"
+
+msgid "Avançar 1 min"
+msgstr "Forward 1 min"
+
+msgid "Ir para o Início"
+msgstr "Go to Beginning"
+
+msgid "Vídeo Anterior da Pasta"
+msgstr "Previous Video in Folder"
+
+msgid "Próximo Vídeo da Pasta"
+msgstr "Next Video in Folder"
+
+msgid "Repetir"
+msgstr "Loop"
+
+msgid "Aumentar Volume"
+msgstr "Increase Volume"
+
+msgid "Diminuir Volume"
+msgstr "Decrease Volume"
+
+msgid "Sem Som"
+msgstr "Mute"
+
+msgid "Metade do Tamanho"
+msgstr "Half Size"
+
+msgid "Tamanho Original"
+msgstr "Actual Size"
+
+msgid "Dobro do Tamanho"
+msgstr "Double Size"
+
+msgid "Proporção"
+msgstr "Aspect Ratio"
+
+msgid "Capturar Quadro"
+msgstr "Capture Frame"
+
+msgid "Faixa de Áudio"
+msgstr "Audio Track"
+
+msgid "Atrasar o Áudio 0,1 s"
+msgstr "Delay Audio 0.1 s"
+
+msgid "Adiantar o Áudio 0,1 s"
+msgstr "Advance Audio 0.1 s"
+
+msgid "Sem Atraso no Áudio"
+msgstr "Reset Audio Delay"
+
+msgid "Legendas"
+msgstr "Subtitles"
+
+msgid "Mostrar Legendas"
+msgstr "Show Subtitles"
+
+msgid "Faixa de Legenda"
+msgstr "Subtitle Track"
+
+msgid "Carregar Legenda…"
+msgstr "Load Subtitles…"
+
+msgid "Atrasar a Legenda 0,1 s"
+msgstr "Delay Subtitles 0.1 s"
+
+msgid "Adiantar a Legenda 0,1 s"
+msgstr "Advance Subtitles 0.1 s"
+
+msgid "Sem Atraso na Legenda"
+msgstr "Reset Subtitle Delay"
+
+msgid "Legenda Maior"
+msgstr "Larger Subtitles"
+
+msgid "Legenda Menor"
+msgstr "Smaller Subtitles"
+
+msgid "Automática"
+msgstr "Automatic"
+
+# Música (Etapa 11.6)
+
+msgid "Lista sem título"
+msgstr "Untitled Playlist"
+
+msgid "Preferências da Música"
+msgstr "Music Preferences"
+
+msgid "Biblioteca"
+msgstr "Library"
+
+msgid "Músicas"
+msgstr "Songs"
+
+msgid "Tocadas Recentemente"
+msgstr "Recently Played"
+
+msgid "Listas"
+msgstr "Playlists"
+
+msgid "Todos ({} artistas)"
+msgstr "All ({} artists)"
+
+msgid "Todos ({} álbuns)"
+msgstr "All ({} albums)"
+
+msgid "Pastas da biblioteca"
+msgstr "Library folders"
+
+msgid "(pasta Música)"
+msgstr "(Music folder)"
+
+msgid "Adicionar Pasta…"
+msgstr "Add Folder…"
+
+msgid "Ler de Novo"
+msgstr "Read Again"
+
+msgid "Ao tocar"
+msgstr "While playing"
+
+msgid "Avisar a música nova quando a janela estiver atrás"
+msgstr "Announce the new song when the window is in the background"
+
+msgid "Ordem aleatória"
+msgstr "Shuffle"
+
+msgid "Repetir:"
+msgstr "Repeat:"
+
+msgid "Não repetir"
+msgstr "Don't repeat"
+
+msgid "Uma"
+msgstr "One"
+
+msgid "Todas"
+msgstr "All"
+
+msgid "Nenhuma música encontrada."
+msgstr "No songs found."
+
+msgid "Lendo a biblioteca…"
+msgstr "Reading the library…"
+
+msgid "As músicas que você tocar aparecem aqui."
+msgstr "Songs you play show up here."
+
+msgid "Lista vazia: escolha uma música e use Arquivo ▸ Adicionar à Lista."
+msgstr "Empty playlist: pick a song and use File ▸ Add to Playlist."
+
+msgid "Nova Lista com a Música"
+msgstr "New Playlist with the Song"
+
+msgid "Nova Lista"
+msgstr "New Playlist"
+
+msgid "Adicionar à Lista"
+msgstr "Add to Playlist"
+
+msgid "Tirar das Recentes"
+msgstr "Remove from Recent"
+
+msgid "Tirar da Lista"
+msgstr "Remove from Playlist"
+
+msgid "Renomear Lista"
+msgstr "Rename Playlist"
+
+msgid "Apagar Lista"
+msgstr "Delete Playlist"
+
+msgid "Limpar as Recentes"
+msgstr "Clear Recently Played"
+
+msgid "Adicionar Pasta à Biblioteca…"
+msgstr "Add Folder to Library…"
+
+msgid "Ler a Biblioteca de Novo"
+msgstr "Read the Library Again"
+
+msgid "Exibir"
+msgstr "View"
+
+msgid "Mostrar Navegador"
+msgstr "Show Browser"
+
+msgid "Aleatório"
+msgstr "Shuffle"
+
+msgid "Não Repetir"
+msgstr "Repeat Off"
+
+msgid "Repetir Todas"
+msgstr "Repeat All"
+
+msgid "Repetir Uma"
+msgstr "Repeat One"
+
+msgid "Velocidade|Vídeo"
+msgstr "Speed"

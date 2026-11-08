@@ -193,6 +193,38 @@ Bate-papo no IRC.
 - **Conta…** muda o servidor e o apelido. A conta fica em `~/.config/glove/mensagens.toml`.
   Senhas do NickServ ainda não são guardadas.
 
+## Música
+
+- **Biblioteca:** a pasta Música e as que você juntar (Música ▸ Preferências ▸ Adicionar Pasta…).
+  Sem etiquetas no arquivo, o artista e o álbum vêm das pastas (Artista/Álbum/música).
+- **Navegador:** Exibir ▸ Mostrar Navegador (Ctrl+B) põe Artistas e Álbuns acima da lista.
+- **Listas:** o **+** do rodapé (ou Arquivo ▸ Nova Lista, Ctrl+N) cria uma lista e já pede o nome.
+  Escolha uma música e use Arquivo ▸ Adicionar à Lista. Delete tira da lista. Clique duplo no nome
+  renomeia. **Tocadas Recentemente** guarda as últimas 50.
+- **Aleatório e Repetir:** os botões do rodapé (Repetir alterna entre nada, todas e uma) ou o menu
+  Controles.
+- **Aviso:** com a janela atrás, a música nova aparece na central de avisos (dá para desligar
+  nas Preferências).
+- Atalhos: Espaço toca e pausa, Ctrl+→ e Ctrl+← trocam de música, Ctrl+↑ e Ctrl+↓ mudam o volume.
+
+## Vídeo
+
+O mpv mostra a imagem; o painel do Vídeo controla. Formatos: mp4, mkv, webm, avi, mov, m4v, ogv,
+mpg, wmv, flv, ts e 3gp (o mpv toca quase qualquer codec).
+
+- **Abrir:** Arquivo ▸ Abrir… (Ctrl+O), **Abrir Endereço…** (Ctrl+L, um link ou caminho) e
+  **Abrir Recente**.
+- **Controles:** ← e → pulam 10 s, Shift+← e Shift+→ pulam 1 min, Home volta ao início. Ctrl+← e
+  Ctrl+→ abrem o vídeo anterior e o próximo da pasta. **Velocidade** (de 0,5× a 2×, ou [ e ]),
+  **Repetir**, volume (↑ e ↓) e **Sem Som** (M).
+- **Vídeo:** Tela Cheia (Ctrl+F), Tamanho (Ctrl+0, 1 e 2), Proporção e **Capturar Quadro**
+  (Ctrl+Shift+S, salva na pasta Imagens).
+- **Áudio:** escolher a faixa (dublado, original, comentários) e ajustar o atraso.
+- **Legendas:** as legendas do arquivo e as da pasta com nome parecido entram sozinhas. No menu:
+  Mostrar Legendas (V), escolher a faixa, **Carregar Legenda…** (srt, ass, vtt…), atraso e tamanho.
+- **Preferências** (Ctrl+,): continuar de onde parou, tocar o próximo da pasta ao terminar, usar a
+  placa de vídeo e os idiomas preferidos de legenda e áudio (pt, en…).
+
 ## Instalar o Glove pela ISO
 
 1. **Montar a ISO** (no computador onde está o código): `./glove-setup-tool.sh iso`. Ela fica em

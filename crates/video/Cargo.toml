@@ -12,3 +12,4 @@ path = "src/main.rs"
 [dependencies]
 glove-config = { path = "../../ui/crates/config" }
 glove-ui = { path = "../../ui/crates/ui" }
+serde_json = "1"

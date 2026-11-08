@@ -1,14 +1,14 @@
 //! glove-arte: gera por código a arte que o Glove precisa fora dele mesmo.
 //!
 //!   glove-arte plymouth <pasta>   tema do Plymouth (início e desligamento do sistema):
-//!                                 orbe, 12 quadros do giratório, glove.plymouth e glove.script
+//!                                 logo (a luva), 12 quadros do giratório, glove.plymouth e glove.script
 //!   glove-arte icones <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
 //!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
 
 use std::path::Path;
 
 use glove_paint::{
-    draw::{gel_circle, rgba, spinner, Canvas},
+    draw::{rgba, spinner, Canvas},
     theme::{Theme, Variant},
 };
 
@@ -54,10 +54,10 @@ fn plymouth(dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let theme = Theme::new(Variant::Claro);
 
-    // Orbe em gel, a mesma do "Sobre o Glove" e da tela de encerramento.
-    let s = 96.0;
+    // A logo (luva de gel), a mesma do "Sobre o Glove" e da tela de encerramento.
+    let s = 112.0;
     let mut c = Canvas::new(s, s, SCALE).ok_or("canvas")?;
-    gel_circle(&mut c, s / 2.0, s / 2.0, s / 2.0 - 2.0, theme.accent);
+    glove_paint::icons::logo(&mut c, 0.0, 0.0, s, theme.accent);
     save(&c, dir, "logo.png")?;
 
     // Giratório de 12 raios, um quadro por passo.
@@ -75,7 +75,7 @@ fn plymouth(dir: &Path) -> Result<(), String> {
 
 const PLYMOUTH: &str = "[Plymouth Theme]
 Name=Glove
-Description=Início e desligamento do Glove: fundo cinza claro, orbe e giratório (arte gerada por código).
+Description=Início e desligamento do Glove: fundo cinza claro, a logo (luva) e giratório (arte gerada por código).
 ModuleName=script
 
 [script]
@@ -83,7 +83,7 @@ ImageDir=/usr/share/plymouth/themes/glove
 ScriptFile=/usr/share/plymouth/themes/glove/glove.script
 ";
 
-/// Script do Plymouth: fundo cinza claro em degradê, orbe no meio, giratório
+/// Script do Plymouth: fundo cinza claro em degradê, a logo no meio, giratório
 /// embaixo; "Desligando…" ao desligar; pedido de senha (disco criptografado).
 const SCRIPT: &str = r#"# Tema do Plymouth do Glove (gerado por glove-arte).
 Window.SetBackgroundTopColor(0.84, 0.85, 0.86);

@@ -650,3 +650,13 @@ visual gel. Cada uma será detalhada antes de começar.
   padrão onde ele existe. A logo substitui a bolinha na barra de menu, no Sobre (que mostra "Glove
   OS" e a base Debian no Glove OS), no login, nas boas-vindas e no instalador. A ISO se chama
   `glove-os-VERSÃO-amd64.iso`, o menu de boot diz "Glove OS" e tem imagem de fundo própria.
+- [x] 11.6 Vídeo e Música completos (G) — v0.11.6 (glove-ui v0.2.7): **Vídeo** com menus Arquivo
+  (abrir, abrir endereço, recentes, mostrar no Arquivos), Controles (pulos de 10 s e 1 min, anterior e
+  próximo da pasta, velocidade, repetir, volume, sem som), Vídeo (tela cheia, tamanho, proporção,
+  capturar quadro), Áudio (faixa, atraso) e Legendas (mostrar, faixa, carregar legenda, atraso,
+  tamanho), lidos do mpv pelo soquete JSON, e Preferências (continuar de onde parou, próximo da pasta
+  ao terminar, placa de vídeo, idiomas). **Música** com barra lateral (Biblioteca, Tocadas
+  Recentemente, listas M3U), navegador de Artistas e Álbuns, aleatório e repetir (todas ou uma),
+  pastas extras de biblioteca, etiquetas pelas pastas quando faltam, aviso de música nova e
+  preferências guardadas. A luva entra no lugar da bolinha também na tela de encerramento, no painel
+  "Iniciando sessão", no tema do Plymouth e na Ajuda.

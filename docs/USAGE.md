@@ -194,6 +194,39 @@ IRC chat.
 - **Account…** changes the server and nickname. The account is kept in
   `~/.config/glove/mensagens.toml`. NickServ passwords are not stored yet.
 
+## Music
+
+- **Library:** the Music folder and any you add (Music ▸ Preferences ▸ Add Folder…). Files without
+  tags take the artist and album from the folders (Artist/Album/song).
+- **Browser:** View ▸ Show Browser (Ctrl+B) puts Artists and Albums above the list.
+- **Playlists:** the **+** at the bottom (or File ▸ New Playlist, Ctrl+N) creates one and asks for
+  its name. Pick a song and use File ▸ Add to Playlist. Delete removes it from the playlist.
+  Double-click the name to rename it. **Recently Played** keeps the last 50.
+- **Shuffle and Repeat:** the buttons at the bottom (Repeat cycles through off, all and one) or the
+  Controls menu.
+- **Announcement:** with the window in the background, the new song shows in the notification
+  center (it can be turned off in Preferences).
+- Shortcuts: Space plays and pauses, Ctrl+→ and Ctrl+← change songs, Ctrl+↑ and Ctrl+↓ change the
+  volume.
+
+## Video
+
+mpv shows the picture; the Video panel controls it. Formats: mp4, mkv, webm, avi, mov, m4v, ogv,
+mpg, wmv, flv, ts and 3gp (mpv plays almost any codec).
+
+- **Open:** File ▸ Open… (Ctrl+O), **Open Location…** (Ctrl+L, a link or path) and **Open Recent**.
+- **Controls:** ← and → skip 10 s, Shift+← and Shift+→ skip 1 min, Home goes back to the start.
+  Ctrl+← and Ctrl+→ open the previous and next video in the folder. **Speed** (0.5× to 2×, or [ and
+  ]), **Loop**, volume (↑ and ↓) and **Mute** (M).
+- **Video:** Full Screen (Ctrl+F), Size (Ctrl+0, 1 and 2), Aspect Ratio and **Capture Frame**
+  (Ctrl+Shift+S, saved in Pictures).
+- **Audio:** choose the track (dubbed, original, commentary) and adjust the delay.
+- **Subtitles:** subtitles inside the file and the ones in the folder with a similar name load by
+  themselves. In the menu: Show Subtitles (V), pick the track, **Load Subtitles…** (srt, ass,
+  vtt…), delay and size.
+- **Preferences** (Ctrl+,): resume where you left off, play the next video in the folder when one
+  ends, use the graphics card and the preferred subtitle and audio languages (pt, en…).
+
 ## Installing Glove from the ISO
 
 1. **Build the ISO** (on the computer with the source code): `./glove-setup-tool.sh iso`. It goes to
