@@ -19,4 +19,16 @@ vt = 7
 command = "env GLOVE_SESSION=$bin/glove-session $bin/glove --greeter"
 user = "$user"
 FIM
+# Login automático (o Glove ao vivo): /etc/glove/autologin tem o nome do usuário.
+if [ -s /etc/glove/autologin ]; then
+    auto=$(head -n1 /etc/glove/autologin | tr -cd 'a-z0-9_-')
+    if [ -n "$auto" ] && id "$auto" >/dev/null 2>&1; then
+        cat >> /run/glove/greetd.toml <<FIM
+
+[initial_session]
+command = "$bin/glove-session"
+user = "$auto"
+FIM
+    fi
+fi
 exec greetd --config /run/glove/greetd.toml

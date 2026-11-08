@@ -603,8 +603,21 @@ visual gel. Cada uma será detalhada antes de começar.
 
 ## Fase 11 — Instalador do sistema e ISO Debian (depois da Fase 10; testada antes de fechar)
 
-- [ ] 11.1 Instalador do sistema feito com a glove-ui: idioma, teclado, fuso e conta (como as
-  boas-vindas), disco (inteiro ou ao lado de outro sistema), cópia do sistema e carregador de boot (G)
-- [ ] 11.2 `glove-setup-tool.sh iso`: ISO Debian só com o Glove, o Firefox e o instalador; baixa o
-  live-build oficial do Debian e os pacotes para pastas ignoradas pelo Git (o live-build do Ubuntu é
-  antigo); nada pesado vai para o GitHub (G)
+- [x] 11.1 Instalador do sistema (G) — v0.11.1, **a testar numa máquina virtual**: `glove-instalador`,
+  assistente da glove-ui (Introdução, Idioma e Teclado, Fuso Horário, Disco, Conta, Resumo, Instalação).
+  Disco inteiro (GPT: EFI de 512 MiB + ext4; no modo BIOS, a partição de 1 MiB do GRUB + ext4) ou ao lado
+  de outro sistema no maior espaço livre (UEFI, GPT, reaproveitando a partição EFI dele). Copia o sistema
+  com `unsquashfs` da imagem do pendrive, grava fstab (UUIDs), nome, idioma, fuso e teclado, cria a conta
+  (grupo sudo; a senha vai pelo `chpasswd`, nunca nos argumentos), tira o que é do sistema ao vivo
+  (login automático, instalador no início, pacotes live-*), refaz o initramfs e instala o GRUB (UEFI,
+  com a cópia em `EFI/BOOT` para máquinas que esquecem a entrada, ou BIOS). Só instala no Glove ao vivo;
+  em outro sistema abre só com `--simular`, que mostra os comandos sem executar nenhum. A tela de login
+  ganhou login automático opcional (`/etc/glove/autologin`, usado pela ISO).
+- [x] 11.2 `glove-setup-tool.sh iso` (G) — v0.11.2, **a testar**: gera o .deb, baixa o live-build e o
+  debootstrap oficiais do Debian (a versão mais nova do repositório) para `iso/ferramentas` e monta
+  com eles uma ISO Debian 13 (trixie) híbrida (pendrive ou DVD, UEFI e BIOS) em `iso/`, fora do Git:
+  o Glove, o Firefox ESR, PipeWire, NetworkManager, firmwares comuns, Flatpak (com o Flathub) e o
+  instalador. O sistema ao vivo entra sozinho no Glove (usuário `glove`, em português com teclado ABNT2)
+  e abre o instalador. `glove-setup-tool.sh iso testar` liga a ISO no QEMU (UEFI se houver o OVMF),
+  com um disco virtual de 32 GB para testar o instalador. A lista de pacotes e o ajuste do sistema ao
+  vivo ficam em `data/iso/`.

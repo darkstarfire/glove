@@ -4301,3 +4301,201 @@ msgstr "Server:"
 
 msgid "Você entrou em {}."
 msgstr "You joined {}."
+
+msgid "A cópia do sistema falhou."
+msgstr "Copying the system failed."
+
+msgid "A instalação não terminou"
+msgstr "The installation did not finish"
+
+msgid "A senha precisa de pelo menos 4 caracteres."
+msgstr "The password needs at least 4 characters."
+
+msgid "A sua conta de administrador no Glove."
+msgstr "Your administrator account on Glove."
+
+msgid "Apagar o disco inteiro e instalar o Glove"
+msgstr "Erase the whole disk and install Glove"
+
+msgid "As senhas não são iguais."
+msgstr "The passwords don't match."
+
+msgid "Atenção: isto não é o Glove ao vivo (a imagem do sistema não foi encontrada)."
+msgstr "Warning: this is not the Glove live system (the system image was not found)."
+
+msgid "Bem-vindo ao instalador do Glove"
+msgstr "Welcome to the Glove installer"
+
+msgid "Como:"
+msgstr "How:"
+
+msgid "Computador:"
+msgstr "Computer:"
+
+msgid "Configurando o sistema"
+msgstr "Setting up the system"
+
+msgid "Confira antes de instalar."
+msgstr "Check before installing."
+
+msgid "Confirme a senha:"
+msgstr "Confirm password:"
+
+msgid "Conta"
+msgstr "Account"
+
+msgid "Copiando o sistema"
+msgstr "Copying the system"
+
+msgid "Disco:"
+msgstr "Disk:"
+
+msgid "Em poucos passos você escolhe o idioma, o teclado, o fuso horário, o disco e cria a sua conta. A instalação leva alguns minutos."
+msgstr "In a few steps you choose the language, keyboard, time zone and disk, and create your account. The installation takes a few minutes."
+
+msgid "Entendi. Pode instalar."
+msgstr "I understand. Install."
+
+msgid "Escolha a cidade mais perto de você."
+msgstr "Choose the city closest to you."
+
+msgid "Este computador inicia pelo modo BIOS (legado)."
+msgstr "This computer starts in BIOS (legacy) mode."
+
+msgid "Este computador inicia por UEFI."
+msgstr "This computer starts with UEFI."
+
+msgid "Faça uma cópia dos seus arquivos antes de continuar: se você escolher apagar um disco, tudo o que está nele será perdido."
+msgstr "Back up your files before you continue: if you choose to erase a disk, everything on it will be lost."
+
+msgid "Fuso horário:"
+msgstr "Time zone:"
+
+msgid "Hoje o disco tem:"
+msgstr "The disk currently has:"
+
+msgid "Idioma e Teclado"
+msgstr "Language and Keyboard"
+
+msgid "Idioma:"
+msgstr "Language:"
+
+msgid "Inicie o computador pelo pendrive ou DVD do Glove para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."
+msgstr "Start the computer from the Glove USB stick or DVD to install. To see the installer without changing anything, use glove-instalador --simular."
+
+msgid "Instalando o carregador de boot"
+msgstr "Installing the boot loader"
+
+
+
+msgid "Instalar o Glove"
+msgstr "Install Glove"
+
+msgid "Montando"
+msgstr "Mounting"
+
+msgid "Nada mais foi alterado depois do erro. Veja o registro abaixo."
+msgstr "Nothing else was changed after the error. See the log below."
+
+msgid "Nenhum disco encontrado (é preciso um disco de pelo menos 8 GB, sem contar o pendrive do Glove ao vivo)."
+msgstr "No disk found (a disk of at least 8 GB is needed, not counting the Glove live USB stick)."
+
+msgid "Nome de usuário:"
+msgstr "User name:"
+
+msgid "Nome do computador:"
+msgstr "Computer name:"
+
+msgid "O Glove foi instalado. Tire o pendrive e reinicie."
+msgstr "Glove is installed. Remove the USB stick and restart."
+
+msgid "O Glove vai ser copiado para o disco deste computador."
+msgstr "Glove will be copied to this computer's disk."
+
+msgid "O disco está vazio."
+msgstr "The disk is empty."
+
+msgid "O idioma do sistema e o tipo do seu teclado."
+msgstr "The system language and your keyboard type."
+
+msgid "O instalador funciona só no Glove ao vivo."
+msgstr "The installer only works on the Glove live system."
+
+msgid "O nome de usuário usa só letras minúsculas, números, - e _, começando por letra."
+msgstr "The user name uses only lowercase letters, numbers, - and _, starting with a letter."
+
+msgid "O nome do computador usa só letras sem acento, números e -."
+msgstr "The computer name uses only unaccented letters, numbers and -."
+
+msgid "Onde instalar o Glove."
+msgstr "Where to install Glove."
+
+
+msgid "Para mexer nos discos, digite a senha deste sistema."
+msgstr "To change the disks, type this system's password."
+
+msgid "Preparando o disco"
+msgstr "Preparing the disk"
+
+msgid "Procurar cidade"
+msgstr "Search city"
+
+msgid "Pronto!"
+msgstr "Done!"
+
+msgid "Resumo"
+msgstr "Summary"
+
+msgid "SIMULAÇÃO"
+msgstr "SIMULATION"
+
+msgid "Sem UUID para {}"
+msgstr "No UUID for {}"
+
+msgid "Senha de administrador"
+msgstr "Administrator password"
+
+msgid "Simulação concluída: nada foi alterado."
+msgstr "Simulation finished: nothing was changed."
+
+msgid "Teclado:"
+msgstr "Keyboard:"
+
+msgid "Teste o teclado aqui:"
+msgstr "Test the keyboard here:"
+
+msgid "Tudo o que está em {} será apagado."
+msgstr "Everything on {} will be erased."
+
+msgid "apagar o disco inteiro"
+msgstr "erase the whole disk"
+
+msgid "no espaço livre, ao lado do outro sistema"
+msgstr "in the free space, alongside the other system"
+
+msgid "{} falhou"
+msgstr "{} failed"
+
+msgid "Introdução"
+msgstr "Introduction"
+
+msgid "Instalação"
+msgstr "Installation"
+
+msgid "Espanhol"
+msgstr "Spanish"
+
+msgid "Instalador|Voltar"
+msgstr "Go Back"
+
+msgid "Instalar ao lado do sistema atual"
+msgstr "Install alongside the current system"
+
+msgid "Instalar ao lado, no espaço livre ({})"
+msgstr "Install alongside, in the free space ({})"
+
+msgid "Para instalar ao lado é preciso iniciar por UEFI, ter uma partição EFI e 20 GB livres."
+msgstr "Installing alongside needs UEFI start-up, an EFI partition and 20 GB free."
+
+msgid "Libere espaço antes no outro sistema (ou com o Discos)."
+msgstr "Free up space first in the other system (or with Disks)."
