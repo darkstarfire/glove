@@ -144,6 +144,9 @@ montar() {
     chmod 644 "$destino/etc/pam.d/glove"
     # Tema de ícones (gerado pelo código, igual ao do repositório glove-icons).
     target/release/glove-arte icones "$destino$prefixo/share/icons/Glove" >/dev/null
+    # Papéis de parede (o do Glove OS é o padrão).
+    mkdir -p "$destino$prefixo/share/glove/papeis"
+    install -m 644 data/papeis/*.png "$destino$prefixo/share/glove/papeis/"
     # Documentação e licença.
     mkdir -p "$destino$prefixo/share/doc/glove"
     install -m 644 README.md LICENSE "$destino$prefixo/share/doc/glove/"
@@ -287,7 +290,7 @@ EOF
     msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
-# Pacote glove-os: a identidade da distro Glove OS (nome, logo, papel de parede,
+# Pacote glove-os: a identidade da distro Glove OS (nome, logo,
 # fastfetch e neofetch, GRUB). Só para o Glove OS (a ISO): o pacote glove sozinho,
 # instalado em outra distro, não muda o nome dela.
 pacote_glove_os() {
@@ -300,7 +303,6 @@ pacote_glove_os() {
     install -m 755 "$d/identidade" "$o/identidade"
     install -m 644 "$d/logo.txt" "$d/logo-neofetch.txt" "$o/"
     install -m 644 "$d/glove-os.png" "$o/logo.png"
-    if [ -f "$d/papel-de-parede.png" ]; then install -m 644 "$d/papel-de-parede.png" "$o/papel-de-parede.png"; fi
     install -m 644 "$d/fastfetch.jsonc" "$tmp/etc/xdg/fastfetch/config.jsonc"
     install -m 644 "$d/neofetch.conf" "$tmp/etc/skel/.config/neofetch/config.conf"
     install -m 644 "$d/apt-glove-os.conf" "$tmp/etc/apt/apt.conf.d/99glove-os"
@@ -325,7 +327,7 @@ pacote_glove_os() {
         echo "Homepage: $url"
         echo "Description: Glove OS: identidade da distro (Debian por dentro)"
         echo " Faz o sistema se apresentar como Glove OS: nome no os-release (ID=debian e a"
-        echo " versão do Debian continuam iguais, para os programas), logo, papel de parede,"
+        echo " versão do Debian continuam iguais, para os programas), logo,"
         echo " fastfetch, neofetch, tela de console e menu do GRUB. Só para o Glove OS."
     } > "$tmp/DEBIAN/control"
     mkdir -p "$saida"

@@ -665,3 +665,6 @@ visual gel. Cada uma será detalhada antes de começar.
   configuração nova (o Chromium só volta a desenhar com ela). Agora minimizar desativa e restaurar
   sempre manda uma configuração. A folha Abrir/Salvar numa janela que cresceu para ela ocupa a
   janela inteira (sem margem cinza). Preferências do Vídeo e da Música maiores e redimensionáveis.
+- [x] 11.8 Papel de parede do Glove OS (P) — v0.11.8 (glove-ui v0.2.9): a imagem "Glove OS" (a luva
+  sobre o azul) vem no pacote glove, em `share/glove/papeis/glove-os.png`; é o padrão de quem ainda
+  não escolheu um e o primeiro de Preferências ▸ Mesa ▸ Imagens do Glove.

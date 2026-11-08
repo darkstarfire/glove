@@ -153,7 +153,7 @@ is never left without a login screen. Personal settings (`~/.config/glove`) stay
 
 **Glove OS** is the distribution: Debian 13 inside (same packages, repositories and updates, 100%
 compatible) with Glove as the desktop and its own identity: the name "Glove OS" in `os-release`
-(with `ID=debian`, for programs), the glove logo, the wallpaper, fastfetch and neofetch with the
+(with `ID=debian`, for programs), the glove logo, fastfetch and neofetch with the
 glove, the console and the GRUB menu. That identity comes in the `glove-os` package, which only
 ships in the ISO; the `glove` package installed on another distribution does not rename it.
 

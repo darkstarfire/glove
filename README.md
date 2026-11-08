@@ -170,7 +170,7 @@ fica.
 
 **Glove OS** é a distro: Debian 13 por dentro (os mesmos pacotes, repositórios e atualizações, 100%
 compatível) com o Glove como área de trabalho e identidade própria: o nome "Glove OS" no
-`os-release` (com `ID=debian`, para os programas), a logo da luva, o papel de parede, o fastfetch e
+`os-release` (com `ID=debian`, para os programas), a logo da luva, o fastfetch e
 o neofetch com a luva, o console e o menu do GRUB. Essa identidade vem no pacote `glove-os`, que só
 vai na ISO; o pacote `glove` instalado em outra distro não muda o nome dela.
 
