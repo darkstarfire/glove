@@ -10,6 +10,7 @@ memstats = []
 [dependencies]
 bitflags = "2"
 glove-config = { path = "../../ui/crates/config" }
+glove-energia = { path = "../energia" }
 glove-paint = { path = "../../ui/crates/paint" }
 libc = "0.2.191"
 serde = { version = "1.0.229", features = ["derive"] }

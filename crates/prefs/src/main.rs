@@ -1479,18 +1479,14 @@ fn minutes_label(m: u32) -> String {
     }
 }
 
-/// Tem bateria? (como o compositor: a primeira presente em /sys/class/power_supply).
+/// Tem bateria? (como o compositor: kernel, ou o EC do Chromebook.)
 fn has_battery() -> bool {
-    let root = std::env::var_os("GLOVE_POWER_SUPPLY").map(std::path::PathBuf::from).unwrap_or_else(|| "/sys/class/power_supply".into());
-    std::fs::read_dir(root).into_iter().flatten().flatten().any(|e| std::fs::read_to_string(e.path().join("type")).is_ok_and(|t| t.trim() == "Battery"))
+    glove_energia::read().is_some()
 }
 
-/// Está na bateria agora (há bateria e nenhum adaptador ligado)?
+/// Está na bateria agora (há bateria e não está na tomada)?
 fn on_battery() -> bool {
-    let root = std::env::var_os("GLOVE_POWER_SUPPLY").map(std::path::PathBuf::from).unwrap_or_else(|| "/sys/class/power_supply".into());
-    let read = |p: std::path::PathBuf| std::fs::read_to_string(p).map(|s| s.trim().to_string()).unwrap_or_default();
-    let entries: Vec<std::path::PathBuf> = std::fs::read_dir(root).into_iter().flatten().flatten().map(|e| e.path()).collect();
-    has_battery() && !entries.iter().any(|d| read(d.join("type")) == "Mains" && read(d.join("online")) == "1")
+    glove_energia::read().is_some_and(|b| !b.on_ac)
 }
 
 impl Prefs {

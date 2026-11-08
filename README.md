@@ -19,7 +19,7 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (al�
 - **Apps X11** pelo Xwayland, com barra de título do Glove
 - Barra de menu global: menu principal (Itens Recentes, Forçar Encerrar, Repouso, Desligar…),
   menu do app, os **menus de cada app**, submenus e navegação pelo teclado; extras de Wi-Fi,
-  volume, bateria e monitor, relógio e nome do usuário (troca rápida de usuário)
+  volume, bateria (com tempo restante, saúde e ciclos, também em baterias paralelas e Chromebooks em que o firmware não reconhece a bateria) e monitor, relógio e nome do usuário (troca rápida de usuário)
 - **Dock** de vidro com ampliação, ícones que pulam ao abrir, menu de contexto com bico, ocultar
   sozinho, posição embaixo/esquerda/direita, efeitos de minimizar **Escala** e **Lâmpada Mágica**
   (deformação feita na placa de vídeo), miniaturas vivas e Lixo cheio/vazio

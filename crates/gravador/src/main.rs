@@ -34,7 +34,7 @@ fn folder() -> PathBuf {
         .map(|v| PathBuf::from(v.trim().trim_matches('"').replace("$HOME", &home.to_string_lossy())))
         .filter(|p| p.is_dir())
         .unwrap_or_else(|| ["Música", "Music"].iter().map(|d| home.join(d)).find(|p| p.is_dir()).unwrap_or_else(|| home.join("Music")));
-    music.join(tr!("Gravador|Gravações"))
+    music.join(tr!("Gravações|Gravador"))
 }
 
 fn local(t: SystemTime) -> (i32, u32, u32, u32, u32, u32) {
@@ -172,7 +172,7 @@ impl Gravador {
             return;
         }
         let (y, mo, d, h, mi, s) = local(SystemTime::now());
-        let out = dir.join(format!("{} {y:04}-{mo:02}-{d:02} {h:02}.{mi:02}.{s:02}.wav", tr!("Gravador|Gravação")));
+        let out = dir.join(format!("{} {y:04}-{mo:02}-{d:02} {h:02}.{mi:02}.{s:02}.wav", tr!("Gravação|Gravador")));
         let Some(mut cmd) = record_cmd(&out) else {
             self.error = Some(tr!("Nenhum programa de gravação encontrado (pw-record, parecord ou arecord).").into());
             return;
@@ -320,7 +320,7 @@ impl App for Gravador {
                 }
             })
             .collect();
-        let cols = [Column::new(tr!("Gravador|Gravação"), 0.55), Column::new(tr!("Gravador|Duração"), 0.15).right(), Column::new(tr!("Data"), 0.3)];
+        let cols = [Column::new(tr!("Gravação|Gravador"), 0.55), Column::new(tr!("Duração|Gravador"), 0.15).right(), Column::new(tr!("Data"), 0.3)];
         let r = ui.table(Rect::new(0.0, TOP_H, w, h - TOP_H - bar), &cols, &rows, self.sel, &mut self.table, &TableStyle { row_h: 22.0, ..TableStyle::default() });
         if let Some(i) = r.pressed {
             self.sel = Some(i);
@@ -381,7 +381,7 @@ impl App for Gravador {
 
     fn menus(&self) -> Vec<Menu> {
         vec![Menu::new(
-            tr!("Gravador|Gravação"),
+            tr!("Gravação|Gravador"),
             vec![
                 MenuItem::new("record", if self.rec.is_some() { tr!("Parar de Gravar") } else { tr!("Gravar") }, "Ctrl+R"),
                 MenuItem::new("play", tr!("Ouvir / Parar"), "").enabled(self.sel.is_some()),

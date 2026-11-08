@@ -621,3 +621,13 @@ visual gel. Cada uma será detalhada antes de começar.
   e abre o instalador. `glove-setup-tool.sh iso testar` liga a ISO no QEMU (UEFI se houver o OVMF),
   com um disco virtual de 32 GB para testar o instalador. A lista de pacotes e o ajuste do sistema ao
   vivo ficam em `data/iso/`.
+- [x] 11.3 Bateria que o firmware não reconhece (M) — v0.11.3: a leitura da bateria vira a biblioteca
+  `glove-energia` (vinda do Mide), usada pela barra e pelas Preferências. Três caminhos: o kernel; o
+  arquivo do serviço `cros-ec-battery` e o EC do Chromebook (`/dev/cros_ec`), quando o firmware diz
+  "bateria ausente". Remendos para baterias paralelas: carga pela energia quando falta `capacity`,
+  estado "Unknown" decidido pelo adaptador (inclusive carregador USB-C), corrente com sinal, saúde
+  escondida quando o chip informa uma capacidade de projeto absurda. Tempo até acabar e até carregar
+  pela potência suavizada ou, sem potência, pela queda da carga nos últimos minutos. O menu da bateria
+  mostra também "na tomada, sem carregar", a potência, a saúde e os ciclos. Corrigidas as chaves de
+  tradução com contexto da Fase 10 (em português apareciam "Avisos", "Gravador" e "Instalador" no
+  lugar de "Limpar", "Gravação" e "Voltar"; a pasta das gravações passa a ser Música ▸ Gravações).

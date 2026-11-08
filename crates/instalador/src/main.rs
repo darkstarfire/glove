@@ -459,7 +459,7 @@ impl Instalador {
         });
         if self.pagina > 0 && self.pagina < 6 {
             ui.area(Rect::new(w - 250.0, y + 13.0, 110.0, 28.0), |ui| {
-                if ui.button(tr!("Instalador|Voltar")) {
+                if ui.button(tr!("Voltar|Instalador")) {
                     act = Some("voltar");
                 }
             });

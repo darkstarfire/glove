@@ -7,7 +7,7 @@
 
 use glove_config::tr;
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     process::Command,
     time::{Duration, Instant},
 };
@@ -23,16 +23,6 @@ use crate::{
     state::Glove,
 };
 use glove_paint::chrome::MenuItem;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct BatteryInfo {
-    pub percent: u8,
-    pub charging: bool,
-    pub full: bool,
-    pub on_ac: bool,
-    /// Minutos restantes (descarregando), quando o sistema informa.
-    pub minutes_left: Option<u32>,
-}
 
 /// Qual extra está em cada posição da barra.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,7 +59,10 @@ pub struct Osd {
 pub struct Extras {
     /// (nível 0 a 1, sem som). None = sem PipeWire.
     pub volume: Option<(f32, bool)>,
-    pub battery: Option<BatteryInfo>,
+    pub battery: Option<glove_energia::Battery>,
+    /// Tempos da bateria (até acabar, até carregar), em segundos.
+    pub battery_times: (Option<u64>, Option<u64>),
+    battery_estimate: glove_energia::Estimate,
     pub slider: Option<VolumeSlider>,
     pub osd: Option<Osd>,
     osd_timer: bool,
@@ -117,38 +110,11 @@ fn read_num(p: &Path) -> Option<f64> {
     std::fs::read_to_string(p).ok()?.trim().parse().ok()
 }
 
-fn read_str(p: &Path) -> String {
-    std::fs::read_to_string(p).map(|s| s.trim().to_string()).unwrap_or_default()
-}
-
-/// Bateria (a primeira presente) e se o adaptador está ligado.
-pub fn read_battery(root: &Path) -> Option<BatteryInfo> {
-    let mut entries: Vec<PathBuf> = std::fs::read_dir(root).ok()?.flatten().map(|e| e.path()).collect();
-    entries.sort();
-    let on_ac = entries.iter().any(|d| read_str(&d.join("type")) == "Mains" && read_str(&d.join("online")) == "1");
-    let bat = entries.iter().find(|d| read_str(&d.join("type")) == "Battery" && read_str(&d.join("present")) != "0")?;
-    let percent = read_num(&bat.join("capacity"))?.clamp(0.0, 100.0) as u8;
-    let status = read_str(&bat.join("status"));
-    let charging = status == "Charging";
-    let full = status == "Full" || (on_ac && percent >= 99 && !charging);
-    let minutes_left = if status == "Discharging" {
-        let left = read_num(&bat.join("energy_now")).zip(read_num(&bat.join("power_now"))).or_else(|| read_num(&bat.join("charge_now")).zip(read_num(&bat.join("current_now"))));
-        left.filter(|(_, rate)| *rate > 0.0).map(|(now, rate)| (now / rate * 60.0) as u32)
-    } else {
-        None
-    };
-    Some(BatteryInfo { percent, charging, full, on_ac: on_ac || charging, minutes_left })
-}
-
 /// Muda o brilho pelo logind (sem root).
 fn set_backlight(name: &str, raw: u32) {
     let _ = Command::new("busctl")
         .args(["call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto", "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight", name, &raw.to_string()])
         .spawn();
-}
-
-fn power_supply_root() -> PathBuf {
-    std::env::var_os("GLOVE_POWER_SUPPLY").map(PathBuf::from).unwrap_or_else(|| "/sys/class/power_supply".into())
 }
 
 /// Tela com luz de fundo ajustável: (nome, atual, máximo).
@@ -158,9 +124,21 @@ fn backlight() -> Option<(String, u32, u32)> {
     Some((name, read_num(&dir.join("brightness"))? as u32, read_num(&dir.join("max_brightness"))? as u32))
 }
 
-/// "Restam cerca de 2:05".
-fn format_left(min: u32) -> String {
-    tr!("Restam cerca de {}:{}", min / 60, format!("{:02}", min % 60))
+/// "Restam cerca de 2:05" (de segundos).
+fn format_left(secs: u64) -> String {
+    let min = (secs + 30) / 60;
+    tr!("Restam cerca de {}:{}", min / 60, format!("{:02}", min % 60)).into()
+}
+
+/// "Carga completa em cerca de 1:10" (de segundos).
+fn format_until_full(secs: u64) -> String {
+    let min = (secs + 30) / 60;
+    tr!("Carga completa em cerca de {}:{}", min / 60, format!("{:02}", min % 60)).into()
+}
+
+/// Potência com uma casa decimal e a vírgula (ou o ponto) do idioma: "8,5".
+fn format_watts(w: f64) -> String {
+    format!("{w:.1}").replace('.', glove_config::virgula())
 }
 
 /// Resoluções distintas (a de maior frequência de cada uma), da maior para a menor.
@@ -186,7 +164,11 @@ impl Glove {
     /// Relê volume e bateria (na partida e uma vez por minuto).
     pub fn refresh_extras(&mut self) {
         let vol = read_volume();
-        let bat = read_battery(&power_supply_root());
+        let bat = glove_energia::read();
+        self.extras.battery_times = match &bat {
+            Some(b) => self.extras.battery_estimate.update(b, Instant::now()),
+            None => (None, None),
+        };
         let wifi = if self.greeter { None } else { read_wifi() };
         if wifi != self.extras.wifi {
             self.extras.wifi = wifi;
@@ -372,15 +354,32 @@ impl Glove {
     fn battery_menu(&self) -> Vec<MenuNode> {
         let Some(b) = self.extras.battery.clone() else { return Vec::new() };
         let info = |t: String| MenuNode::new(MenuItem::item(t).disabled(), None);
-        let mut v = vec![if b.full {
-            info(tr!("Bateria carregada").into())
-        } else if b.charging {
-            info(tr!("Carregando: {}%", b.percent))
-        } else {
-            info(tr!("Bateria: {}%", b.percent))
+        use glove_energia::State;
+        let mut v = vec![match b.state {
+            State::Full => info(tr!("Bateria carregada").into()),
+            State::Charging => info(tr!("Carregando: {}%", b.percent)),
+            State::NotCharging => info(tr!("Na tomada, sem carregar: {}%", b.percent)),
+            _ => info(tr!("Bateria: {}%", b.percent)),
         }];
-        if let Some(m) = b.minutes_left {
-            v.push(info(format_left(m)));
+        let (to_empty, to_full) = self.extras.battery_times;
+        if let Some(t) = to_empty {
+            v.push(info(format_left(t)));
+        }
+        if let Some(t) = to_full {
+            v.push(info(format_until_full(t)));
+        }
+        if let Some(w) = b.power_w.filter(|w| *w >= 0.1) {
+            match b.state {
+                State::Charging => v.push(info(tr!("Carregando a {} W", format_watts(w)))),
+                State::Discharging | State::Unknown => v.push(info(tr!("Consumo: {} W", format_watts(w)))),
+                _ => {}
+            }
+        }
+        if let Some(h) = b.health_percent {
+            v.push(info(tr!("Saúde da bateria: {}%", format!("{h:.0}"))));
+        }
+        if let Some(c) = b.cycles {
+            v.push(info(tr!("Ciclos de carga: {}", c)));
         }
         v.push(info(tr!("Fonte de energia: {}", if b.on_ac { tr!("Adaptador") } else { tr!("Bateria") })));
         v.push(MenuNode::sep());
@@ -692,25 +691,11 @@ mod tests {
 
     #[test]
     fn bateria() {
-        let dir = std::env::temp_dir().join(format!("glove-bat-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        let w = |p: &str, v: &str| {
-            let f = dir.join(p);
-            std::fs::create_dir_all(f.parent().unwrap()).unwrap();
-            std::fs::write(f, v).unwrap();
-        };
-        w("AC/type", "Mains\n");
-        w("AC/online", "0\n");
-        w("BAT0/type", "Battery\n");
-        w("BAT0/present", "1\n");
-        w("BAT0/capacity", "42\n");
-        w("BAT0/status", "Discharging\n");
-        w("BAT0/energy_now", "20000000\n");
-        w("BAT0/power_now", "10000000\n");
-        let b = read_battery(&dir).unwrap();
-        assert_eq!((b.percent, b.charging, b.on_ac, b.minutes_left), (42, false, false, Some(120)));
-        assert!(format_left(125).contains("2:05"));
-        std::fs::remove_dir_all(&dir).unwrap();
+        // A leitura e a estimativa têm testes no glove-energia; aqui, só o texto.
+        assert!(format_left(125 * 60).contains("2:05"));
+        assert!(format_until_full(70 * 60 + 10).contains("1:10"));
+        let w = format_watts(8.46);
+        assert!(w == "8,5" || w == "8.5", "{w}");
     }
 
     #[test]

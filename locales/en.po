@@ -242,6 +242,24 @@ msgstr "Charging: {}%"
 msgid "Bateria: {}%"
 msgstr "Battery: {}%"
 
+msgid "Na tomada, sem carregar: {}%"
+msgstr "Plugged in, not charging: {}%"
+
+msgid "Carga completa em cerca de {}:{}"
+msgstr "About {}:{} until fully charged"
+
+msgid "Carregando a {} W"
+msgstr "Charging at {} W"
+
+msgid "Consumo: {} W"
+msgstr "Using {} W"
+
+msgid "Saúde da bateria: {}%"
+msgstr "Battery Health: {}%"
+
+msgid "Ciclos de carga: {}"
+msgstr "Cycle Count: {}"
+
 msgid "Fonte de energia: {}"
 msgstr "Power Source: {}"
 
@@ -3981,7 +3999,7 @@ msgstr "Do Not Disturb"
 msgid "Nenhum aviso"
 msgstr "No notifications"
 
-msgid "Avisos|Limpar"
+msgid "Limpar|Avisos"
 msgstr "Clear"
 
 msgid "Vários dedos"
@@ -4182,10 +4200,10 @@ msgstr "Version"
 msgid "Clique no botão vermelho para gravar"
 msgstr "Click the red button to record"
 
-msgid "Gravador|Duração"
+msgid "Duração|Gravador"
 msgstr "Duration"
 
-msgid "Gravador|Gravação"
+msgid "Gravação|Gravador"
 msgstr "Recording"
 
 msgid "Gravando…"
@@ -4209,7 +4227,7 @@ msgstr "Play / Stop"
 msgid "Parar de Gravar"
 msgstr "Stop Recording"
 
-msgid "Gravador|Gravações"
+msgid "Gravações|Gravador"
 msgstr "Recordings"
 
 msgid "Apresentação"
@@ -4485,7 +4503,7 @@ msgstr "Installation"
 msgid "Espanhol"
 msgstr "Spanish"
 
-msgid "Instalador|Voltar"
+msgid "Voltar|Instalador"
 msgstr "Go Back"
 
 msgid "Instalar ao lado do sistema atual"

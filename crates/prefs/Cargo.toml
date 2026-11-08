@@ -13,4 +13,5 @@ path = "src/main.rs"
 glove-ui = { path = "../../ui/crates/ui" }
 glove-paint = { path = "../../ui/crates/paint" }
 glove-config = { path = "../../ui/crates/config" }
+glove-energia = { path = "../energia" }
 libc = "0.2"

@@ -536,7 +536,7 @@ fn draw_center(f: &glove_paint::font::Fonts, rows: &[&Aviso], quiet: bool, total
         c.fill(rrect(qx + 3.0, 16.0, 7.0, 7.0, 1.5), &solid(rgba(40, 110, 220, 255)));
     }
     f.draw(&mut c, tr!("Não perturbe"), qx + 18.0, 24.5, 11.5, false, ink);
-    let clear = tr!("Avisos|Limpar");
+    let clear = tr!("Limpar|Avisos");
     let cw = f.measure(clear, 11.5, false) + 16.0;
     c.fill(rrect(w - 14.0 - cw, 11.0, cw, 18.0, 9.0), &vgrad(11.0, 29.0, &[(0.0, rgba(255, 255, 255, 255)), (1.0, rgba(225, 225, 230, 255))]));
     c.stroke(rrect(w - 14.0 - cw + 0.5, 11.5, cw - 1.0, 17.0, 9.0), &solid(rgba(0, 0, 0, if total > 0 { 90 } else { 40 })), 1.0);
