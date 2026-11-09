@@ -717,7 +717,7 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
   antes/depois (Formatar > Texto > Espaçamento)
 - [x] 12.4 RTF (G) — v0.12.4: gravar e ler (padrão dos documentos novos); abre RTF do Word, LibreOffice e TextEdit
   (fontes, cores, parágrafos, ignorando o que não conhece); Converter em Texto Simples / Rico
-- [ ] 12.5 Páginas (G): modo página (folhas A4 ou Carta sobre fundo cinza), margens, Configurar
+- [x] 12.5 Páginas (G) — v0.12.5: modo página (folhas A4 ou Carta sobre fundo cinza), margens, Configurar
   Página, quebra de página (Inserir > Quebra de Página); o modo "ajustar à janela" continua existindo
 - [ ] 12.6 Cabeçalho, rodapé e notas (M): cabeçalho e rodapé com número de página, total, título e
   data; primeira página diferente (capa sem número); notas de rodapé numeradas no pé da página

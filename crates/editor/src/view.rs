@@ -11,11 +11,13 @@ use glove_ui::{Rect, Ui};
 
 use crate::fontbook::FontBook;
 use crate::layout::{hit_line, layout_para, line_of, x_of, ParaLayout};
-use crate::rich::{Doc, Frag, Para, Pos};
+use crate::rich::{Doc, Frag, PageSetup, Para, Pos};
 
 /// Margens do texto no modo "ajustar à janela" (pontos).
 const MARGIN_X: f32 = 24.0;
 const MARGIN_Y: f32 = 14.0;
+/// Modo página: espaço entre as folhas e em volta delas (pontos).
+const GAP: f32 = 18.0;
 
 thread_local! {
     /// O último pedaço copiado no Editor, com os estilos (os outros apps só veem o texto).
@@ -25,12 +27,26 @@ thread_local! {
 pub struct DocView {
     /// Rolagem (pixels da tela) e zoom (pixels por ponto).
     pub scroll: f32,
+    /// Rolagem para os lados (folha mais larga que a janela).
+    pub hscroll: f32,
+    /// Largura do documento (pontos): a folha com a mesa em volta, ou a área.
+    doc_w: f32,
     pub zoom: f32,
     cache: HashMap<u64, ParaLayout>,
-    /// Topo de cada parágrafo (pontos, a partir do topo do texto) e altura total.
-    tops: Vec<f32>,
+    /// Modo página (folhas com margens) ou ajustado à janela.
+    pub page_mode: bool,
+    /// Zoom que faz a folha caber na largura da janela.
+    pub fit_width: bool,
+    /// Topo de cada linha de cada parágrafo (pontos, no espaço do documento).
+    lys: Vec<Vec<f32>>,
+    /// Altura total do documento (pontos), largura da coluna de texto e onde ela começa.
     total: f32,
     width: f32,
+    col_x: f32,
+    /// Modo página: o papel, quantas folhas e onde fica a folha (x, pontos).
+    page: PageSetup,
+    pages: usize,
+    page_x: f32,
     /// Leva o cursor para dentro da área visível no próximo quadro.
     pub reveal: bool,
     want_x: Option<f32>,
@@ -57,30 +73,79 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, zoom: 1.0, cache: HashMap::new(), tops: Vec::new(), total: 0.0, width: 0.0, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
         &self.cache[&p.id]
     }
 
-    /// Diagrama o que mudou e recalcula os topos.
-    fn ensure(&mut self, doc: &Doc, fb: &FontBook, width: f32) {
-        let width = width.max(60.0);
-        if (width - self.width).abs() > 0.01 {
-            self.width = width;
-        }
-        self.tops.clear();
-        let mut y = 0.0;
+    /// Topo de cada folha (pontos).
+    fn page_top(&self, k: usize) -> f32 {
+        GAP + k as f32 * (self.page.height + GAP)
+    }
+
+    /// Diagrama o que mudou e põe cada linha no lugar (numa coluna ou em folhas).
+    /// `area_w` = largura da área em pontos.
+    fn ensure(&mut self, doc: &Doc, fb: &FontBook, area_w: f32) {
+        self.page = doc.page.clone();
+        let pg = &self.page;
+        let width = if self.page_mode { pg.width - pg.margin_left - pg.margin_right } else { area_w - 2.0 * MARGIN_X }.max(60.0);
+        self.width = width;
         for p in &doc.paras {
             let fresh = self.cache.get(&p.id).is_some_and(|l| l.ver == p.ver && (l.width - width).abs() < 0.01);
             if !fresh {
                 self.cache.insert(p.id, layout_para(p, width, fb));
             }
-            self.tops.push(y);
-            y += self.cache[&p.id].h;
         }
-        self.total = y;
+        self.lys.clear();
+        if self.page_mode {
+            // Folhas centralizadas; o texto corre de uma para a outra pelas linhas.
+            self.page_x = ((area_w - pg.width) / 2.0).max(GAP);
+            self.col_x = self.page_x + pg.margin_left;
+            let room = (pg.height - pg.margin_top - pg.margin_bottom).max(40.0);
+            let (mt, ph) = (pg.margin_top, pg.height);
+            let top = |k: usize| GAP + k as f32 * (ph + GAP) + mt;
+            let (mut page, mut y) = (0usize, 0.0f32);
+            for p in &doc.paras {
+                let l = &self.cache[&p.id];
+                if p.style.page_break_before && y > 0.0 {
+                    page += 1;
+                    y = 0.0;
+                }
+                let first_y = l.lines.first().map_or(0.0, |ln| ln.y);
+                // O espaço antes do parágrafo some no topo da folha.
+                if y > 0.0 {
+                    y += first_y;
+                }
+                let mut ys = Vec::with_capacity(l.lines.len());
+                for ln in &l.lines {
+                    if y + ln.h > room && y > 0.0 {
+                        page += 1;
+                        y = 0.0;
+                    }
+                    ys.push(top(page) + y);
+                    y += ln.h;
+                }
+                let last_end = l.lines.last().map_or(0.0, |ln| ln.y + ln.h);
+                y += (l.h - last_end).max(0.0);
+                self.lys.push(ys);
+            }
+            self.pages = page + 1;
+            self.total = self.page_top(self.pages);
+            self.doc_w = self.page.width + 2.0 * GAP;
+        } else {
+            self.col_x = MARGIN_X;
+            let mut y = MARGIN_Y;
+            for p in &doc.paras {
+                let l = &self.cache[&p.id];
+                self.lys.push(l.lines.iter().map(|ln| y + ln.y).collect());
+                y += l.h;
+            }
+            self.pages = 1;
+            self.total = y + MARGIN_Y;
+            self.doc_w = area_w;
+        }
         // Esquece os parágrafos que não existem mais (de vez em quando).
         if self.cache.len() > doc.paras.len() * 2 + 64 {
             let ids: std::collections::HashSet<u64> = doc.paras.iter().map(|p| p.id).collect();
@@ -88,32 +153,31 @@ impl DocView {
         }
     }
 
-    /// Onde fica a posição (pontos, a partir do canto do texto).
+    /// Onde fica a posição (pontos, no espaço do documento).
     pub fn caret(&self, doc: &Doc, fb: &FontBook, pos: Pos) -> Caret {
         let p = &doc.paras[pos.p];
         let l = self.lay(p);
         let li = line_of(l, pos.o);
         let ln = &l.lines[li];
-        Caret { x: x_of(p, l, fb, li, pos.o), y: self.tops[pos.p] + ln.y, h: ln.h }
+        Caret { x: self.col_x + x_of(p, l, fb, li, pos.o), y: self.lys[pos.p][li], h: ln.h }
     }
 
-    /// Posição mais perto do ponto (pontos, a partir do canto do texto).
+    /// Posição mais perto do ponto (pontos, no espaço do documento).
     pub fn hit(&self, doc: &Doc, fb: &FontBook, x: f32, y: f32) -> Pos {
-        if y < 0.0 {
-            return Pos::new(0, 0);
-        }
-        let pi = self.tops.partition_point(|&t| t <= y).saturating_sub(1).min(doc.paras.len() - 1);
+        // O parágrafo: o último cuja primeira linha começa acima do ponto.
+        let pi = self.lys.partition_point(|ys| ys.first().is_some_and(|&t| t <= y)).saturating_sub(1).min(doc.paras.len() - 1);
         let p = &doc.paras[pi];
         let l = self.lay(p);
-        let ly = y - self.tops[pi];
-        let li = l.lines.iter().position(|ln| ly < ln.y + ln.h).unwrap_or(l.lines.len() - 1);
-        Pos::new(pi, hit_line(p, l, fb, li, x))
+        let ys = &self.lys[pi];
+        let li = (0..l.lines.len()).find(|&i| y < ys[i] + l.lines[i].h).unwrap_or(l.lines.len() - 1);
+        // Acima de tudo, no topo de uma folha: a primeira linha do parágrafo.
+        Pos::new(pi, hit_line(p, l, fb, li, x - self.col_x))
     }
 
     /// Uma linha acima ou abaixo, mantendo o x.
     fn vertical(&mut self, doc: &Doc, fb: &FontBook, pos: Pos, delta: i32) -> Pos {
         let c = self.caret(doc, fb, pos);
-        let x = *self.want_x.get_or_insert(c.x);
+        let x = *self.want_x.get_or_insert(c.x) - self.col_x;
         let p = &doc.paras[pos.p];
         let l = self.lay(p);
         let li = line_of(l, pos.o) as i32 + delta;
@@ -154,7 +218,13 @@ impl DocView {
 
     /// Onde começa o texto na área (pixels a partir da esquerda dela).
     pub fn text_left(&self) -> f32 {
-        MARGIN_X * self.zoom
+        self.col_x * self.zoom - self.hscroll
+    }
+
+    /// Quantas folhas (modo página).
+    #[allow(dead_code)] // o rodapé da 12.6 usa ("página X de Y")
+    pub fn pages(&self) -> usize {
+        self.pages
     }
 
     /// Largura da coluna de texto (pontos).
@@ -164,22 +234,34 @@ impl DocView {
 
     /// Altura do documento em pixels (com as margens).
     pub fn content_h(&self) -> f32 {
-        (self.total + 2.0 * MARGIN_Y) * self.zoom
+        self.total * self.zoom
     }
 
     /// A área de edição em `r`. Devolve verdadeiro se o documento mudou.
     pub fn ui(&mut self, ui: &mut Ui, doc: &mut Doc, fb: &FontBook, r: Rect, enabled: bool) -> bool {
-        let z = self.zoom;
         let sb_w = glove_ui::SCROLLBAR_W;
-        let width = (r.w - sb_w) / z - 2.0 * MARGIN_X;
+        if self.page_mode && self.fit_width {
+            self.zoom = ((r.w - sb_w) / (doc.page.width + 2.0 * GAP)).clamp(0.25, 4.0);
+        }
+        let z = self.zoom;
+        let width = (r.w - sb_w) / z;
         self.ensure(doc, fb, width);
         let ver = doc.version;
 
         // Barra de rolagem (e a roda do mouse).
         let mut scroll = self.scroll;
+        // Shift + roda: para os lados.
+        let wheel = ui.scroll_in(r);
+        let sideways = wheel != 0.0 && ui.mods().shift;
         let inner = ui.scroll_area(r, &mut scroll, self.content_h().max(r.h), 30.0);
-        self.scroll = scroll;
-        let origin = (inner.x + MARGIN_X * z, inner.y + MARGIN_Y * z);
+        if sideways {
+            self.hscroll += wheel;
+        } else {
+            self.scroll = scroll;
+        }
+        let max_h = (self.doc_w * z - inner.w).max(0.0);
+        self.hscroll = self.hscroll.clamp(0.0, max_h);
+        let origin = (inner.x - self.hscroll, inner.y);
         let to_doc = |sx: f32, sy: f32, scroll: f32| ((sx - origin.0) / z, (sy - origin.1 + scroll) / z);
 
         // Mouse
@@ -241,13 +323,30 @@ impl DocView {
         if self.reveal {
             self.reveal = false;
             let c = self.caret(doc, fb, doc.cursor);
-            let top = (MARGIN_Y + c.y) * z;
-            let bot = (MARGIN_Y + c.y + c.h) * z;
+            let top = c.y * z;
+            let bot = (c.y + c.h) * z;
             if top < self.scroll {
-                self.scroll = top - 4.0;
+                // Na primeira linha de uma folha, mostra a folha desde o topo.
+                self.scroll = if self.page_mode {
+                    let k = ((c.y - GAP) / (self.page.height + GAP)).floor().max(0.0) as usize;
+                    let pt = self.page_top(k);
+                    if c.y - pt <= self.page.margin_top + 1.0 { (pt - GAP / 2.0) * z } else { top - 30.0 }
+                } else if c.y <= MARGIN_Y + 1.0 {
+                    0.0
+                } else {
+                    top - 30.0
+                };
             } else if bot > self.scroll + inner.h {
-                self.scroll = bot - inner.h + 4.0;
+                self.scroll = bot - inner.h + 30.0;
             }
+            // E para os lados.
+            let cx = c.x * z;
+            if cx < self.hscroll + 10.0 {
+                self.hscroll = cx - 30.0;
+            } else if cx > self.hscroll + inner.w - 10.0 {
+                self.hscroll = cx - inner.w + 30.0;
+            }
+            self.hscroll = self.hscroll.clamp(0.0, max_h);
         }
         self.scroll = self.scroll.clamp(0.0, (self.content_h() - inner.h).max(0.0));
 
@@ -255,11 +354,11 @@ impl DocView {
         let active = ui.window_active();
         let show_caret = enabled && !ui.has_focus();
         let scroll = self.scroll;
+        let hscroll = self.hscroll;
         let me = &*self;
         let docr = &*doc;
         ui.clipped(0xd0c_u64, inner, |c, _| {
-            c.fill_rect(0.0, 0.0, inner.w, inner.h, &solid(rgba(255, 255, 255, 255)));
-            me.draw(c, docr, fb, (MARGIN_X * z, MARGIN_Y * z - scroll), inner.h, active, show_caret);
+            me.draw(c, docr, fb, (hscroll, scroll), inner.w, inner.h, active, show_caret);
         });
         changed
     }
@@ -396,23 +495,51 @@ impl DocView {
         }
     }
 
-    /// Desenha o documento: `off` = onde fica o canto do texto (pixels do canvas).
-    fn draw(&self, c: &mut Canvas, doc: &Doc, fb: &FontBook, off: (f32, f32), view_h: f32, active: bool, show_caret: bool) {
+    /// Desenha o documento rolado de `scroll` pixels numa área de `view_w` × `view_h`.
+    #[allow(clippy::too_many_arguments)]
+    fn draw(&self, c: &mut Canvas, doc: &Doc, fb: &FontBook, (hscroll, scroll): (f32, f32), view_w: f32, view_h: f32, active: bool, show_caret: bool) {
         let z = self.zoom;
+        let off = (self.col_x * z - hscroll, -scroll);
         let (sel_a, sel_b) = doc.selection();
         let has_sel = doc.has_selection();
         let sel_color = if active { rgba(181, 213, 255, 255) } else { rgba(212, 212, 216, 255) };
+        if self.page_mode {
+            // Mesa cinza e as folhas brancas com sombra.
+            c.fill_rect(0.0, 0.0, view_w, view_h, &solid(rgba(150, 152, 158, 255)));
+            let (pw, ph) = (self.page.width * z, self.page.height * z);
+            let px = self.page_x * z - hscroll;
+            for k in 0..self.pages {
+                let py = self.page_top(k) * z - scroll;
+                if py > view_h || py + ph < 0.0 {
+                    continue;
+                }
+                c.fill_rect(px + 2.0, py + 3.0, pw, ph, &solid(rgba(0, 0, 0, 50)));
+                c.fill_rect(px, py, pw, ph, &solid(rgba(255, 255, 255, 255)));
+                c.stroke(rrect(px - 0.5, py - 0.5, pw + 1.0, ph + 1.0, 0.0), &solid(rgba(90, 90, 96, 120)), 1.0);
+            }
+        } else {
+            c.fill_rect(0.0, 0.0, view_w, view_h, &solid(rgba(255, 255, 255, 255)));
+        }
         // Primeiro parágrafo visível.
-        let first = self.tops.partition_point(|&t| off.1 + t * z < 0.0).saturating_sub(1);
+        let first = self.lys.partition_point(|ys| ys.first().is_some_and(|&t| t * z - scroll < 0.0)).saturating_sub(1);
         for pi in first..doc.paras.len() {
-            let top = off.1 + self.tops[pi] * z;
-            if top > view_h {
+            let ys = &self.lys[pi];
+            if ys.first().is_some_and(|&t| t * z - scroll > view_h) {
                 break;
             }
             let p = &doc.paras[pi];
             let l = self.lay(p);
+            // Quebra de página no modo janela: uma linha tracejada antes do parágrafo.
+            if !self.page_mode && p.style.page_break_before && pi > 0 {
+                let y = (ys[0] - l.lines[0].y - 2.0) * z - scroll;
+                let mut x = 0.0;
+                while x < view_w {
+                    c.fill_rect(x, y, 6.0, 1.0, &solid(rgba(140, 140, 150, 255)));
+                    x += 10.0;
+                }
+            }
             for (li, ln) in l.lines.iter().enumerate() {
-                let ly = top + ln.y * z;
+                let ly = ys[li] * z - scroll;
                 if ly > view_h || ly + ln.h * z < 0.0 {
                     continue;
                 }
@@ -473,8 +600,8 @@ impl DocView {
             let p = &doc.paras[doc.cursor.p];
             let l = self.lay(p);
             let ln = &l.lines[line_of(l, doc.cursor.o)];
-            let x = (off.0 + cpos.x * z).round();
-            let y = off.1 + cpos.y * z;
+            let x = (cpos.x * z - hscroll).round();
+            let y = cpos.y * z - scroll;
             c.fill_rect(x, y, 1.0, ln.text_h * z, &solid(rgba(0, 0, 0, if active { 255 } else { 120 })));
         }
     }

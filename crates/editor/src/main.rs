@@ -3,6 +3,7 @@
 mod bar;
 mod fontbook;
 mod layout;
+mod pages;
 mod para;
 mod rich;
 mod rtf;
@@ -77,6 +78,8 @@ enum Sheet {
     AskSave,
     /// Formatar > Texto > Espaçamento.
     Spacing(para::SpacingSheet),
+    /// Arquivo > Configurar Página.
+    Page(pages::PageSheet),
 }
 
 /// O que o painel de Cores muda: a cor do texto ou o marca-texto.
@@ -138,6 +141,7 @@ impl Editor {
                     ed.plain = plain;
                     ed.path = Some(p);
                 }
+
                 // Arquivo novo: começa vazio e salva nesse caminho.
                 Err(_) if !p.exists() => {
                     ed.plain = is_plain_path(&p);
@@ -146,6 +150,8 @@ impl Editor {
                 Err(e) => ed.sheet = Sheet::Error(tr!("Não consegui abrir “{}”: {}", p.display(), e)),
             }
         }
+        // Documento rico em folhas; texto simples ajustado à janela.
+        ed.view.page_mode = !ed.plain;
         ed
     }
 
@@ -183,6 +189,7 @@ impl Editor {
             self.doc = doc;
             self.plain = plain;
             self.view = DocView::new();
+            self.view.page_mode = !plain;
             self.path = Some(p);
         } else {
             self.open_in_tab = Some(p);
@@ -294,6 +301,7 @@ impl Editor {
                 self.doc = d;
                 self.view = DocView::new();
                 self.plain = true;
+                self.view.page_mode = false;
                 if let Some(p) = &self.path {
                     if !is_plain_path(p) {
                         self.path = Some(p.with_extension("txt"));
@@ -302,12 +310,38 @@ impl Editor {
             }
             Some("to-rich") => {
                 self.plain = false;
+                self.view.page_mode = true;
                 self.doc.modified = true;
                 if let Some(p) = &self.path {
                     if is_plain_path(p) {
                         self.path = Some(p.with_extension("rtf"));
                     }
                 }
+            }
+            Some("page-setup") => self.sheet = Sheet::Page(pages::PageSheet::from(&self.doc.page)),
+            Some("page-mode") => {
+                self.view.page_mode = !self.view.page_mode;
+                self.view.scroll = 0.0;
+                self.view.reveal = true;
+            }
+            Some("zoom-fit") => self.view.fit_width = true,
+            Some(a) if a.starts_with("zoom-") => {
+                if let Ok(v) = a[5..].parse::<f32>() {
+                    self.view.fit_width = false;
+                    self.view.zoom = v / 100.0;
+                    self.view.reveal = true;
+                }
+            }
+            Some("page-break") => {
+                // Parágrafo novo começando numa folha nova (um passo do Desfazer).
+                self.doc.group(|d| {
+                    d.insert_text("\n");
+                    let p = d.cursor.p;
+                    let mut st = d.paras[p].style.clone();
+                    st.page_break_before = true;
+                    d.set_para_styles(p, p, vec![st]);
+                });
+                self.view.reveal = true;
             }
             Some("spacing") => self.sheet = Sheet::Spacing(para::SpacingSheet::from(view::para_style(&self.doc))),
             Some(a) if a.starts_with("line-") => {
@@ -493,6 +527,24 @@ impl Editor {
             }
             return;
         }
+        if let Sheet::Page(f) = &mut self.sheet {
+            match pages::page_sheet(ui, f) {
+                Some(ok) => {
+                    if ok {
+                        let pg = f.apply(&self.doc.page);
+                        if pg != self.doc.page {
+                            self.doc.page = pg;
+                            self.doc.modified = true;
+                            self.doc.version = self.doc.version.wrapping_add(1);
+                        }
+                    }
+                    self.sheet = Sheet::None;
+                    ui.redraw = true;
+                }
+                None => {}
+            }
+            return;
+        }
         if let Sheet::Spacing(f) = &mut self.sheet {
             match Editor::spacing_sheet(ui, f) {
                 Some(true) => {
@@ -616,6 +668,9 @@ impl Editor {
                     "Ctrl+E" => action = Some("use-selection"),
                     "Ctrl+R" => action = Some("ruler"),
                     "Ctrl+T" => action = Some("fonts"),
+                    "Ctrl+Shift+P" => action = Some("page-setup"),
+                    "Ctrl+Shift+W" => action = Some("page-mode"),
+                    "Ctrl+Return" | "Ctrl+KP_Enter" => action = Some("page-break"),
                     "Ctrl+B" => action = Some("bold"),
                     "Ctrl+I" => action = Some("italic"),
                     "Ctrl+U" => action = Some("underline"),
@@ -641,6 +696,13 @@ impl Editor {
                     "align-right" => menu_action = Some("align-right"),
                     "align-justify" => menu_action = Some("align-justify"),
                     "spacing" => menu_action = Some("spacing"),
+                    "zoom-fit" => menu_action = Some("zoom-fit"),
+                    "zoom-50" => menu_action = Some("zoom-50"),
+                    "zoom-75" => menu_action = Some("zoom-75"),
+                    "zoom-100" => menu_action = Some("zoom-100"),
+                    "zoom-125" => menu_action = Some("zoom-125"),
+                    "zoom-150" => menu_action = Some("zoom-150"),
+                    "zoom-200" => menu_action = Some("zoom-200"),
                     "to-plain" => menu_action = Some("to-plain"),
                     "to-rich" => menu_action = Some("to-rich"),
                     "strike" | "baseline" | "superscript" | "subscript" | "hl-none" | "hl-0" | "hl-1" | "hl-2" | "hl-3" | "hl-4" => {
@@ -748,6 +810,7 @@ impl Editor {
                     MenuItem::new("save", tr!("Salvar"), "Ctrl+S"),
                     MenuItem::new("save-as", tr!("Salvar como…"), "Ctrl+Shift+S"),
                     MenuItem::Separator,
+                    MenuItem::new("page-setup", tr!("Configurar Página…"), "Ctrl+Shift+P").enabled(!self.plain),
                     MenuItem::new("print", tr!("Imprimir…"), "Ctrl+P"),
                 ],
             ),
@@ -826,6 +889,29 @@ impl Editor {
                     MenuItem::Separator,
                     if self.plain { MenuItem::new("to-rich", tr!("Converter em Texto Rico"), "") } else { MenuItem::new("to-plain", tr!("Converter em Texto Simples"), "") },
                     MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R").enabled(!self.plain),
+                ],
+            ),
+            Menu::new(
+                tr!("Inserir"),
+                vec![MenuItem::new("page-break", tr!("Quebra de Página"), "Ctrl+Return").enabled(!self.plain)],
+            ),
+            Menu::new(
+                tr!("Visualizar"),
+                vec![
+                    MenuItem::new("page-mode", tr!("Modo Página"), "Ctrl+Shift+W").checked(self.view.page_mode),
+                    MenuItem::submenu(
+                        tr!("Zoom"),
+                        vec![
+                            MenuItem::new("zoom-50", "50%", "").checked(!self.view.fit_width && (self.view.zoom - 0.5).abs() < 0.01),
+                            MenuItem::new("zoom-75", "75%", "").checked(!self.view.fit_width && (self.view.zoom - 0.75).abs() < 0.01),
+                            MenuItem::new("zoom-100", "100%", "").checked(!self.view.fit_width && (self.view.zoom - 1.0).abs() < 0.01),
+                            MenuItem::new("zoom-125", "125%", "").checked(!self.view.fit_width && (self.view.zoom - 1.25).abs() < 0.01),
+                            MenuItem::new("zoom-150", "150%", "").checked(!self.view.fit_width && (self.view.zoom - 1.5).abs() < 0.01),
+                            MenuItem::new("zoom-200", "200%", "").checked(!self.view.fit_width && (self.view.zoom - 2.0).abs() < 0.01),
+                            MenuItem::Separator,
+                            MenuItem::new("zoom-fit", tr!("Ajustar à Largura"), "").checked(self.view.fit_width).enabled(self.view.page_mode),
+                        ],
+                    ),
                 ],
             ),
         ]
