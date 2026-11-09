@@ -692,3 +692,9 @@ visual gel. Cada uma será detalhada antes de começar.
   "Todos os Apps": trocar de página desliza as páginas de lado (a nova entra pela direita indo para a
   frente, pela esquerda voltando; só as imagens prontas andam, nada é redesenhado) e as bolinhas
   ficam paradas. Ícone do Lixo: o fundo do cesto curva para baixo, como deve ser na perspectiva.
+- [x] 11.12 Correções (P) — v0.11.12 (glove-ui v0.2.13): a folha de Salvar travava porque relia
+  do disco, a cada quadro, o conteúdo de todas as pastas das colunas; agora lê uma vez. Nova Pasta
+  não funcionava: o teclado ficava no "Salvar como:" e o Enter salvava o arquivo. Agora o campo pega
+  o teclado, o nome padrão vem marcado e a primeira tecla o troca, Esc desiste e, criada a pasta, o
+  teclado volta ao nome do arquivo. Instalador: troca os programas pelo nome (dá para instalar com o
+  Glove aberto), arquivos com dono root, e oferece remover o pacote .deb/.rpm/Arch se houver.
