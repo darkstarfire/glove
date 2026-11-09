@@ -314,11 +314,23 @@ impl Glove {
         self.dirty = true;
     }
 
-    /// Canto do painel (sem a sombra), já com o balanço.
+    /// Monitor (lógico) onde aparece o painel de senha: o que tem o mouse,
+    /// como no original; sem ele, o principal.
+    pub fn lock_output_rect(&self) -> smithay::utils::Rectangle<i32, smithay::utils::Logical> {
+        self.output_rect_at(self.pointer_pos)
+            .or_else(|| self.primary().and_then(|o| self.space.output_geometry(o)))
+            .unwrap_or_else(|| {
+                let (w, h) = self.output_size();
+                smithay::utils::Rectangle::from_size((w, h).into())
+            })
+    }
+
+    /// Canto do painel (sem a sombra, em coordenadas da mesa), já com o balanço.
     pub fn lock_panel_pos(&self) -> (i32, i32) {
-        let (w, h) = self.output_size();
+        let g = self.lock_output_rect();
+        let (w, h) = (g.size.w, g.size.h);
         let shake = self.lock.as_ref().map(|l| l.shake_offset()).unwrap_or(0);
-        (((w as f32 - chrome::LOCK_W) / 2.0) as i32 + shake, ((h as f32 - chrome::LOCK_H) / 2.0 - h as f32 * 0.08) as i32)
+        (g.loc.x + ((w as f32 - chrome::LOCK_W) / 2.0) as i32 + shake, g.loc.y + ((h as f32 - chrome::LOCK_H) / 2.0 - h as f32 * 0.08) as i32)
     }
 
     /// O ponto cai no botão Desbloquear?

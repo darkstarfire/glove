@@ -160,7 +160,41 @@ fn mem_alpha(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, s
     )))
 }
 
+/// Textura esticada para um retângulo lógico (os ícones do Dock na ampliação).
+fn mem_scaled(renderer: &mut GlesRenderer, loc: (f64, f64), size: (f64, f64), tex: &Tex, scale: f64) -> Option<GloveElement> {
+    let buf = tex.upload(renderer)?;
+    let src = Rectangle::from_size((tex.px.0 as f64, tex.px.1 as f64).into());
+    let p = Point::<f64, Logical>::from(loc).to_physical(scale);
+    let size = smithay::utils::Size::<i32, Logical>::from((size.0.round().max(1.0) as i32, size.1.round().max(1.0) as i32));
+    Some(GloveElement::Texture(TextureRenderElement::from_texture_buffer((p.x.round(), p.y.round()), &buf, None, Some(src), Some(size), Kind::Unspecified)))
+}
+
 impl Glove {
+    /// O Dock montado na GPU, da frente para o fundo: nome, indicadores, ícones,
+    /// divisórias e a prateleira.
+    fn dock_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
+        let c = &self.chrome;
+        let g = &c.dock_gpu;
+        let Some(scene) = &g.scene else { return };
+        let o = c.dock_pos();
+        let at = |x: f32, y: f32| Point::<i32, Logical>::from((o.x + x.round() as i32, o.y + y.round() as i32));
+        if let (Some((_, x, y)), Some(t)) = (scene.label, g.label()) {
+            out.extend(mem(renderer, at(x, y), t, sc));
+        }
+        for (&(x, y), t) in scene.indicators.iter().zip(g.inds()) {
+            out.extend(mem(renderer, at(x, y), t, sc));
+        }
+        for (t, x, y, w, h) in &g.icon_places {
+            out.extend(mem_scaled(renderer, (o.x as f64 + x, o.y as f64 + y), (*w, *h), t, sc));
+        }
+        for (&(x, y), t) in scene.separators.iter().zip(g.seps()) {
+            out.extend(mem(renderer, at(x, y), t, sc));
+        }
+        if let Some(t) = g.shelf() {
+            out.extend(mem(renderer, at(scene.shelf.0, scene.shelf.1), t, sc));
+        }
+    }
+
     /// Um monitor extra (mesa estendida): o cursor, as janelas que passam por
     /// ele e o papel de parede. Barra de menu e Dock só no principal.
     pub fn build_extra_elements(&self, renderer: &mut GlesRenderer, area: Rectangle<i32, Logical>, sc: f64) -> Vec<GloveElement> {
@@ -213,6 +247,12 @@ impl Glove {
                     }
                 }
             }
+        }
+        // Bloqueada com o mouse nesta tela: o painel de senha aparece aqui.
+        if let Some(t) = self.lock.as_ref().and_then(|l| l.tex.as_ref()).filter(|_| self.lock_output_rect() == area) {
+            let (x, y) = self.lock_panel_pos();
+            let m = glove_paint::chrome::LOCK_SHADOW as i32;
+            out.extend(mem(renderer, (x - m - origin.x, y - m - origin.y).into(), t, sc));
         }
         // Papel de parede esticado para esta tela.
         if let Some(t) = &self.chrome.wallpaper {
@@ -299,9 +339,7 @@ impl Glove {
         let g = &self.grade;
         if g.alpha > 0.0 {
             let a = Some(g.alpha);
-            if let Some(b) = c.dock.as_ref() {
-                out.extend(mem(renderer, c.dock_pos(), b, sc));
-            }
+            self.dock_elements(renderer, sc, &mut out);
             if let Some((_, t)) = &g.field_tex {
                 out.extend(mem_alpha(renderer, self.grade_field_pos(), t, sc, a));
             }
@@ -380,7 +418,9 @@ impl Glove {
         }
         // Bloqueada: só o painel de senha sobre o papel de parede; nenhuma janela.
         if let Some(l) = &self.lock {
-            if let Some(t) = &l.tex {
+            // O painel só vai no principal se o mouse estiver nele (senão vai no extra).
+            let on_primary = self.primary().and_then(|o| self.space.output_geometry(o)).is_none_or(|g| g == self.lock_output_rect());
+            if let Some(t) = l.tex.as_ref().filter(|_| on_primary) {
                 let (x, y) = self.lock_panel_pos();
                 let m = glove_paint::chrome::LOCK_SHADOW as i32;
                 out.extend(mem(renderer, (x - m, y - m).into(), t, sc));
@@ -492,8 +532,8 @@ impl Glove {
                 self.push_scaled_window(renderer, w, r, sc, &mut out);
             }
         }
-        if let Some(b) = c.dock.as_ref().filter(|_| !covered && self.grade.alpha <= 0.0) {
-            out.extend(mem(renderer, c.dock_pos(), b, sc));
+        if !covered && self.grade.alpha <= 0.0 {
+            self.dock_elements(renderer, sc, &mut out);
         }
 
         if self.expose.is_some() {
@@ -804,7 +844,11 @@ pub fn render_frame(data: &mut CalloopData) {
     let CalloopData { state, backend, .. } = data;
     let Backend::Winit(WinitBackend { backend, output, damage_tracker }) = backend else { return };
     state.dirty = false;
+    let t0 = std::time::Instant::now();
     state.prepare_chrome();
+    if crate::prof::on() {
+        crate::prof::prep(t0.elapsed());
+    }
 
     let age = backend.buffer_age().unwrap_or(0);
     let damage = {
@@ -815,8 +859,15 @@ pub fn render_frame(data: &mut CalloopData) {
                 return;
             }
         };
+        let t1 = std::time::Instant::now();
         let elements = state.build_elements(renderer, false);
-        match damage_tracker.render_output(renderer, &mut fb, age, &elements, [0.0, 0.0, 0.0, 1.0]) {
+        let t2 = std::time::Instant::now();
+        let r = damage_tracker.render_output(renderer, &mut fb, age, &elements, [0.0, 0.0, 0.0, 1.0]);
+        if crate::prof::on() {
+            crate::prof::build(t2 - t1);
+            crate::prof::render(t2.elapsed());
+        }
+        match r {
             Ok(r) => r.damage.cloned(),
             Err(e) => {
                 tracing::warn!("render falhou: {e:?}");

@@ -202,6 +202,8 @@ fn wallpaper_name(style: &str) -> String {
 /// Altura máxima da janela (cabe numa tela de 768 linhas com a barra e o Dock);
 /// painel maior ganha rolagem.
 const MAX_H: f32 = 640.0;
+/// A grade inteira cabe sem rolagem numa tela de 768 de altura.
+const MAX_TODOS_H: f32 = 680.0;
 
 struct Prefs {
     config: Config,
@@ -529,12 +531,14 @@ impl Prefs {
     }
 
     /// A grade "Mostrar Todos": uma faixa por categoria, alternando o fundo.
+    /// Desenha a partir do ponto atual do layout (dentro da área com rolagem).
     fn show_all(&mut self, ui: &mut Ui) {
-        let w = ui.c.w;
+        let (ox, oy) = ui.cursor();
+        let w = ui.available_width();
         let found = matches(&self.search);
         let searching = !self.search.trim().is_empty();
         let per_row = ((w - 40.0) / CELL_W).floor().max(1.0) as usize;
-        let mut y = TOOLBAR_H;
+        let mut y = oy;
         let mut cells: Vec<(Rect, &'static PaneInfo)> = Vec::new();
         let mut band = 0;
         for (ci, cat) in CATEGORIES.iter().enumerate() {
@@ -546,15 +550,15 @@ impl Prefs {
             let rows = items.len().div_ceil(per_row);
             let bh = BAND_LABEL + rows as f32 * CELL_H + 6.0;
             if band % 2 == 1 {
-                ui.c.fill_rect(0.0, y, w, bh, &solid(rgba(236, 236, 238, 255)));
+                ui.c.fill_rect(ox, y, w, bh, &solid(rgba(236, 236, 238, 255)));
             } else {
-                ui.c.fill_rect(0.0, y, w, bh, &solid(rgba(250, 250, 250, 255)));
+                ui.c.fill_rect(ox, y, w, bh, &solid(rgba(250, 250, 250, 255)));
             }
-            ui.c.hline(0.0, y + bh - 1.0, w, rgba(205, 205, 208, 255));
-            ui.fonts.draw(ui.c, cat, 14.0, y + 17.0, 12.0, true, rgba(60, 60, 64, 255));
+            ui.c.hline(ox, y + bh - 1.0, w, rgba(205, 205, 208, 255));
+            ui.fonts.draw(ui.c, cat, ox + 14.0, y + 17.0, 12.0, true, rgba(60, 60, 64, 255));
             for (k, i) in items.into_iter().enumerate() {
                 let (col, row) = ((k % per_row) as f32, (k / per_row) as f32);
-                cells.push((Rect::new(20.0 + col * CELL_W, y + BAND_LABEL + row * CELL_H, CELL_W, CELL_H), i));
+                cells.push((Rect::new(ox + 20.0 + col * CELL_W, y + BAND_LABEL + row * CELL_H, CELL_W, CELL_H), i));
             }
             y += bh;
             band += 1;
@@ -575,7 +579,7 @@ impl Prefs {
         }
         // Na busca, escurece tudo e acende os painéis encontrados.
         if searching {
-            ui.c.fill_rect(0.0, TOOLBAR_H, w, y - TOOLBAR_H, &solid(rgba(0, 0, 0, 120)));
+            ui.c.fill_rect(ox, oy, w, y - oy, &solid(rgba(0, 0, 0, 120)));
             for (r, i) in cells.iter().filter(|(_, i)| found.contains(&i.pane)) {
                 let (cx, cy) = (r.x + r.w / 2.0, r.y + 30.0);
                 ui.c.fill(circle(cx, cy, 44.0), &radial(cx, cy, 44.0, &[(0.0, rgba(255, 255, 255, 255)), (0.6, rgba(255, 255, 255, 220)), (1.0, rgba(255, 255, 255, 0))]));
@@ -602,8 +606,8 @@ impl Prefs {
             ui.redraw = true;
         }
         self.pane_menu(ui);
-        // A janela termina junto com a última faixa.
-        ui.alloc(w, y - TOOLBAR_H - 44.0);
+        // A altura usada é a da grade inteira (a janela termina com a última faixa).
+        ui.alloc(w, y - oy);
     }
 
     /// Menu de contexto da grade: pôr ou tirar o painel da barra.
@@ -2156,7 +2160,9 @@ impl App for Prefs {
         }
         // O painel com rolagem: a janela cresce até o máximo e, se ainda não couber,
         // aparece a barra (nada fica cortado sem jeito de ver).
-        let view = Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0);
+        // "Mostrar Todos" ocupa a largura toda, sem margens (as faixas vão de borda a borda).
+        let todos = self.pane == Pane::Todos;
+        let view = if todos { Rect::new(0.0, TOOLBAR_H, w, h - TOOLBAR_H) } else { Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0) };
         let mut scroll = self.pane_scroll;
         let content = self.pane_h;
         let used = ui.scroll_view(view, &mut scroll, content, |ui| match self.pane {
@@ -2238,7 +2244,8 @@ impl App for Prefs {
             ui.redraw = true;
         }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
-        ui.set_window_size(W as f32, (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, MAX_H), true);
+        let win_h = if todos { (TOOLBAR_H + used).clamp(240.0, MAX_TODOS_H) } else { (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, MAX_H) };
+        ui.set_window_size(W as f32, win_h, true);
         self.flush_save(ui);
     }
 

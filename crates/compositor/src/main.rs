@@ -1,5 +1,6 @@
 //! Glove: ambiente gráfico leve com visual da era "gel".
 
+mod prof;
 mod grabs;
 mod handlers;
 mod input;

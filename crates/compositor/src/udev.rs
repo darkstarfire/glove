@@ -743,8 +743,12 @@ pub fn render_drm(data: &mut CalloopData) {
     if state.dirty || drm.blanked {
         drm.blanked = false;
         state.dirty = false;
+        let t0 = std::time::Instant::now();
         state.prepare_chrome();
         state.prepare_cursor();
+        if crate::prof::on() {
+            crate::prof::prep(t0.elapsed());
+        }
         for h in &mut drm.heads {
             h.needs_frame = true;
         }
@@ -757,13 +761,20 @@ pub fn render_drm(data: &mut CalloopData) {
         }
         head.needs_frame = false;
         // O principal (e os espelhos) mostram a mesa inteira; os extras, a parte deles.
+        let t1 = std::time::Instant::now();
         let elements = if i == 0 || mirror {
             state.build_elements(renderer, true)
         } else {
             let geo = state.space.output_geometry(&head.output).unwrap_or_default();
             state.build_extra_elements(renderer, geo, head.output.current_scale().fractional_scale())
         };
-        match head.compositor.render_frame(renderer, &elements, [0.0, 0.0, 0.0, 1.0], FrameFlags::DEFAULT) {
+        let t2 = std::time::Instant::now();
+        let rendered = head.compositor.render_frame(renderer, &elements, [0.0, 0.0, 0.0, 1.0], FrameFlags::DEFAULT);
+        if crate::prof::on() {
+            crate::prof::build(t2 - t1);
+            crate::prof::render(t2.elapsed());
+        }
+        match rendered {
             Ok(r) => {
                 if !r.is_empty {
                     match head.compositor.queue_frame(()) {

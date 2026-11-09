@@ -677,3 +677,12 @@ visual gel. Cada uma será detalhada antes de começar.
   nomes dos atalhos cabem na coluna (rótulo maior que a coluna termina em "…"). O
   `glove-setup-tool.sh` sincroniza a glove-ui (pasta `ui/`) antes de compilar: depois de um
   `git pull`, a glove-ui velha fazia a compilação falhar.
+- [x] 11.10 Correções (P) — v0.11.10 (glove-ui v0.2.11): a ampliação do Dock travava porque a cada
+  movimento do mouse o Dock inteiro era redesenhado na CPU (~6 ms por quadro em 1×, ~23 ms em 2×; as
+  sombras dos ícones saíam de um cache de 96 itens que a ampliação esgotava). Agora a GPU monta o
+  Dock em peças: cada ícone com a sombra é desenhado uma vez por faixa de tamanho e só é posicionado
+  e escalado; a prateleira só é refeita quando muda de tamanho (preparar o quadro: ~5 ms → ~0,2 ms).
+  O painel de senha da tela bloqueada aparece no monitor onde está o mouse. A grade "Mostrar Todos"
+  das Preferências ocupa a largura toda dentro da área com rolagem (nada cortado à esquerda nem
+  embaixo) e a janela fica da altura da grade. `GLOVE_PROF=1` faz o compositor registrar a cada 2 s
+  quadros por segundo e o tempo de preparar e desenhar.

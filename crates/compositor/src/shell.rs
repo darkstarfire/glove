@@ -384,6 +384,51 @@ pub enum DockAction {
     Trash,
 }
 
+/// Peças do Dock como texturas. Cada ícone (com a sombra) é desenhado uma vez
+/// por faixa de tamanho e a GPU o escala; a prateleira só é refeita quando muda
+/// de tamanho. Assim a ampliação quase não gasta CPU.
+#[derive(Default)]
+pub struct DockGpu {
+    /// Tema e escala das peças guardadas (mudou → refaz tudo).
+    stamp: u64,
+    shelf: Option<((u32, u32, u8), Tex)>,
+    seps: Vec<((u32, u8), Tex)>,
+    inds: Vec<(u8, Tex)>,
+    label: Option<(String, Tex)>,
+    /// (ícone, pixels, cópia) → textura, margem e lado lógicos, último quadro usado.
+    icons: Vec<IconTex>,
+    frame: u64,
+    /// O que desenhar no quadro atual (coordenadas relativas ao Dock).
+    pub scene: Option<chrome::DockScene>,
+    /// (textura, x, y, largura, altura) de cada ícone.
+    pub icon_places: Vec<(std::rc::Rc<Tex>, f64, f64, f64, f64)>,
+}
+
+struct IconTex {
+    key: (String, u32, u32),
+    tex: std::rc::Rc<Tex>,
+    pad: f32,
+    side: f32,
+    used: u64,
+}
+
+impl DockGpu {
+    /// Uma textura por instância: a mesma peça duas vezes no quadro precisa de
+    /// duas (o controle de dano da GPU identifica cada elemento pela textura).
+    pub fn seps(&self) -> impl Iterator<Item = &Tex> {
+        self.seps.iter().map(|(_, t)| t)
+    }
+    pub fn inds(&self) -> impl Iterator<Item = &Tex> {
+        self.inds.iter().map(|(_, t)| t)
+    }
+    pub fn shelf(&self) -> Option<&Tex> {
+        self.shelf.as_ref().map(|(_, t)| t)
+    }
+    pub fn label(&self) -> Option<&Tex> {
+        self.label.as_ref().map(|(_, t)| t)
+    }
+}
+
 #[derive(Default)]
 pub struct Chrome {
     pub out_size: (i32, i32),
@@ -417,8 +462,8 @@ pub struct Chrome {
     pub trash_full: (u8, Option<std::time::Instant>),
     pub dock_hover: Option<usize>,
     pub dock_pressed: Option<usize>,
-    dock_key: Option<(Vec<DockItem>, Option<i32>, i32, Option<usize>, u64)>,
-    pub dock: Option<Tex>,
+    /// O Dock em peças na GPU: a ampliação só muda posições e tamanhos.
+    pub dock_gpu: DockGpu,
     /// Escala usada no último desenho (mudou → refaz tudo).
     pub last_scale: f64,
 
@@ -1836,11 +1881,8 @@ impl Glove {
         let layout = chrome::dock_layout_on(&items, hover_x, zoom, base, max, self.chrome.dock_side);
         // Com o menu de um ícone aberto, o nome sob o mouse some (o menu já diz qual é).
         let hover = if self.dock_menu_open() { None } else { self.chrome.dock_hover };
-        let key = (items.clone(), hover_x.map(|x| x.round() as i32), (zoom * 1000.0) as i32, hover, self.theme_gen ^ ((base as u64) << 32) ^ ((max as u64) << 44));
-        if self.chrome.dock_key.as_ref() != Some(&key) {
-            self.chrome.dock = chrome::dock(&self.fonts, &self.theme, &items, &layout, hover, self.scale() as f32).map(to_tex);
-            self.chrome.dock_key = Some(key);
-        }
+        let zooming = zoom > 0.0 || self.chrome.dock_zoom_anim.is_some();
+        self.prepare_dock_gpu(&items, &layout, hover, zooming);
         self.chrome.dock_items = items;
         self.chrome.dock_actions = actions;
         let before = self.work_area();
@@ -1848,6 +1890,84 @@ impl Glove {
         if self.work_area() != before {
             self.refit_zoomed();
         }
+    }
+
+    /// Garante as texturas das peças do Dock e calcula onde vai cada uma.
+    fn prepare_dock_gpu(&mut self, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, zooming: bool) {
+        let sc = self.scale() as f32;
+        let g = &mut self.chrome.dock_gpu;
+        let stamp = self.theme_gen ^ ((sc.to_bits() as u64) << 32);
+        if g.stamp != stamp {
+            *g = DockGpu { stamp, ..DockGpu::default() };
+        }
+        g.frame += 1;
+        let frame = g.frame;
+        let scene = chrome::dock_scene(&self.fonts, items, layout, hover);
+        let side = layout.side as u8;
+        // Prateleira: refeita só quando muda de tamanho.
+        let (_, _, sw, sh) = scene.shelf;
+        let key = ((sw * sc).round() as u32, (sh * sc).round() as u32, side);
+        if g.shelf.as_ref().map(|(k, _)| *k) != Some(key) {
+            g.shelf = chrome::dock_shelf(&self.theme, layout, &scene, sc).map(|c| (key, to_tex(c)));
+        }
+        // Divisórias e indicadores: uma textura para cada um que aparece.
+        let thick = if layout.side.vertical() { layout.shelf.2 } else { layout.shelf.3 };
+        let skey = ((thick * sc).round() as u32, side);
+        g.seps.retain(|(k, _)| *k == skey);
+        while g.seps.len() < scene.separators.len() {
+            let Some(c) = chrome::dock_separator(layout.side, thick, sc) else { break };
+            g.seps.push((skey, to_tex(c)));
+        }
+        g.inds.retain(|(k, _)| *k == side);
+        while g.inds.len() < scene.indicators.len() {
+            let Some(c) = chrome::dock_indicator(layout.side, sc) else { break };
+            g.inds.push((side, to_tex(c)));
+        }
+        // O nome sob o mouse.
+        match scene.label.map(|(i, _, _)| &items[i].label) {
+            Some(text) if g.label.as_ref().map(|(t, _)| t) != Some(text) => {
+                g.label = chrome::dock_label(&self.fonts, text, sc).map(|c| (text.clone(), to_tex(c)));
+            }
+            None => g.label = None,
+            _ => {}
+        }
+        // Ícones: parados, no tamanho exato (nítidos); ampliando, em faixas de 16
+        // pixels que a GPU reduz um pouco.
+        g.icon_places.clear();
+        let mut seen: Vec<(String, u32)> = Vec::new();
+        for &(i, x, y, s) in &scene.icons {
+            let it = &items[i];
+            let need = s * sc;
+            let px = if zooming { ((need / 16.0).ceil() * 16.0) as u32 } else { need.round().max(1.0) as u32 };
+            let name = format!("{:?}{:?}", it.icon, it.letter);
+            let copy = seen.iter().filter(|k| k.0 == name && k.1 == px).count() as u32;
+            seen.push((name.clone(), px));
+            let key = (name, px, copy);
+            let pos = g.icons.iter().position(|e| e.key == key);
+            let idx = match pos {
+                Some(p) => p,
+                None => {
+                    let lside = px as f32 / sc;
+                    let Some((c, pad)) = chrome::dock_icon(&self.fonts, it.icon, it.letter, lside, sc) else { continue };
+                    g.icons.push(IconTex { key, tex: std::rc::Rc::new(to_tex(c)), pad, side: lside, used: frame });
+                    g.icons.len() - 1
+                }
+            };
+            let e = &mut g.icons[idx];
+            e.used = frame;
+            let k = (s / e.side) as f64;
+            let (w, h) = (e.tex.px.0 as f64 / sc as f64 * k, e.tex.px.1 as f64 / sc as f64 * k);
+            let pad = e.pad as f64 * k;
+            g.icon_places.push((e.tex.clone(), x as f64 - pad, y as f64 - pad, w, h));
+        }
+        // No máximo uns 48 MB de texturas: saem as usadas há mais tempo.
+        let mut bytes: usize = g.icons.iter().map(|e| (e.tex.px.0 * e.tex.px.1 * 4) as usize).sum();
+        while bytes > 48 << 20 {
+            let Some(old) = g.icons.iter().enumerate().filter(|(_, e)| e.used != frame).min_by_key(|(_, e)| e.used).map(|(i, _)| i) else { break };
+            let e = g.icons.remove(old);
+            bytes -= (e.tex.px.0 * e.tex.px.1 * 4) as usize;
+        }
+        g.scene = Some(scene);
     }
 
     /// O que o app da janela contou ao Glove: se tem barra de ferramentas (o item
