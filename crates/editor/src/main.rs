@@ -1,5 +1,6 @@
 //! Editor de texto do Glove.
 
+mod abnt;
 mod bar;
 mod fontbook;
 mod layout;
@@ -114,6 +115,8 @@ struct Editor {
     ruler_drag: Option<para::RulerDrag>,
     /// Texto simples (.txt): sem barra de formatação nem régua; grava sem estilos.
     plain: bool,
+    /// Sumário a inserir (false) ou atualizar (true) quando a paginação estiver pronta.
+    pending_toc: Option<bool>,
     /// Onde o documento começa (abaixo da faixa de abas).
     tab_top: f32,
     /// Arquivo aberto pelo Abrir…: vai para uma aba nova.
@@ -138,7 +141,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
-        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, plain: false, tab_top: 0.0, open_in_tab: None };
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, plain: false, pending_toc: None, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match load(&p) {
                 Ok((doc, plain)) => {
@@ -323,6 +326,22 @@ impl Editor {
                     }
                 }
             }
+            Some("list-none") => self.doc.set_list(None),
+            Some("list-bullet") => self.doc.set_list(Some(false)),
+            Some("list-number") => self.doc.set_list(Some(true)),
+            Some(a) if a.starts_with("role-") => {
+                if let Some(r) = a[5..].parse::<usize>().ok().and_then(|i| rich::Role::MENU.get(i)) {
+                    self.doc.apply_role(*r);
+                }
+            }
+            Some("toc") | Some("toc-update") => {
+                // O sumário precisa das páginas: liga o modo página e monta no próximo quadro.
+                self.view.page_mode = true;
+                self.pending_toc = Some(action == Some("toc-update"));
+                ui.redraw = true;
+            }
+            Some("abnt") => abnt::apply(&mut self.doc),
+            Some("new-abnt") => spawn_abnt(),
             Some("footnote") => self.sheet = Sheet::Note(notes::NoteSheet { buf: glove_ui::TextBuffer::new(""), id: None }),
             Some("header-footer") => self.sheet = Sheet::HeaderFooter(notes::HfSheet::from(&self.doc.header, &self.doc.footer, self.doc.title_page)),
             Some("page-number") => {
@@ -681,6 +700,12 @@ fn plain_doc(text: &str) -> Doc {
     Doc::from_plain(text, Rc::new(CharStyle::default()), ParaStyle::default())
 }
 
+/// Abre outra janela com um documento novo no modelo ABNT.
+fn spawn_abnt() {
+    let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-edit"))).unwrap_or_else(|| "glove-edit".into());
+    let _ = std::process::Command::new(exe).arg("--abnt").spawn();
+}
+
 fn spawn_self(path: Option<&Path>) {
     let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-edit"))).unwrap_or_else(|| "glove-edit".into());
     let mut cmd = std::process::Command::new(exe);
@@ -746,6 +771,19 @@ impl Editor {
                     "align-justify" => menu_action = Some("align-justify"),
                     "spacing" => menu_action = Some("spacing"),
                     "zoom-fit" => menu_action = Some("zoom-fit"),
+                    "list-none" => menu_action = Some("list-none"),
+                    "list-bullet" => menu_action = Some("list-bullet"),
+                    "list-number" => menu_action = Some("list-number"),
+                    "toc" => menu_action = Some("toc"),
+                    "toc-update" => menu_action = Some("toc-update"),
+                    "abnt" => menu_action = Some("abnt"),
+                    "new-abnt" => menu_action = Some("new-abnt"),
+                    "role-0" => menu_action = Some("role-0"),
+                    "role-1" => menu_action = Some("role-1"),
+                    "role-2" => menu_action = Some("role-2"),
+                    "role-3" => menu_action = Some("role-3"),
+                    "role-4" => menu_action = Some("role-4"),
+                    "role-5" => menu_action = Some("role-5"),
                     "header-footer" => menu_action = Some("header-footer"),
                     "page-number" => menu_action = Some("page-number"),
                     "zoom-50" => menu_action = Some("zoom-50"),
@@ -813,6 +851,11 @@ impl Editor {
         let enabled = !sheet_open && !used_key;
         self.view.title = self.name();
         self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
+        // Sumário pedido: agora a paginação está pronta.
+        if let Some(update) = self.pending_toc.take() {
+            abnt::toc(&mut self.doc, &self.view, update);
+            self.view.reveal = true;
+        }
         // Clique duplo numa marca de nota: abre a nota para editar.
         if let Some(id) = self.view.edit_note.take() {
             let text = self.doc.note_text(id).unwrap_or("").to_string();
@@ -848,6 +891,8 @@ impl Editor {
 
     fn menus(&self, tabs: usize) -> Vec<Menu> {
         let align = view::para_style(&self.doc).align;
+        let role = view::para_style(&self.doc).role;
+        let list = view::para_style(&self.doc).list;
         let on = |f: fn(&CharStyle) -> bool| view::common(&self.doc, f) == Some(true);
         let script = view::common(&self.doc, |s| s.script);
         let hl = view::common(&self.doc, |s| s.highlight);
@@ -858,6 +903,7 @@ impl Editor {
                 vec![
                     MenuItem::new("new", tr!("Novo"), "Ctrl+N"),
                     MenuItem::new("new-tab", tr!("Nova aba"), "Ctrl+Shift+T"),
+                    MenuItem::new("new-abnt", tr!("Novo com Modelo ABNT"), ""),
                     MenuItem::new("open", tr!("Abrir…"), "Ctrl+O"),
                     MenuItem::Separator,
                     MenuItem::new("next-tab", tr!("Próxima aba"), "Ctrl+Page_Down").enabled(tabs > 1),
@@ -943,7 +989,17 @@ impl Editor {
                             MenuItem::new("spacing", tr!("Espaçamento…"), ""),
                         ],
                     ),
+                    MenuItem::submenu(tr!("Estilo"), rich::Role::MENU.iter().enumerate().map(|(i, r)| MenuItem::new(&format!("role-{i}"), &tr_dyn(r.name()), "").checked(role == *r)).collect()),
+                    MenuItem::submenu(
+                        tr!("Lista"),
+                        vec![
+                            MenuItem::new("list-none", tr!("Sem Lista"), "").checked(list.is_none()),
+                            MenuItem::new("list-bullet", tr!("Marcadores"), "").checked(list.is_some_and(|l| !l.numbered)),
+                            MenuItem::new("list-number", tr!("Numerada"), "").checked(list.is_some_and(|l| l.numbered)),
+                        ],
+                    ),
                     MenuItem::new("header-footer", tr!("Cabeçalho e Rodapé…"), "").enabled(!self.plain),
+                    MenuItem::new("abnt", tr!("Aplicar Formatação ABNT"), "").enabled(!self.plain),
                     MenuItem::Separator,
                     if self.plain { MenuItem::new("to-rich", tr!("Converter em Texto Rico"), "") } else { MenuItem::new("to-plain", tr!("Converter em Texto Simples"), "") },
                     MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R").enabled(!self.plain),
@@ -956,6 +1012,9 @@ impl Editor {
                     MenuItem::Separator,
                     MenuItem::new("footnote", tr!("Nota de Rodapé…"), "Ctrl+Alt+N").enabled(!self.plain),
                     MenuItem::new("page-number", tr!("Número de Página"), "").enabled(!self.plain),
+                    MenuItem::Separator,
+                    MenuItem::new("toc", tr!("Sumário"), "").enabled(!self.plain),
+                    MenuItem::new("toc-update", tr!("Atualizar Sumário"), "").enabled(!self.plain && self.doc.paras.iter().any(|p| p.style.role == rich::Role::Toc)),
                 ],
             ),
             Menu::new(
@@ -1074,11 +1133,17 @@ impl App for Tabs {
 }
 
 pub fn main() {
-    let path = std::env::args_os().nth(1).map(PathBuf::from);
+    let arg = std::env::args_os().nth(1);
+    let abnt_new = arg.as_deref() == Some(std::ffi::OsStr::new("--abnt"));
+    let path = arg.filter(|_| !abnt_new).map(PathBuf::from);
     let fb = Rc::new(FontBook::new());
-    let ed = Editor::new(path, fb.clone());
+    let mut ed = Editor::new(path, fb.clone());
+    if abnt_new {
+        ed.doc = abnt::new_doc();
+        ed.view.page_mode = true;
+    }
     let title = ed.name();
-    let opts = WindowOptions { title, app_id: "glove.TextEditor".into(), size: (640, 480), fixed: false, min_size: None };
+    let opts = WindowOptions { title, app_id: "glove.TextEditor".into(), size: (760, 620), fixed: false, min_size: None };
     if let Err(e) = run(opts, Tabs { docs: vec![ed], cur: 0, fb }) {
         eprintln!("glove-edit: {e}");
     }

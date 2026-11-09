@@ -64,6 +64,10 @@ pub struct DocView {
     date: String,
     /// Clique duplo numa marca de nota: o editor abre a nota.
     pub edit_note: Option<u32>,
+    /// Marcador ou número de cada item de lista.
+    labels: Vec<Option<String>>,
+    /// Folha em que cada parágrafo começa (modo página).
+    para_page: Vec<usize>,
     /// Leva o cursor para dentro da área visível no próximo quadro.
     pub reveal: bool,
     want_x: Option<f32>,
@@ -90,7 +94,7 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, labels: Vec::new(), para_page: Vec::new(), reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
@@ -139,6 +143,30 @@ impl DocView {
         }
         self.note_lays.retain(|id, _| order.contains(id));
         let note_h = |id: &u32, lays: &HashMap<u32, (String, f32, Para, ParaLayout)>| lays.get(id).map_or(0.0, |l| l.3.h);
+        // Marcadores e números das listas (a numeração recomeça quando a lista para).
+        self.labels.clear();
+        let mut counters = [0usize; 9];
+        for p in &doc.paras {
+            match p.style.list {
+                Some(l) => {
+                    let lv = (l.level as usize).min(8);
+                    for c in counters.iter_mut().skip(lv + 1) {
+                        *c = 0;
+                    }
+                    if l.numbered {
+                        counters[lv] += 1;
+                        self.labels.push(Some(format!("{}.", counters[lv])));
+                    } else {
+                        self.labels.push(Some(["•", "◦", "▪"][lv % 3].to_string()));
+                    }
+                }
+                None => {
+                    counters = [0; 9];
+                    self.labels.push(None);
+                }
+            }
+        }
+        self.para_page.clear();
         self.lys.clear();
         if self.page_mode {
             // Folhas centralizadas; o texto corre de uma para a outra pelas linhas.
@@ -166,6 +194,7 @@ impl DocView {
                     y += first_y;
                 }
                 let mut ys = Vec::with_capacity(l.lines.len());
+                let mut first_page = None;
                 for ln in &l.lines {
                     // Notas que a linha traz: precisam caber no pé da mesma folha.
                     let mut new: Vec<u32> = Vec::new();
@@ -184,6 +213,7 @@ impl DocView {
                         page_notes.push(Vec::new());
                     }
                     ys.push(top(page) + y);
+                    first_page.get_or_insert(page);
                     y += ln.h;
                     notes_h += add(notes_h);
                     placed.extend(new.iter().copied());
@@ -192,6 +222,7 @@ impl DocView {
                 let last_end = l.lines.last().map_or(0.0, |ln| ln.y + ln.h);
                 y += (l.h - last_end).max(0.0);
                 self.lys.push(ys);
+                self.para_page.push(first_page.unwrap_or(page));
             }
             self.pages = page + 1;
             self.page_notes = page_notes;
@@ -204,6 +235,7 @@ impl DocView {
             for p in &doc.paras {
                 let l = &self.cache[&p.id];
                 self.lys.push(l.lines.iter().map(|ln| y + ln.y).collect());
+                self.para_page.push(0);
                 y += l.h;
             }
             self.pages = 1;
@@ -295,10 +327,9 @@ impl DocView {
         self.col_x * self.zoom - self.hscroll
     }
 
-    /// Quantas folhas (modo página).
-    #[allow(dead_code)] // o rodapé da 12.6 usa ("página X de Y")
-    pub fn pages(&self) -> usize {
-        self.pages
+    /// Folha (contando de 1) em que o parágrafo começa, como no modo página.
+    pub fn page_of(&self, pi: usize) -> usize {
+        self.para_page.get(pi).copied().unwrap_or(0) + 1
     }
 
     /// Largura da coluna de texto (pontos).
@@ -528,6 +559,24 @@ impl DocView {
                     self.want_x = None;
                     self.reveal = true;
                 }
+                // Enter num item de lista vazio: a lista acaba.
+                Key::Enter if !ctrl && !doc.has_selection() && doc.paras[doc.cursor.p].style.list.is_some() && doc.paras[doc.cursor.p].text.is_empty() => {
+                    doc.set_list(None);
+                    self.reveal = true;
+                }
+                // Tab no começo de um item: aprofunda; Shift+Tab: volta (no nível 0, sai da lista).
+                Key::Tab if !ctrl && doc.paras[doc.cursor.p].style.list.is_some() && (doc.cursor.o == 0 || doc.has_selection()) => {
+                    if shift {
+                        if doc.paras[doc.cursor.p].style.list.is_some_and(|l| l.level == 0) {
+                            doc.set_list(None);
+                        } else {
+                            doc.shift_list(-1);
+                        }
+                    } else {
+                        doc.shift_list(1);
+                    }
+                    self.reveal = true;
+                }
                 Key::Enter if !ctrl => {
                     doc.insert_text("\n");
                     self.want_x = None;
@@ -591,6 +640,14 @@ impl DocView {
                 c.fill_rect(x, base - asc * z, s.w * z, (asc + desc) * z, &solid(rgba(h[0], h[1], h[2], h[3])));
             }
             if s.tab {
+                // Linha do sumário: pontilhado até o número da página.
+                if p.style.role == crate::rich::Role::Toc {
+                    let mut dx = x + 4.0 * z;
+                    while dx < x + s.w * z - 6.0 * z {
+                        c.fill_rect(dx, base - 1.0 * z, (1.2 * z).max(1.0), (1.2 * z).max(1.0), &solid(rgba(90, 90, 96, 255)));
+                        dx += 4.0 * z;
+                    }
+                }
                 continue;
             }
             // Marca de nota: o número dela, em sobrescrito.
@@ -708,6 +765,15 @@ impl DocView {
                     c.fill_rect(x, y, 6.0, 1.0, &solid(rgba(140, 140, 150, 255)));
                     x += 10.0;
                 }
+            }
+            // Marcador da lista, no recuo antes do texto (na primeira linha).
+            if let Some(Some(label)) = self.labels.get(pi) {
+                let ln = &l.lines[0];
+                let st = &p.runs[0].style;
+                let x = off.0 + (p.style.left_indent - crate::rich::LIST_INDENT + 4.0) * z;
+                let base = ys[0] * z - scroll + ln.base * z;
+                let color = rgba(st.color[0], st.color[1], st.color[2], st.color[3]);
+                fb.face(st).draw(c, label, x, base, FontBook::eff_size(st) * z, false, color);
             }
             for (li, ln) in l.lines.iter().enumerate() {
                 let ly = ys[li] * z - scroll;

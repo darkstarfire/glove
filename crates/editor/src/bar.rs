@@ -5,7 +5,7 @@ use glove_ui::paint::draw::*;
 use glove_ui::{Glyph, Rect, Ui, SEGMENT_H, SEGMENT_W};
 
 use crate::fontbook::FontBook;
-use crate::rich::{Align, CharStyle};
+use crate::rich::{Align, CharStyle, Role};
 use crate::view;
 use crate::{ColorTarget, Editor};
 
@@ -76,9 +76,25 @@ impl Editor {
         let cy = y + (BAR_H - 22.0) / 2.0;
         let mut x = 8.0;
 
+        // Estilo do parágrafo (Corpo, Título, Capítulo…).
+        let role = view::para_style(&self.doc).role;
+        let names: Vec<String> = Role::MENU.iter().map(|r| glove_config::tr_dyn(r.name())).collect();
+        let cur = Role::MENU.iter().position(|r| *r == role).unwrap_or(0);
+        let mut chosen_role = None;
+        ui.area(Rect::new(x, cy, 96.0, 22.0), |ui| {
+            let mut i = cur;
+            if ui.popup(&mut i, &names, 96.0) {
+                chosen_role = Some(i);
+            }
+        });
+        if let Some(i) = chosen_role {
+            self.doc.apply_role(Role::MENU[i]);
+        }
+        x += 102.0;
+
         // Família: abre o painel de Fontes (que tem a busca).
         let family = view::common(&self.doc, |s| s.family.clone());
-        let fr = Rect::new(x, cy, 150.0, 22.0);
+        let fr = Rect::new(x, cy, 112.0, 22.0);
         let h = ui.hit(fr);
         ui.c.fill(rrect(fr.x, fr.y, fr.w, fr.h, 4.0), &solid(rgba(140, 140, 148, 255)));
         ui.c.fill(rrect(fr.x + 1.0, fr.y + 1.0, fr.w - 2.0, fr.h - 2.0, 3.0), &vgrad(fr.y, fr.y + fr.h, &[(0.0, rgba(252, 252, 253, 255)), (1.0, rgba(230, 230, 234, 255))]));
@@ -178,6 +194,26 @@ impl Editor {
             None => {}
         }
         x += 76.0;
+
+        // Lista (nenhuma, marcadores, numerada).
+        let list = view::para_style(&self.doc).list;
+        let opts = vec![glove_config::tr!("Sem lista").to_string(), glove_config::tr!("• Marcadores").to_string(), glove_config::tr!("1. Numerada").to_string()];
+        let cur = match list {
+            None => 0,
+            Some(l) if !l.numbered => 1,
+            Some(_) => 2,
+        };
+        let mut chosen = None;
+        ui.area(Rect::new(x, cy, 104.0, 22.0), |ui| {
+            let mut i = cur;
+            if ui.popup(&mut i, &opts, 104.0) {
+                chosen = Some(i);
+            }
+        });
+        if let Some(i) = chosen {
+            self.doc.set_list([None, Some(false), Some(true)][i]);
+        }
+        x += 110.0;
         self.bar_end = x;
     }
 }

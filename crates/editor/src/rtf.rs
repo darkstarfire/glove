@@ -7,7 +7,54 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::rc::Rc;
 
-use crate::rich::{Align, CharStyle, Doc, HeaderFooter, Note, PageSetup, Para, ParaStyle, Run, NOTE_CHAR};
+use crate::rich::{Align, CharStyle, Doc, HeaderFooter, List, Note, PageSetup, Para, ParaStyle, Role, Run, NOTE_CHAR};
+
+/// Número do estilo no RTF de cada papel (e o nome que o Word usa).
+fn role_style(r: Role) -> (u32, &'static str) {
+    match r {
+        Role::Body => (0, "Normal"),
+        Role::Chapter => (1, "heading 1"),
+        Role::Section => (2, "heading 2"),
+        Role::Subsection => (3, "heading 3"),
+        Role::Title => (4, "Title"),
+        Role::Quote => (5, "Quote"),
+        Role::Toc => (6, "toc 1"),
+    }
+}
+
+/// Papel pelo nome do estilo (o do Word, do LibreOffice ou o nosso).
+fn role_of_name(name: &str) -> Role {
+    let n = name.trim().to_ascii_lowercase();
+    match n.as_str() {
+        "heading 1" | "título 1" | "titulo 1" => Role::Chapter,
+        "heading 2" | "título 2" | "titulo 2" => Role::Section,
+        "heading 3" | "título 3" | "titulo 3" => Role::Subsection,
+        "title" | "título" | "titulo" => Role::Title,
+        "quote" | "quotation" | "quotations" | "citação" | "citacao" => Role::Quote,
+        n if n.starts_with("toc ") || n.starts_with("contents ") => Role::Toc,
+        _ => Role::Body,
+    }
+}
+
+/// Tabela de listas do Word: 1 = marcadores, 2 = numerada (9 níveis cada).
+fn list_table() -> String {
+    let mut s = String::from("{\\*\\listtable");
+    for (id, numbered) in [(1, false), (2, true)] {
+        let _ = write!(s, "{{\\list\\listtemplateid{id}\\listhybrid");
+        for lv in 0..9 {
+            let li = tw(crate::rich::LIST_INDENT * (lv as f32 + 1.0));
+            if numbered {
+                let _ = write!(s, "{{\\listlevel\\levelnfc0\\leveljc0\\levelfollow0\\levelstartat1{{\\leveltext\\'02\\'0{lv}.;}}{{\\levelnumbers\\'01;}}\\fi-{}\\li{li}}}", tw(crate::rich::LIST_INDENT));
+            } else {
+                let bullet = [8226, 9702, 9642][lv % 3];
+                let _ = write!(s, "{{\\listlevel\\levelnfc23\\leveljc0\\levelfollow0\\levelstartat1{{\\leveltext\\'01\\u{bullet} ?;}}{{\\levelnumbers;}}\\fi-{}\\li{li}}}", tw(crate::rich::LIST_INDENT));
+            }
+        }
+        let _ = write!(s, "\\listid{id}}}");
+    }
+    s.push_str("}\n{\\*\\listoverridetable{\\listoverride\\listid1\\listoverridecount0\\ls1}{\\listoverride\\listid2\\listoverridecount0\\ls2}}\n");
+    s
+}
 
 /// Pontos → twips (1/20 de ponto).
 fn tw(pt: f32) -> i32 {
@@ -76,12 +123,20 @@ pub fn write(doc: &Doc) -> String {
         }
     };
     let mut body = String::new();
+    let mut counters = [0usize; 9];
     for (pi, p) in doc.paras.iter().enumerate() {
         if pi > 0 {
             body.push_str("\\par\n");
         }
         let ps = &p.style;
         body.push_str("\\pard");
+        let (sn, _) = role_style(ps.role);
+        if sn != 0 {
+            let _ = write!(body, "\\s{sn}");
+        }
+        if let Some(l) = ps.role.outline() {
+            let _ = write!(body, "\\outlinelevel{l}");
+        }
         body.push_str(match ps.align {
             Align::Left => "\\ql",
             Align::Center => "\\qc",
@@ -111,6 +166,25 @@ pub fn write(doc: &Doc) -> String {
         }
         if ps.page_break_before {
             body.push_str("\\pagebb");
+        }
+        // Item de lista: o do Word (\\ls), o marcador para quem não entende listas e o nosso.
+        match ps.list {
+            Some(l) => {
+                let lv = (l.level as usize).min(8);
+                for c in counters.iter_mut().skip(lv + 1) {
+                    *c = 0;
+                }
+                let label = if l.numbered {
+                    counters[lv] += 1;
+                    format!("{}.", counters[lv])
+                } else {
+                    ["•", "◦", "▪"][lv % 3].to_string()
+                };
+                let _ = write!(body, "\\ls{}\\ilvl{lv}{{\\listtext\\pard\\plain ", if l.numbered { 2 } else { 1 });
+                escape(&mut body, &label);
+                let _ = write!(body, "\\tab}}{{\\*\\glovelist\\glovenum{}\\glovelvl{lv}}}", u8::from(l.numbered));
+            }
+            None => counters = [0; 9],
         }
         for (a, b, st) in p.spans() {
             // Marca de nota: a nota inteira entra aqui (o Word numera sozinho).
@@ -167,7 +241,19 @@ pub fn write(doc: &Doc) -> String {
         escape(&mut out, f);
         out.push_str(";}");
     }
-    out.push_str("}\n{\\colortbl;");
+    out.push_str("}\n");
+    // Estilos (os nomes do Word, para os títulos entrarem na navegação dele).
+    out.push_str("{\\stylesheet");
+    for r in [Role::Body, Role::Chapter, Role::Section, Role::Subsection, Role::Title, Role::Quote, Role::Toc] {
+        let (n, name) = role_style(r);
+        let lvl = r.outline().map(|l| format!("\\outlinelevel{l}")).unwrap_or_default();
+        let _ = write!(out, "{{\\s{n}{lvl} {name};}}");
+    }
+    out.push_str("}\n");
+    if doc.paras.iter().any(|p| p.style.list.is_some()) {
+        out.push_str(&list_table());
+    }
+    out.push_str("{\\colortbl;");
     for c in &colors {
         let _ = write!(out, "\\red{}\\green{}\\blue{};", c[0], c[1], c[2]);
     }
@@ -217,6 +303,12 @@ enum Dest {
     ColorTbl,
     /// Texto de uma nota de rodapé.
     Note,
+    /// Tabela de estilos (número → nome).
+    StyleSheet,
+    /// Texto do marcador de um item de lista do Word.
+    ListText,
+    /// Nossa marca de lista.
+    GloveList,
     /// Modelo de cabeçalho (0) ou rodapé (1) do Editor; e a parte (esquerda, centro, direita).
     Hf(u8),
     HfPart(u8, u8),
@@ -267,6 +359,15 @@ struct Reader {
     cur_ps: ParaStyle,
     notes: Vec<Note>,
     note_text: String,
+    styles: HashMap<i32, String>,
+    style_def: i32,
+    style_name: String,
+    /// Lista do parágrafo atual: a nossa (exata) ou a do Word (pelo marcador).
+    list: Option<List>,
+    glove_list: bool,
+    listtext: String,
+    list_numbered: Option<bool>,
+    ilvl: u8,
     hf: [[String; 3]; 2],
     title_page: bool,
 }
@@ -296,7 +397,17 @@ impl Reader {
                     self.rgb_set = false;
                 }
             }
-            Dest::Skip | Dest::Hf(_) => {}
+            Dest::Skip | Dest::Hf(_) | Dest::GloveList => {}
+            Dest::ListText => self.listtext.push(c),
+            Dest::StyleSheet => {
+                if c == ';' {
+                    let name = self.style_name.trim().to_string();
+                    self.styles.insert(self.style_def, name);
+                    self.style_name.clear();
+                } else {
+                    self.style_name.push(c);
+                }
+            }
             Dest::Note => self.note_text.push(c),
             Dest::HfPart(w, k) => self.hf[w as usize][k as usize].push(c),
             Dest::Text => {
@@ -311,6 +422,7 @@ impl Reader {
                 self.text.push(c);
                 // Estilo do parágrafo: o que vale quando o texto dele aparece.
                 self.cur_ps = st.ps.clone();
+                self.cur_ps.list = self.list;
             }
         }
     }
@@ -318,9 +430,13 @@ impl Reader {
     fn end_para(&mut self, st: &State) {
         let text = std::mem::take(&mut self.text);
         let mut runs = std::mem::take(&mut self.runs);
-        let mut ps = if text.is_empty() { st.ps.clone() } else { self.cur_ps.clone() };
+        let mut ps = if text.is_empty() { ParaStyle { list: self.list, ..st.ps.clone() } } else { self.cur_ps.clone() };
         if std::mem::take(&mut self.page_break) {
             ps.page_break_before = true;
+        }
+        // Lista: o marcador fica no recuo (sem recuo negativo da primeira linha).
+        if ps.list.is_some() && ps.first_indent < 0.0 {
+            ps.first_indent = 0.0;
         }
         if runs.is_empty() {
             runs.push(Run { len: 0, style: Rc::new(st.cs.clone()) });
@@ -368,6 +484,14 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
         cur_ps: ParaStyle::default(),
         notes: Vec::new(),
         note_text: String::new(),
+        styles: HashMap::new(),
+        style_def: 0,
+        style_name: String::new(),
+        list: None,
+        glove_list: false,
+        listtext: String::new(),
+        list_numbered: None,
+        ilvl: 0,
         hf: Default::default(),
         title_page: false,
     };
@@ -397,6 +521,15 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
                 let closing = st.dest;
                 st = stack.pop().unwrap_or_else(|| base.clone());
                 r.skip = 0;
+                // Fim do marcador de uma lista do Word: número ou símbolo?
+                if closing == Dest::ListText && st.dest != Dest::ListText {
+                    let t = std::mem::take(&mut r.listtext);
+                    let t = t.trim();
+                    r.list_numbered = Some(t.chars().next().is_some_and(|c| c.is_ascii_alphanumeric()));
+                    if !r.glove_list {
+                        r.list = Some(List { numbered: r.list_numbered.unwrap_or(false), level: r.ilvl });
+                    }
+                }
                 // Fim de uma nota: a marca entra no texto, onde a nota estava.
                 if closing == Dest::Note && st.dest != Dest::Note {
                     let id = r.notes.len() as u32 + 1;
@@ -514,6 +647,20 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
                 st.dest = Dest::Note;
                 return;
             }
+            "stylesheet" => {
+                st.dest = Dest::StyleSheet;
+                return;
+            }
+            "listtext" => {
+                st.dest = Dest::ListText;
+                return;
+            }
+            "glovelist" => {
+                st.dest = Dest::GloveList;
+                r.glove_list = true;
+                r.list = Some(List { numbered: false, level: 0 });
+                return;
+            }
             "gloveheader" | "glovefooter" => {
                 st.dest = Dest::Hf(u8::from(word == "glovefooter"));
                 return;
@@ -528,7 +675,7 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
                 }
                 return;
             }
-            "stylesheet" | "info" | "pict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "listtable" | "listoverridetable" | "revtbl" | "listtext" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
+            "info" | "pict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "listtable" | "listoverridetable" | "revtbl" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
                 st.dest = Dest::Skip;
                 return;
             }
@@ -538,6 +685,23 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
             }
             _ => {}
         }
+    }
+    if st.dest == Dest::GloveList {
+        if let Some(l) = r.list.as_mut() {
+            match word {
+                "glovenum" => l.numbered = n == 1,
+                "glovelvl" => l.level = n.clamp(0, 8) as u8,
+                _ => {}
+            }
+        }
+        return;
+    }
+    if st.dest == Dest::StyleSheet {
+        if word == "s" {
+            r.style_def = n;
+            r.style_name.clear();
+        }
+        return;
     }
     if matches!(st.dest, Dest::Skip | Dest::Hf(_)) {
         return;
@@ -622,6 +786,32 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
         "pard" => {
             let cell = st.ps.cell;
             st.ps = ParaStyle { cell, ..ParaStyle::default() };
+            r.list = None;
+            r.glove_list = false;
+            r.list_numbered = None;
+            r.ilvl = 0;
+        }
+        "s" => st.ps.role = r.styles.get(&n).map(|nm| role_of_name(nm)).unwrap_or(Role::Body),
+        "outlinelevel" => {
+            if st.ps.role == Role::Body {
+                st.ps.role = match n {
+                    0 => Role::Chapter,
+                    1 => Role::Section,
+                    2 => Role::Subsection,
+                    _ => Role::Body,
+                };
+            }
+        }
+        "ilvl" => {
+            r.ilvl = n.clamp(0, 8) as u8;
+            if let Some(l) = r.list.as_mut().filter(|_| !r.glove_list) {
+                l.level = r.ilvl;
+            }
+        }
+        "ls" => {
+            if !r.glove_list {
+                r.list = Some(List { numbered: r.list_numbered.unwrap_or(false), level: r.ilvl });
+            }
         }
         "plain" => {
             st.cs = CharStyle { family: font_of(r, r.deff).unwrap_or_else(|| crate::rich::DEFAULT_FAMILY.into()), ..CharStyle::default() };
@@ -779,6 +969,19 @@ mod tests {
         d.set_char_style(&|s| s.highlight = Some([255, 240, 110, 255]));
         d.set_cursor(Pos::new(1, 14), false);
         d.insert_note("Conforme a norma da ABNT.");
+        let n = d.paras.len();
+        d.set_cursor(Pos::new(n - 1, d.paras[n - 1].text.len()), false);
+        d.insert_text("\nObjetivos\nPrimeiro objetivo\nDetalhe do primeiro\nSegundo objetivo\nUm marcador\nOutro marcador");
+        d.set_cursor(Pos::new(n, 0), false);
+        d.apply_role(Role::Chapter);
+        d.anchor = Pos::new(n + 1, 0);
+        d.cursor = Pos::new(n + 3, 0);
+        d.set_list(Some(true));
+        d.set_cursor(Pos::new(n + 2, 0), false);
+        d.shift_list(1);
+        d.anchor = Pos::new(n + 4, 0);
+        d.cursor = Pos::new(n + 5, 0);
+        d.set_list(Some(false));
         d.header.right = "Relatório — {data}".into();
         d.footer.center = "Página {página} de {páginas}".into();
         std::fs::write(out, write(&d)).unwrap();
@@ -818,6 +1021,44 @@ mod tests {
         assert_eq!(back.header.right, "Meu TCC");
         assert_eq!(back.footer.center, "Página {página} de {páginas}");
         assert!(back.title_page);
+    }
+
+    #[test]
+    fn estilos_e_listas() {
+        let mut d = Doc::from_plain("Capítulo 1\nitem um\nitem dois\nsubitem\nfim", Rc::new(CharStyle::default()), ParaStyle::default());
+        d.set_cursor(Pos::new(0, 0), false);
+        d.apply_role(Role::Chapter);
+        d.anchor = Pos::new(1, 0);
+        d.cursor = Pos::new(3, 0);
+        d.set_list(Some(true));
+        d.set_cursor(Pos::new(3, 0), false);
+        d.shift_list(1);
+        let rtf = write(&d);
+        assert!(rtf.contains("heading 1"));
+        assert!(rtf.contains("\\listtable"));
+        let back = read_doc(rtf.as_bytes()).unwrap();
+        assert_eq!(back.plain_text(), d.plain_text());
+        assert_eq!(back.paras[0].style.role, Role::Chapter);
+        assert!(back.paras[0].style_after(0).bold);
+        assert_eq!(back.paras[1].style.list, Some(List { numbered: true, level: 0 }));
+        assert_eq!(back.paras[3].style.list, Some(List { numbered: true, level: 1 }));
+        assert_eq!(back.paras[4].style.list, None);
+    }
+
+    #[test]
+    fn le_lista_do_word() {
+        let src = br#"{\rtf1\ansi{\fonttbl{\f0 Arial;}}{\stylesheet{\s0 Normal;}{\s1 heading 1;}}
+\pard\s1 Intro\par
+\pard{\listtext\pard\plain \'b7\tab}\ls1\ilvl0\li720\fi-360 um\par
+\pard{\listtext\pard\plain 1.\tab}\ls2\ilvl1\li1440\fi-360 dois\par
+\pard texto}"#;
+        let d = read_doc(src).unwrap();
+        assert_eq!(d.plain_text(), "Intro\num\ndois\ntexto");
+        assert_eq!(d.paras[0].style.role, Role::Chapter);
+        assert_eq!(d.paras[1].style.list, Some(List { numbered: false, level: 0 }));
+        assert_eq!(d.paras[2].style.list, Some(List { numbered: true, level: 1 }));
+        assert_eq!(d.paras[1].style.first_indent, 0.0);
+        assert_eq!(d.paras[3].style.list, None);
     }
 
     #[test]

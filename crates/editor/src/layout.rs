@@ -221,6 +221,14 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> Para
         let text_h = asc + desc;
         let h = text_h * ps.line_spacing.max(0.5);
         let start = line_start(i);
+        // Sumário: a tabulação empurra o número da página para a margem direita.
+        let mut toks = toks;
+        if ps.role == crate::rich::Role::Toc {
+            if let Some(ti) = toks.iter().rposition(|t| t.kind == Kind::Tab) {
+                let rest: f32 = toks.iter().enumerate().filter(|(k, _)| *k != ti).map(|(_, t)| t.w).sum();
+                toks[ti].w = (right - start - rest).max(6.0);
+            }
+        }
         // Largura sem os espaços do fim.
         let trail = toks.iter().rev().take_while(|t| t.kind == Kind::Space).count();
         let content: f32 = toks[..toks.len() - trail].iter().map(|t| t.w).sum();

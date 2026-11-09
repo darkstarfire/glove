@@ -47,8 +47,7 @@ pub enum Align {
     Justify,
 }
 
-/// Papel do parágrafo (estilos da 12.7): muda a aparência padrão e entra no sumário.
-#[allow(dead_code)] // usados a partir da 12.7
+/// Papel do parágrafo (estilo): muda a aparência e os títulos entram no sumário.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Role {
     #[default]
@@ -58,6 +57,86 @@ pub enum Role {
     Section,
     Subsection,
     Quote,
+    /// Linha do sumário (gerada; "Atualizar Sumário" refaz).
+    Toc,
+}
+
+impl Role {
+    pub const MENU: [Role; 6] = [Role::Body, Role::Title, Role::Chapter, Role::Section, Role::Subsection, Role::Quote];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Role::Body => "Corpo",
+            Role::Title => "Título",
+            Role::Chapter => "Capítulo",
+            Role::Section => "Seção",
+            Role::Subsection => "Subseção",
+            Role::Quote => "Citação",
+            Role::Toc => "Sumário",
+        }
+    }
+
+    /// Nível no sumário (capítulo 0, seção 1, subseção 2).
+    pub fn outline(self) -> Option<usize> {
+        match self {
+            Role::Chapter => Some(0),
+            Role::Section => Some(1),
+            Role::Subsection => Some(2),
+            _ => None,
+        }
+    }
+
+    /// A aparência do estilo: o que muda nos caracteres e no parágrafo.
+    pub fn apply(self, cs: &mut CharStyle, ps: &mut ParaStyle) {
+        ps.role = self;
+        let (size, bold, italic) = match self {
+            Role::Title => (24.0, true, false),
+            Role::Chapter => (18.0, true, false),
+            Role::Section => (14.0, true, false),
+            Role::Subsection => (12.0, true, true),
+            Role::Quote => (10.0, false, false),
+            Role::Body | Role::Toc => (12.0, false, false),
+        };
+        cs.size = size;
+        cs.bold = bold;
+        cs.italic = italic;
+        match self {
+            Role::Title => {
+                ps.align = Align::Center;
+                ps.space_before = 0.0;
+                ps.space_after = 18.0;
+                ps.first_indent = 0.0;
+            }
+            Role::Chapter => {
+                ps.space_before = 18.0;
+                ps.space_after = 8.0;
+                ps.first_indent = 0.0;
+                if ps.align == Align::Justify {
+                    ps.align = Align::Left;
+                }
+            }
+            Role::Section | Role::Subsection => {
+                ps.space_before = 12.0;
+                ps.space_after = 4.0;
+                ps.first_indent = 0.0;
+                if ps.align == Align::Justify {
+                    ps.align = Align::Left;
+                }
+            }
+            // Citação longa (como a da ABNT): recuo de 4 cm, letra menor, espaço simples.
+            Role::Quote => {
+                ps.left_indent = 4.0 * 28.3465;
+                ps.first_indent = 0.0;
+                ps.line_spacing = 1.0;
+                ps.align = Align::Justify;
+            }
+            Role::Body | Role::Toc => {
+                if ps.left_indent == 4.0 * 28.3465 {
+                    ps.left_indent = 0.0;
+                }
+            }
+        }
+    }
 }
 
 /// Item de lista.
@@ -67,6 +146,9 @@ pub struct List {
     /// Nível (0 = o mais de fora).
     pub level: u8,
 }
+
+/// Recuo de cada nível de lista (pontos; o marcador fica antes dele).
+pub const LIST_INDENT: f32 = 22.0;
 
 /// Célula de tabela (12.8): os parágrafos com a mesma célula ficam juntos nela.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -378,6 +460,9 @@ pub struct Doc {
     /// Primeira página sem cabeçalho e rodapé (capa).
     pub title_page: bool,
     pub notes: Vec<Note>,
+    /// Modelo do corpo do texto (letra e parágrafo): o Enter depois de um título e o
+    /// estilo "Corpo" voltam a ele.
+    pub body: (Rc<CharStyle>, ParaStyle),
     pub cursor: Pos,
     pub anchor: Pos,
     /// Estilo escolhido para o que se vai digitar (Negrito sem seleção…); sai ao mexer o cursor.
@@ -403,7 +488,7 @@ impl Doc {
     }
 
     pub fn with_style(style: Rc<CharStyle>, pstyle: ParaStyle) -> Self {
-        Self { paras: vec![Para::new("", style, pstyle)], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, notes: Vec::new(), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
+        Self { paras: vec![Para::new("", style.clone(), pstyle.clone())], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, notes: Vec::new(), body: (style.clone(), pstyle.clone()), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
     }
 
     /// Documento de texto simples, todo num estilo.
@@ -418,6 +503,10 @@ impl Doc {
     pub fn from_paras(paras: Vec<Para>) -> Self {
         let mut d = Self::new();
         if !paras.is_empty() {
+            // O modelo do corpo: o primeiro parágrafo de corpo comum do arquivo.
+            if let Some(p) = paras.iter().find(|p| p.style.role == Role::Body && p.style.list.is_none() && p.style.cell.is_none() && !p.text.is_empty()) {
+                d.body = (p.style_after(0).clone(), ParaStyle { page_break_before: false, tabs: Vec::new(), ..p.style.clone() });
+            }
             d.paras = paras;
         }
         d
@@ -730,9 +819,14 @@ impl Doc {
         if text.contains('\n') {
             let p = self.cursor.p;
             if matches!(self.paras[p].style.role, Role::Title | Role::Chapter | Role::Section | Role::Subsection) && self.paras[p].text.is_empty() {
-                let mut s = self.paras[p].style.clone();
-                s.role = Role::Body;
+                // Volta ao modelo do corpo do documento.
+                let s = self.body.1.clone();
+                let cs = (*self.body.0).clone();
                 self.set_para_styles(p, p, vec![s]);
+                // A letra do parágrafo novo também volta ao corpo.
+                self.paras[p].runs[0].style = Rc::new(cs);
+                self.paras[p].touch();
+                self.typing = None;
                 self.coalesce = false;
             }
         }
@@ -810,6 +904,91 @@ impl Doc {
             })
             .collect();
         self.set_para_styles(a.p, b.p, styles);
+    }
+
+    /// Aplica um estilo aos parágrafos tocados pela seleção (texto e parágrafo, um passo só).
+    pub fn apply_role(&mut self, role: Role) {
+        let (a, b) = self.selection();
+        let (cur, anc) = (self.cursor, self.anchor);
+        let (p0, p1) = (a.p, b.p);
+        let body = self.body.clone();
+        self.group(|d| {
+            let styles: Vec<ParaStyle> = d.paras[p0..=p1]
+                .iter()
+                .map(|p| {
+                    // Corpo: o modelo do documento (mantém lista, célula e quebra de página).
+                    if role == Role::Body {
+                        return ParaStyle { list: p.style.list, cell: p.style.cell, page_break_before: p.style.page_break_before, ..body.1.clone() };
+                    }
+                    let mut ps = p.style.clone();
+                    let mut cs = CharStyle::default();
+                    role.apply(&mut cs, &mut ps);
+                    ps
+                })
+                .collect();
+            d.set_para_styles(p0, p1, styles);
+            // Os caracteres dos parágrafos inteiros.
+            d.anchor = Pos::new(p0, 0);
+            d.cursor = Pos::new(p1, d.paras[p1].text.len());
+            if d.has_selection() {
+                let b = body.0.clone();
+                d.set_char_style(&|cs| {
+                    let mut ps = ParaStyle::default();
+                    let keep = (cs.family.clone(), cs.color, cs.underline, cs.strike, cs.highlight);
+                    role.apply(cs, &mut ps);
+                    if role == Role::Body {
+                        (cs.size, cs.bold, cs.italic) = (b.size, b.bold, b.italic);
+                    }
+                    (cs.family, cs.color, cs.underline, cs.strike, cs.highlight) = keep;
+                });
+            }
+            // Parágrafo vazio: o estilo vale para o que se digitar nele.
+            for pi in p0..=p1 {
+                if d.paras[pi].text.is_empty() {
+                    let mut cs = (*d.paras[pi].runs[0].style).clone();
+                    let mut ps = ParaStyle::default();
+                    let fam = cs.family.clone();
+                    role.apply(&mut cs, &mut ps);
+                    cs.family = fam;
+                    d.paras[pi].runs[0].style = Rc::new(cs);
+                    d.paras[pi].touch();
+                }
+            }
+        });
+        self.cursor = self.clamp(cur);
+        self.anchor = self.clamp(anc);
+    }
+
+    /// Liga, troca ou desliga a lista dos parágrafos tocados pela seleção.
+    pub fn set_list(&mut self, list: Option<bool>) {
+        let body = self.body.1.clone();
+        self.set_para_style(&|ps| match list {
+            Some(numbered) => {
+                let level = ps.list.map_or(0, |l| l.level);
+                ps.list = Some(List { numbered, level });
+                ps.left_indent = LIST_INDENT * (level as f32 + 1.0);
+                ps.first_indent = 0.0;
+            }
+            // Saindo da lista: o recuo volta ao do corpo do documento.
+            None => {
+                if ps.list.is_some() {
+                    ps.left_indent = body.left_indent;
+                    ps.first_indent = body.first_indent;
+                }
+                ps.list = None;
+            }
+        });
+    }
+
+    /// Aprofunda (+1) ou volta (-1) o nível dos itens de lista selecionados.
+    pub fn shift_list(&mut self, delta: i32) {
+        self.set_para_style(&|ps| {
+            if let Some(l) = ps.list.as_mut() {
+                let lv = (l.level as i32 + delta).clamp(0, 8) as u8;
+                l.level = lv;
+                ps.left_indent = LIST_INDENT * (lv as f32 + 1.0);
+            }
+        });
     }
 
     /// Fecha o passo atual do Desfazer (a próxima letra começa outro).

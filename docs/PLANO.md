@@ -721,7 +721,7 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
   Página, quebra de página (Inserir > Quebra de Página); o modo "ajustar à janela" continua existindo
 - [x] 12.6 Cabeçalho, rodapé e notas (M) — v0.12.6: cabeçalho e rodapé com número de página, total, título e
   data; primeira página diferente (capa sem número); notas de rodapé numeradas no pé da página
-- [ ] 12.7 Estilos e listas (M): Título, Capítulo, Seção, Subseção, Corpo, Citação; listas com
+- [x] 12.7 Estilos e listas (M) — v0.12.7: Título, Capítulo, Seção, Subseção, Corpo, Citação; listas com
   marcadores e numeradas (Tab aprofunda); sumário gerado dos capítulos; modelo ABNT (margens 3/2 cm,
   Times 12, 1,5, recuo de parágrafo, número de página no canto, capa sem número)
 - [ ] 12.8 Tabelas (G): inserir tabela, acrescentar/remover linhas e colunas, juntar células, bordas e
