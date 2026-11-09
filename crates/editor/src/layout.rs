@@ -15,7 +15,7 @@ pub type NoteNums = HashMap<u32, usize>;
 pub fn note_label(st: &CharStyle, nums: &NoteNums) -> Option<(CharStyle, String)> {
     let id = st.note?;
     let n = nums.get(&id).copied().unwrap_or(0);
-    Some((CharStyle { script: 1, note: None, ..st.clone() }, if n > 0 { n.to_string() } else { "*".into() }))
+    Some((CharStyle { script: 1, note: None, image: None, ..st.clone() }, if n > 0 { n.to_string() } else { "*".into() }))
 }
 
 /// Distância entre as tabulações padrão (meia polegada, como no TextEdit).
@@ -86,6 +86,13 @@ fn next_tab(tabs: &[f32], x: f32) -> f32 {
 fn tokens(p: &Para, fb: &FontBook, nums: &NoteNums) -> Vec<Tok> {
     let mut out = Vec::new();
     for (a, b, st) in p.spans() {
+        // Imagem: cada caractere é uma imagem inteira.
+        if let Some(img) = &st.image {
+            for (i, c) in p.text[a..b].char_indices() {
+                out.push(Tok { a: a + i, b: a + i + c.len_utf8(), kind: Kind::Word, w: img.w, style: st.clone() });
+            }
+            continue;
+        }
         // Marca de nota: ocupa o lugar do número dela.
         if let Some((sup, label)) = note_label(st, nums) {
             if a < b {
@@ -164,6 +171,18 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> Para
                 cur.push(t);
             }
             Kind::Word => {
+                // Imagem mais larga que a coluna: diminui até caber.
+                if t.style.image.is_some() {
+                    t.w = t.w.min(avail(n)).max(1.0);
+                    if x + t.w > avail(n) && has_word(&cur) {
+                        lines.push(std::mem::take(&mut cur));
+                        x = 0.0;
+                        t.w = t.w.min(avail(lines.len())).max(1.0);
+                    }
+                    x += t.w;
+                    cur.push(t);
+                    continue;
+                }
                 if x + t.w > avail(n) && has_word(&cur) {
                     lines.push(std::mem::take(&mut cur));
                     x = 0.0;
@@ -208,18 +227,32 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> Para
     let mut pos = 0usize;
     for (i, toks) in lines.into_iter().enumerate() {
         let (mut asc, mut desc) = (0.0f32, 0.0f32);
+        // A imagem mais alta da linha (fica em pé na linha de base).
+        let mut img_h = 0.0f32;
+        let mut texts = 0;
         for t in &toks {
+            if let Some(img) = &t.style.image {
+                img_h = img_h.max(img.h * t.w / img.w.max(0.01));
+                continue;
+            }
+            texts += 1;
             let (a, d) = fb.metrics(&t.style);
             asc = asc.max(a);
             desc = desc.max(d);
         }
-        if toks.is_empty() {
-            let (a, d) = fb.metrics(&empty_style);
+        if texts == 0 {
+            let (a, d) = fb.metrics(toks.first().map_or(&empty_style, |t| &t.style));
             asc = a;
             desc = d;
         }
-        let text_h = asc + desc;
-        let h = text_h * ps.line_spacing.max(0.5);
+        let mut text_h = asc + desc;
+        let mut h = text_h * ps.line_spacing.max(0.5);
+        // A imagem aumenta a linha só no que passa da letra (o entrelinha não multiplica).
+        if img_h > asc {
+            h += img_h - asc;
+            text_h += img_h - asc;
+            asc = img_h;
+        }
         let start = line_start(i);
         // Sumário: a tabulação empurra o número da página para a margem direita.
         let mut toks = toks;
@@ -252,7 +285,7 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> Para
             let stretch = if t.kind == Kind::Space && k < inner && extra > 0.0 { extra } else { 0.0 };
             let w = t.w + stretch;
             // Junta com o anterior se tiver o mesmo estilo (desenha de uma vez, com kerning).
-            let merge = !justify && t.kind != Kind::Tab && segs.last().is_some_and(|s: &Seg| !s.tab && s.b == t.a && (Rc::ptr_eq(&s.style, &t.style) || *s.style == *t.style));
+            let merge = !justify && t.kind != Kind::Tab && t.style.image.is_none() && segs.last().is_some_and(|s: &Seg| !s.tab && s.b == t.a && (Rc::ptr_eq(&s.style, &t.style) || *s.style == *t.style));
             if merge {
                 let s = segs.last_mut().unwrap();
                 s.b = t.b;
@@ -265,7 +298,7 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> Para
         }
         // Mede de novo os pedaços juntados (o kerning entre tokens muda um pouco).
         if !justify {
-            for s in segs.iter_mut().filter(|s| !s.tab && s.style.note.is_none()) {
+            for s in segs.iter_mut().filter(|s| !s.tab && s.style.note.is_none() && s.style.image.is_none()) {
                 let w = fb.measure(&s.style, &p.text[s.a..s.b]);
                 s.w = w;
                 s.nat = w;
@@ -344,7 +377,7 @@ pub fn hit_line(p: &Para, l: &ParaLayout, fb: &FontBook, li: usize, x: f32) -> u
         if x > s.x + s.w {
             continue;
         }
-        if s.tab || s.style.note.is_some() {
+        if s.tab || s.style.note.is_some() || s.style.image.is_some() {
             return if x < s.x + s.w / 2.0 { s.a } else { s.b.min(line_end) };
         }
         let k = if s.nat > 0.0 { s.w / s.nat } else { 1.0 };
@@ -362,4 +395,29 @@ pub fn hit_line(p: &Para, l: &ParaLayout, fb: &FontBook, li: usize, x: f32) -> u
         return s.b.min(line_end);
     }
     line_end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rich::{Image, ImageData, ParaStyle, NOTE_CHAR};
+
+    #[test]
+    fn imagem_na_linha() {
+        let fb = FontBook::new();
+        let data = Rc::new(ImageData { id: 1, bytes: Vec::new(), jpeg: false, px: (100, 50) });
+        let base = Rc::new(CharStyle::default());
+        let img = Rc::new(CharStyle { image: Some(Image { data, w: 400.0, h: 200.0 }), ..CharStyle::default() });
+        let mut p = Para::new("a", base.clone(), ParaStyle::default());
+        p.text.push(NOTE_CHAR);
+        p.text.push('b');
+        p.runs = vec![crate::rich::Run { len: 1, style: base.clone() }, crate::rich::Run { len: 3, style: img }, crate::rich::Run { len: 1, style: base }];
+        let l = layout_para(&p, 200.0, &fb, &NoteNums::new());
+        // Mais larga que a coluna: diminui (e vai para a linha de baixo).
+        let seg = l.lines.iter().flat_map(|ln| ln.segs.iter()).find(|s| s.style.image.is_some()).unwrap();
+        assert!((seg.w - 200.0).abs() < 0.01);
+        let ln = l.lines.iter().find(|ln| ln.segs.iter().any(|s| s.style.image.is_some())).unwrap();
+        assert!(ln.base >= 100.0 - 0.01);
+        assert!(ln.h >= 100.0);
+    }
 }

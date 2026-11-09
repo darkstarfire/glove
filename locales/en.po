@@ -5098,3 +5098,12 @@ msgstr "Export as PDF…"
 
 msgid "O Editor abre documentos RTF e texto simples. Salve o arquivo como RTF no outro programa."
 msgstr "The Editor opens RTF documents and plain text. Save the file as RTF in the other program."
+
+msgid "Imagem…"
+msgstr "Image…"
+
+msgid "Inserir Imagem"
+msgstr "Insert Image"
+
+msgid "“{}” não é uma imagem PNG, JPEG ou WebP."
+msgstr "“{}” isn't a PNG, JPEG or WebP image."

@@ -73,6 +73,8 @@ pub fn find_all(text: &str, q: &str, case: bool) -> Vec<(usize, usize)> {
 enum Sheet {
     None,
     Open(FileBrowser),
+    /// Inserir > Imagem.
+    Image(FileBrowser),
     SaveAs { fb: FileBrowser, then_close: bool },
     /// Erro ao abrir ou salvar (alerta com OK).
     Error(String),
@@ -254,6 +256,26 @@ impl Editor {
         self.colors.set((c[0], c[1], c[2]));
     }
 
+    /// Põe as imagens no cursor, cabendo na coluna e na folha.
+    fn insert_images(&mut self, paths: &[PathBuf]) -> Result<(), String> {
+        let mut imgs = Vec::new();
+        for p in paths {
+            let bytes = std::fs::read(p).map_err(|e| tr!("Não consegui abrir “{}”: {}", p.display(), e))?;
+            imgs.push(rich::Image::from_bytes(bytes).ok_or_else(|| tr!("“{}” não é uma imagem PNG, JPEG ou WebP.", p.display()))?);
+        }
+        let max_w = self.view.width_at(self.doc.cursor.p);
+        let pg = &self.doc.page;
+        let max_h = pg.height - pg.margin_top - pg.margin_bottom - 24.0;
+        self.doc.group(|d| {
+            for img in imgs {
+                let (w, h) = img.fit(max_w, max_h);
+                d.insert_image(rich::Image { w: w.round().max(1.0), h: h.round().max(1.0), ..img });
+            }
+        });
+        self.view.reveal = true;
+        Ok(())
+    }
+
     fn run_action(&mut self, action: Option<&str>, ui: &mut Ui) {
         match action {
             Some("new") => spawn_self(None),
@@ -354,6 +376,10 @@ impl Editor {
                 let stem = self.path.as_ref().and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| tr!("Sem título").into());
                 let kind: &'static str = "pdf";
                 self.sheet = Sheet::Export { fb: FileBrowser::save(dir, &format!("{stem}.{ext}")), kind };
+            }
+            Some("image") => {
+                let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_else(documents_dir);
+                self.sheet = Sheet::Image(FileBrowser::open(Some(dir), &glove_ui::image::EXTENSIONS).labeled(tr!("Inserir Imagem"), tr!("Inserir")));
             }
             Some("table") => self.sheet = Sheet::Table(notes::TableSheet { rows: "3".into(), cols: "3".into() }),
             Some("row-above") => table::add_row(&mut self.doc, false),
@@ -710,7 +736,7 @@ impl Editor {
         }
         // Abrir e Salvar como: o diálogo em colunas do kit.
         let choice = match &mut self.sheet {
-            Sheet::Open(fb) | Sheet::SaveAs { fb, .. } | Sheet::Export { fb, .. } => ui.file_sheet(fb),
+            Sheet::Open(fb) | Sheet::Image(fb) | Sheet::SaveAs { fb, .. } | Sheet::Export { fb, .. } => ui.file_sheet(fb),
             _ => None,
         };
         let Some(choice) = choice else { return };
@@ -720,6 +746,11 @@ impl Editor {
             (_, Choice::Cancelled) => {}
             (Sheet::Open(_), Choice::Picked(p)) => {
                 if let Err(e) = self.open(p) {
+                    self.sheet = Sheet::Error(e);
+                }
+            }
+            (Sheet::Image(_), Choice::Picked(p)) => {
+                if let Err(e) = self.insert_images(&[p]) {
                     self.sheet = Sheet::Error(e);
                 }
             }
@@ -842,6 +873,7 @@ impl Editor {
                     "zoom-fit" => menu_action = Some("zoom-fit"),
                     "list-none" => menu_action = Some("list-none"),
                     "table" => menu_action = Some("table"),
+                    "image" => menu_action = Some("image"),
                     "export-pdf" => menu_action = Some("export-pdf"),
                     "row-above" => menu_action = Some("row-above"),
                     "row-below" => menu_action = Some("row-below"),
@@ -931,6 +963,19 @@ impl Editor {
         }
         let enabled = !sheet_open && !used_key;
         self.view.title = self.name();
+        // Imagens arrastadas para dentro do documento: entram onde caíram.
+        if enabled && !self.plain {
+            if let Some((paths, pt)) = ui.take_drop() {
+                let imgs: Vec<PathBuf> = paths.into_iter().filter(|p| glove_ui::image::format_of(p).is_some()).collect();
+                if !imgs.is_empty() {
+                    let pos = self.view.pos_at_screen(&self.doc, &self.fb, pt);
+                    self.doc.set_cursor(pos, false);
+                    if let Err(e) = self.insert_images(&imgs) {
+                        self.sheet = Sheet::Error(e);
+                    }
+                }
+            }
+        }
         self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
         // Sumário pedido: agora a paginação está pronta.
         if let Some(update) = self.pending_toc.take() {
@@ -1115,6 +1160,7 @@ impl Editor {
                     MenuItem::new("footnote", tr!("Nota de Rodapé…"), "Ctrl+Alt+N").enabled(!self.plain),
                     MenuItem::new("page-number", tr!("Número de Página"), "").enabled(!self.plain),
                     MenuItem::new("table", tr!("Tabela…"), "").enabled(!self.plain),
+                    MenuItem::new("image", tr!("Imagem…"), "").enabled(!self.plain),
                     MenuItem::Separator,
                     MenuItem::new("toc", tr!("Sumário"), "").enabled(!self.plain),
                     MenuItem::new("toc-update", tr!("Atualizar Sumário"), "").enabled(!self.plain && self.doc.paras.iter().any(|p| p.style.role == rich::Role::Toc)),

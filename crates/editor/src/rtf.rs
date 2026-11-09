@@ -188,6 +188,13 @@ fn write_para(body: &mut String, doc: &Doc, p: &Para, intbl: bool, fonts: &mut V
         None => *counters = [0; 9],
     }
     for (a, b, st) in p.spans() {
+        // Imagem: os bytes do arquivo em hexadecimal, com o tamanho na página.
+        if let Some(img) = &st.image {
+            for _ in p.text[a..b].chars() {
+                write_pict(body, img);
+            }
+            continue;
+        }
         // Marca de nota: a nota inteira entra aqui (o Word numera sozinho).
         if let Some(id) = st.note {
             let text = doc.note_text(id).unwrap_or("");
@@ -235,6 +242,21 @@ fn write_para(body: &mut String, doc: &Doc, p: &Para, intbl: bool, fonts: &mut V
 }
 
 /// O documento em RTF.
+/// Uma imagem como grupo \\pict (PNG ou JPEG, como o Word e o TextEdit gravam).
+fn write_pict(body: &mut String, img: &crate::rich::Image) {
+    let d = &img.data;
+    let _ = write!(body, "{{\\pict{}\\picw{}\\pich{}\\picwgoal{}\\pichgoal{}\n", if d.jpeg { "\\jpegblip" } else { "\\pngblip" }, d.px.0, d.px.1, tw(img.w), tw(img.h));
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    for line in d.bytes.chunks(64) {
+        for &b in line {
+            body.push(HEX[(b >> 4) as usize] as char);
+            body.push(HEX[(b & 15) as usize] as char);
+        }
+        body.push('\n');
+    }
+    body.push('}');
+}
+
 pub fn write(doc: &Doc) -> String {
     // Tabelas de fontes e cores (na ordem em que aparecem).
     let mut fonts: Vec<String> = Vec::new();
@@ -384,6 +406,20 @@ enum Dest {
     /// Modelo de cabeçalho (0) ou rodapé (1) do Editor; e a parte (esquerda, centro, direita).
     Hf(u8),
     HfPart(u8, u8),
+    /// Os dados de uma imagem (\\pict).
+    Pict,
+}
+
+/// A imagem sendo lida.
+#[derive(Default)]
+struct Pict {
+    bytes: Vec<u8>,
+    /// Meio byte já lido (hexadecimal vem de dois em dois).
+    nibble: Option<u8>,
+    /// Some(true) = JPEG, Some(false) = PNG; None = formato que não abrimos (WMF, EMF…).
+    jpeg: Option<bool>,
+    goal: (i32, i32),
+    scale: (i32, i32),
 }
 
 #[derive(Clone)]
@@ -452,6 +488,9 @@ struct Reader {
     row_cellx: Vec<i32>,
     table_rows: Vec<(u32, u16, Vec<i32>)>,
     table_borders: Vec<u32>,
+    pict: Pict,
+    /// Bytes crus a ler depois de \\binN.
+    bin: usize,
 }
 
 impl Reader {
@@ -491,6 +530,15 @@ impl Reader {
                 }
             }
             Dest::Note => self.note_text.push(c),
+            Dest::Pict => {
+                if let Some(v) = c.to_digit(16) {
+                    let v = v as u8;
+                    match self.pict.nibble.take() {
+                        Some(h) => self.pict.bytes.push(h << 4 | v),
+                        None => self.pict.nibble = Some(v),
+                    }
+                }
+            }
             Dest::HfPart(w, k) => self.hf[w as usize][k as usize].push(c),
             Dest::Text => {
                 if self.text.is_empty() && self.runs.is_empty() {
@@ -598,6 +646,8 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
         row_cellx: Vec::new(),
         table_rows: Vec::new(),
         table_borders: Vec::new(),
+        pict: Pict::default(),
+        bin: 0,
     };
     // Fonte padrão por número (a tabela pode vir depois de \deff).
     let font_of = |r: &Reader, n: i32| r.fonts.get(&n).cloned();
@@ -632,6 +682,25 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
                     r.list_numbered = Some(t.chars().next().is_some_and(|c| c.is_ascii_alphanumeric()));
                     if !r.glove_list {
                         r.list = Some(List { numbered: r.list_numbered.unwrap_or(false), level: r.ilvl });
+                    }
+                }
+                // Fim de uma imagem: entra no texto (se for PNG ou JPEG).
+                if closing == Dest::Pict && st.dest != Dest::Pict {
+                    let p = std::mem::take(&mut r.pict);
+                    if st.dest == Dest::Text && p.jpeg.is_some() {
+                        if let Some(mut img) = crate::rich::Image::from_bytes(p.bytes) {
+                            if p.goal.0 > 0 && p.goal.1 > 0 {
+                                img.w = p.goal.0 as f32 / 20.0;
+                                img.h = p.goal.1 as f32 / 20.0;
+                            }
+                            img.w = (img.w * p.scale.0.max(1) as f32 / 100.0).max(1.0);
+                            img.h = (img.h * p.scale.1.max(1) as f32 / 100.0).max(1.0);
+                            let mut s2 = st.clone();
+                            s2.cs.image = Some(img);
+                            s2.cs.note = None;
+                            s2.cs.script = 0;
+                            r.push_char(&s2, NOTE_CHAR);
+                        }
                     }
                 }
                 // Fim de uma nota: a marca entra no texto, onde a nota estava.
@@ -673,6 +742,14 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
                     let first = std::mem::take(&mut group_start);
                     control(&mut r, &mut st, word, param, first, star, &font_of, &color_of);
                     star = false;
+                    // \\binN: N bytes crus (só valem dentro de uma imagem).
+                    if r.bin > 0 {
+                        let n = std::mem::take(&mut r.bin).min(src.len() - i);
+                        if st.dest == Dest::Pict {
+                            r.pict.bytes.extend_from_slice(&src[i..i + n]);
+                        }
+                        i += n;
+                    }
                 } else {
                     i += 1;
                     match c {
@@ -814,16 +891,39 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
                 }
                 return;
             }
-            "info" | "pict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "listtable" | "listoverridetable" | "revtbl" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
+            "info" | "nonshppict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "listtable" | "listoverridetable" | "revtbl" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
                 st.dest = Dest::Skip;
                 return;
             }
+            "pict" => {
+                st.dest = Dest::Pict;
+                r.pict = Pict { scale: (100, 100), ..Pict::default() };
+                return;
+            }
+            // A imagem nova do Word (\\shppict) vale; a de reserva (\\nonshppict), não.
+            "shppict" => return,
             _ if star => {
                 st.dest = Dest::Skip;
                 return;
             }
             _ => {}
         }
+    }
+    if word == "bin" {
+        r.bin = n.max(0) as usize;
+        return;
+    }
+    if st.dest == Dest::Pict {
+        match word {
+            "pngblip" => r.pict.jpeg = Some(false),
+            "jpegblip" => r.pict.jpeg = Some(true),
+            "picwgoal" => r.pict.goal.0 = n,
+            "pichgoal" => r.pict.goal.1 = n,
+            "picscalex" => r.pict.scale.0 = n,
+            "picscaley" => r.pict.scale.1 = n,
+            _ => {}
+        }
+        return;
     }
     if st.dest == Dest::GloveList {
         if let Some(l) = r.list.as_mut() {
@@ -1170,7 +1270,7 @@ mod tests {
         for p in &d.paras {
             println!("[{:?} fi={} ls={}] {:?}", p.style.align, p.style.first_indent, p.style.line_spacing, p.text);
             for (a, b, st) in p.spans() {
-                println!("    {:?} {} {} b={} i={} cor={:?} marca={:?}", &p.text[a..b], st.family, st.size, st.bold, st.italic, st.color, st.highlight);
+                println!("    {:?} {} {} b={} i={} cor={:?} marca={:?} img={:?}", &p.text[a..b], st.family, st.size, st.bold, st.italic, st.color, st.highlight, st.image.as_ref().map(|i| (i.w, i.h, i.data.px, i.data.jpeg)));
             }
         }
         println!("papel {:?}", d.page);
@@ -1233,6 +1333,73 @@ mod tests {
         assert_eq!(d.paras[2].style.list, Some(List { numbered: true, level: 1 }));
         assert_eq!(d.paras[1].style.first_indent, 0.0);
         assert_eq!(d.paras[3].style.list, None);
+    }
+
+    fn png(w: u32, h: u32) -> Vec<u8> {
+        let mut pm = glove_ui::paint::Pixmap::new(w, h).unwrap();
+        pm.fill(glove_ui::paint::Color::from_rgba8(200, 30, 40, 255));
+        pm.encode_png().unwrap()
+    }
+
+    #[test]
+    fn imagens() {
+        let mut d = Doc::new();
+        d.insert_text("Gráfico: ");
+        let img = crate::rich::Image::from_bytes(png(40, 20)).unwrap();
+        assert_eq!(img.data.px, (40, 20));
+        assert_eq!((img.w, img.h), (30.0, 15.0));
+        d.insert_image(crate::rich::Image { w: 120.0, h: 60.0, ..img });
+        d.insert_text(" fim");
+        // O que se digita depois da imagem é texto.
+        assert!(d.paras[0].style_at(d.cursor.o).image.is_none());
+        let rtf = write(&d);
+        assert!(rtf.contains("\\pngblip") && rtf.contains("\\picwgoal2400"));
+        let back = read_doc(rtf.as_bytes()).unwrap();
+        assert_eq!(back.paras[0].text, d.paras[0].text);
+        let at = back.paras[0].text.find(NOTE_CHAR).unwrap();
+        let bi = back.paras[0].style_after(at).image.clone().unwrap();
+        assert_eq!((bi.w, bi.h, bi.data.px), (120.0, 60.0, (40, 20)));
+        assert_eq!(bi.data.bytes, png(40, 20));
+        // Mudar o tamanho é um passo do Desfazer.
+        let mut back = back;
+        back.resize_image(crate::rich::Pos::new(0, at), 60.0, 30.0);
+        assert_eq!(back.paras[0].style_after(at).image.as_ref().unwrap().w, 60.0);
+        back.undo();
+        assert_eq!(back.paras[0].style_after(at).image.as_ref().unwrap().w, 120.0);
+    }
+
+    /// Manual: grava $RTF_OUT com as imagens de $IMGS (separadas por vírgula).
+    #[test]
+    #[ignore]
+    fn gravar_com_imagens() {
+        let mut d = Doc::new();
+        d.insert_text("Relatório com imagens\n");
+        for p in std::env::var("IMGS").unwrap().split(',') {
+            let img = crate::rich::Image::from_bytes(std::fs::read(p).unwrap()).unwrap();
+            let (w, h) = img.fit(300.0, 300.0);
+            d.insert_image(crate::rich::Image { w, h, ..img });
+            d.insert_text("\nLegenda da imagem.\n");
+        }
+        std::fs::write(std::env::var("RTF_OUT").unwrap(), write(&d)).unwrap();
+    }
+
+    #[test]
+    fn imagem_do_word() {
+        // Como o Word grava: \shppict com a imagem e \nonshppict com a reserva (WMF).
+        let hex: String = png(8, 4).iter().map(|b| format!("{b:02x}")).collect();
+        let src = format!("{{\\rtf1\\ansi {{\\*\\shppict{{\\pict{{\\*\\picprop{{\\sp{{\\sn x}}{{\\sv 1}}}}}}\\picscalex50\\picscaley50\\picw8\\pich4\\picwgoal1200\\pichgoal600\\pngblip\n{hex}}}}}{{\\nonshppict{{\\pict\\wmetafile8 0102}}}} texto\\par}}");
+        let d = read_doc(src.as_bytes()).unwrap();
+        let p = &d.paras[0];
+        assert_eq!(p.text.matches(NOTE_CHAR).count(), 1);
+        assert!(p.text.ends_with(" texto"));
+        let img = p.style_after(0).image.clone().unwrap();
+        assert_eq!((img.w, img.h), (30.0, 15.0));
+        // E em binário (\bin).
+        let mut raw = b"{\\rtf1 {\\pict\\jpegblip\\bin4 ".to_vec();
+        raw.extend_from_slice(&[0xFF, 0xD8, 0xFF, 0xD9]);
+        raw.extend_from_slice(b"}ok\\par}");
+        let d = read_doc(&raw).unwrap();
+        assert_eq!(d.paras[0].text, "ok");
     }
 
     #[test]

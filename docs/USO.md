@@ -250,6 +250,10 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - **Tabelas**: Inserir > Tabela…; Tab vai de célula em célula (na última cria uma linha);
   arraste a borda entre colunas; Formatar > Tabela para linhas, colunas, juntar/separar
   células, bordas e larguras iguais.
+- **Imagens**: Inserir > Imagem… (PNG, JPEG ou WebP) ou arraste a imagem para dentro do
+  documento. Ela fica na linha do texto (centralize o parágrafo para centralizar a imagem);
+  clique nela para selecionar e puxe o canto para mudar o tamanho. Vai junto no RTF, no
+  PDF e na impressão.
 - **Sumário**: Inserir > Sumário (dos capítulos e seções, com as páginas) e Atualizar Sumário.
 - **ABNT**: Arquivo > Novo com Modelo ABNT, ou Formatar > Aplicar Formatação ABNT (A4,
   margens 3/2 cm, Times 12, 1,5, recuo de 1,25 cm, número da página em cima à direita,

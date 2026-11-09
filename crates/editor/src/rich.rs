@@ -26,6 +26,90 @@ pub struct CharStyle {
     pub script: i8,
     /// Marca de nota de rodapé: o caractere é o número da nota.
     pub note: Option<u32>,
+    /// Imagem no meio do texto: o caractere (`NOTE_CHAR`) é a imagem.
+    pub image: Option<Image>,
+}
+
+/// Os bytes de uma imagem do documento (PNG ou JPEG, como estavam no arquivo).
+#[derive(Debug)]
+pub struct ImageData {
+    /// Único no programa (para guardar a imagem já aberta).
+    pub id: u64,
+    pub bytes: Vec<u8>,
+    pub jpeg: bool,
+    /// Tamanho em pixels.
+    pub px: (u32, u32),
+}
+
+/// Imagem no texto: os bytes e o tamanho na página (pontos).
+#[derive(Clone, Debug)]
+pub struct Image {
+    pub data: Rc<ImageData>,
+    pub w: f32,
+    pub h: f32,
+}
+
+impl PartialEq for Image {
+    fn eq(&self, o: &Self) -> bool {
+        Rc::ptr_eq(&self.data, &o.data) && self.w == o.w && self.h == o.h
+    }
+}
+
+impl Image {
+    /// Imagem a partir dos bytes do arquivo (PNG ou JPEG), no tamanho natural
+    /// (72 pontos por polegada a 96 pixels por polegada). WebP vira PNG.
+    pub fn from_bytes(bytes: Vec<u8>) -> Option<Image> {
+        let (bytes, jpeg) = match glove_ui::image::sniff(&bytes)? {
+            glove_ui::image::Format::Png => (bytes, false),
+            glove_ui::image::Format::Jpeg => (bytes, true),
+            glove_ui::image::Format::WebP => (glove_ui::image::decode_bytes(&bytes).ok()?.encode_png().ok()?, false),
+        };
+        let px = image_size(&bytes, jpeg)?;
+        let (w, h) = (px.0 as f32 * 0.75, px.1 as f32 * 0.75);
+        Some(Image { data: Rc::new(ImageData { id: next(), bytes, jpeg, px }), w, h })
+    }
+
+    /// O mesmo tamanho, cabendo em `max_w` × `max_h` (sem deformar).
+    pub fn fit(&self, max_w: f32, max_h: f32) -> (f32, f32) {
+        let k = (max_w / self.w).min(max_h / self.h).min(1.0);
+        (self.w * k, self.h * k)
+    }
+}
+
+/// Largura e altura (pixels) lidas do cabeçalho de um PNG ou JPEG.
+pub fn image_size(b: &[u8], jpeg: bool) -> Option<(u32, u32)> {
+    if !jpeg {
+        if b.len() < 24 || &b[12..16] != b"IHDR" {
+            return None;
+        }
+        let be = |i: usize| u32::from_be_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
+        return Some((be(16), be(20))).filter(|&(w, h)| w > 0 && h > 0);
+    }
+    // JPEG: procura o marcador SOFn com as dimensões.
+    let mut i = 2;
+    while i + 9 < b.len() {
+        if b[i] != 0xFF {
+            i += 1;
+            continue;
+        }
+        let m = b[i + 1];
+        if m == 0xFF {
+            i += 1;
+            continue;
+        }
+        if matches!(m, 0xD0..=0xD9 | 0x01) {
+            i += 2;
+            continue;
+        }
+        let len = u16::from_be_bytes([b[i + 2], b[i + 3]]) as usize;
+        if matches!(m, 0xC0..=0xCF) && !matches!(m, 0xC4 | 0xC8 | 0xCC) {
+            let h = u16::from_be_bytes([b[i + 5], b[i + 6]]) as u32;
+            let w = u16::from_be_bytes([b[i + 7], b[i + 8]]) as u32;
+            return Some((w, h)).filter(|&(w, h)| w > 0 && h > 0);
+        }
+        i += 2 + len;
+    }
+    None
 }
 
 /// Família padrão dos documentos novos (a do TextEdit da era).
@@ -34,7 +118,7 @@ pub const DEFAULT_SIZE: f32 = 12.0;
 
 impl Default for CharStyle {
     fn default() -> Self {
-        Self { family: DEFAULT_FAMILY.into(), size: DEFAULT_SIZE, bold: false, italic: false, underline: false, strike: false, color: [0, 0, 0, 255], highlight: None, script: 0, note: None }
+        Self { family: DEFAULT_FAMILY.into(), size: DEFAULT_SIZE, bold: false, italic: false, underline: false, strike: false, color: [0, 0, 0, 255], highlight: None, script: 0, note: None, image: None }
     }
 }
 
@@ -666,10 +750,49 @@ impl Doc {
         // Com seleção: o estilo do primeiro caractere selecionado.
         let s = if self.has_selection() { p.style_after(a.o) } else { p.style_at(a.o) };
         // O que se digita depois de uma marca de nota não é nota.
-        if s.note.is_some() {
-            return Rc::new(CharStyle { note: None, ..(**s).clone() });
+        if s.note.is_some() || s.image.is_some() {
+            return Rc::new(CharStyle { note: None, image: None, ..(**s).clone() });
         }
         s.clone()
+    }
+
+    /// Põe uma imagem no lugar da seleção (ou no cursor).
+    pub fn insert_image(&mut self, img: Image) {
+        let style = Rc::new(CharStyle { image: Some(img), note: None, script: 0, ..(*self.typing_style()).clone() });
+        let (a, _) = self.selection();
+        let pstyle = self.paras[a.p].style.clone();
+        let mut ch = [0u8; 4];
+        let frag = vec![Para::new(NOTE_CHAR.encode_utf8(&mut ch), style, pstyle)];
+        self.replace_selection(frag, false);
+        self.coalesce = false;
+    }
+
+    /// Muda o tamanho da imagem que começa em `at` (um passo do Desfazer).
+    pub fn resize_image(&mut self, at: Pos, w: f32, h: f32) {
+        let b = Pos::new(at.p, at.o + NOTE_CHAR.len_utf8());
+        if self.paras[at.p].style_after(at.o).image.is_none() {
+            return;
+        }
+        let keep = (self.cursor, self.anchor);
+        self.anchor = at;
+        self.cursor = b;
+        self.set_char_style(&|s| {
+            if let Some(i) = &mut s.image {
+                i.w = w;
+                i.h = h;
+            }
+        });
+        self.cursor = keep.0;
+        self.anchor = keep.1;
+    }
+
+    /// A imagem selecionada sozinha (posição e imagem).
+    pub fn selected_image(&self) -> Option<(Pos, Image)> {
+        let (a, b) = self.selection();
+        if a.p != b.p || b.o != a.o + NOTE_CHAR.len_utf8() {
+            return None;
+        }
+        self.paras[a.p].style_after(a.o).image.clone().map(|i| (a, i))
     }
 
     /// Insere uma nota de rodapé no cursor. Devolve o número interno dela.

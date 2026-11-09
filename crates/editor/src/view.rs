@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use glove_ui::paint::draw::*;
 use glove_ui::ui::Key;
 use glove_ui::{Rect, Ui};
+use glove_ui::paint::{tiny_skia, Pixmap};
 
 mod pdf;
 pub use pdf::export_pdf;
@@ -100,6 +101,38 @@ pub struct DocView {
     last_click: Option<(Instant, (f32, f32), u8)>,
     /// Esperando o texto colado.
     pasting: bool,
+    /// Imagens abertas: a original e a reduzida para o tamanho da tela.
+    pics: std::cell::RefCell<HashMap<u64, Pic>>,
+    /// Puxando o canto de uma imagem: onde ela está e o tamanho novo (pontos).
+    img_drag: Option<(Pos, f32, f32)>,
+    /// Onde o documento começa na tela (pixels, já com a rolagem para os lados).
+    origin: (f32, f32),
+}
+
+/// Uma imagem do documento já aberta.
+struct Pic {
+    full: Option<std::rc::Rc<Pixmap>>,
+    /// Reduzida para o último tamanho desenhado (largura e altura em pixels).
+    scaled: Option<(u32, u32, Pixmap)>,
+}
+
+/// Reduz a imagem para `w` × `h` pixels (pela metade várias vezes e depois o
+/// resto, para não serrilhar uma foto grande).
+fn scale_pixmap(src: &Pixmap, w: u32, h: u32) -> Option<Pixmap> {
+    let mut cur: Option<Pixmap> = None;
+    loop {
+        let s = cur.as_ref().unwrap_or(src);
+        let half = s.width() / 2 >= w && s.height() / 2 >= h;
+        let (tw, th) = if half { (s.width() / 2, s.height() / 2) } else { (w, h) };
+        let mut out = Pixmap::new(tw.max(1), th.max(1))?;
+        let t = tiny_skia::Transform::from_scale(tw.max(1) as f32 / s.width() as f32, th.max(1) as f32 / s.height() as f32);
+        let paint = tiny_skia::PixmapPaint { quality: tiny_skia::FilterQuality::Bilinear, ..Default::default() };
+        out.draw_pixmap(0, 0, s.as_ref(), &paint, t, None);
+        cur = Some(out);
+        if !half {
+            return cur;
+        }
+    }
 }
 
 impl Default for DocView {
@@ -118,7 +151,7 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false, pics: Default::default(), img_drag: None, origin: (0.0, 0.0) }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
@@ -403,6 +436,42 @@ impl DocView {
         Pos::new(pi, hit_line(p, l, fb, li, x - self.col_x - self.para_x[pi]))
     }
 
+    /// Largura da coluna de texto do parágrafo (pontos).
+    pub fn width_at(&self, p: usize) -> f32 {
+        self.para_w.get(p).copied().unwrap_or(self.width).max(20.0)
+    }
+
+    /// Posição no documento de um ponto da janela (pixels).
+    pub fn pos_at_screen(&self, doc: &Doc, fb: &FontBook, pt: (f32, f32)) -> Pos {
+        if self.lys.len() != doc.paras.len() {
+            return doc.cursor;
+        }
+        let z = self.zoom;
+        self.hit(doc, fb, (pt.0 - self.origin.0) / z, (pt.1 - self.origin.1 + self.scroll) / z)
+    }
+
+    /// Retângulo da imagem que começa em `pos` (pontos: x, y, largura, altura).
+    pub fn image_rect(&self, doc: &Doc, pos: Pos) -> Option<(f32, f32, f32, f32)> {
+        let p = doc.paras.get(pos.p)?;
+        let img = p.style_after(pos.o).image.clone()?;
+        let l = self.lay(p);
+        for (li, ln) in l.lines.iter().enumerate() {
+            if let Some(sg) = ln.segs.iter().find(|sg| sg.a == pos.o && sg.style.image.is_some()) {
+                let h = img.h * sg.w / img.w.max(0.01);
+                return Some((self.col_x + self.para_x[pos.p] + sg.x, self.lys[pos.p][li] + ln.base - h, sg.w, h));
+            }
+        }
+        None
+    }
+
+    /// A imagem debaixo do ponto (pontos, no espaço do documento).
+    fn image_at(&self, doc: &Doc, fb: &FontBook, x: f32, y: f32) -> Option<Pos> {
+        let pos = self.hit(doc, fb, x, y);
+        let p = &doc.paras[pos.p];
+        let prev = p.text[..pos.o].char_indices().next_back().map(|(i, _)| Pos::new(pos.p, i));
+        [Some(pos), prev].into_iter().flatten().find(|&q| self.image_rect(doc, q).is_some_and(|(rx, ry, rw, rh)| x >= rx && x <= rx + rw && y >= ry && y <= ry + rh))
+    }
+
     /// Índice da linha da tabela em que o parágrafo está.
     fn row_of(&self, t: &TableGeo, q: usize) -> usize {
         let y = self.lys[q].first().copied().unwrap_or(0.0);
@@ -500,6 +569,7 @@ impl DocView {
         let max_h = (self.doc_w * z - inner.w).max(0.0);
         self.hscroll = self.hscroll.clamp(0.0, max_h);
         let origin = (inner.x - self.hscroll, inner.y);
+        self.origin = origin;
         let to_doc = |sx: f32, sy: f32, scroll: f32| ((sx - origin.0) / z, (sy - origin.1 + scroll) / z);
 
         // Mouse
@@ -540,7 +610,39 @@ impl DocView {
                 self.col_drag = None;
             }
         }
+        // Canto da imagem selecionada: puxar muda o tamanho (sem deformar).
         if let Some(resp) = resp.filter(|_| self.col_drag.is_none()) {
+            if resp.pressed {
+                let pt = ui.pointer();
+                let (x, y) = to_doc(pt.0, pt.1, self.scroll);
+                if let Some((at, img)) = doc.selected_image() {
+                    if let Some((rx, ry, rw, rh)) = self.image_rect(doc, at) {
+                        if (x - (rx + rw)).abs() <= 6.0 / z && (y - (ry + rh)).abs() <= 6.0 / z {
+                            let _ = img;
+                            self.img_drag = Some((at, rw, rh));
+                        }
+                    }
+                }
+            }
+        }
+        if let Some((at, _, _)) = self.img_drag {
+            if ui.mouse_down() {
+                if let (Some((rx, ry, _, _)), Some(img)) = (self.image_rect(doc, at), doc.paras[at.p].style_after(at.o).image.clone()) {
+                    let pt = ui.pointer();
+                    let (x, y) = to_doc(pt.0, pt.1, self.scroll);
+                    // Pela diagonal: a maior das duas proporções.
+                    let k = ((x - rx) / img.w).max((y - ry) / img.h).max(12.0 / img.w.min(img.h));
+                    let max_w = self.para_w[at.p];
+                    let k = k.min(max_w / img.w);
+                    self.img_drag = Some((at, img.w * k, img.h * k));
+                }
+            } else {
+                if let Some((at, w, h)) = self.img_drag.take() {
+                    doc.resize_image(at, w.round(), h.round());
+                }
+            }
+        }
+        if let Some(resp) = resp.filter(|_| self.col_drag.is_none() && self.img_drag.is_none()) {
             if resp.pressed {
                 let pt = ui.pointer();
                 let n = match self.last_click {
@@ -555,7 +657,15 @@ impl DocView {
                     let p = &doc.paras[pos.p];
                     p.style_after(pos.o).note.filter(|_| pos.o < p.text.len()).or(p.style_at(pos.o).note.filter(|_| pos.o > 0))
                 };
+                // Clique numa imagem: seleciona a imagem.
+                let (dx, dy) = to_doc(pt.0, pt.1, self.scroll);
+                let on_img = if ui.mods().shift { None } else { self.image_at(doc, fb, dx, dy) };
                 match n {
+                    _ if on_img.is_some() => {
+                        let a = on_img.unwrap();
+                        doc.set_cursor(a, false);
+                        doc.set_cursor(Pos::new(a.p, a.o + crate::rich::NOTE_CHAR.len_utf8()), true);
+                    }
                     2 if at_note.is_some() => {
                         self.edit_note = at_note;
                         doc.select_word(pos);
@@ -838,6 +948,11 @@ impl DocView {
         for s in &ln.segs {
             let st = &s.style;
             let x = offx + s.x * z;
+            if let Some(img) = &st.image {
+                let h = img.h * s.w / img.w.max(0.01);
+                self.draw_image(c, img, x, base - h * z, s.w * z, h * z);
+                continue;
+            }
             if let Some(h) = st.highlight {
                 // Da altura da própria letra (numa linha com letras maiores, não cobre tudo).
                 let (asc, desc) = fb.metrics(st);
@@ -882,6 +997,29 @@ impl DocView {
             if st.strike {
                 c.fill_rect(x, base + shift - st.size * 0.3 * z, s.w * z, th, &solid(color));
             }
+        }
+    }
+
+    /// Desenha a imagem em (x, y) com `w` × `h` pixels.
+    fn draw_image(&self, c: &mut Canvas, img: &crate::rich::Image, x: f32, y: f32, w: f32, h: f32) {
+        let (wp, hp) = (w.round().max(1.0) as u32, h.round().max(1.0) as u32);
+        if wp > 8000 || hp > 8000 {
+            return;
+        }
+        let mut pics = self.pics.borrow_mut();
+        let pic = pics.entry(img.data.id).or_insert_with(|| Pic { full: glove_ui::image::decode_bytes(&img.data.bytes).ok().map(std::rc::Rc::new), scaled: None });
+        let Some(full) = pic.full.clone() else {
+            // Não abriu: um quadro cinza no lugar.
+            c.fill_rect(x, y, w, h, &solid(rgba(220, 220, 224, 255)));
+            c.stroke(rrect(x + 0.5, y + 0.5, w - 1.0, h - 1.0, 0.0), &solid(rgba(150, 150, 156, 255)), 1.0);
+            return;
+        };
+        if !pic.scaled.as_ref().is_some_and(|(sw, sh, _)| *sw == wp && *sh == hp) {
+            pic.scaled = scale_pixmap(&full, wp, hp).map(|p| (wp, hp, p));
+        }
+        if let Some((_, _, pm)) = &pic.scaled {
+            let paint = tiny_skia::PixmapPaint::default();
+            c.draw_pixmap_t(pm.as_ref(), &paint, tiny_skia::Transform::from_translate(x.round(), y.round()));
         }
     }
 
@@ -1027,6 +1165,18 @@ impl DocView {
                         self.draw_line(c, para, ln, off.0, ny * z - scroll + ln.y * z, fb);
                     }
                 }
+            }
+        }
+        // Imagem selecionada: moldura e o canto para puxar (ou o tamanho novo, puxando).
+        if let Some((at, _)) = doc.selected_image() {
+            if let Some((rx, ry, rw, rh)) = self.image_rect(doc, at) {
+                let (rw, rh) = self.img_drag.filter(|d| d.0 == at).map_or((rw, rh), |d| (d.1, d.2));
+                let (x, y) = ((rx * z - hscroll).round(), (ry * z - scroll).round());
+                let (w, h) = ((rw * z).round(), (rh * z).round());
+                let blue = rgba(56, 117, 215, 255);
+                c.stroke(rrect(x + 0.5, y + 0.5, w - 1.0, h - 1.0, 0.0), &solid(blue), 1.0);
+                c.fill_rect(x + w - 4.0, y + h - 4.0, 8.0, 8.0, &solid(rgba(255, 255, 255, 255)));
+                c.stroke(rrect(x + w - 3.5, y + h - 3.5, 7.0, 7.0, 0.0), &solid(blue), 1.0);
             }
         }
         // Cursor

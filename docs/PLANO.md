@@ -730,3 +730,8 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
   Editor (as mesmas folhas da tela, com cabeçalho, rodapé, notas, tabelas e listas; fontes embutidas
   e texto que se copia); Imprimir usa esse PDF. O formato do Editor é só o RTF (pedido do usuário):
   .docx e .odt, que dependiam do LibreOffice, saíram. Guia de uso em docs/USO.md e docs/USAGE.md.
+- [x] 12.10 Imagens (M) — v0.12.11: Inserir > Imagem… (PNG, JPEG e WebP) ou arrastar o arquivo para o
+  documento; a imagem fica na linha, com o alinhamento do parágrafo, e diminui para caber na coluna;
+  clique seleciona e o canto redimensiona (sem deformar; Desfazer volta). Gravada dentro do RTF
+  (\pict com \pngblip/\jpegblip, como o Word); as imagens de RTFs do Word e do LibreOffice aparecem
+  no Editor. No PDF e na impressão: JPEG como está, PNG com transparência.

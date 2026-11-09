@@ -250,6 +250,9 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   (Ctrl+Alt+N; double-click the mark to edit).
 - **Tables**: Insert > Table…; Tab moves between cells (adds a row at the end); drag column
   borders; Format > Table for rows, columns, merge/split, borders and equal widths.
+- **Images**: Insert > Image… (PNG, JPEG or WebP) or drag the image into the document. It
+  sits on the text line (center the paragraph to center it); click it to select and drag the
+  corner to resize. It goes along in the RTF, the PDF and printing.
 - **Table of contents**: Insert > Table of Contents and Update.
 - **ABNT** (Brazilian academic standard): File > New with ABNT Template, or Format > Apply
   ABNT Formatting.

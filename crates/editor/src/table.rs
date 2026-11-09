@@ -52,7 +52,7 @@ fn grid(doc: &Doc, a: usize, b: usize) -> Vec<Vec<GridCell>> {
 /// Parágrafo vazio de célula, no estilo de `like`.
 fn empty_like(like: &Para) -> Para {
     let st = like.runs.last().map(|r| r.style.clone()).unwrap_or_default();
-    Para::new("", Rc::new(CharStyle { note: None, ..(*st).clone() }), ParaStyle { list: None, page_break_before: false, ..like.style.clone() })
+    Para::new("", Rc::new(CharStyle { note: None, image: None, ..(*st).clone() }), ParaStyle { list: None, page_break_before: false, ..like.style.clone() })
 }
 
 /// Grava a grade de volta no lugar do bloco [a, b) (um passo só do Desfazer).
@@ -119,7 +119,7 @@ pub fn insert(doc: &mut Doc, rows: usize, cols: usize) {
     let (rows, cols) = (rows.clamp(1, 200), cols.clamp(1, 30));
     let id = new_id(doc);
     doc.tables.insert(id, TableProps::default());
-    let cs = Rc::new(CharStyle { note: None, ..(*doc.body.0).clone() });
+    let cs = Rc::new(CharStyle { note: None, image: None, ..(*doc.body.0).clone() });
     let cell_ps = ParaStyle { role: Role::Body, first_indent: 0.0, line_spacing: 1.0, align: crate::rich::Align::Left, ..ParaStyle::default() };
     let mut frag: Vec<Para> = Vec::new();
     for r in 0..rows {

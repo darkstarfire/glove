@@ -27,6 +27,68 @@ struct PdfFont {
 struct Writer<'a> {
     fb: &'a FontBook,
     fonts: Vec<PdfFont>,
+    /// Imagens usadas: os dados e o maior tamanho em que aparecem (pontos).
+    images: Vec<(std::rc::Rc<crate::rich::ImageData>, f32, f32)>,
+}
+
+/// Quantos componentes de cor tem o JPEG (1 cinza, 3 RGB, 4 CMYK).
+fn jpeg_components(b: &[u8]) -> Option<u8> {
+    let mut i = 2;
+    while i + 9 < b.len() {
+        if b[i] != 0xFF {
+            i += 1;
+            continue;
+        }
+        let m = b[i + 1];
+        if m == 0xFF {
+            i += 1;
+            continue;
+        }
+        if matches!(m, 0xD0..=0xD9 | 0x01) {
+            i += 2;
+            continue;
+        }
+        if matches!(m, 0xC0..=0xCF) && !matches!(m, 0xC4 | 0xC8 | 0xCC) {
+            return Some(b[i + 9]);
+        }
+        i += 2 + u16::from_be_bytes([b[i + 2], b[i + 3]]) as usize;
+    }
+    None
+}
+
+/// Os objetos de uma imagem: a imagem e, se tiver transparência, a máscara.
+/// JPEG vai como está; PNG vira RGB comprimido (reduzido a ~200 pontos por polegada).
+fn image_objects(d: &crate::rich::ImageData, w: f32, h: f32, id: usize) -> Vec<Vec<u8>> {
+    if d.jpeg {
+        let cs = match jpeg_components(&d.bytes) {
+            Some(1) => "/DeviceGray",
+            Some(4) => "/DeviceCMYK /Decode [1 0 1 0 1 0 1 0]",
+            _ => "/DeviceRGB",
+        };
+        let mut v = format!("<< /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace {cs} /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>\nstream\n", d.px.0, d.px.1, d.bytes.len()).into_bytes();
+        v.extend_from_slice(&d.bytes);
+        v.extend_from_slice(b"\nendstream");
+        return vec![v];
+    }
+    let Ok(full) = glove_ui::image::decode_bytes(&d.bytes) else {
+        return vec![stream("/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8", &[255])];
+    };
+    let (tw, th) = (((w / 72.0 * 200.0).ceil() as u32).clamp(1, full.width()), ((h / 72.0 * 200.0).ceil() as u32).clamp(1, full.height()));
+    let pm = if tw < full.width() { super::scale_pixmap(&full, tw, th).unwrap_or(full) } else { full };
+    let mut rgb = Vec::with_capacity((pm.width() * pm.height() * 3) as usize);
+    let mut alpha = Vec::with_capacity((pm.width() * pm.height()) as usize);
+    for px in pm.pixels() {
+        let c = px.demultiply();
+        rgb.extend_from_slice(&[c.red(), c.green(), c.blue()]);
+        alpha.push(c.alpha());
+    }
+    let mask = alpha.iter().any(|&a| a < 255);
+    let smask = if mask { format!(" /SMask {} 0 R", id + 1) } else { String::new() };
+    let mut out = vec![stream(&format!("/Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8{smask}", pm.width(), pm.height()), &rgb)];
+    if mask {
+        out.push(stream(&format!("/Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceGray /BitsPerComponent 8", pm.width(), pm.height()), &alpha));
+    }
+    out
 }
 
 fn num(v: f32) -> String {
@@ -143,6 +205,24 @@ impl DocView {
         for s in &ln.segs {
             let st = &s.style;
             let x = x0 + s.x;
+            // Imagem: em pé na linha de base.
+            if let Some(img) = &st.image {
+                let h = img.h * s.w / img.w.max(0.01);
+                let k = match w.images.iter().position(|(d, _, _)| std::rc::Rc::ptr_eq(d, &img.data)) {
+                    Some(k) => {
+                        let e = &mut w.images[k];
+                        e.1 = e.1.max(s.w);
+                        e.2 = e.2.max(h);
+                        k
+                    }
+                    None => {
+                        w.images.push((img.data.clone(), s.w, h));
+                        w.images.len() - 1
+                    }
+                };
+                let _ = writeln!(out, "q {} 0 0 {} {} {} cm /Im{} Do Q", num(s.w), num(h), num(x), num(y(base)), k + 1);
+                continue;
+            }
             if let Some(h) = st.highlight {
                 let (asc, desc) = w.fb.metrics(st);
                 Writer::rect(out, x, y(base + desc), s.w, asc + desc, h);
@@ -182,7 +262,7 @@ impl DocView {
 
     /// O documento todo em PDF (o modo página precisa estar diagramado).
     fn pdf_bytes(&self, doc: &Doc, fb: &FontBook) -> Vec<u8> {
-        let mut w = Writer { fb, fonts: Vec::new() };
+        let mut w = Writer { fb, fonts: Vec::new(), images: Vec::new() };
         let pg = &self.page;
         let (pw, ph) = (pg.width, pg.height);
         let mut contents: Vec<String> = Vec::new();
@@ -305,11 +385,19 @@ impl DocView {
             objects.push(stream("", cmap.as_bytes()));
             let _ = write!(font_refs, "/F{} {} 0 R ", i + 1, base);
         }
+        // Imagens.
+        let mut xobjects = String::new();
+        for (i, (d, iw, ih)) in w.images.iter().enumerate() {
+            let id = objects.len() + 1;
+            objects.extend(image_objects(d, *iw, *ih, id));
+            let _ = write!(xobjects, "/Im{} {id} 0 R ", i + 1);
+        }
+        let xobjects = if xobjects.is_empty() { String::new() } else { format!(" /XObject << {xobjects}>>") };
         let mut kids = Vec::new();
         for c in &contents {
             let page_id = objects.len() + 1;
             kids.push(format!("{page_id} 0 R"));
-            objects.push(format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Resources << /Font << {font_refs}>> >> /Contents {} 0 R >>", num(pw), num(ph), page_id + 1).into_bytes());
+            objects.push(format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Resources << /Font << {font_refs}>>{xobjects} >> /Contents {} 0 R >>", num(pw), num(ph), page_id + 1).into_bytes());
             objects.push(stream("", c.as_bytes()));
         }
         objects[0] = b"<< /Type /Catalog /Pages 2 0 R >>".to_vec();
@@ -364,6 +452,13 @@ mod tests {
         }
         d.footer.center = "Página {página} de {páginas}".into();
         d.header.right = "Glove".into();
+        // Uma imagem com transparência depois da tabela.
+        let mut pm = glove_ui::paint::Pixmap::new(60, 30).unwrap();
+        pm.fill(glove_ui::paint::Color::from_rgba8(30, 90, 200, 128));
+        let img = crate::rich::Image::from_bytes(pm.encode_png().unwrap()).unwrap();
+        let end = d.end();
+        d.set_cursor(end, false);
+        d.insert_image(img);
         d
     }
 
@@ -374,6 +469,7 @@ mod tests {
         let s = String::from_utf8_lossy(&pdf);
         assert!(s.starts_with("%PDF-1.6"));
         assert!(s.contains("/FontFile"));
+        assert!(s.contains("/XObject << /Im1") && s.contains("/SMask"));
         assert!(s.trim_end().ends_with("%%EOF"));
     }
 
