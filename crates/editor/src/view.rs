@@ -152,6 +152,11 @@ impl DocView {
         (Pos::new(pos.p, ln.a), Pos::new(pos.p, end))
     }
 
+    /// Onde começa o texto na área (pixels a partir da esquerda dela).
+    pub fn text_left(&self) -> f32 {
+        MARGIN_X * self.zoom
+    }
+
     /// Altura do documento em pixels (com as margens).
     pub fn content_h(&self) -> f32 {
         (self.total + 2.0 * MARGIN_Y) * self.zoom
@@ -421,7 +426,9 @@ impl DocView {
                     let st = &s.style;
                     let x = off.0 + s.x * z;
                     if let Some(h) = st.highlight {
-                        c.fill_rect(x, ly, s.w * z, ln.text_h * z, &solid(rgba(h[0], h[1], h[2], h[3])));
+                        // Da altura da própria letra (numa linha com letras maiores, não cobre tudo).
+                        let (asc, desc) = fb.metrics(st);
+                        c.fill_rect(x, base - asc * z, s.w * z, (asc + desc) * z, &solid(rgba(h[0], h[1], h[2], h[3])));
                     }
                     if s.tab {
                         continue;

@@ -1,23 +1,24 @@
 //! Editor de texto do Glove.
 
+mod bar;
 mod fontbook;
 mod layout;
 mod rich;
 mod view;
 
-use glove_config::tr;
+use glove_config::{tr, tr_dyn};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use glove_ui::paint::draw::*;
-use glove_ui::{run, AlertKind, App, Choice, FileBrowser, FontPanel, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
+use glove_ui::{run, AlertKind, App, Choice, ColorPanel, FileBrowser, FontPanel, Menu, MenuItem, Rect, Ui, WindowOptions};
 
 use fontbook::FontBook;
 use rich::{Align, CharStyle, Doc, ParaStyle};
 use view::DocView;
 
 /// Altura da régua e da barra de Localizar.
-const RULER_H: f32 = 30.0;
+const RULER_H: f32 = 22.0;
 const FIND_H: f32 = 34.0;
 
 /// Barra de Localizar/Substituir.
@@ -74,6 +75,13 @@ enum Sheet {
     AskSave,
 }
 
+/// O que o painel de Cores muda: a cor do texto ou o marca-texto.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum ColorTarget {
+    Text,
+    Highlight,
+}
+
 struct Editor {
     doc: Doc,
     view: DocView,
@@ -84,6 +92,12 @@ struct Editor {
     ruler: bool,
     find: Option<Find>,
     fonts: FontPanel,
+    colors: ColorPanel,
+    color_target: ColorTarget,
+    /// Seleção da última vez que os painéis foram acertados com ela.
+    panel_sync: Option<(rich::Pos, rich::Pos, u64)>,
+    /// Onde a barra de formatação termina (a 12.3 põe o espaçamento ali).
+    bar_end: f32,
     /// Onde o documento começa (abaixo da faixa de abas).
     tab_top: f32,
     /// Arquivo aberto pelo Abrir…: vai para uma aba nova.
@@ -108,7 +122,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
-        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), tab_top: 0.0, open_in_tab: None };
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match std::fs::read_to_string(&p) {
                 Ok(t) => {
@@ -166,6 +180,41 @@ impl Editor {
         self.doc.set_para_style(&|s| s.align = a);
     }
 
+    /// Liga ou desliga um atributo na seleção (todo ligado → desliga; senão, liga).
+    fn toggle(&mut self, get: fn(&CharStyle) -> bool, set: fn(&mut CharStyle, bool)) {
+        let on = view::common(&self.doc, get) == Some(true);
+        self.doc.set_char_style(&move |s| set(s, !on));
+    }
+
+    /// Abre o painel de Cores para o texto ou o marca-texto (o mesmo de novo fecha).
+    pub(crate) fn open_colors(&mut self, t: ColorTarget) {
+        if self.colors.open && self.color_target == t {
+            self.colors.open = false;
+            return;
+        }
+        self.color_target = t;
+        self.colors.open = true;
+        self.panel_sync = None;
+    }
+
+    /// Acerta os painéis de Fontes e Cores com a seleção (quando ela muda).
+    fn sync_panels(&mut self) {
+        let key = (self.doc.cursor, self.doc.anchor, self.doc.version);
+        if self.panel_sync == Some(key) {
+            return;
+        }
+        self.panel_sync = Some(key);
+        if let Some(f) = view::common(&self.doc, |s| s.family.clone()) {
+            self.fonts.family = f;
+        }
+        self.fonts.size = self.font_size();
+        let c = match self.color_target {
+            ColorTarget::Text => view::common(&self.doc, |s| s.color).unwrap_or([0, 0, 0, 255]),
+            ColorTarget::Highlight => view::common(&self.doc, |s| s.highlight).flatten().unwrap_or(bar::HIGHLIGHTS[0].1),
+        };
+        self.colors.set((c[0], c[1], c[2]));
+    }
+
     fn run_action(&mut self, action: Option<&str>, ui: &mut Ui) {
         match action {
             Some("new") => spawn_self(None),
@@ -209,6 +258,20 @@ impl Editor {
             Some("align-justify") => self.set_align(Align::Justify),
             Some("bigger") => self.doc.set_char_style(&|s| s.size = (s.size + 1.0).min(288.0)),
             Some("smaller") => self.doc.set_char_style(&|s| s.size = (s.size - 1.0).max(4.0)),
+            Some("bold") => self.toggle(|s| s.bold, |s, v| s.bold = v),
+            Some("italic") => self.toggle(|s| s.italic, |s, v| s.italic = v),
+            Some("underline") => self.toggle(|s| s.underline, |s, v| s.underline = v),
+            Some("strike") => self.toggle(|s| s.strike, |s, v| s.strike = v),
+            Some("baseline") => self.doc.set_char_style(&|s| s.script = 0),
+            Some("superscript") => self.doc.set_char_style(&|s| s.script = 1),
+            Some("subscript") => self.doc.set_char_style(&|s| s.script = -1),
+            Some("colors") => self.open_colors(ColorTarget::Text),
+            Some("hl-none") => self.doc.set_char_style(&|s| s.highlight = None),
+            Some(a) if a.starts_with("hl-") => {
+                if let Some(&(_, c)) = a[3..].parse::<usize>().ok().and_then(|i| bar::HIGHLIGHTS.get(i)) {
+                    self.doc.set_char_style(&move |s| s.highlight = Some(c));
+                }
+            }
             _ => {}
         }
     }
@@ -283,23 +346,13 @@ impl Editor {
         let w = ui.c.w;
         ui.c.fill_rect(0.0, y, w, RULER_H, &vgrad(y, y + RULER_H, &[(0.0, rgba(244, 244, 246, 255)), (1.0, rgba(222, 222, 226, 255))]));
         ui.c.hline(0.0, y + RULER_H - 1.0, w, rgba(150, 150, 156, 255));
-        // Alinhamento (segmentado com os glifos de linhas).
-        let cur = match view::para_style(&self.doc).align {
-            Align::Left => 0,
-            Align::Center => 1,
-            Align::Right => 2,
-            Align::Justify => 3,
-        };
-        let r = Rect::new(6.0, y + (RULER_H - SEGMENT_H) / 2.0, 4.0 * SEGMENT_W, SEGMENT_H);
-        if let Some(i) = ui.segmented_in(r, &[Glyph::AlignLeft, Glyph::AlignCenter, Glyph::AlignRight, Glyph::AlignJustify], Some(cur), &[true, true, true, true]) {
-            self.set_align([Align::Left, Align::Center, Align::Right, Align::Justify][i]);
-        }
         // Centímetros (1 cm ≈ 28,35 pontos), com o meio centímetro mais curto.
-        let x0 = 4.0 * SEGMENT_W + 20.0;
+        // O zero fica onde começa o texto.
+        let x0 = self.view.text_left();
         let cm = 28.35 * self.view.zoom;
         let ink = rgba(90, 90, 96, 255);
         let mut k = 0;
-        while x0 + k as f32 * cm / 2.0 < w - 8.0 {
+        while x0 + k as f32 * cm / 2.0 < w - glove_ui::SCROLLBAR_W {
             let x = x0 + k as f32 * cm / 2.0;
             let tall = k % 2 == 0;
             ui.c.vline(x.round() + 0.5, y + RULER_H - if tall { 9.0 } else { 5.0 }, if tall { 8.0 } else { 4.0 }, ink);
@@ -487,6 +540,14 @@ impl Editor {
                     "Ctrl+E" => action = Some("use-selection"),
                     "Ctrl+R" => action = Some("ruler"),
                     "Ctrl+T" => action = Some("fonts"),
+                    "Ctrl+B" => action = Some("bold"),
+                    "Ctrl+I" => action = Some("italic"),
+                    "Ctrl+U" => action = Some("underline"),
+                    "Ctrl+Shift+C" => action = Some("colors"),
+                    "Ctrl+Shift+L" => action = Some("align-left"),
+                    "Ctrl+Shift+E" => action = Some("align-center"),
+                    "Ctrl+Shift+R" => action = Some("align-right"),
+                    "Ctrl+Shift+J" => action = Some("align-justify"),
                     "Ctrl+Shift+S" => {
                         let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).or_else(|| Some(documents_dir()));
                         self.sheet = Sheet::SaveAs { fb: FileBrowser::save(dir, &self.name()), then_close: false };
@@ -503,6 +564,21 @@ impl Editor {
                     "align-center" => menu_action = Some("align-center"),
                     "align-right" => menu_action = Some("align-right"),
                     "align-justify" => menu_action = Some("align-justify"),
+                    "strike" | "baseline" | "superscript" | "subscript" | "hl-none" | "hl-0" | "hl-1" | "hl-2" | "hl-3" | "hl-4" => {
+                        let a: &'static str = match a.as_str() {
+                            "strike" => "strike",
+                            "baseline" => "baseline",
+                            "superscript" => "superscript",
+                            "subscript" => "subscript",
+                            "hl-none" => "hl-none",
+                            "hl-0" => "hl-0",
+                            "hl-1" => "hl-1",
+                            "hl-2" => "hl-2",
+                            "hl-3" => "hl-3",
+                            _ => "hl-4",
+                        };
+                        menu_action = Some(a);
+                    }
                     "replace-all" => self.replace_all(),
                     _ => {}
                 }
@@ -527,6 +603,8 @@ impl Editor {
         let (w, h) = (ui.c.w, ui.c.h);
         let mut top = self.tab_top;
         if self.ruler {
+            self.draw_format_bar(ui, top);
+            top += bar::BAR_H;
             self.draw_ruler(ui, top);
             top += RULER_H;
         }
@@ -543,21 +621,38 @@ impl Editor {
         let enabled = !sheet_open && !used_key;
         self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
         ui.set_enabled(!sheet_open);
-        // Painel de Fontes: muda a fonte e o tamanho da seleção (ou do que se vai digitar).
+        // Painéis de Fontes e Cores: mostram o da seleção e mudam só o que se mexeu.
+        if self.fonts.open || self.colors.open {
+            self.sync_panels();
+        }
+        let (fam0, size0) = (self.fonts.family.clone(), self.fonts.size);
         if ui.font_panel(&mut self.fonts) {
             let (family, size) = (self.fonts.family.clone(), self.fonts.size);
-            self.doc.set_char_style(&|s| {
-                if !family.is_empty() {
-                    s.family = family.clone();
-                }
-                s.size = size;
-            });
+            if family != fam0 && !family.is_empty() {
+                self.doc.set_char_style(&|s| s.family = family.clone());
+            }
+            if (size - size0).abs() > 0.01 {
+                self.doc.set_char_style(&|s| s.size = size);
+            }
+            self.panel_sync = Some((self.doc.cursor, self.doc.anchor, self.doc.version));
+        }
+        if ui.color_panel(&mut self.colors) {
+            let (r, g, b) = self.colors.rgb;
+            let c = [r, g, b, 255];
+            match self.color_target {
+                ColorTarget::Text => self.doc.set_char_style(&|s| s.color = c),
+                ColorTarget::Highlight => self.doc.set_char_style(&|s| s.highlight = Some(c)),
+            }
+            self.panel_sync = Some((self.doc.cursor, self.doc.anchor, self.doc.version));
         }
         self.sheet(ui);
     }
 
     fn menus(&self, tabs: usize) -> Vec<Menu> {
         let align = view::para_style(&self.doc).align;
+        let on = |f: fn(&CharStyle) -> bool| view::common(&self.doc, f) == Some(true);
+        let script = view::common(&self.doc, |s| s.script);
+        let hl = view::common(&self.doc, |s| s.highlight);
         let sel = self.doc.has_selection();
         vec![
             Menu::new(
@@ -606,16 +701,47 @@ impl Editor {
             Menu::new(
                 tr!("Formatar"),
                 vec![
-                    MenuItem::new("fonts", if self.fonts.open { tr!("Ocultar Fontes") } else { tr!("Mostrar Fontes") }, "Ctrl+T"),
-                    MenuItem::Separator,
-                    MenuItem::new("bigger", tr!("Aumentar fonte"), "Ctrl+equal"),
-                    MenuItem::new("smaller", tr!("Diminuir fonte"), "Ctrl+minus"),
-                    MenuItem::new("font-reset", tr!("Tamanho normal"), ""),
-                    MenuItem::Separator,
-                    MenuItem::new("align-left", tr!("Alinhar à Esquerda"), "").checked(align == Align::Left),
-                    MenuItem::new("align-center", tr!("Centralizar"), "").checked(align == Align::Center),
-                    MenuItem::new("align-right", tr!("Alinhar à Direita"), "").checked(align == Align::Right),
-                    MenuItem::new("align-justify", tr!("Justificar"), "").checked(align == Align::Justify),
+                    MenuItem::submenu(
+                        tr!("Fonte"),
+                        vec![
+                            MenuItem::new("fonts", if self.fonts.open { tr!("Ocultar Fontes") } else { tr!("Mostrar Fontes") }, "Ctrl+T"),
+                            MenuItem::Separator,
+                            MenuItem::new("bold", tr!("Negrito"), "Ctrl+B").checked(on(|s| s.bold)),
+                            MenuItem::new("italic", tr!("Itálico"), "Ctrl+I").checked(on(|s| s.italic)),
+                            MenuItem::new("underline", tr!("Sublinhado"), "Ctrl+U").checked(on(|s| s.underline)),
+                            MenuItem::new("strike", tr!("Tachado"), "").checked(on(|s| s.strike)),
+                            MenuItem::Separator,
+                            MenuItem::new("bigger", tr!("Maior"), "Ctrl+equal"),
+                            MenuItem::new("smaller", tr!("Menor"), "Ctrl+minus"),
+                            MenuItem::new("font-reset", tr!("Tamanho Normal"), ""),
+                            MenuItem::Separator,
+                            MenuItem::submenu(
+                                tr!("Linha de Base"),
+                                vec![
+                                    MenuItem::new("baseline", tr!("Normal"), "").checked(script == Some(0)),
+                                    MenuItem::new("superscript", tr!("Sobrescrito"), "").checked(script == Some(1)),
+                                    MenuItem::new("subscript", tr!("Subscrito"), "").checked(script == Some(-1)),
+                                ],
+                            ),
+                            MenuItem::Separator,
+                            MenuItem::new("colors", if self.colors.open { tr!("Ocultar Cores") } else { tr!("Mostrar Cores") }, "Ctrl+Shift+C"),
+                            MenuItem::submenu(tr!("Marca-texto"), {
+                                let mut v: Vec<MenuItem> = bar::HIGHLIGHTS.iter().enumerate().map(|(i, (n, c))| MenuItem::new(&format!("hl-{i}"), &tr_dyn(n), "").checked(hl == Some(Some(*c)))).collect();
+                                v.push(MenuItem::Separator);
+                                v.push(MenuItem::new("hl-none", tr!("Sem Marca-texto"), "").checked(hl == Some(None)));
+                                v
+                            }),
+                        ],
+                    ),
+                    MenuItem::submenu(
+                        tr!("Texto"),
+                        vec![
+                            MenuItem::new("align-left", tr!("Alinhar à Esquerda"), "Ctrl+Shift+L").checked(align == Align::Left),
+                            MenuItem::new("align-center", tr!("Centralizar"), "Ctrl+Shift+E").checked(align == Align::Center),
+                            MenuItem::new("align-justify", tr!("Justificar"), "Ctrl+Shift+J").checked(align == Align::Justify),
+                            MenuItem::new("align-right", tr!("Alinhar à Direita"), "Ctrl+Shift+R").checked(align == Align::Right),
+                        ],
+                    ),
                     MenuItem::Separator,
                     MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R"),
                 ],
