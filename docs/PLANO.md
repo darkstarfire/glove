@@ -719,7 +719,7 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
   (fontes, cores, parágrafos, ignorando o que não conhece); Converter em Texto Simples / Rico
 - [x] 12.5 Páginas (G) — v0.12.5: modo página (folhas A4 ou Carta sobre fundo cinza), margens, Configurar
   Página, quebra de página (Inserir > Quebra de Página); o modo "ajustar à janela" continua existindo
-- [ ] 12.6 Cabeçalho, rodapé e notas (M): cabeçalho e rodapé com número de página, total, título e
+- [x] 12.6 Cabeçalho, rodapé e notas (M) — v0.12.6: cabeçalho e rodapé com número de página, total, título e
   data; primeira página diferente (capa sem número); notas de rodapé numeradas no pé da página
 - [ ] 12.7 Estilos e listas (M): Título, Capítulo, Seção, Subseção, Corpo, Citação; listas com
   marcadores e numeradas (Tab aprofunda); sumário gerado dos capítulos; modelo ABNT (margens 3/2 cm,

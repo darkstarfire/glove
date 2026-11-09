@@ -10,14 +10,16 @@ use glove_ui::ui::Key;
 use glove_ui::{Rect, Ui};
 
 use crate::fontbook::FontBook;
-use crate::layout::{hit_line, layout_para, line_of, x_of, ParaLayout};
-use crate::rich::{Doc, Frag, PageSetup, Para, Pos};
+use crate::layout::{hit_line, layout_para, line_of, note_label, x_of, NoteNums, ParaLayout};
+use crate::rich::{CharStyle, Doc, Frag, HeaderFooter, PageSetup, Para, ParaStyle, Pos};
 
 /// Margens do texto no modo "ajustar à janela" (pontos).
 const MARGIN_X: f32 = 24.0;
 const MARGIN_Y: f32 = 14.0;
 /// Modo página: espaço entre as folhas e em volta delas (pontos).
 const GAP: f32 = 18.0;
+/// Espaço do fio que separa as notas do texto (pontos).
+const NOTE_SEP: f32 = 12.0;
 
 thread_local! {
     /// O último pedaço copiado no Editor, com os estilos (os outros apps só veem o texto).
@@ -47,6 +49,21 @@ pub struct DocView {
     page: PageSetup,
     pages: usize,
     page_x: f32,
+    /// Notas: número de cada uma, a diagramação delas e quais vão em cada folha.
+    nums: NoteNums,
+    note_lays: HashMap<u32, (String, f32, Para, ParaLayout)>,
+    page_notes: Vec<Vec<u32>>,
+    /// Modo janela: as notas no fim do texto (número interno e topo).
+    endnotes: Vec<(u32, f32)>,
+    header: HeaderFooter,
+    footer: HeaderFooter,
+    title_page: bool,
+    base_family: String,
+    /// Nome do documento e a data de hoje (campos do cabeçalho e rodapé).
+    pub title: String,
+    date: String,
+    /// Clique duplo numa marca de nota: o editor abre a nota.
+    pub edit_note: Option<u32>,
     /// Leva o cursor para dentro da área visível no próximo quadro.
     pub reveal: bool,
     want_x: Option<f32>,
@@ -73,7 +90,7 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
@@ -89,15 +106,39 @@ impl DocView {
     /// `area_w` = largura da área em pontos.
     fn ensure(&mut self, doc: &Doc, fb: &FontBook, area_w: f32) {
         self.page = doc.page.clone();
+        self.header = doc.header.clone();
+        self.footer = doc.footer.clone();
+        self.title_page = doc.title_page;
+        self.base_family = doc.paras[0].runs[0].style.family.clone();
         let pg = &self.page;
         let width = if self.page_mode { pg.width - pg.margin_left - pg.margin_right } else { area_w - 2.0 * MARGIN_X }.max(60.0);
         self.width = width;
+        // Números das notas: mudou a ordem, as marcas mudam de largura.
+        let order = doc.note_order();
+        let nums: NoteNums = order.iter().enumerate().map(|(i, id)| (*id, i + 1)).collect();
+        if nums != self.nums {
+            self.nums = nums;
+            self.cache.retain(|_, l| l.ver == 0);
+        }
         for p in &doc.paras {
             let fresh = self.cache.get(&p.id).is_some_and(|l| l.ver == p.ver && (l.width - width).abs() < 0.01);
             if !fresh {
-                self.cache.insert(p.id, layout_para(p, width, fb));
+                self.cache.insert(p.id, layout_para(p, width, fb, &self.nums));
             }
         }
+        // O texto das notas, diagramado em letra menor.
+        let note_style = std::rc::Rc::new(CharStyle { size: 9.0, family: self.base_family.clone(), ..CharStyle::default() });
+        for (i, id) in order.iter().enumerate() {
+            let text = format!("{}. {}", i + 1, doc.note_text(*id).unwrap_or(""));
+            let fresh = self.note_lays.get(id).is_some_and(|(t, w, _, _)| *t == text && (*w - width).abs() < 0.01);
+            if !fresh {
+                let para = Para::new(&text, note_style.clone(), ParaStyle { space_after: 2.0, ..ParaStyle::default() });
+                let lay = layout_para(&para, width, fb, &NoteNums::new());
+                self.note_lays.insert(*id, (text, width, para, lay));
+            }
+        }
+        self.note_lays.retain(|id, _| order.contains(id));
+        let note_h = |id: &u32, lays: &HashMap<u32, (String, f32, Para, ParaLayout)>| lays.get(id).map_or(0.0, |l| l.3.h);
         self.lys.clear();
         if self.page_mode {
             // Folhas centralizadas; o texto corre de uma para a outra pelas linhas.
@@ -107,11 +148,17 @@ impl DocView {
             let (mt, ph) = (pg.margin_top, pg.height);
             let top = |k: usize| GAP + k as f32 * (ph + GAP) + mt;
             let (mut page, mut y) = (0usize, 0.0f32);
+            // Notas de cada folha e a altura que elas ocupam na folha atual.
+            let mut page_notes: Vec<Vec<u32>> = vec![Vec::new()];
+            let mut notes_h = 0.0f32;
+            let mut placed: Vec<u32> = Vec::new();
             for p in &doc.paras {
                 let l = &self.cache[&p.id];
                 if p.style.page_break_before && y > 0.0 {
                     page += 1;
                     y = 0.0;
+                    notes_h = 0.0;
+                    page_notes.push(Vec::new());
                 }
                 let first_y = l.lines.first().map_or(0.0, |ln| ln.y);
                 // O espaço antes do parágrafo some no topo da folha.
@@ -120,18 +167,35 @@ impl DocView {
                 }
                 let mut ys = Vec::with_capacity(l.lines.len());
                 for ln in &l.lines {
-                    if y + ln.h > room && y > 0.0 {
+                    // Notas que a linha traz: precisam caber no pé da mesma folha.
+                    let mut new: Vec<u32> = Vec::new();
+                    for s in &ln.segs {
+                        if let Some(id) = s.style.note {
+                            if !placed.contains(&id) && !new.contains(&id) {
+                                new.push(id);
+                            }
+                        }
+                    }
+                    let add = |notes_h: f32| new.iter().map(|id| note_h(id, &self.note_lays)).sum::<f32>() + if notes_h == 0.0 && !new.is_empty() { NOTE_SEP } else { 0.0 };
+                    if y + ln.h + notes_h + add(notes_h) > room && y > 0.0 {
                         page += 1;
                         y = 0.0;
+                        notes_h = 0.0;
+                        page_notes.push(Vec::new());
                     }
                     ys.push(top(page) + y);
                     y += ln.h;
+                    notes_h += add(notes_h);
+                    placed.extend(new.iter().copied());
+                    page_notes[page].extend(new);
                 }
                 let last_end = l.lines.last().map_or(0.0, |ln| ln.y + ln.h);
                 y += (l.h - last_end).max(0.0);
                 self.lys.push(ys);
             }
             self.pages = page + 1;
+            self.page_notes = page_notes;
+            self.endnotes.clear();
             self.total = self.page_top(self.pages);
             self.doc_w = self.page.width + 2.0 * GAP;
         } else {
@@ -143,6 +207,16 @@ impl DocView {
                 y += l.h;
             }
             self.pages = 1;
+            self.page_notes.clear();
+            // As notas vão no fim, depois de um fio.
+            self.endnotes.clear();
+            if !order.is_empty() {
+                y += NOTE_SEP * 1.5;
+                for id in &order {
+                    self.endnotes.push((*id, y));
+                    y += note_h(id, &self.note_lays);
+                }
+            }
             self.total = y + MARGIN_Y;
             self.doc_w = area_w;
         }
@@ -279,7 +353,16 @@ impl DocView {
                 self.last_click = Some((Instant::now(), pt, n));
                 let (x, y) = to_doc(pt.0, pt.1, self.scroll);
                 let pos = self.hit(doc, fb, x, y);
+                // Clique duplo numa marca de nota: abre a nota.
+                let at_note = {
+                    let p = &doc.paras[pos.p];
+                    p.style_after(pos.o).note.filter(|_| pos.o < p.text.len()).or(p.style_at(pos.o).note.filter(|_| pos.o > 0))
+                };
                 match n {
+                    2 if at_note.is_some() => {
+                        self.edit_note = at_note;
+                        doc.select_word(pos);
+                    }
                     2 => doc.select_word(pos),
                     3 => doc.select_para(pos.p),
                     _ => doc.set_cursor(pos, ui.mods().shift),
@@ -495,6 +578,77 @@ impl DocView {
         }
     }
 
+    /// Desenha uma linha (texto, marca-texto, sublinhado, tachado, marcas de nota).
+    fn draw_line(&self, c: &mut Canvas, p: &Para, ln: &crate::layout::Line, offx: f32, ly: f32, fb: &FontBook) {
+        let z = self.zoom;
+        let base = ly + ln.base * z;
+        for s in &ln.segs {
+            let st = &s.style;
+            let x = offx + s.x * z;
+            if let Some(h) = st.highlight {
+                // Da altura da própria letra (numa linha com letras maiores, não cobre tudo).
+                let (asc, desc) = fb.metrics(st);
+                c.fill_rect(x, base - asc * z, s.w * z, (asc + desc) * z, &solid(rgba(h[0], h[1], h[2], h[3])));
+            }
+            if s.tab {
+                continue;
+            }
+            // Marca de nota: o número dela, em sobrescrito.
+            let label = note_label(st, &self.nums);
+            let (st, text): (&CharStyle, &str) = match &label {
+                Some((sup, t)) => (sup, t.as_str()),
+                None => (st, &p.text[s.a..s.b]),
+            };
+            let size = FontBook::eff_size(st) * z;
+            let shift = match st.script {
+                1 => -st.size * 0.33 * z,
+                -1 => st.size * 0.15 * z,
+                _ => 0.0,
+            };
+            let color = rgba(st.color[0], st.color[1], st.color[2], st.color[3]);
+            let face = fb.face(st);
+            if s.w > s.nat + 0.01 && text.contains(' ') {
+                // Justificado: cada palavra no seu lugar.
+                face.draw(c, text.trim_end_matches(' '), x, base + shift, size, false, color);
+            } else {
+                face.draw(c, text, x, base + shift, size, false, color);
+            }
+            let th = (st.size / 14.0 * z).max(1.0);
+            if st.underline {
+                let w = if text.ends_with(' ') && s.b == ln.b { fb.measure(st, text.trim_end_matches(' ')) * z } else { s.w * z };
+                c.fill_rect(x, base + shift + 1.5 * z, w, th, &solid(color));
+            }
+            if st.strike {
+                c.fill_rect(x, base + shift - st.size * 0.3 * z, s.w * z, th, &solid(color));
+            }
+        }
+    }
+
+    /// Cabeçalho e rodapé de uma folha (topo da folha em `py`, pixels).
+    fn draw_header_footer(&self, c: &mut Canvas, k: usize, px: f32, py: f32, fb: &FontBook) {
+        if k == 0 && self.title_page {
+            return;
+        }
+        let z = self.zoom;
+        let st = CharStyle { size: 10.0, color: [80, 80, 86, 255], family: self.base_family.clone(), ..CharStyle::default() };
+        let face = fb.face(&st);
+        let (asc, _) = fb.metrics(&st);
+        let x0 = px + self.page.margin_left * z;
+        let w = self.width * z;
+        let parts = [(&self.header, py + (self.page.margin_top / 2.0 + asc / 2.0) * z), (&self.footer, py + (self.page.height - self.page.margin_bottom / 2.0 + asc / 2.0) * z)];
+        for (hf, base) in parts {
+            if hf.is_empty() {
+                continue;
+            }
+            let [l, m, r] = hf.fill(k + 1, self.pages, &self.title, &self.date);
+            let tw = |t: &str| fb.measure(&st, t) * z;
+            let color = rgba(80, 80, 86, 255);
+            face.draw(c, &l, x0, base, 10.0 * z, false, color);
+            face.draw(c, &m, x0 + (w - tw(&m)) / 2.0, base, 10.0 * z, false, color);
+            face.draw(c, &r, x0 + w - tw(&r), base, 10.0 * z, false, color);
+        }
+    }
+
     /// Desenha o documento rolado de `scroll` pixels numa área de `view_w` × `view_h`.
     #[allow(clippy::too_many_arguments)]
     fn draw(&self, c: &mut Canvas, doc: &Doc, fb: &FontBook, (hscroll, scroll): (f32, f32), view_w: f32, view_h: f32, active: bool, show_caret: bool) {
@@ -516,6 +670,23 @@ impl DocView {
                 c.fill_rect(px + 2.0, py + 3.0, pw, ph, &solid(rgba(0, 0, 0, 50)));
                 c.fill_rect(px, py, pw, ph, &solid(rgba(255, 255, 255, 255)));
                 c.stroke(rrect(px - 0.5, py - 0.5, pw + 1.0, ph + 1.0, 0.0), &solid(rgba(90, 90, 96, 120)), 1.0);
+                self.draw_header_footer(c, k, px, py, fb);
+                // Notas da folha, no pé, abaixo de um fio.
+                if let Some(ids) = self.page_notes.get(k).filter(|v| !v.is_empty()) {
+                    let total: f32 = NOTE_SEP + ids.iter().map(|id| self.note_lays.get(id).map_or(0.0, |l| l.3.h)).sum::<f32>();
+                    let mut y = py + (self.page.height - self.page.margin_bottom - total) * z;
+                    let x0 = px + self.page.margin_left * z;
+                    c.fill_rect(x0, y + NOTE_SEP * 0.4 * z, self.width * z / 3.0, 1.0, &solid(rgba(60, 60, 66, 255)));
+                    y += NOTE_SEP * z;
+                    for id in ids {
+                        if let Some((_, _, para, lay)) = self.note_lays.get(id) {
+                            for ln in &lay.lines {
+                                self.draw_line(c, para, ln, x0, y + ln.y * z, fb);
+                            }
+                            y += lay.h * z;
+                        }
+                    }
+                }
             }
         } else {
             c.fill_rect(0.0, 0.0, view_w, view_h, &solid(rgba(255, 255, 255, 255)));
@@ -556,40 +727,17 @@ impl DocView {
                         c.fill_rect(off.0 + x0 * z, ly, (x1 - x0) * z, ln.h * z, &solid(sel_color));
                     }
                 }
-                let base = ly + ln.base * z;
-                for s in &ln.segs {
-                    let st = &s.style;
-                    let x = off.0 + s.x * z;
-                    if let Some(h) = st.highlight {
-                        // Da altura da própria letra (numa linha com letras maiores, não cobre tudo).
-                        let (asc, desc) = fb.metrics(st);
-                        c.fill_rect(x, base - asc * z, s.w * z, (asc + desc) * z, &solid(rgba(h[0], h[1], h[2], h[3])));
-                    }
-                    if s.tab {
-                        continue;
-                    }
-                    let size = FontBook::eff_size(st) * z;
-                    let shift = match st.script {
-                        1 => -st.size * 0.33 * z,
-                        -1 => st.size * 0.15 * z,
-                        _ => 0.0,
-                    };
-                    let color = rgba(st.color[0], st.color[1], st.color[2], st.color[3]);
-                    let text = &p.text[s.a..s.b];
-                    let face = fb.face(st);
-                    if s.w > s.nat + 0.01 && text.contains(' ') {
-                        // Justificado: cada palavra no seu lugar.
-                        face.draw(c, text.trim_end_matches(' '), x, base + shift, size, false, color);
-                    } else {
-                        face.draw(c, text, x, base + shift, size, false, color);
-                    }
-                    let th = (st.size / 14.0 * z).max(1.0);
-                    if st.underline {
-                        let w = if text.ends_with(' ') && s.b == ln.b { fb.measure(st, text.trim_end_matches(' ')) * z } else { s.w * z };
-                        c.fill_rect(x, base + shift + 1.5 * z, w, th, &solid(color));
-                    }
-                    if st.strike {
-                        c.fill_rect(x, base + shift - st.size * 0.3 * z, s.w * z, th, &solid(color));
+                self.draw_line(c, p, ln, off.0, ly, fb);
+            }
+        }
+        // Modo janela: as notas no fim do texto.
+        if let Some(&(_, y0)) = self.endnotes.first() {
+            let y = (y0 - NOTE_SEP) * z - scroll;
+            c.fill_rect(off.0, y, self.width * z / 3.0, 1.0, &solid(rgba(60, 60, 66, 255)));
+            for (id, ny) in &self.endnotes {
+                if let Some((_, _, para, lay)) = self.note_lays.get(id) {
+                    for ln in &lay.lines {
+                        self.draw_line(c, para, ln, off.0, ny * z - scroll + ln.y * z, fb);
                     }
                 }
             }
@@ -637,4 +785,10 @@ pub fn common<T: PartialEq + Clone>(doc: &Doc, f: impl Fn(&crate::rich::CharStyl
 /// Para a régua e os menus: o estilo do parágrafo do cursor.
 pub fn para_style(doc: &Doc) -> &crate::rich::ParaStyle {
     &doc.paras[doc.cursor.p].style
+}
+
+/// A data de hoje (dd/mm/aaaa), para o campo {data}.
+fn today() -> String {
+    let (y, m, d, ..) = glove_ui::local_time();
+    format!("{d:02}/{m:02}/{y}")
 }

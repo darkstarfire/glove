@@ -3,6 +3,7 @@
 mod bar;
 mod fontbook;
 mod layout;
+mod notes;
 mod pages;
 mod para;
 mod rich;
@@ -80,6 +81,10 @@ enum Sheet {
     Spacing(para::SpacingSheet),
     /// Arquivo > Configurar Página.
     Page(pages::PageSheet),
+    /// Inserir > Nota de Rodapé (ou editar uma).
+    Note(notes::NoteSheet),
+    /// Formatar > Cabeçalho e Rodapé.
+    HeaderFooter(notes::HfSheet),
 }
 
 /// O que o painel de Cores muda: a cor do texto ou o marca-texto.
@@ -318,6 +323,16 @@ impl Editor {
                     }
                 }
             }
+            Some("footnote") => self.sheet = Sheet::Note(notes::NoteSheet { buf: glove_ui::TextBuffer::new(""), id: None }),
+            Some("header-footer") => self.sheet = Sheet::HeaderFooter(notes::HfSheet::from(&self.doc.header, &self.doc.footer, self.doc.title_page)),
+            Some("page-number") => {
+                if self.doc.footer.center.trim().is_empty() {
+                    self.doc.footer.center = "{página}".into();
+                    self.doc.modified = true;
+                    self.doc.version = self.doc.version.wrapping_add(1);
+                }
+                self.view.page_mode = true;
+            }
             Some("page-setup") => self.sheet = Sheet::Page(pages::PageSheet::from(&self.doc.page)),
             Some("page-mode") => {
                 self.view.page_mode = !self.view.page_mode;
@@ -527,6 +542,39 @@ impl Editor {
             }
             return;
         }
+        if let Sheet::Note(f) = &mut self.sheet {
+            if let Some(r) = notes::note_sheet(ui, f) {
+                if let Some(text) = r {
+                    match f.id {
+                        Some(id) => self.doc.set_note_text(id, &text),
+                        None => {
+                            self.doc.insert_note(&text);
+                            self.view.reveal = true;
+                        }
+                    }
+                }
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
+        }
+        if let Sheet::HeaderFooter(f) = &mut self.sheet {
+            if let Some(ok) = notes::hf_sheet(ui, f) {
+                if ok {
+                    let (h, ft) = f.parts();
+                    if h != self.doc.header || ft != self.doc.footer || f.title_page != self.doc.title_page {
+                        self.doc.header = h;
+                        self.doc.footer = ft;
+                        self.doc.title_page = f.title_page;
+                        self.doc.modified = true;
+                        self.doc.version = self.doc.version.wrapping_add(1);
+                    }
+                }
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
+        }
         if let Sheet::Page(f) = &mut self.sheet {
             match pages::page_sheet(ui, f) {
                 Some(ok) => {
@@ -669,6 +717,7 @@ impl Editor {
                     "Ctrl+R" => action = Some("ruler"),
                     "Ctrl+T" => action = Some("fonts"),
                     "Ctrl+Shift+P" => action = Some("page-setup"),
+                    "Ctrl+Alt+N" => action = Some("footnote"),
                     "Ctrl+Shift+W" => action = Some("page-mode"),
                     "Ctrl+Return" | "Ctrl+KP_Enter" => action = Some("page-break"),
                     "Ctrl+B" => action = Some("bold"),
@@ -697,6 +746,8 @@ impl Editor {
                     "align-justify" => menu_action = Some("align-justify"),
                     "spacing" => menu_action = Some("spacing"),
                     "zoom-fit" => menu_action = Some("zoom-fit"),
+                    "header-footer" => menu_action = Some("header-footer"),
+                    "page-number" => menu_action = Some("page-number"),
                     "zoom-50" => menu_action = Some("zoom-50"),
                     "zoom-75" => menu_action = Some("zoom-75"),
                     "zoom-100" => menu_action = Some("zoom-100"),
@@ -760,7 +811,13 @@ impl Editor {
             ui.set_enabled(false);
         }
         let enabled = !sheet_open && !used_key;
+        self.view.title = self.name();
         self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
+        // Clique duplo numa marca de nota: abre a nota para editar.
+        if let Some(id) = self.view.edit_note.take() {
+            let text = self.doc.note_text(id).unwrap_or("").to_string();
+            self.sheet = Sheet::Note(notes::NoteSheet { buf: glove_ui::TextBuffer::new(text), id: Some(id) });
+        }
         ui.set_enabled(!sheet_open);
         // Painéis de Fontes e Cores: mostram o da seleção e mudam só o que se mexeu.
         if self.fonts.open || self.colors.open {
@@ -886,6 +943,7 @@ impl Editor {
                             MenuItem::new("spacing", tr!("Espaçamento…"), ""),
                         ],
                     ),
+                    MenuItem::new("header-footer", tr!("Cabeçalho e Rodapé…"), "").enabled(!self.plain),
                     MenuItem::Separator,
                     if self.plain { MenuItem::new("to-rich", tr!("Converter em Texto Rico"), "") } else { MenuItem::new("to-plain", tr!("Converter em Texto Simples"), "") },
                     MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R").enabled(!self.plain),
@@ -893,7 +951,12 @@ impl Editor {
             ),
             Menu::new(
                 tr!("Inserir"),
-                vec![MenuItem::new("page-break", tr!("Quebra de Página"), "Ctrl+Return").enabled(!self.plain)],
+                vec![
+                    MenuItem::new("page-break", tr!("Quebra de Página"), "Ctrl+Return").enabled(!self.plain),
+                    MenuItem::Separator,
+                    MenuItem::new("footnote", tr!("Nota de Rodapé…"), "Ctrl+Alt+N").enabled(!self.plain),
+                    MenuItem::new("page-number", tr!("Número de Página"), "").enabled(!self.plain),
+                ],
             ),
             Menu::new(
                 tr!("Visualizar"),

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::rc::Rc;
 
-use crate::rich::{Align, CharStyle, Doc, PageSetup, Para, ParaStyle, Run};
+use crate::rich::{Align, CharStyle, Doc, HeaderFooter, Note, PageSetup, Para, ParaStyle, Run, NOTE_CHAR};
 
 /// Pontos → twips (1/20 de ponto).
 fn tw(pt: f32) -> i32 {
@@ -30,6 +30,27 @@ fn escape(out: &mut String, text: &str) {
             }
         }
     }
+}
+
+/// Texto do cabeçalho/rodapé com os campos do Word no lugar de {página} etc.
+fn write_fields(out: &mut String, s: &str) {
+    let mut rest = s;
+    while let Some(i) = rest.find('{') {
+        escape(out, &rest[..i]);
+        let tail = &rest[i..];
+        let field = [("{página}", "PAGE", "1"), ("{páginas}", "NUMPAGES", "1"), ("{data}", "DATE \\\\@ \"dd/MM/yyyy\"", ""), ("{título}", "TITLE", "")].into_iter().find(|(k, _, _)| tail.starts_with(k));
+        match field {
+            Some((k, inst, res)) => {
+                let _ = write!(out, "{{\\field{{\\*\\fldinst {inst}}}{{\\fldrslt {res}}}}}");
+                rest = &tail[k.len()..];
+            }
+            None => {
+                escape(out, "{");
+                rest = &tail[1..];
+            }
+        }
+    }
+    escape(out, rest);
 }
 
 /// O documento em RTF.
@@ -92,6 +113,21 @@ pub fn write(doc: &Doc) -> String {
             body.push_str("\\pagebb");
         }
         for (a, b, st) in p.spans() {
+            // Marca de nota: a nota inteira entra aqui (o Word numera sozinho).
+            if let Some(id) = st.note {
+                let text = doc.note_text(id).unwrap_or("");
+                let f = font_ix(&mut fonts, &st.family);
+                let _ = write!(body, "{{\\plain\\f{f}\\fs{}\\super\\chftn}}{{\\footnote\\pard\\plain\\f{f}\\fs18 {{\\super\\chftn}} ", (st.size * 2.0).round() as i32);
+                for (k, line) in text.split('\n').enumerate() {
+                    if k > 0 {
+                        body.push_str("\\par ");
+                    }
+                    escape(&mut body, line);
+                }
+                body.push('}');
+                let _ = (a, b);
+                continue;
+            }
             let f = font_ix(&mut fonts, &st.family);
             let _ = write!(body, "\\plain\\f{}\\fs{}", f, (st.size * 2.0).round() as i32);
             if st.bold {
@@ -138,6 +174,32 @@ pub fn write(doc: &Doc) -> String {
     out.push_str("}\n");
     let pg = &doc.page;
     let _ = writeln!(out, "\\paperw{}\\paperh{}\\margl{}\\margr{}\\margt{}\\margb{}\\viewkind1", tw(pg.width), tw(pg.height), tw(pg.margin_left), tw(pg.margin_right), tw(pg.margin_top), tw(pg.margin_bottom));
+    if doc.title_page {
+        out.push_str("\\titlepg\n");
+    }
+    let col = pg.width - pg.margin_left - pg.margin_right;
+    for (word, hf) in [("header", &doc.header), ("footer", &doc.footer)] {
+        if hf.is_empty() {
+            continue;
+        }
+        // O do Word: esquerda, centro e direita separados por tabulações.
+        let _ = write!(out, "{{\\{word}\\pard\\plain\\tqc\\tx{}\\tqr\\tx{}\\f0\\fs20 ", tw(col / 2.0), tw(col));
+        for (k, part) in [&hf.left, &hf.center, &hf.right].iter().enumerate() {
+            if k > 0 {
+                out.push_str("\\tab ");
+            }
+            write_fields(&mut out, part);
+        }
+        out.push_str("\\par}\n");
+        // O do Editor (exato), que os outros programas ignoram.
+        let _ = write!(out, "{{\\*\\glove{word}");
+        for (tag, part) in [("left", &hf.left), ("center", &hf.center), ("right", &hf.right)] {
+            let _ = write!(out, "{{\\*\\glove{tag} ");
+            escape(&mut out, part);
+            out.push('}');
+        }
+        out.push_str("}\n");
+    }
     out.push_str(&body);
     out.push_str("}\n");
     out
@@ -153,6 +215,11 @@ enum Dest {
     Skip,
     FontTbl,
     ColorTbl,
+    /// Texto de uma nota de rodapé.
+    Note,
+    /// Modelo de cabeçalho (0) ou rodapé (1) do Editor; e a parte (esquerda, centro, direita).
+    Hf(u8),
+    HfPart(u8, u8),
 }
 
 #[derive(Clone)]
@@ -198,6 +265,10 @@ struct Reader {
     page_break: bool,
     /// Estilo de parágrafo do texto que está sendo juntado.
     cur_ps: ParaStyle,
+    notes: Vec<Note>,
+    note_text: String,
+    hf: [[String; 3]; 2],
+    title_page: bool,
 }
 
 impl Reader {
@@ -225,7 +296,9 @@ impl Reader {
                     self.rgb_set = false;
                 }
             }
-            Dest::Skip => {}
+            Dest::Skip | Dest::Hf(_) => {}
+            Dest::Note => self.note_text.push(c),
+            Dest::HfPart(w, k) => self.hf[w as usize][k as usize].push(c),
             Dest::Text => {
                 if self.text.is_empty() && self.runs.is_empty() {
                     self.cur_ps = st.ps.clone();
@@ -260,7 +333,17 @@ impl Reader {
 }
 
 /// Lê um RTF. Devolve os parágrafos e o papel.
-pub fn read(src: &[u8]) -> Result<(Vec<Para>, PageSetup), String> {
+/// O que um RTF traz.
+pub struct Read {
+    pub paras: Vec<Para>,
+    pub page: PageSetup,
+    pub notes: Vec<Note>,
+    pub header: HeaderFooter,
+    pub footer: HeaderFooter,
+    pub title_page: bool,
+}
+
+pub fn read(src: &[u8]) -> Result<Read, String> {
     let start = src.iter().position(|&b| b == b'{').ok_or("não é um RTF")?;
     if !src[start..].starts_with(b"{\\rtf") {
         return Err("não é um RTF".into());
@@ -283,6 +366,10 @@ pub fn read(src: &[u8]) -> Result<(Vec<Para>, PageSetup), String> {
         high: None,
         page_break: false,
         cur_ps: ParaStyle::default(),
+        notes: Vec::new(),
+        note_text: String::new(),
+        hf: Default::default(),
+        title_page: false,
     };
     // Fonte padrão por número (a tabela pode vir depois de \deff).
     let font_of = |r: &Reader, n: i32| r.fonts.get(&n).cloned();
@@ -307,8 +394,21 @@ pub fn read(src: &[u8]) -> Result<(Vec<Para>, PageSetup), String> {
                     r.fonts.insert(st.font_def, name);
                     r.font_name.clear();
                 }
+                let closing = st.dest;
                 st = stack.pop().unwrap_or_else(|| base.clone());
                 r.skip = 0;
+                // Fim de uma nota: a marca entra no texto, onde a nota estava.
+                if closing == Dest::Note && st.dest != Dest::Note {
+                    let id = r.notes.len() as u32 + 1;
+                    let text = std::mem::take(&mut r.note_text).trim().to_string();
+                    r.notes.push(Note { id, text });
+                    if st.dest == Dest::Text {
+                        let mut s2 = st.clone();
+                        s2.cs.note = Some(id);
+                        s2.cs.script = 0;
+                        r.push_char(&s2, NOTE_CHAR);
+                    }
+                }
                 group_start = false;
                 i += 1;
                 continue;
@@ -390,7 +490,8 @@ pub fn read(src: &[u8]) -> Result<(Vec<Para>, PageSetup), String> {
         r.end_para(&s);
     }
     let _ = r.deff;
-    Ok((r.paras, r.page))
+    let hf = |a: &[String; 3]| HeaderFooter { left: a[0].clone(), center: a[1].clone(), right: a[2].clone() };
+    Ok(Read { header: hf(&r.hf[0]), footer: hf(&r.hf[1]), paras: r.paras, page: r.page, notes: r.notes, title_page: r.title_page })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -409,7 +510,25 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
                 st.dest = Dest::ColorTbl;
                 return;
             }
-            "stylesheet" | "info" | "pict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "footnote" | "listtable" | "listoverridetable" | "revtbl" | "listtext" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
+"footnote" => {
+                st.dest = Dest::Note;
+                return;
+            }
+            "gloveheader" | "glovefooter" => {
+                st.dest = Dest::Hf(u8::from(word == "glovefooter"));
+                return;
+            }
+            "gloveleft" | "glovecenter" | "gloveright" => {
+                if let Dest::Hf(w) = st.dest {
+                    st.dest = Dest::HfPart(w, match word {
+                        "gloveleft" => 0,
+                        "glovecenter" => 1,
+                        _ => 2,
+                    });
+                }
+                return;
+            }
+            "stylesheet" | "info" | "pict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "listtable" | "listoverridetable" | "revtbl" | "listtext" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
                 st.dest = Dest::Skip;
                 return;
             }
@@ -420,7 +539,23 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
             _ => {}
         }
     }
-    if st.dest == Dest::Skip {
+    if matches!(st.dest, Dest::Skip | Dest::Hf(_)) {
+        return;
+    }
+    // Dentro de nota ou do modelo do cabeçalho: só o texto (e as quebras).
+    if matches!(st.dest, Dest::Note | Dest::HfPart(..)) {
+        match word {
+            "par" | "line" => r.push_char(st, '\n'),
+            "tab" => r.push_char(st, '\t'),
+            "u" => {
+                let v = if n < 0 { (n + 65536) as u16 } else { n as u16 };
+                if let Some(ch) = char::from_u32(v as u32) {
+                    r.push_char(st, ch);
+                }
+                r.skip = st.uc;
+            }
+            _ => {}
+        }
         return;
     }
     if st.dest == Dest::ColorTbl {
@@ -444,6 +579,9 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
     }
     match word {
         "deff" => r.deff = n,
+        "titlepg" => r.title_page = true,
+        // O número automático da nota (a marca já vem pela própria nota).
+        "chftn" => {}
         "paperw" => r.page.width = pt(n),
         "paperh" => r.page.height = pt(n),
         "margl" => r.page.margin_left = pt(n),
@@ -535,9 +673,13 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
 
 /// Lê um arquivo RTF num documento.
 pub fn read_doc(src: &[u8]) -> Result<Doc, String> {
-    let (paras, page) = read(src)?;
-    let mut d = Doc::from_paras(paras);
-    d.page = page;
+    let r = read(src)?;
+    let mut d = Doc::from_paras(r.paras);
+    d.page = r.page;
+    d.notes = r.notes;
+    d.header = r.header;
+    d.footer = r.footer;
+    d.title_page = r.title_page;
     Ok(d)
 }
 
@@ -635,6 +777,10 @@ mod tests {
         d.anchor = Pos::new(2, 20);
         d.cursor = Pos::new(2, 27);
         d.set_char_style(&|s| s.highlight = Some([255, 240, 110, 255]));
+        d.set_cursor(Pos::new(1, 14), false);
+        d.insert_note("Conforme a norma da ABNT.");
+        d.header.right = "Relatório — {data}".into();
+        d.footer.center = "Página {página} de {páginas}".into();
         std::fs::write(out, write(&d)).unwrap();
     }
 
@@ -651,6 +797,27 @@ mod tests {
             }
         }
         println!("papel {:?}", d.page);
+    }
+
+    #[test]
+    fn notas_cabecalho_e_rodape() {
+        let mut d = Doc::from_plain("Texto com nota.", Rc::new(CharStyle::default()), ParaStyle::default());
+        d.set_cursor(Pos::new(0, 9), false);
+        d.insert_note("Fonte: IBGE, 2020.");
+        d.header.right = "Meu TCC".into();
+        d.footer.center = "Página {página} de {páginas}".into();
+        d.title_page = true;
+        let rtf = write(&d);
+        assert!(rtf.contains("\\footnote"));
+        assert!(rtf.contains("fldinst PAGE"));
+        let back = read_doc(rtf.as_bytes()).unwrap();
+        assert_eq!(back.plain_text(), d.plain_text());
+        assert_eq!(back.notes.len(), 1);
+        assert_eq!(back.notes[0].text, "Fonte: IBGE, 2020.");
+        assert_eq!(back.note_order(), vec![back.notes[0].id]);
+        assert_eq!(back.header.right, "Meu TCC");
+        assert_eq!(back.footer.center, "Página {página} de {páginas}");
+        assert!(back.title_page);
     }
 
     #[test]

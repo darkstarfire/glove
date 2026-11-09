@@ -2,10 +2,21 @@
 //! recuos, tabulações e alinhamento (inclusive justificado). Tudo em pontos;
 //! o zoom só entra no desenho.
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::fontbook::FontBook;
 use crate::rich::{Align, CharStyle, Para};
+
+/// Número de cada nota de rodapé (pela ordem no texto).
+pub type NoteNums = HashMap<u32, usize>;
+
+/// Como a marca de uma nota aparece: o número, em sobrescrito.
+pub fn note_label(st: &CharStyle, nums: &NoteNums) -> Option<(CharStyle, String)> {
+    let id = st.note?;
+    let n = nums.get(&id).copied().unwrap_or(0);
+    Some((CharStyle { script: 1, note: None, ..st.clone() }, if n > 0 { n.to_string() } else { "*".into() }))
+}
 
 /// Distância entre as tabulações padrão (meia polegada, como no TextEdit).
 pub const DEFAULT_TAB: f32 = 36.0;
@@ -72,9 +83,16 @@ fn next_tab(tabs: &[f32], x: f32) -> f32 {
     ((x + 0.5) / DEFAULT_TAB).floor() * DEFAULT_TAB + DEFAULT_TAB
 }
 
-fn tokens(p: &Para, fb: &FontBook) -> Vec<Tok> {
+fn tokens(p: &Para, fb: &FontBook, nums: &NoteNums) -> Vec<Tok> {
     let mut out = Vec::new();
     for (a, b, st) in p.spans() {
+        // Marca de nota: ocupa o lugar do número dela.
+        if let Some((sup, label)) = note_label(st, nums) {
+            if a < b {
+                out.push(Tok { a, b, kind: Kind::Word, w: fb.measure(&sup, &label), style: st.clone() });
+            }
+            continue;
+        }
         let s = &p.text[a..b];
         let mut start = 0;
         let mut kind: Option<Kind> = None;
@@ -114,9 +132,9 @@ fn tokens(p: &Para, fb: &FontBook) -> Vec<Tok> {
 }
 
 /// Diagrama o parágrafo numa coluna de `width` pontos.
-pub fn layout_para(p: &Para, width: f32, fb: &FontBook) -> ParaLayout {
+pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> ParaLayout {
     let ps = &p.style;
-    let toks = tokens(p, fb);
+    let toks = tokens(p, fb, nums);
     let left = ps.left_indent;
     let right = (width - ps.right_indent).max(left + 20.0);
     let mut lines: Vec<Vec<Tok>> = Vec::new();
@@ -239,7 +257,7 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook) -> ParaLayout {
         }
         // Mede de novo os pedaços juntados (o kerning entre tokens muda um pouco).
         if !justify {
-            for s in segs.iter_mut().filter(|s| !s.tab) {
+            for s in segs.iter_mut().filter(|s| !s.tab && s.style.note.is_none()) {
                 let w = fb.measure(&s.style, &p.text[s.a..s.b]);
                 s.w = w;
                 s.nat = w;
@@ -318,7 +336,7 @@ pub fn hit_line(p: &Para, l: &ParaLayout, fb: &FontBook, li: usize, x: f32) -> u
         if x > s.x + s.w {
             continue;
         }
-        if s.tab {
+        if s.tab || s.style.note.is_some() {
             return if x < s.x + s.w / 2.0 { s.a } else { s.b.min(line_end) };
         }
         let k = if s.nat > 0.0 { s.w / s.nat } else { 1.0 };

@@ -121,6 +121,37 @@ impl Default for PageSetup {
     }
 }
 
+/// Cabeçalho ou rodapé: texto à esquerda, no centro e à direita. Campos:
+/// {página}, {páginas}, {título} e {data}.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct HeaderFooter {
+    pub left: String,
+    pub center: String,
+    pub right: String,
+}
+
+impl HeaderFooter {
+    pub fn is_empty(&self) -> bool {
+        self.left.trim().is_empty() && self.center.trim().is_empty() && self.right.trim().is_empty()
+    }
+
+    /// As três partes com os campos trocados.
+    pub fn fill(&self, page: usize, pages: usize, title: &str, date: &str) -> [String; 3] {
+        let f = |s: &str| s.replace("{página}", &page.to_string()).replace("{páginas}", &pages.to_string()).replace("{título}", title).replace("{data}", date);
+        [f(&self.left), f(&self.center), f(&self.right)]
+    }
+}
+
+/// Nota de rodapé: o texto (a marca fica no documento, num caractere com `note`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Note {
+    pub id: u32,
+    pub text: String,
+}
+
+/// O caractere que marca uma nota no texto (aparece como o número dela).
+pub const NOTE_CHAR: char = '\u{FFFC}';
+
 /// Um trecho de `len` bytes com o mesmo estilo.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Run {
@@ -342,6 +373,11 @@ struct Step {
 pub struct Doc {
     pub paras: Vec<Para>,
     pub page: PageSetup,
+    pub header: HeaderFooter,
+    pub footer: HeaderFooter,
+    /// Primeira página sem cabeçalho e rodapé (capa).
+    pub title_page: bool,
+    pub notes: Vec<Note>,
     pub cursor: Pos,
     pub anchor: Pos,
     /// Estilo escolhido para o que se vai digitar (Negrito sem seleção…); sai ao mexer o cursor.
@@ -367,7 +403,7 @@ impl Doc {
     }
 
     pub fn with_style(style: Rc<CharStyle>, pstyle: ParaStyle) -> Self {
-        Self { paras: vec![Para::new("", style, pstyle)], page: PageSetup::default(), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
+        Self { paras: vec![Para::new("", style, pstyle)], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, notes: Vec::new(), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
     }
 
     /// Documento de texto simples, todo num estilo.
@@ -509,7 +545,58 @@ impl Doc {
         let (a, _) = self.selection();
         let p = &self.paras[a.p];
         // Com seleção: o estilo do primeiro caractere selecionado.
-        if self.has_selection() { p.style_after(a.o).clone() } else { p.style_at(a.o).clone() }
+        let s = if self.has_selection() { p.style_after(a.o) } else { p.style_at(a.o) };
+        // O que se digita depois de uma marca de nota não é nota.
+        if s.note.is_some() {
+            return Rc::new(CharStyle { note: None, ..(**s).clone() });
+        }
+        s.clone()
+    }
+
+    /// Insere uma nota de rodapé no cursor. Devolve o número interno dela.
+    pub fn insert_note(&mut self, text: &str) -> u32 {
+        let id = self.notes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        self.notes.push(Note { id, text: text.to_string() });
+        let style = Rc::new(CharStyle { note: Some(id), script: 0, ..(*self.typing_style()).clone() });
+        let (a, _) = self.selection();
+        let pstyle = self.paras[a.p].style.clone();
+        let mut ch = [0u8; 4];
+        let frag = vec![Para::new(NOTE_CHAR.encode_utf8(&mut ch), style, pstyle)];
+        let (_, b) = self.selection();
+        // A nota entra depois da seleção (não a apaga).
+        self.set_cursor(b, false);
+        self.replace_selection(frag, false);
+        self.coalesce = false;
+        id
+    }
+
+    /// As notas na ordem em que aparecem no texto (o número de cada uma é a posição + 1).
+    pub fn note_order(&self) -> Vec<u32> {
+        let mut out = Vec::new();
+        for p in &self.paras {
+            for (_, _, st) in p.spans() {
+                if let Some(id) = st.note {
+                    if !out.contains(&id) {
+                        out.push(id);
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    pub fn note_text(&self, id: u32) -> Option<&str> {
+        self.notes.iter().find(|n| n.id == id).map(|n| n.text.as_str())
+    }
+
+    pub fn set_note_text(&mut self, id: u32, text: &str) {
+        if let Some(n) = self.notes.iter_mut().find(|n| n.id == id) {
+            if n.text != text {
+                n.text = text.to_string();
+                self.modified = true;
+                self.version = next();
+            }
+        }
     }
 
     // -------------------------------------------------------------------
@@ -996,6 +1083,20 @@ mod tests {
         d.insert_text("Capítulo 1\n");
         assert_eq!(d.paras[0].style.role, Role::Chapter);
         assert_eq!(d.paras[1].style.role, Role::Body);
+    }
+
+    #[test]
+    fn notas_numeradas_pela_ordem() {
+        let mut d = Doc::from_plain("um dois", Rc::new(CharStyle::default()), ParaStyle::default());
+        d.set_cursor(Pos::new(0, 7), false);
+        let a = d.insert_note("nota do fim");
+        d.set_cursor(Pos::new(0, 2), false);
+        let b = d.insert_note("nota do começo");
+        assert_eq!(d.note_order(), vec![b, a]);
+        // O que se digita depois da marca não vira nota.
+        d.insert_text("X");
+        assert!(d.paras[0].style_at(d.cursor.o).note.is_none());
+        assert_eq!(d.plain_text().chars().filter(|c| *c == NOTE_CHAR).count(), 2);
     }
 
     #[test]
