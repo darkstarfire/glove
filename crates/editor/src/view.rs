@@ -20,6 +20,21 @@ const MARGIN_Y: f32 = 14.0;
 const GAP: f32 = 18.0;
 /// Espaço do fio que separa as notas do texto (pontos).
 const NOTE_SEP: f32 = 12.0;
+/// Margem interna das células e espaço depois de uma tabela (pontos).
+const CELL_PAD: f32 = 4.0;
+const TABLE_AFTER: f32 = 6.0;
+
+/// Onde uma tabela ficou: colunas (x a partir da coluna de texto) e linhas.
+struct TableGeo {
+    id: u32,
+    borders: bool,
+    bounds: Vec<f32>,
+    /// (topo, altura, células: (coluna, quantas colunas)).
+    rows: Vec<(f32, f32, Vec<(usize, usize)>)>,
+    /// Parágrafos da tabela.
+    first: usize,
+    end: usize,
+}
 
 thread_local! {
     /// O último pedaço copiado no Editor, com os estilos (os outros apps só veem o texto).
@@ -68,6 +83,12 @@ pub struct DocView {
     labels: Vec<Option<String>>,
     /// Folha em que cada parágrafo começa (modo página).
     para_page: Vec<usize>,
+    /// Posição x e largura de cada parágrafo (células de tabela são mais estreitas).
+    para_x: Vec<f32>,
+    para_w: Vec<f32>,
+    tables: Vec<TableGeo>,
+    /// Arrastando a borda entre duas colunas: (tabela, qual borda).
+    col_drag: Option<(u32, usize)>,
     /// Leva o cursor para dentro da área visível no próximo quadro.
     pub reveal: bool,
     want_x: Option<f32>,
@@ -94,7 +115,7 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, labels: Vec::new(), para_page: Vec::new(), reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
@@ -124,10 +145,41 @@ impl DocView {
             self.nums = nums;
             self.cache.retain(|_, l| l.ver == 0);
         }
-        for p in &doc.paras {
-            let fresh = self.cache.get(&p.id).is_some_and(|l| l.ver == p.ver && (l.width - width).abs() < 0.01);
+        // Tabelas: cada célula com a sua largura (as colunas pelas frações da tabela).
+        let n = doc.paras.len();
+        self.para_x = vec![0.0; n];
+        self.para_w = vec![width; n];
+        self.tables.clear();
+        let mut i = 0;
+        while i < n {
+            let Some(c0) = doc.paras[i].style.cell else {
+                i += 1;
+                continue;
+            };
+            let end = (i..n).find(|&k| doc.paras[k].style.cell.is_none_or(|c| c.table != c0.table)).unwrap_or(n);
+            let cols = doc.paras[i..end].iter().filter_map(|p| p.style.cell.map(|c| (c.col + c.span.max(1)) as usize)).max().unwrap_or(1);
+            let props = doc.tables.get(&c0.table).cloned().unwrap_or_default();
+            let fr = props.fractions(cols);
+            let mut bounds = vec![0.0f32];
+            for f in &fr {
+                let last = *bounds.last().unwrap();
+                bounds.push(last + f * width);
+            }
+            for k in i..end {
+                let c = doc.paras[k].style.cell.unwrap();
+                let x0 = bounds[(c.col as usize).min(cols)];
+                let x1 = bounds[((c.col + c.span.max(1)) as usize).min(cols)];
+                self.para_x[k] = x0 + CELL_PAD;
+                self.para_w[k] = (x1 - x0 - 2.0 * CELL_PAD).max(12.0);
+            }
+            self.tables.push(TableGeo { id: c0.table, borders: props.borders, bounds, rows: Vec::new(), first: i, end });
+            i = end;
+        }
+        for (k, p) in doc.paras.iter().enumerate() {
+            let w = self.para_w[k];
+            let fresh = self.cache.get(&p.id).is_some_and(|l| l.ver == p.ver && (l.width - w).abs() < 0.01);
             if !fresh {
-                self.cache.insert(p.id, layout_para(p, width, fb, &self.nums));
+                self.cache.insert(p.id, layout_para(p, w, fb, &self.nums));
             }
         }
         // O texto das notas, diagramado em letra menor.
@@ -166,38 +218,91 @@ impl DocView {
                 }
             }
         }
-        self.para_page.clear();
-        self.lys.clear();
-        if self.page_mode {
+        self.para_page = vec![0; n];
+        self.lys = vec![Vec::new(); n];
+        let paged = self.page_mode;
+        if paged {
             // Folhas centralizadas; o texto corre de uma para a outra pelas linhas.
             self.page_x = ((area_w - pg.width) / 2.0).max(GAP);
             self.col_x = self.page_x + pg.margin_left;
-            let room = (pg.height - pg.margin_top - pg.margin_bottom).max(40.0);
-            let (mt, ph) = (pg.margin_top, pg.height);
-            let top = |k: usize| GAP + k as f32 * (ph + GAP) + mt;
-            let (mut page, mut y) = (0usize, 0.0f32);
-            // Notas de cada folha e a altura que elas ocupam na folha atual.
-            let mut page_notes: Vec<Vec<u32>> = vec![Vec::new()];
-            let mut notes_h = 0.0f32;
-            let mut placed: Vec<u32> = Vec::new();
-            for p in &doc.paras {
-                let l = &self.cache[&p.id];
-                if p.style.page_break_before && y > 0.0 {
-                    page += 1;
-                    y = 0.0;
-                    notes_h = 0.0;
-                    page_notes.push(Vec::new());
+        } else {
+            self.col_x = MARGIN_X;
+        }
+        let room = if paged { (pg.height - pg.margin_top - pg.margin_bottom).max(40.0) } else { f32::INFINITY };
+        let (mt, ph) = (pg.margin_top, pg.height);
+        let top = |k: usize| if paged { GAP + k as f32 * (ph + GAP) + mt } else { MARGIN_Y };
+        let (mut page, mut y) = (0usize, 0.0f32);
+        // Notas de cada folha e a altura que elas ocupam na folha atual.
+        let mut page_notes: Vec<Vec<u32>> = vec![Vec::new()];
+        let mut notes_h = 0.0f32;
+        let mut placed: Vec<u32> = Vec::new();
+        let mut ti = 0usize;
+        let mut i = 0usize;
+        while i < n {
+            let p = &doc.paras[i];
+            if p.style.page_break_before && y > 0.0 && paged {
+                page += 1;
+                y = 0.0;
+                notes_h = 0.0;
+                page_notes.push(Vec::new());
+            }
+            // Tabela: linha a linha (a linha inteira na mesma folha).
+            if p.style.cell.is_some() && ti < self.tables.len() && self.tables[ti].first == i {
+                let end = self.tables[ti].end;
+                let mut rows: Vec<(f32, f32, Vec<(usize, usize)>)> = Vec::new();
+                let mut k = i;
+                while k < end {
+                    let row = doc.paras[k].style.cell.unwrap().row;
+                    let rend = (k..end).find(|&q| doc.paras[q].style.cell.unwrap().row != row).unwrap_or(end);
+                    // Células da linha e a altura de cada uma.
+                    let mut cells: Vec<(usize, usize, Vec<usize>)> = Vec::new();
+                    for q in k..rend {
+                        let c = doc.paras[q].style.cell.unwrap();
+                        match cells.last_mut() {
+                            Some(cl) if cl.0 == c.col as usize => cl.2.push(q),
+                            _ => cells.push((c.col as usize, c.span.max(1) as usize, vec![q])),
+                        }
+                    }
+                    let content = cells.iter().map(|cl| cl.2.iter().map(|q| self.cache[&doc.paras[*q].id].h).sum::<f32>()).fold(0.0f32, f32::max);
+                    let row_h = content + 2.0 * CELL_PAD;
+                    if paged && y + row_h > room && y > 0.0 {
+                        page += 1;
+                        y = 0.0;
+                        notes_h = 0.0;
+                        page_notes.push(Vec::new());
+                    }
+                    let row_top = top(page) + y;
+                    for cl in &cells {
+                        let mut cy = row_top + CELL_PAD;
+                        for q in &cl.2 {
+                            let l = &self.cache[&doc.paras[*q].id];
+                            self.lys[*q] = l.lines.iter().map(|ln| cy + ln.y).collect();
+                            self.para_page[*q] = page;
+                            cy += l.h;
+                        }
+                    }
+                    rows.push((row_top, row_h, cells.iter().map(|cl| (cl.0, cl.1)).collect()));
+                    y += row_h;
+                    k = rend;
                 }
-                let first_y = l.lines.first().map_or(0.0, |ln| ln.y);
-                // O espaço antes do parágrafo some no topo da folha.
-                if y > 0.0 {
-                    y += first_y;
-                }
-                let mut ys = Vec::with_capacity(l.lines.len());
-                let mut first_page = None;
-                for ln in &l.lines {
-                    // Notas que a linha traz: precisam caber no pé da mesma folha.
-                    let mut new: Vec<u32> = Vec::new();
+                self.tables[ti].rows = rows;
+                y += TABLE_AFTER;
+                ti += 1;
+                i = end;
+                continue;
+            }
+            let l = &self.cache[&p.id];
+            let first_y = l.lines.first().map_or(0.0, |ln| ln.y);
+            // O espaço antes do parágrafo some no topo da folha.
+            if y > 0.0 || !paged {
+                y += first_y;
+            }
+            let mut ys = Vec::with_capacity(l.lines.len());
+            let mut first_page = None;
+            for ln in &l.lines {
+                // Notas que a linha traz: precisam caber no pé da mesma folha.
+                let mut new: Vec<u32> = Vec::new();
+                if paged {
                     for s in &ln.segs {
                         if let Some(id) = s.style.note {
                             if !placed.contains(&id) && !new.contains(&id) {
@@ -205,43 +310,39 @@ impl DocView {
                             }
                         }
                     }
-                    let add = |notes_h: f32| new.iter().map(|id| note_h(id, &self.note_lays)).sum::<f32>() + if notes_h == 0.0 && !new.is_empty() { NOTE_SEP } else { 0.0 };
-                    if y + ln.h + notes_h + add(notes_h) > room && y > 0.0 {
-                        page += 1;
-                        y = 0.0;
-                        notes_h = 0.0;
-                        page_notes.push(Vec::new());
-                    }
-                    ys.push(top(page) + y);
-                    first_page.get_or_insert(page);
-                    y += ln.h;
-                    notes_h += add(notes_h);
-                    placed.extend(new.iter().copied());
-                    page_notes[page].extend(new);
                 }
-                let last_end = l.lines.last().map_or(0.0, |ln| ln.y + ln.h);
-                y += (l.h - last_end).max(0.0);
-                self.lys.push(ys);
-                self.para_page.push(first_page.unwrap_or(page));
+                let add = |notes_h: f32| new.iter().map(|id| note_h(id, &self.note_lays)).sum::<f32>() + if notes_h == 0.0 && !new.is_empty() { NOTE_SEP } else { 0.0 };
+                if paged && y + ln.h + notes_h + add(notes_h) > room && y > 0.0 {
+                    page += 1;
+                    y = 0.0;
+                    notes_h = 0.0;
+                    page_notes.push(Vec::new());
+                }
+                ys.push(top(page) + y);
+                first_page.get_or_insert(page);
+                y += ln.h;
+                notes_h += add(notes_h);
+                placed.extend(new.iter().copied());
+                page_notes[page].extend(new);
             }
+            let last_end = l.lines.last().map_or(0.0, |ln| ln.y + ln.h);
+            y += (l.h - last_end).max(0.0);
+            self.lys[i] = ys;
+            self.para_page[i] = first_page.unwrap_or(page);
+            i += 1;
+        }
+        if paged {
             self.pages = page + 1;
             self.page_notes = page_notes;
             self.endnotes.clear();
             self.total = self.page_top(self.pages);
             self.doc_w = self.page.width + 2.0 * GAP;
         } else {
-            self.col_x = MARGIN_X;
-            let mut y = MARGIN_Y;
-            for p in &doc.paras {
-                let l = &self.cache[&p.id];
-                self.lys.push(l.lines.iter().map(|ln| y + ln.y).collect());
-                self.para_page.push(0);
-                y += l.h;
-            }
             self.pages = 1;
             self.page_notes.clear();
             // As notas vão no fim, depois de um fio.
             self.endnotes.clear();
+            let mut y = MARGIN_Y + y;
             if !order.is_empty() {
                 y += NOTE_SEP * 1.5;
                 for id in &order {
@@ -265,11 +366,30 @@ impl DocView {
         let l = self.lay(p);
         let li = line_of(l, pos.o);
         let ln = &l.lines[li];
-        Caret { x: self.col_x + x_of(p, l, fb, li, pos.o), y: self.lys[pos.p][li], h: ln.h }
+        Caret { x: self.col_x + self.para_x[pos.p] + x_of(p, l, fb, li, pos.o), y: self.lys[pos.p][li], h: ln.h }
     }
 
     /// Posição mais perto do ponto (pontos, no espaço do documento).
     pub fn hit(&self, doc: &Doc, fb: &FontBook, x: f32, y: f32) -> Pos {
+        // Numa tabela: a célula pela linha e pela coluna.
+        let rx = x - self.col_x;
+        for t in &self.tables {
+            for (row_i, (top, h, cells)) in t.rows.iter().enumerate() {
+                if y < *top || y >= top + h {
+                    continue;
+                }
+                let Some(&(col, span)) = cells.iter().find(|(c, sp)| rx >= t.bounds[*c] && rx < t.bounds[(c + sp).min(t.bounds.len() - 1)]).or(cells.first().filter(|_| rx < 0.0)).or(cells.last()) else { continue };
+                let _ = span;
+                let members: Vec<usize> = (t.first..t.end).filter(|&q| doc.paras[q].style.cell.is_some_and(|c| c.col as usize == col) && self.row_of(t, q) == row_i).collect();
+                let Some(&last) = members.last() else { continue };
+                // O parágrafo da célula na altura do ponto (abaixo do texto: o último).
+                let q = members.iter().copied().find(|&q| self.lys[q].last().zip(self.cache[&doc.paras[q].id].lines.last()).is_some_and(|(&ly, ln)| y < ly + ln.h)).unwrap_or(last);
+                let l = self.lay(&doc.paras[q]);
+                let ys = &self.lys[q];
+                let li = (0..l.lines.len()).find(|&i| y < ys[i] + l.lines[i].h).unwrap_or(l.lines.len() - 1);
+                return Pos::new(q, hit_line(&doc.paras[q], l, fb, li, rx - self.para_x[q]));
+            }
+        }
         // O parágrafo: o último cuja primeira linha começa acima do ponto.
         let pi = self.lys.partition_point(|ys| ys.first().is_some_and(|&t| t <= y)).saturating_sub(1).min(doc.paras.len() - 1);
         let p = &doc.paras[pi];
@@ -277,32 +397,42 @@ impl DocView {
         let ys = &self.lys[pi];
         let li = (0..l.lines.len()).find(|&i| y < ys[i] + l.lines[i].h).unwrap_or(l.lines.len() - 1);
         // Acima de tudo, no topo de uma folha: a primeira linha do parágrafo.
-        Pos::new(pi, hit_line(p, l, fb, li, x - self.col_x))
+        Pos::new(pi, hit_line(p, l, fb, li, x - self.col_x - self.para_x[pi]))
     }
 
-    /// Uma linha acima ou abaixo, mantendo o x.
+    /// Índice da linha da tabela em que o parágrafo está.
+    fn row_of(&self, t: &TableGeo, q: usize) -> usize {
+        let y = self.lys[q].first().copied().unwrap_or(0.0);
+        t.rows.iter().position(|(top, h, _)| y >= *top && y < top + h).unwrap_or(0)
+    }
+
+    /// Uma linha acima ou abaixo, mantendo o x (pela geometria: serve em tabelas e folhas).
     fn vertical(&mut self, doc: &Doc, fb: &FontBook, pos: Pos, delta: i32) -> Pos {
         let c = self.caret(doc, fb, pos);
-        let x = *self.want_x.get_or_insert(c.x) - self.col_x;
-        let p = &doc.paras[pos.p];
-        let l = self.lay(p);
-        let li = line_of(l, pos.o) as i32 + delta;
-        if li >= 0 && (li as usize) < l.lines.len() {
-            return Pos::new(pos.p, hit_line(p, l, fb, li as usize, x));
+        let x = *self.want_x.get_or_insert(c.x);
+        let l = self.lay(&doc.paras[pos.p]);
+        let li = line_of(l, pos.o);
+        // Dentro do mesmo parágrafo, a linha vizinha direto.
+        let target = li as i32 + delta;
+        if target >= 0 && (target as usize) < l.lines.len() {
+            return Pos::new(pos.p, hit_line(&doc.paras[pos.p], l, fb, target as usize, x - self.col_x - self.para_x[pos.p]));
         }
         if delta < 0 {
             if pos.p == 0 {
                 return Pos::new(0, 0);
             }
-            let q = &doc.paras[pos.p - 1];
-            let lq = self.lay(q);
-            Pos::new(pos.p - 1, hit_line(q, lq, fb, lq.lines.len() - 1, x))
+            self.hit(doc, fb, x, c.y - 1.0)
         } else {
-            if pos.p + 1 >= doc.paras.len() {
+            let p = self.hit(doc, fb, x, c.y + c.h + 1.0);
+            if p.p == pos.p && p.o == pos.o || (pos.p + 1 == doc.paras.len() && li + 1 == l.lines.len()) {
                 return doc.end();
             }
-            let q = &doc.paras[pos.p + 1];
-            Pos::new(pos.p + 1, hit_line(q, self.lay(q), fb, 0, x))
+            // Ainda no mesmo lugar (fim da tabela, salto de folha): o próximo parágrafo.
+            if p <= pos {
+                let q = (pos.p + 1).min(doc.paras.len() - 1);
+                return Pos::new(q, 0);
+            }
+            p
         }
     }
 
@@ -374,7 +504,40 @@ impl DocView {
         // quadros, senão um campo que pega o foco sozinho acerta o vizinho).
         let hit = ui.hit(inner);
         let resp = enabled.then_some(hit);
+        // Borda entre colunas de uma tabela: arrastar muda as larguras.
         if let Some(resp) = resp {
+            if resp.pressed {
+                let pt = ui.pointer();
+                let (x, y) = to_doc(pt.0, pt.1, self.scroll);
+                let rx = x - self.col_x;
+                self.col_drag = self.tables.iter().find_map(|t| {
+                    let inside = t.rows.iter().any(|(top, h, _)| y >= *top && y < top + h);
+                    let k = (1..t.bounds.len() - 1).find(|&k| (t.bounds[k] - rx).abs() <= 3.0 / z)?;
+                    inside.then_some((t.id, k))
+                });
+            }
+        }
+        if let Some((id, k)) = self.col_drag {
+            if ui.mouse_down() {
+                if ui.moved() {
+                    if let Some(t) = self.tables.iter().find(|t| t.id == id) {
+                        let pt = ui.pointer();
+                        let (x, _) = to_doc(pt.0, pt.1, self.scroll);
+                        let total = *t.bounds.last().unwrap();
+                        let rx = (x - self.col_x).clamp(t.bounds[k - 1] + 12.0, t.bounds[k + 1] - 12.0);
+                        let mut b = t.bounds.clone();
+                        b[k] = rx;
+                        let widths: Vec<f32> = b.windows(2).map(|w| (w[1] - w[0]) / total).collect();
+                        doc.tables.entry(id).or_default().widths = widths;
+                        doc.modified = true;
+                        doc.version = doc.version.wrapping_add(1);
+                    }
+                }
+            } else {
+                self.col_drag = None;
+            }
+        }
+        if let Some(resp) = resp.filter(|_| self.col_drag.is_none()) {
             if resp.pressed {
                 let pt = ui.pointer();
                 let n = match self.last_click {
@@ -539,6 +702,21 @@ impl DocView {
                     moved = Some(self.hit(doc, fb, x, c.y + c.h / 2.0 + dy));
                     keep_x = true;
                 }
+                // Backspace no começo de uma célula (ou logo depois de uma tabela) não junta com a outra.
+                Key::Backspace if !doc.has_selection() && doc.cursor.o == 0 && doc.cursor.p > 0 && doc.paras[doc.cursor.p].style.cell.map(|c| (c.table, c.row, c.col)) != doc.paras[doc.cursor.p - 1].style.cell.map(|c| (c.table, c.row, c.col)) => {
+                    let p = doc.cursor.p;
+                    if doc.paras[p].style.cell.is_none() && doc.paras[p].text.is_empty() {
+                        // Parágrafo vazio depois da tabela: some, e o cursor vai para a última célula.
+                        doc.delete_range(Pos::new(p, 0), doc.next_pos(Pos::new(p, 0)));
+                        if p > 0 {
+                            doc.set_cursor(Pos::new(p - 1, doc.paras[p - 1].text.len()), false);
+                        }
+                    } else {
+                        doc.set_cursor(doc.prev_pos(doc.cursor), false);
+                    }
+                    self.reveal = true;
+                }
+                Key::Delete if !doc.has_selection() && doc.cursor.p + 1 < doc.paras.len() && doc.cursor.o == doc.paras[doc.cursor.p].text.len() && doc.paras[doc.cursor.p].style.cell.map(|c| (c.table, c.row, c.col)) != doc.paras[doc.cursor.p + 1].style.cell.map(|c| (c.table, c.row, c.col)) => {}
                 Key::Backspace => {
                     if doc.has_selection() {
                         doc.delete_selection();
@@ -555,6 +733,29 @@ impl DocView {
                     } else {
                         let to = if ctrl { doc.word_right(doc.cursor) } else { doc.next_pos(doc.cursor) };
                         doc.delete_range(doc.cursor, to);
+                    }
+                    self.want_x = None;
+                    self.reveal = true;
+                }
+                // Tabela: Tab vai para a célula seguinte (na última, cria uma linha); Shift+Tab volta.
+                Key::Tab if !ctrl && doc.paras[doc.cursor.p].style.cell.is_some() => {
+                    match crate::table::next_cell(doc, doc.cursor.p, !shift) {
+                        Some(p) => doc.set_cursor(p, false),
+                        None if !shift => {
+                            crate::table::add_row(doc, true);
+                            if let Some(p) = crate::table::next_cell(doc, doc.cursor.p, true) {
+                                doc.set_cursor(p, false);
+                            }
+                            let p = doc.cursor.p;
+                            // O cursor fica na primeira célula da linha nova.
+                            if let Some((_, a, b)) = crate::table::block(doc, p) {
+                                let row = doc.paras[b - 1].style.cell.unwrap().row;
+                                if let Some(q) = (a..b).find(|&q| doc.paras[q].style.cell.unwrap().row == row) {
+                                    doc.set_cursor(Pos::new(q, 0), false);
+                                }
+                            }
+                        }
+                        None => {}
                     }
                     self.want_x = None;
                     self.reveal = true;
@@ -766,11 +967,12 @@ impl DocView {
                     x += 10.0;
                 }
             }
+            let px = off.0 + self.para_x[pi] * z;
             // Marcador da lista, no recuo antes do texto (na primeira linha).
             if let Some(Some(label)) = self.labels.get(pi) {
                 let ln = &l.lines[0];
                 let st = &p.runs[0].style;
-                let x = off.0 + (p.style.left_indent - crate::rich::LIST_INDENT + 4.0) * z;
+                let x = px + (p.style.left_indent - crate::rich::LIST_INDENT + 4.0) * z;
                 let base = ys[0] * z - scroll + ln.base * z;
                 let color = rgba(st.color[0], st.color[1], st.color[2], st.color[3]);
                 fb.face(st).draw(c, label, x, base, FontBook::eff_size(st) * z, false, color);
@@ -787,13 +989,29 @@ impl DocView {
                     let x1 = if sel_b.p == pi && sel_b.o <= ln.b && !(sel_b.o == ln.b && !last_line) {
                         x_of(p, l, fb, li, sel_b.o)
                     } else {
-                        self.width
+                        self.para_w[pi]
                     };
                     if x1 > x0 {
-                        c.fill_rect(off.0 + x0 * z, ly, (x1 - x0) * z, ln.h * z, &solid(sel_color));
+                        c.fill_rect(px + x0 * z, ly, (x1 - x0) * z, ln.h * z, &solid(sel_color));
                     }
                 }
-                self.draw_line(c, p, ln, off.0, ly, fb);
+                self.draw_line(c, p, ln, px, ly, fb);
+            }
+        }
+        // Bordas das tabelas (fios finos em volta de cada célula).
+        for t in &self.tables {
+            for (top, h, cells) in &t.rows {
+                let (y0, y1) = (top * z - scroll, (top + h) * z - scroll);
+                if y1 < 0.0 || y0 > view_h {
+                    continue;
+                }
+                for (col, span) in cells {
+                    let x0 = off.0 + t.bounds[*col] * z;
+                    let x1 = off.0 + t.bounds[(col + span).min(t.bounds.len() - 1)] * z;
+                    let ink = if t.borders { rgba(60, 60, 66, 255) } else { rgba(200, 205, 215, 255) };
+                    // Sem bordas: um tracejado claro só na tela (não imprime).
+                    c.stroke(rrect(x0.round() + 0.5, y0.round() + 0.5, (x1 - x0).round(), (y1 - y0).round(), 0.0), &solid(ink), 1.0);
+                }
             }
         }
         // Modo janela: as notas no fim do texto.
@@ -816,6 +1034,7 @@ impl DocView {
             let ln = &l.lines[line_of(l, doc.cursor.o)];
             let x = (cpos.x * z - hscroll).round();
             let y = cpos.y * z - scroll;
+            let _ = view_w;
             c.fill_rect(x, y, 1.0, ln.text_h * z, &solid(rgba(0, 0, 0, if active { 255 } else { 120 })));
         }
     }

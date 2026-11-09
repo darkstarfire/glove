@@ -9,6 +9,7 @@ mod pages;
 mod para;
 mod rich;
 mod rtf;
+mod table;
 mod view;
 
 use glove_config::{tr, tr_dyn};
@@ -86,6 +87,8 @@ enum Sheet {
     Note(notes::NoteSheet),
     /// Formatar > Cabeçalho e Rodapé.
     HeaderFooter(notes::HfSheet),
+    /// Inserir > Tabela.
+    Table(notes::TableSheet),
 }
 
 /// O que o painel de Cores muda: a cor do texto ou o marca-texto.
@@ -326,6 +329,17 @@ impl Editor {
                     }
                 }
             }
+            Some("table") => self.sheet = Sheet::Table(notes::TableSheet { rows: "3".into(), cols: "3".into() }),
+            Some("row-above") => table::add_row(&mut self.doc, false),
+            Some("row-below") => table::add_row(&mut self.doc, true),
+            Some("col-left") => table::add_col(&mut self.doc, false),
+            Some("col-right") => table::add_col(&mut self.doc, true),
+            Some("row-del") => table::del_row(&mut self.doc),
+            Some("col-del") => table::del_col(&mut self.doc),
+            Some("cells-merge") => table::merge(&mut self.doc),
+            Some("cells-split") => table::split(&mut self.doc),
+            Some("table-borders") => table::toggle_borders(&mut self.doc),
+            Some("table-equal") => table::equal_widths(&mut self.doc),
             Some("list-none") => self.doc.set_list(None),
             Some("list-bullet") => self.doc.set_list(Some(false)),
             Some("list-number") => self.doc.set_list(Some(true)),
@@ -577,6 +591,17 @@ impl Editor {
             }
             return;
         }
+        if let Sheet::Table(f) = &mut self.sheet {
+            if let Some(r) = notes::table_sheet(ui, f) {
+                if let Some((rows, cols)) = r {
+                    table::insert(&mut self.doc, rows, cols);
+                    self.view.reveal = true;
+                }
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
+        }
         if let Sheet::HeaderFooter(f) = &mut self.sheet {
             if let Some(ok) = notes::hf_sheet(ui, f) {
                 if ok {
@@ -772,6 +797,17 @@ impl Editor {
                     "spacing" => menu_action = Some("spacing"),
                     "zoom-fit" => menu_action = Some("zoom-fit"),
                     "list-none" => menu_action = Some("list-none"),
+                    "table" => menu_action = Some("table"),
+                    "row-above" => menu_action = Some("row-above"),
+                    "row-below" => menu_action = Some("row-below"),
+                    "col-left" => menu_action = Some("col-left"),
+                    "col-right" => menu_action = Some("col-right"),
+                    "row-del" => menu_action = Some("row-del"),
+                    "col-del" => menu_action = Some("col-del"),
+                    "cells-merge" => menu_action = Some("cells-merge"),
+                    "cells-split" => menu_action = Some("cells-split"),
+                    "table-borders" => menu_action = Some("table-borders"),
+                    "table-equal" => menu_action = Some("table-equal"),
                     "list-bullet" => menu_action = Some("list-bullet"),
                     "list-number" => menu_action = Some("list-number"),
                     "toc" => menu_action = Some("toc"),
@@ -893,6 +929,7 @@ impl Editor {
         let align = view::para_style(&self.doc).align;
         let role = view::para_style(&self.doc).role;
         let list = view::para_style(&self.doc).list;
+        let in_table = table::in_table(&self.doc);
         let on = |f: fn(&CharStyle) -> bool| view::common(&self.doc, f) == Some(true);
         let script = view::common(&self.doc, |s| s.script);
         let hl = view::common(&self.doc, |s| s.highlight);
@@ -998,6 +1035,24 @@ impl Editor {
                             MenuItem::new("list-number", tr!("Numerada"), "").checked(list.is_some_and(|l| l.numbered)),
                         ],
                     ),
+                    MenuItem::submenu(
+                        tr!("Tabela"),
+                        vec![
+                            MenuItem::new("row-above", tr!("Inserir Linha Acima"), "").enabled(in_table),
+                            MenuItem::new("row-below", tr!("Inserir Linha Abaixo"), "").enabled(in_table),
+                            MenuItem::new("col-left", tr!("Inserir Coluna à Esquerda"), "").enabled(in_table),
+                            MenuItem::new("col-right", tr!("Inserir Coluna à Direita"), "").enabled(in_table),
+                            MenuItem::Separator,
+                            MenuItem::new("row-del", tr!("Apagar Linha"), "").enabled(in_table),
+                            MenuItem::new("col-del", tr!("Apagar Coluna"), "").enabled(in_table),
+                            MenuItem::Separator,
+                            MenuItem::new("cells-merge", tr!("Juntar Células"), "").enabled(in_table && sel),
+                            MenuItem::new("cells-split", tr!("Separar Células"), "").enabled(in_table && self.doc.paras[self.doc.cursor.p].style.cell.is_some_and(|c| c.span > 1)),
+                            MenuItem::Separator,
+                            MenuItem::new("table-borders", tr!("Bordas"), "").checked(in_table && table::borders(&self.doc)).enabled(in_table),
+                            MenuItem::new("table-equal", tr!("Colunas da Mesma Largura"), "").enabled(in_table),
+                        ],
+                    ),
                     MenuItem::new("header-footer", tr!("Cabeçalho e Rodapé…"), "").enabled(!self.plain),
                     MenuItem::new("abnt", tr!("Aplicar Formatação ABNT"), "").enabled(!self.plain),
                     MenuItem::Separator,
@@ -1012,6 +1067,7 @@ impl Editor {
                     MenuItem::Separator,
                     MenuItem::new("footnote", tr!("Nota de Rodapé…"), "Ctrl+Alt+N").enabled(!self.plain),
                     MenuItem::new("page-number", tr!("Número de Página"), "").enabled(!self.plain),
+                    MenuItem::new("table", tr!("Tabela…"), "").enabled(!self.plain),
                     MenuItem::Separator,
                     MenuItem::new("toc", tr!("Sumário"), "").enabled(!self.plain),
                     MenuItem::new("toc-update", tr!("Atualizar Sumário"), "").enabled(!self.plain && self.doc.paras.iter().any(|p| p.style.role == rich::Role::Toc)),

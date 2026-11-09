@@ -150,12 +150,40 @@ pub struct List {
 /// Recuo de cada nível de lista (pontos; o marcador fica antes dele).
 pub const LIST_INDENT: f32 = 22.0;
 
-/// Célula de tabela (12.8): os parágrafos com a mesma célula ficam juntos nela.
+/// Célula de tabela: os parágrafos com a mesma célula ficam juntos nela.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
     pub table: u32,
     pub row: u16,
     pub col: u16,
+    /// Quantas colunas a célula ocupa (células juntadas).
+    pub span: u16,
+}
+
+/// Larguras das colunas (frações que somam 1) e se as células têm bordas.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TableProps {
+    pub widths: Vec<f32>,
+    pub borders: bool,
+}
+
+impl TableProps {
+    /// As frações para `cols` colunas (iguais se não houver o bastante).
+    pub fn fractions(&self, cols: usize) -> Vec<f32> {
+        let cols = cols.max(1);
+        let mut w: Vec<f32> = if self.widths.len() == cols { self.widths.clone() } else { vec![1.0; cols] };
+        let sum: f32 = w.iter().sum::<f32>().max(0.0001);
+        for x in w.iter_mut() {
+            *x /= sum;
+        }
+        w
+    }
+}
+
+impl Default for TableProps {
+    fn default() -> Self {
+        Self { widths: Vec::new(), borders: true }
+    }
 }
 
 /// Estilo de um parágrafo. Medidas em pontos.
@@ -460,6 +488,8 @@ pub struct Doc {
     /// Primeira página sem cabeçalho e rodapé (capa).
     pub title_page: bool,
     pub notes: Vec<Note>,
+    /// Propriedades de cada tabela (larguras, bordas).
+    pub tables: std::collections::HashMap<u32, TableProps>,
     /// Modelo do corpo do texto (letra e parágrafo): o Enter depois de um título e o
     /// estilo "Corpo" voltam a ele.
     pub body: (Rc<CharStyle>, ParaStyle),
@@ -488,7 +518,7 @@ impl Doc {
     }
 
     pub fn with_style(style: Rc<CharStyle>, pstyle: ParaStyle) -> Self {
-        Self { paras: vec![Para::new("", style.clone(), pstyle.clone())], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, notes: Vec::new(), body: (style.clone(), pstyle.clone()), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
+        Self { paras: vec![Para::new("", style.clone(), pstyle.clone())], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, notes: Vec::new(), tables: std::collections::HashMap::new(), body: (style.clone(), pstyle.clone()), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
     }
 
     /// Documento de texto simples, todo num estilo.

@@ -103,3 +103,36 @@ pub fn hf_sheet(ui: &mut Ui, f: &mut HfSheet) -> Option<bool> {
     }
     ok.then_some(true)
 }
+
+/// Inserir > Tabela: quantas linhas e colunas.
+pub struct TableSheet {
+    pub rows: String,
+    pub cols: String,
+}
+
+/// A folha da tabela. Some(Some((linhas, colunas))) = OK; Some(None) = Cancelar.
+pub fn table_sheet(ui: &mut Ui, f: &mut TableSheet) -> Option<Option<(usize, usize)>> {
+    let sw = 300.0f32.min(ui.c.w - 20.0);
+    let sh = 150.0;
+    let sx = sheet_frame(ui, sw, sh, tr!("Inserir Tabela"));
+    let ink = rgba(20, 20, 24, 255);
+    let mut enter = false;
+    for (i, (label, v)) in [(tr!("Linhas:"), &mut f.rows), (tr!("Colunas:"), &mut f.cols)].into_iter().enumerate() {
+        let y = 44.0 + i as f32 * 30.0;
+        let lw = ui.text_width(label, 12.0, false);
+        ui.fonts.draw(ui.c, label, sx + 120.0 - lw, y + 15.0, 12.0, false, ink);
+        let (_, e) = ui.text_field_in(Rect::new(sx + 130.0, y, 60.0, 22.0), v, i == 0 && v == "3" && !ui.has_focus());
+        enter |= e;
+    }
+    let (cancel, ok) = buttons(ui, sx, sw, sh - 38.0);
+    ui.set_enabled(false);
+    if cancel {
+        return Some(None);
+    }
+    if ok || enter {
+        let r = f.rows.trim().parse::<usize>().unwrap_or(3);
+        let c = f.cols.trim().parse::<usize>().unwrap_or(3);
+        return Some(Some((r, c)));
+    }
+    None
+}

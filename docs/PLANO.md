@@ -724,7 +724,7 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
 - [x] 12.7 Estilos e listas (M) — v0.12.7: Título, Capítulo, Seção, Subseção, Corpo, Citação; listas com
   marcadores e numeradas (Tab aprofunda); sumário gerado dos capítulos; modelo ABNT (margens 3/2 cm,
   Times 12, 1,5, recuo de parágrafo, número de página no canto, capa sem número)
-- [ ] 12.8 Tabelas (G): inserir tabela, acrescentar/remover linhas e colunas, juntar células, bordas e
+- [x] 12.8 Tabelas (G) — v0.12.8: inserir tabela, acrescentar/remover linhas e colunas, juntar células, bordas e
   largura das colunas (formulários e relatórios); gravadas e lidas no RTF
 - [ ] 12.9 Imprimir e exportar (G): exportar PDF (páginas com cabeçalho, rodapé e notas) e imprimir;
   exportar `.docx` e `.odt` (e abrir os dois, no que der) para quem pede esses formatos

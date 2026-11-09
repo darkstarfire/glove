@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::rc::Rc;
 
-use crate::rich::{Align, CharStyle, Doc, HeaderFooter, List, Note, PageSetup, Para, ParaStyle, Role, Run, NOTE_CHAR};
+use crate::rich::{Align, Cell, CharStyle, Doc, HeaderFooter, List, Note, PageSetup, Para, ParaStyle, Role, Run, TableProps, NOTE_CHAR};
 
 /// Número do estilo no RTF de cada papel (e o nome que o Word usa).
 fn role_style(r: Role) -> (u32, &'static str) {
@@ -101,136 +101,208 @@ fn write_fields(out: &mut String, s: &str) {
 }
 
 /// O documento em RTF.
-pub fn write(doc: &Doc) -> String {
-    // Tabelas de fontes e cores (na ordem em que aparecem).
-    let mut fonts: Vec<String> = Vec::new();
-    let mut colors: Vec<[u8; 3]> = Vec::new();
-    let font_ix = |fonts: &mut Vec<String>, f: &str| match fonts.iter().position(|x| x == f) {
+/// Índice da fonte na tabela de fontes (acrescenta se for nova).
+fn font_ix(fonts: &mut Vec<String>, f: &str) -> usize {
+    match fonts.iter().position(|x| x == f) {
         Some(i) => i,
         None => {
             fonts.push(f.to_string());
             fonts.len() - 1
         }
-    };
-    let color_ix = |colors: &mut Vec<[u8; 3]>, c: [u8; 4]| {
-        let c = [c[0], c[1], c[2]];
-        match colors.iter().position(|x| *x == c) {
-            Some(i) => i + 1,
-            None => {
-                colors.push(c);
-                colors.len()
-            }
+    }
+}
+
+/// Índice da cor na tabela de cores (a 0 é a automática).
+fn color_ix(colors: &mut Vec<[u8; 3]>, c: [u8; 4]) -> usize {
+    let c = [c[0], c[1], c[2]];
+    match colors.iter().position(|x| *x == c) {
+        Some(i) => i + 1,
+        None => {
+            colors.push(c);
+            colors.len()
         }
-    };
+    }
+}
+
+/// Um parágrafo (sem o \\par do fim). `intbl` = dentro de uma célula.
+fn write_para(body: &mut String, doc: &Doc, p: &Para, intbl: bool, fonts: &mut Vec<String>, colors: &mut Vec<[u8; 3]>, counters: &mut [usize; 9]) {
+    let ps = &p.style;
+    body.push_str("\\pard");
+    if intbl {
+        body.push_str("\\intbl");
+    }
+    let (sn, _) = role_style(ps.role);
+    if sn != 0 {
+        let _ = write!(body, "\\s{sn}");
+    }
+    if let Some(l) = ps.role.outline() {
+        let _ = write!(body, "\\outlinelevel{l}");
+    }
+    body.push_str(match ps.align {
+        Align::Left => "\\ql",
+        Align::Center => "\\qc",
+        Align::Right => "\\qr",
+        Align::Justify => "\\qj",
+    });
+    if ps.first_indent != 0.0 {
+        let _ = write!(body, "\\fi{}", tw(ps.first_indent));
+    }
+    if ps.left_indent != 0.0 {
+        let _ = write!(body, "\\li{}", tw(ps.left_indent));
+    }
+    if ps.right_indent != 0.0 {
+        let _ = write!(body, "\\ri{}", tw(ps.right_indent));
+    }
+    if ps.space_before != 0.0 {
+        let _ = write!(body, "\\sb{}", tw(ps.space_before));
+    }
+    if ps.space_after != 0.0 {
+        let _ = write!(body, "\\sa{}", tw(ps.space_after));
+    }
+    if (ps.line_spacing - 1.0).abs() > 0.001 {
+        let _ = write!(body, "\\sl{}\\slmult1", (240.0 * ps.line_spacing).round() as i32);
+    }
+    for t in &ps.tabs {
+        let _ = write!(body, "\\tx{}", tw(*t));
+    }
+    if ps.page_break_before {
+        body.push_str("\\pagebb");
+    }
+    // Item de lista: o do Word (\\ls), o marcador para quem não entende listas e o nosso.
+    match ps.list {
+        Some(l) => {
+            let lv = (l.level as usize).min(8);
+            for c in counters.iter_mut().skip(lv + 1) {
+                *c = 0;
+            }
+            let label = if l.numbered {
+                counters[lv] += 1;
+                format!("{}.", counters[lv])
+            } else {
+                ["•", "◦", "▪"][lv % 3].to_string()
+            };
+            let _ = write!(body, "\\ls{}\\ilvl{lv}{{\\listtext\\pard\\plain ", if l.numbered { 2 } else { 1 });
+            escape(body, &label);
+            let _ = write!(body, "\\tab}}{{\\*\\glovelist\\glovenum{}\\glovelvl{lv}}}", u8::from(l.numbered));
+        }
+        None => *counters = [0; 9],
+    }
+    for (a, b, st) in p.spans() {
+        // Marca de nota: a nota inteira entra aqui (o Word numera sozinho).
+        if let Some(id) = st.note {
+            let text = doc.note_text(id).unwrap_or("");
+            let f = font_ix(fonts, &st.family);
+            let _ = write!(body, "{{\\plain\\f{f}\\fs{}\\super\\chftn}}{{\\footnote\\pard\\plain\\f{f}\\fs18 {{\\super\\chftn}} ", (st.size * 2.0).round() as i32);
+            for (k, line) in text.split('\n').enumerate() {
+                if k > 0 {
+                    body.push_str("\\par ");
+                }
+                escape(body, line);
+            }
+            body.push('}');
+            let _ = (a, b);
+            continue;
+        }
+        let f = font_ix(fonts, &st.family);
+        let _ = write!(body, "\\plain\\f{}\\fs{}", f, (st.size * 2.0).round() as i32);
+        if st.bold {
+            body.push_str("\\b");
+        }
+        if st.italic {
+            body.push_str("\\i");
+        }
+        if st.underline {
+            body.push_str("\\ul");
+        }
+        if st.strike {
+            body.push_str("\\strike");
+        }
+        match st.script {
+            1 => body.push_str("\\super"),
+            -1 => body.push_str("\\sub"),
+            _ => {}
+        }
+        if st.color != [0, 0, 0, 255] {
+            let _ = write!(body, "\\cf{}", color_ix(colors, st.color));
+        }
+        if let Some(h) = st.highlight {
+            let i = color_ix(colors, h);
+            let _ = write!(body, "\\highlight{i}\\cb{i}");
+        }
+        body.push(' ');
+        escape(body, &p.text[a..b]);
+    }
+}
+
+/// O documento em RTF.
+pub fn write(doc: &Doc) -> String {
+    // Tabelas de fontes e cores (na ordem em que aparecem).
+    let mut fonts: Vec<String> = Vec::new();
+    let mut colors: Vec<[u8; 3]> = Vec::new();
     let mut body = String::new();
     let mut counters = [0usize; 9];
-    for (pi, p) in doc.paras.iter().enumerate() {
-        if pi > 0 {
+    let col_w = doc.page.width - doc.page.margin_left - doc.page.margin_right;
+    let n = doc.paras.len();
+    let mut need_par = false;
+    let mut i = 0;
+    while i < n {
+        let p = &doc.paras[i];
+        if let Some(c0) = p.style.cell {
+            // Tabela: linha a linha (\\trowd … \\cell … \\row).
+            let end = (i..n).find(|&k| doc.paras[k].style.cell.is_none_or(|c| c.table != c0.table)).unwrap_or(n);
+            if need_par {
+                body.push_str("\\par\n");
+            }
+            let cols = doc.paras[i..end].iter().filter_map(|p| p.style.cell.map(|c| (c.col + c.span.max(1)) as usize)).max().unwrap_or(1);
+            let props = doc.tables.get(&c0.table).cloned().unwrap_or_default();
+            let mut bounds = vec![0.0f32];
+            for f in props.fractions(cols) {
+                let last = *bounds.last().unwrap();
+                bounds.push(last + f * col_w);
+            }
+            let mut k = i;
+            while k < end {
+                let row = doc.paras[k].style.cell.unwrap().row;
+                let rend = (k..end).find(|&q| doc.paras[q].style.cell.unwrap().row != row).unwrap_or(end);
+                let mut cells: Vec<(u16, u16, Vec<usize>)> = Vec::new();
+                for q in k..rend {
+                    let c = doc.paras[q].style.cell.unwrap();
+                    match cells.last_mut() {
+                        Some(cl) if cl.0 == c.col => cl.2.push(q),
+                        _ => cells.push((c.col, c.span.max(1), vec![q])),
+                    }
+                }
+                body.push_str("\\trowd\\trgaph80\\trleft0");
+                for (col, span, _) in &cells {
+                    if props.borders {
+                        body.push_str("\\clbrdrt\\brdrs\\brdrw10\\clbrdrl\\brdrs\\brdrw10\\clbrdrb\\brdrs\\brdrw10\\clbrdrr\\brdrs\\brdrw10");
+                    }
+                    let right = bounds[((col + span) as usize).min(cols)];
+                    let _ = write!(body, "\\cellx{}", tw(right));
+                }
+                body.push('\n');
+                for (_, _, ps) in &cells {
+                    for (j, q) in ps.iter().enumerate() {
+                        if j > 0 {
+                            body.push_str("\\par ");
+                        }
+                        write_para(&mut body, doc, &doc.paras[*q], true, &mut fonts, &mut colors, &mut counters);
+                    }
+                    body.push_str("\\cell ");
+                }
+                body.push_str("\\row\n");
+                k = rend;
+            }
+            need_par = false;
+            i = end;
+            continue;
+        }
+        if need_par {
             body.push_str("\\par\n");
         }
-        let ps = &p.style;
-        body.push_str("\\pard");
-        let (sn, _) = role_style(ps.role);
-        if sn != 0 {
-            let _ = write!(body, "\\s{sn}");
-        }
-        if let Some(l) = ps.role.outline() {
-            let _ = write!(body, "\\outlinelevel{l}");
-        }
-        body.push_str(match ps.align {
-            Align::Left => "\\ql",
-            Align::Center => "\\qc",
-            Align::Right => "\\qr",
-            Align::Justify => "\\qj",
-        });
-        if ps.first_indent != 0.0 {
-            let _ = write!(body, "\\fi{}", tw(ps.first_indent));
-        }
-        if ps.left_indent != 0.0 {
-            let _ = write!(body, "\\li{}", tw(ps.left_indent));
-        }
-        if ps.right_indent != 0.0 {
-            let _ = write!(body, "\\ri{}", tw(ps.right_indent));
-        }
-        if ps.space_before != 0.0 {
-            let _ = write!(body, "\\sb{}", tw(ps.space_before));
-        }
-        if ps.space_after != 0.0 {
-            let _ = write!(body, "\\sa{}", tw(ps.space_after));
-        }
-        if (ps.line_spacing - 1.0).abs() > 0.001 {
-            let _ = write!(body, "\\sl{}\\slmult1", (240.0 * ps.line_spacing).round() as i32);
-        }
-        for t in &ps.tabs {
-            let _ = write!(body, "\\tx{}", tw(*t));
-        }
-        if ps.page_break_before {
-            body.push_str("\\pagebb");
-        }
-        // Item de lista: o do Word (\\ls), o marcador para quem não entende listas e o nosso.
-        match ps.list {
-            Some(l) => {
-                let lv = (l.level as usize).min(8);
-                for c in counters.iter_mut().skip(lv + 1) {
-                    *c = 0;
-                }
-                let label = if l.numbered {
-                    counters[lv] += 1;
-                    format!("{}.", counters[lv])
-                } else {
-                    ["•", "◦", "▪"][lv % 3].to_string()
-                };
-                let _ = write!(body, "\\ls{}\\ilvl{lv}{{\\listtext\\pard\\plain ", if l.numbered { 2 } else { 1 });
-                escape(&mut body, &label);
-                let _ = write!(body, "\\tab}}{{\\*\\glovelist\\glovenum{}\\glovelvl{lv}}}", u8::from(l.numbered));
-            }
-            None => counters = [0; 9],
-        }
-        for (a, b, st) in p.spans() {
-            // Marca de nota: a nota inteira entra aqui (o Word numera sozinho).
-            if let Some(id) = st.note {
-                let text = doc.note_text(id).unwrap_or("");
-                let f = font_ix(&mut fonts, &st.family);
-                let _ = write!(body, "{{\\plain\\f{f}\\fs{}\\super\\chftn}}{{\\footnote\\pard\\plain\\f{f}\\fs18 {{\\super\\chftn}} ", (st.size * 2.0).round() as i32);
-                for (k, line) in text.split('\n').enumerate() {
-                    if k > 0 {
-                        body.push_str("\\par ");
-                    }
-                    escape(&mut body, line);
-                }
-                body.push('}');
-                let _ = (a, b);
-                continue;
-            }
-            let f = font_ix(&mut fonts, &st.family);
-            let _ = write!(body, "\\plain\\f{}\\fs{}", f, (st.size * 2.0).round() as i32);
-            if st.bold {
-                body.push_str("\\b");
-            }
-            if st.italic {
-                body.push_str("\\i");
-            }
-            if st.underline {
-                body.push_str("\\ul");
-            }
-            if st.strike {
-                body.push_str("\\strike");
-            }
-            match st.script {
-                1 => body.push_str("\\super"),
-                -1 => body.push_str("\\sub"),
-                _ => {}
-            }
-            if st.color != [0, 0, 0, 255] {
-                let _ = write!(body, "\\cf{}", color_ix(&mut colors, st.color));
-            }
-            if let Some(h) = st.highlight {
-                let i = color_ix(&mut colors, h);
-                let _ = write!(body, "\\highlight{i}\\cb{i}");
-            }
-            body.push(' ');
-            escape(&mut body, &p.text[a..b]);
-        }
+        write_para(&mut body, doc, p, false, &mut fonts, &mut colors, &mut counters);
+        need_par = true;
+        i += 1;
     }
     let mut out = String::from("{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl");
     if fonts.is_empty() {
@@ -370,6 +442,16 @@ struct Reader {
     ilvl: u8,
     hf: [[String; 3]; 2],
     title_page: bool,
+    /// Tabelas: o parágrafo atual está numa célula; a tabela, linha e coluna atuais;
+    /// os limites das células da linha (\\cellx) e os de cada linha lida.
+    intbl: bool,
+    table_n: u32,
+    cur_table: Option<u32>,
+    row: u16,
+    col: u16,
+    row_cellx: Vec<i32>,
+    table_rows: Vec<(u32, u16, Vec<i32>)>,
+    table_borders: Vec<u32>,
 }
 
 impl Reader {
@@ -438,6 +520,19 @@ impl Reader {
         if ps.list.is_some() && ps.first_indent < 0.0 {
             ps.first_indent = 0.0;
         }
+        // Célula de tabela (a coluna e quantas ocupa são acertadas no fim, pelos \\cellx).
+        if self.intbl {
+            if self.cur_table.is_none() {
+                self.table_n += 1;
+                self.cur_table = Some(self.table_n);
+                self.row = 0;
+                self.col = 0;
+            }
+            ps.cell = Some(Cell { table: self.cur_table.unwrap(), row: self.row, col: self.col, span: 1 });
+        } else {
+            ps.cell = None;
+            self.cur_table = None;
+        }
         if runs.is_empty() {
             runs.push(Run { len: 0, style: Rc::new(st.cs.clone()) });
         }
@@ -457,6 +552,7 @@ pub struct Read {
     pub header: HeaderFooter,
     pub footer: HeaderFooter,
     pub title_page: bool,
+    pub tables: HashMap<u32, TableProps>,
 }
 
 pub fn read(src: &[u8]) -> Result<Read, String> {
@@ -494,6 +590,14 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
         ilvl: 0,
         hf: Default::default(),
         title_page: false,
+        intbl: false,
+        table_n: 0,
+        cur_table: None,
+        row: 0,
+        col: 0,
+        row_cellx: Vec::new(),
+        table_rows: Vec::new(),
+        table_borders: Vec::new(),
     };
     // Fonte padrão por número (a tabela pode vir depois de \deff).
     let font_of = |r: &Reader, n: i32| r.fonts.get(&n).cloned();
@@ -623,8 +727,43 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
         r.end_para(&s);
     }
     let _ = r.deff;
+    // Documento terminando numa tabela: um parágrafo comum depois (para escrever).
+    if r.paras.last().is_some_and(|p| p.style.cell.is_some()) {
+        let s = st.clone();
+        r.intbl = false;
+        r.end_para(&State { ps: ParaStyle::default(), ..s });
+    }
+    // Tabelas: as colunas de verdade saem de todos os limites (\\cellx) da tabela;
+    // cada célula fica na coluna do seu limite esquerdo e ocupa até o direito.
+    let mut tables: HashMap<u32, TableProps> = HashMap::new();
+    for t in 1..=r.table_n {
+        let mut all: Vec<i32> = vec![0];
+        for (_, _, cx) in r.table_rows.iter().filter(|x| x.0 == t) {
+            all.extend(cx.iter().copied());
+        }
+        all.sort_unstable();
+        all.dedup();
+        if all.len() < 2 {
+            continue;
+        }
+        let total = (*all.last().unwrap() - all[0]).max(1) as f32;
+        let widths: Vec<f32> = all.windows(2).map(|w| (w[1] - w[0]) as f32 / total).collect();
+        for (_, row, cx) in r.table_rows.iter().filter(|x| x.0 == t) {
+            for p in r.paras.iter_mut() {
+                let Some(c) = p.style.cell.as_mut().filter(|c| c.table == t && c.row == *row) else { continue };
+                let i = c.col as usize;
+                let left = if i == 0 { 0 } else { cx.get(i - 1).copied().unwrap_or(0) };
+                let right = cx.get(i).copied().unwrap_or(*all.last().unwrap());
+                let a = all.iter().position(|x| *x >= left).unwrap_or(0);
+                let b = all.iter().position(|x| *x >= right).unwrap_or(all.len() - 1);
+                c.col = a as u16;
+                c.span = (b.saturating_sub(a)).max(1) as u16;
+            }
+        }
+        tables.insert(t, TableProps { widths, borders: r.table_borders.contains(&t) });
+    }
     let hf = |a: &[String; 3]| HeaderFooter { left: a[0].clone(), center: a[1].clone(), right: a[2].clone() };
-    Ok(Read { header: hf(&r.hf[0]), footer: hf(&r.hf[1]), paras: r.paras, page: r.page, notes: r.notes, title_page: r.title_page })
+    Ok(Read { header: hf(&r.hf[0]), footer: hf(&r.hf[1]), paras: r.paras, page: r.page, notes: r.notes, title_page: r.title_page, tables })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -743,6 +882,27 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
     }
     match word {
         "deff" => r.deff = n,
+        "intbl" => r.intbl = true,
+        "trowd" => r.row_cellx.clear(),
+        "cellx" => r.row_cellx.push(n),
+        "brdrs" | "brdrth" | "brdrdb" | "brdrsh" => {
+            let t = r.cur_table.unwrap_or(r.table_n + 1);
+            if !r.table_borders.contains(&t) {
+                r.table_borders.push(t);
+            }
+        }
+        "cell" => {
+            r.intbl = true;
+            r.end_para(st);
+            r.col += 1;
+        }
+        "row" => {
+            if let Some(t) = r.cur_table {
+                r.table_rows.push((t, r.row, r.row_cellx.clone()));
+            }
+            r.row += 1;
+            r.col = 0;
+        }
         "titlepg" => r.title_page = true,
         // O número automático da nota (a marca já vem pela própria nota).
         "chftn" => {}
@@ -784,8 +944,8 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
         "ldblquote" => r.push_char(st, '“'),
         "rdblquote" => r.push_char(st, '”'),
         "pard" => {
-            let cell = st.ps.cell;
-            st.ps = ParaStyle { cell, ..ParaStyle::default() };
+            st.ps = ParaStyle::default();
+            r.intbl = false;
             r.list = None;
             r.glove_list = false;
             r.list_numbered = None;
@@ -870,6 +1030,7 @@ pub fn read_doc(src: &[u8]) -> Result<Doc, String> {
     d.header = r.header;
     d.footer = r.footer;
     d.title_page = r.title_page;
+    d.tables = r.tables;
     Ok(d)
 }
 
@@ -982,6 +1143,19 @@ mod tests {
         d.anchor = Pos::new(n + 4, 0);
         d.cursor = Pos::new(n + 5, 0);
         d.set_list(Some(false));
+        let n = d.paras.len();
+        d.set_cursor(Pos::new(n - 1, d.paras[n - 1].text.len()), false);
+        crate::table::insert(&mut d, 3, 3);
+        let first = d.cursor.p;
+        for (i, t) in ["Item", "Quantidade", "Valor", "Caneta", "10", "R$ 25,00", "Total geral", "", "R$ 25,00"].iter().enumerate() {
+            d.set_cursor(Pos::new(first + i, 0), false);
+            d.insert_text(t);
+        }
+        d.anchor = Pos::new(first + 6, 0);
+        d.cursor = Pos::new(first + 7, 0);
+        crate::table::merge(&mut d);
+        let id = d.paras[first].style.cell.unwrap().table;
+        d.tables.get_mut(&id).unwrap().widths = vec![0.5, 0.25, 0.25];
         d.header.right = "Relatório — {data}".into();
         d.footer.center = "Página {página} de {páginas}".into();
         std::fs::write(out, write(&d)).unwrap();
@@ -1059,6 +1233,36 @@ mod tests {
         assert_eq!(d.paras[2].style.list, Some(List { numbered: true, level: 1 }));
         assert_eq!(d.paras[1].style.first_indent, 0.0);
         assert_eq!(d.paras[3].style.list, None);
+    }
+
+    #[test]
+    fn tabelas() {
+        let mut d = Doc::from_plain("antes", Rc::new(CharStyle::default()), ParaStyle::default());
+        d.set_cursor(Pos::new(0, 5), false);
+        crate::table::insert(&mut d, 2, 3);
+        for (i, t) in ["Nome", "Idade", "Cidade", "Ana", "30", "Recife"].iter().enumerate() {
+            d.set_cursor(Pos::new(1 + i, 0), false);
+            d.insert_text(t);
+        }
+        // Junta as duas últimas células da primeira linha.
+        d.anchor = Pos::new(2, 0);
+        d.cursor = Pos::new(3, 1);
+        crate::table::merge(&mut d);
+        let id = d.paras[1].style.cell.unwrap().table;
+        d.tables.get_mut(&id).unwrap().widths = vec![0.5, 0.25, 0.25];
+        let rtf = write(&d);
+        assert!(rtf.contains("\\trowd") && rtf.contains("\\intbl") && rtf.contains("\\row"));
+        let back = read_doc(rtf.as_bytes()).unwrap();
+        assert_eq!(back.plain_text(), d.plain_text());
+        let cells: Vec<(u16, u16, u16, String)> = back.paras.iter().filter_map(|p| p.style.cell.map(|c| (c.row, c.col, c.span, p.text.clone()))).collect();
+        assert_eq!(cells[0], (0, 0, 1, "Nome".into()));
+        assert_eq!(cells[1].1, 1);
+        assert_eq!(cells[1].2, 2);
+        assert_eq!(cells.last().unwrap(), &(1, 2, 1, "Recife".into()));
+        let props = back.tables.values().next().unwrap();
+        assert!(props.borders);
+        assert!((props.widths[0] - 0.5).abs() < 0.01);
+        assert!(back.paras.last().unwrap().style.cell.is_none());
     }
 
     #[test]
