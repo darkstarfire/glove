@@ -12,3 +12,6 @@ path = "src/main.rs"
 [dependencies]
 glove-config = { path = "../../ui/crates/config" }
 glove-ui = { path = "../../ui/crates/ui" }
+# Ler as fontes para embutir no PDF e comprimir o PDF (as mesmas da glove-ui).
+ab_glyph = "0.2.32"
+miniz_oxide = "0.8"

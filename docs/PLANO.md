@@ -726,5 +726,8 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
   Times 12, 1,5, recuo de parágrafo, número de página no canto, capa sem número)
 - [x] 12.8 Tabelas (G) — v0.12.8: inserir tabela, acrescentar/remover linhas e colunas, juntar células, bordas e
   largura das colunas (formulários e relatórios); gravadas e lidas no RTF
-- [ ] 12.9 Imprimir e exportar (G): exportar PDF (páginas com cabeçalho, rodapé e notas) e imprimir;
-  exportar `.docx` e `.odt` (e abrir os dois, no que der) para quem pede esses formatos
+- [x] 12.9 Imprimir e exportar (G) — v0.12.9: PDF vetorial gerado pelo próprio Editor (as mesmas
+  folhas da tela, com cabeçalho, rodapé, notas, tabelas e listas; fontes embutidas e texto que se
+  copia); Imprimir usa esse PDF. Exportar, abrir e salvar `.docx` e `.odt` (e `.doc`) pelo
+  LibreOffice, quando instalado (perfil próprio, sem brigar com um LibreOffice aberto; em segundo
+  plano ao exportar). Guia de uso em docs/USO.md e docs/USAGE.md.

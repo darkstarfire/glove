@@ -9,6 +9,9 @@ use glove_ui::paint::draw::*;
 use glove_ui::ui::Key;
 use glove_ui::{Rect, Ui};
 
+mod pdf;
+pub use pdf::export_pdf;
+
 use crate::fontbook::FontBook;
 use crate::layout::{hit_line, layout_para, line_of, note_label, x_of, NoteNums, ParaLayout};
 use crate::rich::{CharStyle, Doc, Frag, HeaderFooter, PageSetup, Para, ParaStyle, Pos};

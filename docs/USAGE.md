@@ -227,6 +227,35 @@ mpg, wmv, flv, ts and 3gp (mpv plays almost any codec).
 - **Preferences** (Ctrl+,): resume where you left off, play the next video in the folder when one
   ends, use the graphics card and the preferred subtitle and audio languages (pt, en…).
 
+## Document editor (phase 12)
+
+The Text Editor became a document editor: books, college papers, forms and reports without
+another program. New documents save as **RTF** (opens in Word, LibreOffice and TextEdit);
+`.txt` stays plain text.
+
+- **Format bar** (above the ruler): paragraph style, font (opens the Fonts panel), size,
+  B/I/U, text color, highlight, alignment, line spacing and list.
+- **Characters**: Format > Font (Bold Ctrl+B, Italic Ctrl+I, Underline Ctrl+U,
+  Strikethrough, Bigger/Smaller, Baseline, Show Colors Ctrl+Shift+C, Highlight).
+- **Paragraphs**: alignment (Ctrl+Shift+L/E/J/R); on the ruler, drag the bar (first line)
+  and the triangles (indents), click to add tab stops (drag off to remove); Format > Text >
+  Spacing… for line spacing, before/after and indents in cm.
+- **Styles**: Body, Title, Chapter, Section, Subsection, Quote (bar or Format > Style).
+- **Lists**: bullets or numbers; Tab at the start of an item indents, Shift+Tab outdents,
+  Enter on an empty item ends the list.
+- **Pages**: View > Page Mode (Ctrl+Shift+W) and Zoom; File > Page Setup (Ctrl+Shift+P);
+  Insert > Page Break (Ctrl+Enter).
+- **Header, footer and notes**: Format > Header and Footer… ({página}, {páginas},
+  {título}, {data}; different first page); Insert > Page Number; Insert > Footnote…
+  (Ctrl+Alt+N; double-click the mark to edit).
+- **Tables**: Insert > Table…; Tab moves between cells (adds a row at the end); drag column
+  borders; Format > Table for rows, columns, merge/split, borders and equal widths.
+- **Table of contents**: Insert > Table of Contents and Update.
+- **ABNT** (Brazilian academic standard): File > New with ABNT Template, or Format > Apply
+  ABNT Formatting.
+- **Print and export**: Print (Ctrl+P) uses the laid-out pages; File > Export > PDF (vector,
+  embedded fonts); Word (.docx) and OpenDocument (.odt) through LibreOffice when installed.
+
 ## Installing Glove from the ISO
 
 1. **Build the ISO** (on the computer with the source code): `./glove-setup-tool.sh iso`. It goes to

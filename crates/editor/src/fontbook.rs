@@ -15,6 +15,8 @@ type Face = (String, bool, bool);
 #[derive(Default)]
 pub struct FontBook {
     faces: RefCell<HashMap<Face, Rc<Fonts>>>,
+    /// Arquivo e índice de cada face (o PDF embute a fonte).
+    files: RefCell<HashMap<Face, (std::path::PathBuf, u32)>>,
     /// (face, tamanho) → (subida, descida).
     metrics: RefCell<HashMap<(Face, u32), (f32, f32)>>,
 }
@@ -52,7 +54,11 @@ impl FontBook {
         if let Some(f) = self.faces.borrow().get(&key) {
             return f.clone();
         }
-        let f = fc_match(&s.family, s.bold, s.italic)
+        let file = fc_match(&s.family, s.bold, s.italic);
+        if let Some(f) = &file {
+            self.files.borrow_mut().insert(key.clone(), f.clone());
+        }
+        let f = file
             .and_then(|(p, i)| Fonts::load_file(&p, i))
             .or_else(Fonts::load_document)
             .map(Rc::new)
@@ -72,6 +78,12 @@ impl FontBook {
         let m = (a, d);
         self.metrics.borrow_mut().insert(key, m);
         m
+    }
+
+    /// Arquivo e índice da face do estilo (para embutir no PDF).
+    pub fn file(&self, s: &CharStyle) -> Option<(std::path::PathBuf, u32)> {
+        self.face(s);
+        self.files.borrow().get(&(s.family.clone(), s.bold, s.italic)).cloned()
     }
 
     pub fn measure(&self, s: &CharStyle, text: &str) -> f32 {

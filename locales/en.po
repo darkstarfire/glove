@@ -4806,3 +4806,299 @@ msgstr "Repeat One"
 
 msgid "Velocidade|Vídeo"
 msgstr "Speed"
+
+# Editor de documentos (Fase 12)
+
+msgid "1. Numerada"
+msgstr "1. Numbered"
+
+msgid "Ajustar à Largura"
+msgstr "Fit to Width"
+
+msgid "Antes do parágrafo:"
+msgstr "Before paragraph:"
+
+msgid "Apagar Coluna"
+msgstr "Delete Column"
+
+msgid "Apagar Linha"
+msgstr "Delete Row"
+
+msgid "Aplicar Formatação ABNT"
+msgstr "Apply ABNT Formatting"
+
+msgid "Atualizar Sumário"
+msgstr "Update Table of Contents"
+
+msgid "Bordas"
+msgstr "Borders"
+
+msgid "Cabeçalho e Rodapé"
+msgstr "Header and Footer"
+
+msgid "Cabeçalho e Rodapé…"
+msgstr "Header and Footer…"
+
+msgid "Cabeçalho:"
+msgstr "Header:"
+
+msgid "Campos: {página}, {páginas}, {título} e {data}."
+msgstr "Fields: {página} (page), {páginas} (pages), {título} (title) and {data} (date)."
+
+msgid "Centralizar"
+msgstr "Center"
+
+msgid "Centro"
+msgstr "Center"
+
+msgid "Colunas da Mesma Largura"
+msgstr "Equal Column Widths"
+
+msgid "Colunas:"
+msgstr "Columns:"
+
+msgid "Configurar Página"
+msgstr "Page Setup"
+
+msgid "Configurar Página…"
+msgstr "Page Setup…"
+
+msgid "Converter em Texto Rico"
+msgstr "Make Rich Text"
+
+msgid "Converter em Texto Simples"
+msgstr "Make Plain Text"
+
+msgid "Depois do parágrafo:"
+msgstr "After paragraph:"
+
+msgid "Editar Nota de Rodapé"
+msgstr "Edit Footnote"
+
+msgid "Entre linhas:"
+msgstr "Line spacing:"
+
+msgid "Espaçamento"
+msgstr "Spacing"
+
+msgid "Espaçamento…"
+msgstr "Spacing…"
+
+msgid "Estilo"
+msgstr "Style"
+
+msgid "Exportar"
+msgstr "Export"
+
+msgid "Inserir"
+msgstr "Insert"
+
+msgid "Inserir Coluna à Direita"
+msgstr "Insert Column Right"
+
+msgid "Inserir Coluna à Esquerda"
+msgstr "Insert Column Left"
+
+msgid "Inserir Linha Abaixo"
+msgstr "Insert Row Below"
+
+msgid "Inserir Linha Acima"
+msgstr "Insert Row Above"
+
+msgid "Inserir Tabela"
+msgstr "Insert Table"
+
+msgid "Itálico"
+msgstr "Italic"
+
+msgid "Juntar Células"
+msgstr "Merge Cells"
+
+msgid "Justificar"
+msgstr "Justify"
+
+msgid "Linha de Base"
+msgstr "Baseline"
+
+msgid "Linhas:"
+msgstr "Rows:"
+
+msgid "Maior"
+msgstr "Bigger"
+
+msgid "Marca-texto"
+msgstr "Highlight"
+
+msgid "Marcadores"
+msgstr "Bullets"
+
+msgid "Margem de baixo:"
+msgstr "Bottom margin:"
+
+msgid "Margem de cima:"
+msgstr "Top margin:"
+
+msgid "Margem direita:"
+msgstr "Right margin:"
+
+msgid "Margem esquerda:"
+msgstr "Left margin:"
+
+msgid "Menor"
+msgstr "Smaller"
+
+msgid "Modo Página"
+msgstr "Page Mode"
+
+msgid "Mostrar Cores"
+msgstr "Show Colors"
+
+msgid "Negrito"
+msgstr "Bold"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Nota de Rodapé"
+msgstr "Footnote"
+
+msgid "Nota de Rodapé…"
+msgstr "Footnote…"
+
+msgid "Novo com Modelo ABNT"
+msgstr "New with ABNT Template"
+
+msgid "Numerada"
+msgstr "Numbered"
+
+msgid "Não consegui exportar “{}”: {}"
+msgstr "Couldn't export “{}”: {}"
+
+msgid "Não consegui gravar “{}”: {}"
+msgstr "Couldn't write “{}”: {}"
+
+msgid "Não consegui preparar a impressão: {}"
+msgstr "Couldn't prepare printing: {}"
+
+msgid "Número de Página"
+msgstr "Page Number"
+
+msgid "O LibreOffice não conseguiu converter o arquivo."
+msgstr "LibreOffice couldn't convert the file."
+
+msgid "O texto aparece no pé da página, com o número da nota."
+msgstr "The text appears at the foot of the page, with the note number."
+
+msgid "Ocultar Cores"
+msgstr "Hide Colors"
+
+msgid "OpenDocument (.odt)…"
+msgstr "OpenDocument (.odt)…"
+
+msgid "Orientação:"
+msgstr "Orientation:"
+
+msgid "PDF…"
+msgstr "PDF…"
+
+msgid "Paisagem"
+msgstr "Landscape"
+
+msgid "Papel:"
+msgstr "Paper:"
+
+msgid "Para isso é preciso o LibreOffice instalado."
+msgstr "This needs LibreOffice installed."
+
+msgid "Primeira página diferente (capa sem cabeçalho e rodapé)"
+msgstr "Different first page (cover without header and footer)"
+
+msgid "Quebra de Página"
+msgstr "Page Break"
+
+msgid "Recuo da primeira linha:"
+msgstr "First line indent:"
+
+msgid "Recuo direito:"
+msgstr "Right indent:"
+
+msgid "Recuo esquerdo:"
+msgstr "Left indent:"
+
+msgid "Retrato"
+msgstr "Portrait"
+
+msgid "Rodapé:"
+msgstr "Footer:"
+
+msgid "Sem Lista"
+msgstr "No List"
+
+msgid "Sem Marca-texto"
+msgstr "No Highlight"
+
+msgid "Sem lista"
+msgstr "No list"
+
+msgid "Sem título.rtf"
+msgstr "Untitled.rtf"
+
+msgid "Separar Células"
+msgstr "Split Cells"
+
+msgid "Sobrescrito"
+msgstr "Superscript"
+
+msgid "Sublinhado"
+msgstr "Underline"
+
+msgid "Subscrito"
+msgstr "Subscript"
+
+msgid "Sumário"
+msgstr "Contents"
+
+msgid "Tabela"
+msgstr "Table"
+
+msgid "Tabela…"
+msgstr "Table…"
+
+msgid "Tachado"
+msgstr "Strikethrough"
+
+msgid "Tamanho Normal"
+msgstr "Normal Size"
+
+msgid "Word (.docx)…"
+msgstr "Word (.docx)…"
+
+msgid "× a linha"
+msgstr "× line"
+
+msgid "• Marcadores"
+msgstr "• Bullets"
+
+msgid "Corpo"
+msgstr "Body"
+
+msgid "Título"
+msgstr "Title"
+
+msgid "Capítulo"
+msgstr "Chapter"
+
+msgid "Seção"
+msgstr "Section"
+
+msgid "Subseção"
+msgstr "Subsection"
+
+msgid "Citação"
+msgstr "Quote"
+
+msgid "Carta"
+msgstr "Letter"
+
+msgid "Ofício"
+msgstr "Legal"

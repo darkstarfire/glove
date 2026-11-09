@@ -225,6 +225,39 @@ mpg, wmv, flv, ts e 3gp (o mpv toca quase qualquer codec).
 - **Preferências** (Ctrl+,): continuar de onde parou, tocar o próximo da pasta ao terminar, usar a
   placa de vídeo e os idiomas preferidos de legenda e áudio (pt, en…).
 
+## Editor de documentos (Fase 12)
+
+O Editor de Texto virou um editor de documentos: dá para escrever livro, trabalho da
+faculdade, formulário e relatório sem outro programa. Documento novo salva em **RTF**
+(abre no Word, no LibreOffice e no TextEdit); `.txt` continua texto simples.
+
+- **Barra de formatação** (em cima da régua): estilo do parágrafo, fonte (abre o painel de
+  Fontes), tamanho, N/I/S, cor do texto, marca-texto, alinhamento, entrelinhas e lista.
+- **Caracteres**: Formatar > Fonte (Negrito Ctrl+B, Itálico Ctrl+I, Sublinhado Ctrl+U,
+  Tachado, Maior/Menor, Linha de Base, Mostrar Cores Ctrl+Shift+C, Marca-texto).
+- **Parágrafos**: alinhamento (Ctrl+Shift+L/E/J/R); na régua, arraste a barrinha (primeira
+  linha), os triângulos (recuos) e clique para pôr tabulações (arraste para fora para
+  apagar); Formatar > Texto > Espaçamento… para entrelinhas, antes/depois e recuos em cm.
+- **Estilos**: Corpo, Título, Capítulo, Seção, Subseção, Citação (barra ou Formatar >
+  Estilo). Enter depois de um título volta ao corpo.
+- **Listas**: marcadores ou numeradas (barra ou Formatar > Lista); Tab no começo do item
+  aprofunda, Shift+Tab volta, Enter num item vazio encerra.
+- **Páginas**: Visualizar > Modo Página (Ctrl+Shift+W) e Zoom; Arquivo > Configurar
+  Página (Ctrl+Shift+P: papel, orientação, margens); Inserir > Quebra de Página (Ctrl+Enter).
+- **Cabeçalho, rodapé e notas**: Formatar > Cabeçalho e Rodapé… (campos {página},
+  {páginas}, {título}, {data}; primeira página diferente); Inserir > Número de Página;
+  Inserir > Nota de Rodapé… (Ctrl+Alt+N; clique duplo na marca edita a nota).
+- **Tabelas**: Inserir > Tabela…; Tab vai de célula em célula (na última cria uma linha);
+  arraste a borda entre colunas; Formatar > Tabela para linhas, colunas, juntar/separar
+  células, bordas e larguras iguais.
+- **Sumário**: Inserir > Sumário (dos capítulos e seções, com as páginas) e Atualizar Sumário.
+- **ABNT**: Arquivo > Novo com Modelo ABNT, ou Formatar > Aplicar Formatação ABNT (A4,
+  margens 3/2 cm, Times 12, 1,5, recuo de 1,25 cm, número da página em cima à direita,
+  capa sem número).
+- **Imprimir e exportar**: Imprimir (Ctrl+P) sai com as folhas como na tela; Arquivo >
+  Exportar > PDF (vetorial, com as fontes embutidas); Word (.docx) e OpenDocument (.odt)
+  pelo LibreOffice, se estiver instalado (também abre e salva esses formatos).
+
 ## Instalar o Glove pela ISO
 
 1. **Montar a ISO** (no computador onde está o código): `./glove-setup-tool.sh iso`. Ela fica em
