@@ -155,7 +155,30 @@ impl Editor {
         if let Some(i) = ui.segmented_in(r, &[Glyph::AlignLeft, Glyph::AlignCenter, Glyph::AlignRight, Glyph::AlignJustify], Some(cur), &[true, true, true, true]) {
             self.set_align([Align::Left, Align::Center, Align::Right, Align::Justify][i]);
         }
-        self.bar_end = x + 4.0 * SEGMENT_W + 8.0;
+        x += 4.0 * SEGMENT_W + 8.0;
+
+        // Entrelinhas (1,0 / 1,15 / 1,5 / 2,0 / Outro…).
+        let line = view::para_style(&self.doc).line_spacing;
+        let mut opts: Vec<String> = crate::para::LINE_OPTIONS.iter().map(|v| crate::para::fmt_num(*v)).collect();
+        opts.push(glove_config::tr!("Outro…").to_string());
+        let cur = crate::para::LINE_OPTIONS.iter().position(|v| (*v - line).abs() < 0.01).unwrap_or(opts.len() - 1);
+        let mut chosen = None;
+        ui.area(Rect::new(x, cy, 70.0, 22.0), |ui| {
+            let mut i = cur;
+            if ui.popup(&mut i, &opts, 70.0) {
+                chosen = Some(i);
+            }
+        });
+        match chosen {
+            Some(i) if i < crate::para::LINE_OPTIONS.len() => {
+                let v = crate::para::LINE_OPTIONS[i];
+                self.doc.set_para_style(&move |s| s.line_spacing = v);
+            }
+            Some(_) => self.run_action(Some("spacing"), ui),
+            None => {}
+        }
+        x += 76.0;
+        self.bar_end = x;
     }
 }
 

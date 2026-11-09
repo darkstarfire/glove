@@ -157,6 +157,11 @@ impl DocView {
         MARGIN_X * self.zoom
     }
 
+    /// Largura da coluna de texto (pontos).
+    pub fn column_width(&self) -> f32 {
+        self.width
+    }
+
     /// Altura do documento em pixels (com as margens).
     pub fn content_h(&self) -> f32 {
         (self.total + 2.0 * MARGIN_Y) * self.zoom
@@ -178,7 +183,10 @@ impl DocView {
         let to_doc = |sx: f32, sy: f32, scroll: f32| ((sx - origin.0) / z, (sy - origin.1 + scroll) / z);
 
         // Mouse
-        let resp = if enabled { Some(ui.hit(inner)) } else { None };
+        // O controle existe sempre (a numeração dos controles não pode mudar entre
+        // quadros, senão um campo que pega o foco sozinho acerta o vizinho).
+        let hit = ui.hit(inner);
+        let resp = enabled.then_some(hit);
         if let Some(resp) = resp {
             if resp.pressed {
                 let pt = ui.pointer();

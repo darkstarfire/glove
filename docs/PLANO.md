@@ -712,7 +712,7 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
 - [x] 12.2 Caracteres (M) — v0.12.2: aplicar ao trecho selecionado (ou ao que se vai digitar); menu Formatar >
   Fonte (Mostrar Fontes, Negrito, Itálico, Sublinhado, Tachado, Maior, Menor, Mostrar Cores); painel de
   Fontes e de Cores agindo na seleção; linhas com fontes misturadas
-- [ ] 12.3 Parágrafos (M): alinhamento (esquerda, centro, direita, justificado) por parágrafo; régua
+- [x] 12.3 Parágrafos (M) — v0.12.3: alinhamento (esquerda, centro, direita, justificado) por parágrafo; régua
   com recuo da primeira linha, esquerdo, direito e tabulações arrastáveis; espaçamento entre linhas e
   antes/depois (Formatar > Texto > Espaçamento)
 - [ ] 12.4 RTF (G): gravar e ler (padrão dos documentos novos); abre RTF do Word, LibreOffice e TextEdit

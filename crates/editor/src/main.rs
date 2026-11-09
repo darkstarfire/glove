@@ -3,6 +3,7 @@
 mod bar;
 mod fontbook;
 mod layout;
+mod para;
 mod rich;
 mod view;
 
@@ -73,6 +74,8 @@ enum Sheet {
     /// Imprimir (Ctrl+P).
     Print(glove_ui::print::PrintSheet),
     AskSave,
+    /// Formatar > Texto > Espaçamento.
+    Spacing(para::SpacingSheet),
 }
 
 /// O que o painel de Cores muda: a cor do texto ou o marca-texto.
@@ -96,8 +99,10 @@ struct Editor {
     color_target: ColorTarget,
     /// Seleção da última vez que os painéis foram acertados com ela.
     panel_sync: Option<(rich::Pos, rich::Pos, u64)>,
-    /// Onde a barra de formatação termina (a 12.3 põe o espaçamento ali).
+    /// Onde a barra de formatação termina.
     bar_end: f32,
+    /// Marcador da régua sendo arrastado.
+    ruler_drag: Option<para::RulerDrag>,
     /// Onde o documento começa (abaixo da faixa de abas).
     tab_top: f32,
     /// Arquivo aberto pelo Abrir…: vai para uma aba nova.
@@ -122,7 +127,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
-        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, tab_top: 0.0, open_in_tab: None };
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match std::fs::read_to_string(&p) {
                 Ok(t) => {
@@ -266,6 +271,12 @@ impl Editor {
             Some("superscript") => self.doc.set_char_style(&|s| s.script = 1),
             Some("subscript") => self.doc.set_char_style(&|s| s.script = -1),
             Some("colors") => self.open_colors(ColorTarget::Text),
+            Some("spacing") => self.sheet = Sheet::Spacing(para::SpacingSheet::from(view::para_style(&self.doc))),
+            Some(a) if a.starts_with("line-") => {
+                if let Some(v) = a[5..].parse::<f32>().ok() {
+                    self.doc.set_para_style(&move |s| s.line_spacing = v);
+                }
+            }
             Some("hl-none") => self.doc.set_char_style(&|s| s.highlight = None),
             Some(a) if a.starts_with("hl-") => {
                 if let Some(&(_, c)) = a[3..].parse::<usize>().ok().and_then(|i| bar::HIGHLIGHTS.get(i)) {
@@ -339,30 +350,6 @@ impl Editor {
             }
         });
         self.doc.set_cursor(rich::Pos::default(), false);
-    }
-
-    /// Régua: centímetros e os botões de alinhamento (como no TextEdit da era).
-    fn draw_ruler(&mut self, ui: &mut Ui, y: f32) {
-        let w = ui.c.w;
-        ui.c.fill_rect(0.0, y, w, RULER_H, &vgrad(y, y + RULER_H, &[(0.0, rgba(244, 244, 246, 255)), (1.0, rgba(222, 222, 226, 255))]));
-        ui.c.hline(0.0, y + RULER_H - 1.0, w, rgba(150, 150, 156, 255));
-        // Centímetros (1 cm ≈ 28,35 pontos), com o meio centímetro mais curto.
-        // O zero fica onde começa o texto.
-        let x0 = self.view.text_left();
-        let cm = 28.35 * self.view.zoom;
-        let ink = rgba(90, 90, 96, 255);
-        let mut k = 0;
-        while x0 + k as f32 * cm / 2.0 < w - glove_ui::SCROLLBAR_W {
-            let x = x0 + k as f32 * cm / 2.0;
-            let tall = k % 2 == 0;
-            ui.c.vline(x.round() + 0.5, y + RULER_H - if tall { 9.0 } else { 5.0 }, if tall { 8.0 } else { 4.0 }, ink);
-            if tall && k > 0 {
-                let t = (k / 2).to_string();
-                let tw = ui.text_width(&t, 9.0, false);
-                ui.fonts.draw(ui.c, &t, x - tw / 2.0, y + 13.0, 9.0, false, ink);
-            }
-            k += 1;
-        }
     }
 
     /// Barra de Localizar/Substituir. Devolve verdadeiro se usou o Enter (o
@@ -468,6 +455,43 @@ impl Editor {
             }
             return;
         }
+        if let Sheet::Spacing(f) = &mut self.sheet {
+            match Editor::spacing_sheet(ui, f) {
+                Some(true) => {
+                    let n = |s: &str| para::parse_num(s);
+                    let (line, before, after) = (n(&f.line), n(&f.before), n(&f.after));
+                    let (first, left, right) = (n(&f.first), n(&f.left), n(&f.right));
+                    self.doc.set_para_style(&|s| {
+                        if let Some(v) = line {
+                            s.line_spacing = v.clamp(0.5, 5.0);
+                        }
+                        if let Some(v) = before {
+                            s.space_before = v.clamp(0.0, 500.0);
+                        }
+                        if let Some(v) = after {
+                            s.space_after = v.clamp(0.0, 500.0);
+                        }
+                        if let Some(v) = first {
+                            s.first_indent = v * para::CM;
+                        }
+                        if let Some(v) = left {
+                            s.left_indent = (v * para::CM).max(0.0);
+                        }
+                        if let Some(v) = right {
+                            s.right_indent = (v * para::CM).max(0.0);
+                        }
+                    });
+                    self.sheet = Sheet::None;
+                    ui.redraw = true;
+                }
+                Some(false) => {
+                    self.sheet = Sheet::None;
+                    ui.redraw = true;
+                }
+                None => {}
+            }
+            return;
+        }
         // Imprimir: a folha do kit (impressora, cópias, PDF).
         if let Sheet::Print(p) = &mut self.sheet {
             if ui.print_sheet(p) {
@@ -564,6 +588,7 @@ impl Editor {
                     "align-center" => menu_action = Some("align-center"),
                     "align-right" => menu_action = Some("align-right"),
                     "align-justify" => menu_action = Some("align-justify"),
+                    "spacing" => menu_action = Some("spacing"),
                     "strike" | "baseline" | "superscript" | "subscript" | "hl-none" | "hl-0" | "hl-1" | "hl-2" | "hl-3" | "hl-4" => {
                         let a: &'static str = match a.as_str() {
                             "strike" => "strike",
@@ -605,7 +630,7 @@ impl Editor {
         if self.ruler {
             self.draw_format_bar(ui, top);
             top += bar::BAR_H;
-            self.draw_ruler(ui, top);
+            self.draw_ruler(ui, top, RULER_H);
             top += RULER_H;
         }
         let mut used_key = false;
@@ -740,6 +765,8 @@ impl Editor {
                             MenuItem::new("align-center", tr!("Centralizar"), "Ctrl+Shift+E").checked(align == Align::Center),
                             MenuItem::new("align-justify", tr!("Justificar"), "Ctrl+Shift+J").checked(align == Align::Justify),
                             MenuItem::new("align-right", tr!("Alinhar à Direita"), "Ctrl+Shift+R").checked(align == Align::Right),
+                            MenuItem::Separator,
+                            MenuItem::new("spacing", tr!("Espaçamento…"), ""),
                         ],
                     ),
                     MenuItem::Separator,
