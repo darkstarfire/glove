@@ -706,7 +706,7 @@ precisar de um Word. RTF é o formato padrão (abre no Word, LibreOffice e TextE
 texto simples, com Formatar > Converter (Ctrl+Shift+T). Atalhos com Ctrl por enquanto (a troca para o
 Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fase inteira no fim.
 
-- [ ] 12.1 Base do texto rico (G): estilo de cada trecho (fonte, tamanho, negrito, itálico, sublinhado,
+- [x] 12.1 Base do texto rico (G) — v0.12.1 (glove-ui v0.2.14): estilo de cada trecho (fonte, tamanho, negrito, itálico, sublinhado,
   tachado, cor, marca-texto) e de cada parágrafo (alinhamento, recuos, espaçamento, tabulações) junto
   com o texto; desfazer/refazer e copiar/colar mantêm o estilo dentro do Editor
 - [ ] 12.2 Caracteres (M): aplicar ao trecho selecionado (ou ao que se vai digitar); menu Formatar >

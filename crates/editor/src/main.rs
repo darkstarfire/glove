@@ -1,10 +1,20 @@
 //! Editor de texto do Glove.
 
+mod fontbook;
+mod layout;
+mod rich;
+mod view;
+
 use glove_config::tr;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use glove_ui::paint::draw::*;
-use glove_ui::{run, Align, AlertKind, App, Choice, FileBrowser, FontPanel, Glyph, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
+use glove_ui::{run, AlertKind, App, Choice, FileBrowser, FontPanel, Glyph, Menu, MenuItem, Rect, Ui, WindowOptions, SEGMENT_H, SEGMENT_W};
+
+use fontbook::FontBook;
+use rich::{Align, CharStyle, Doc, ParaStyle};
+use view::DocView;
 
 /// Altura da régua e da barra de Localizar.
 const RULER_H: f32 = 30.0;
@@ -65,7 +75,9 @@ enum Sheet {
 }
 
 struct Editor {
-    buf: TextBuffer,
+    doc: Doc,
+    view: DocView,
+    fb: Rc<FontBook>,
     path: Option<PathBuf>,
     sheet: Sheet,
     last_title: String,
@@ -95,12 +107,12 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 }
 
 impl Editor {
-    fn new(path: Option<PathBuf>) -> Self {
-        let mut ed = Self { buf: TextBuffer::new(""), path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new("", 13.0), tab_top: 0.0, open_in_tab: None };
+    fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match std::fs::read_to_string(&p) {
                 Ok(t) => {
-                    ed.buf = TextBuffer::new(t);
+                    ed.doc = plain_doc(&t);
                     ed.path = Some(p);
                 }
                 // Arquivo novo: começa vazio e salva nesse caminho.
@@ -117,9 +129,9 @@ impl Editor {
 
     fn save(&mut self, then_close: bool, ui: &mut Ui) {
         match self.path.clone() {
-            Some(p) => match save_file(&p, self.buf.text()) {
+            Some(p) => match save_file(&p, &self.doc.plain_text()) {
                 Ok(()) => {
-                    self.buf.modified = false;
+                    self.doc.modified = false;
                     if then_close {
                         ui.close = true;
                     }
@@ -135,8 +147,9 @@ impl Editor {
     fn open(&mut self, p: PathBuf) -> Result<(), String> {
         let t = std::fs::read_to_string(&p).map_err(|e| format!("Não consegui abrir: {e}"))?;
         // Documento atual vazio e intocado: abre aqui; senão, numa janela nova.
-        if self.buf.is_empty() && !self.buf.modified && self.path.is_none() {
-            self.buf = TextBuffer::new(t);
+        if self.doc.is_empty() && !self.doc.modified && self.path.is_none() {
+            self.doc = plain_doc(&t);
+            self.view = DocView::new();
             self.path = Some(p);
         } else {
             self.open_in_tab = Some(p);
@@ -144,8 +157,13 @@ impl Editor {
         Ok(())
     }
 
-    fn font_px(&self) -> f32 {
-        if self.buf.font_px > 0.0 { self.buf.font_px } else { 13.0 }
+    /// Tamanho da fonte no cursor (ou da seleção, se for um só).
+    fn font_size(&self) -> f32 {
+        view::common(&self.doc, |s| s.size.to_bits()).map(f32::from_bits).unwrap_or(rich::DEFAULT_SIZE)
+    }
+
+    fn set_align(&mut self, a: Align) {
+        self.doc.set_para_style(&|s| s.align = a);
     }
 
     fn run_action(&mut self, action: Option<&str>, ui: &mut Ui) {
@@ -157,7 +175,7 @@ impl Editor {
             }
             Some("save") => self.save(false, ui),
             Some("close") => {
-                if self.buf.modified {
+                if self.doc.modified {
                     self.sheet = Sheet::AskSave;
                 } else {
                     ui.close = true;
@@ -165,15 +183,15 @@ impl Editor {
             }
             Some("minimize") => ui.minimize(),
             Some("find") => {
-                let q = if self.buf.has_selection() && !self.buf.selected_text().contains('\n') { self.buf.selected_text().to_string() } else { self.find.as_ref().map(|f| f.query.clone()).unwrap_or_default() };
+                let q = if self.doc.has_selection() && !self.doc.selected_text().contains('\n') { self.doc.selected_text() } else { self.find.as_ref().map(|f| f.query.clone()).unwrap_or_default() };
                 let (replace, case) = self.find.as_ref().map(|f| (f.replace.clone(), f.case)).unwrap_or_default();
                 self.find = Some(Find { query: q, replace, case, focus: true, message: String::new() });
             }
             Some("find-next") => self.find_step(true),
             Some("find-prev") => self.find_step(false),
             Some("use-selection") => {
-                if self.buf.has_selection() {
-                    let q = self.buf.selected_text().to_string();
+                if self.doc.has_selection() {
+                    let q = self.doc.selected_text();
                     match &mut self.find {
                         Some(f) => f.query = q,
                         None => self.find = Some(Find { query: q, replace: String::new(), case: false, focus: false, message: String::new() }),
@@ -182,14 +200,15 @@ impl Editor {
             }
             Some("ruler") => self.ruler = !self.ruler,
             Some("fonts") => {
-                self.fonts.size = self.font_px();
+                self.fonts.size = self.font_size();
                 self.fonts.open = !self.fonts.open;
             }
-            Some("align-left") => self.buf.align = Align::Left,
-            Some("align-center") => self.buf.align = Align::Center,
-            Some("align-right") => self.buf.align = Align::Right,
-            Some("bigger") => self.buf.font_px = (self.font_px() + 2.0).min(48.0),
-            Some("smaller") => self.buf.font_px = (self.font_px() - 2.0).max(9.0),
+            Some("align-left") => self.set_align(Align::Left),
+            Some("align-center") => self.set_align(Align::Center),
+            Some("align-right") => self.set_align(Align::Right),
+            Some("align-justify") => self.set_align(Align::Justify),
+            Some("bigger") => self.doc.set_char_style(&|s| s.size = (s.size + 1.0).min(288.0)),
+            Some("smaller") => self.doc.set_char_style(&|s| s.size = (s.size - 1.0).max(4.0)),
             _ => {}
         }
     }
@@ -197,12 +216,14 @@ impl Editor {
     /// Vai para a próxima (ou anterior) ocorrência e a seleciona.
     fn find_step(&mut self, forward: bool) {
         let Some(f) = &mut self.find else { return };
-        let hits = find_all(self.buf.text(), &f.query, f.case);
+        let text = self.doc.plain_text();
+        let hits = find_all(&text, &f.query, f.case);
         if hits.is_empty() {
             f.message = if f.query.is_empty() { String::new() } else { tr!("Não encontrado").into() };
             return;
         }
-        let (a, b) = self.buf.selection();
+        let (a, b) = self.doc.selection();
+        let (a, b) = (self.doc.offset_of(a), self.doc.offset_of(b));
         let pick = if forward {
             // A próxima depois da seleção atual (ou do cursor); no fim, volta ao começo.
             hits.iter().find(|h| h.0 >= b && (h.0, h.1) != (a, b)).or(hits.first())
@@ -210,9 +231,10 @@ impl Editor {
             hits.iter().rev().find(|h| h.1 <= a).or(hits.last())
         };
         if let Some(&(s, e)) = pick {
-            self.buf.set_cursor(s, false);
-            self.buf.set_cursor(e, true);
-            self.buf.reveal = true;
+            let (ps, pe) = (self.doc.pos_of_offset(s), self.doc.pos_of_offset(e));
+            self.doc.set_cursor(ps, false);
+            self.doc.set_cursor(pe, true);
+            self.view.reveal = true;
             let n = hits.iter().position(|h| h.0 == s).map(|i| i + 1).unwrap_or(0);
             f.message = tr!("{} de {}", n, hits.len());
         }
@@ -221,11 +243,12 @@ impl Editor {
     /// Troca a seleção (se for a ocorrência) e vai para a próxima.
     fn replace_one(&mut self) {
         let Some(f) = &self.find else { return };
-        let sel = self.buf.selected_text();
+        let sel = self.doc.selected_text();
         let same = if f.case { sel == f.query } else { sel.to_lowercase() == f.query.to_lowercase() };
         if same && !f.query.is_empty() {
             let r = f.replace.clone();
-            self.buf.insert(&r);
+            self.doc.insert_text(&r);
+            self.doc.break_undo();
         }
         self.find_step(true);
     }
@@ -233,23 +256,26 @@ impl Editor {
     /// Troca todas as ocorrências de uma vez (um passo só no Desfazer).
     fn replace_all(&mut self) {
         let Some(f) = &mut self.find else { return };
-        let hits = find_all(self.buf.text(), &f.query, f.case);
+        let text = self.doc.plain_text();
+        let hits = find_all(&text, &f.query, f.case);
         if hits.is_empty() {
             f.message = tr!("Não encontrado").into();
             return;
         }
-        let mut out = String::with_capacity(self.buf.len());
-        let mut last = 0;
-        for (a, b) in &hits {
-            out.push_str(&self.buf.text()[last..*a]);
-            out.push_str(&f.replace);
-            last = *b;
-        }
-        out.push_str(&self.buf.text()[last..]);
         f.message = tr!("{} substituídas", hits.len());
-        self.buf.select_all();
-        self.buf.insert(&out);
-        self.buf.set_cursor(0, false);
+        let replace = f.replace.clone();
+        // De trás para a frente: as posições das outras não mudam. Cada troca fica no
+        // estilo do texto que estava ali; tudo num passo só do Desfazer.
+        self.doc.group(|d| {
+            for &(a, b) in hits.iter().rev() {
+                let (pa, pb) = (d.pos_of_offset(a), d.pos_of_offset(b));
+                d.set_cursor(pa, false);
+                d.set_cursor(pb, true);
+                d.insert_text(&replace);
+                d.break_undo();
+            }
+        });
+        self.doc.set_cursor(rich::Pos::default(), false);
     }
 
     /// Régua: centímetros e os botões de alinhamento (como no TextEdit da era).
@@ -258,18 +284,19 @@ impl Editor {
         ui.c.fill_rect(0.0, y, w, RULER_H, &vgrad(y, y + RULER_H, &[(0.0, rgba(244, 244, 246, 255)), (1.0, rgba(222, 222, 226, 255))]));
         ui.c.hline(0.0, y + RULER_H - 1.0, w, rgba(150, 150, 156, 255));
         // Alinhamento (segmentado com os glifos de linhas).
-        let cur = match self.buf.align {
+        let cur = match view::para_style(&self.doc).align {
             Align::Left => 0,
             Align::Center => 1,
             Align::Right => 2,
+            Align::Justify => 3,
         };
-        let r = Rect::new(6.0, y + (RULER_H - SEGMENT_H) / 2.0, 3.0 * SEGMENT_W, SEGMENT_H);
-        if let Some(i) = ui.segmented_in(r, &[Glyph::AlignLeft, Glyph::AlignCenter, Glyph::AlignRight], Some(cur), &[true, true, true]) {
-            self.buf.align = [Align::Left, Align::Center, Align::Right][i];
+        let r = Rect::new(6.0, y + (RULER_H - SEGMENT_H) / 2.0, 4.0 * SEGMENT_W, SEGMENT_H);
+        if let Some(i) = ui.segmented_in(r, &[Glyph::AlignLeft, Glyph::AlignCenter, Glyph::AlignRight, Glyph::AlignJustify], Some(cur), &[true, true, true, true]) {
+            self.set_align([Align::Left, Align::Center, Align::Right, Align::Justify][i]);
         }
-        // Centímetros (1 cm ≈ 38 pontos), com o meio centímetro mais curto.
-        let x0 = 3.0 * SEGMENT_W + 20.0;
-        let cm = 37.8;
+        // Centímetros (1 cm ≈ 28,35 pontos), com o meio centímetro mais curto.
+        let x0 = 4.0 * SEGMENT_W + 20.0;
+        let cm = 28.35 * self.view.zoom;
         let ink = rgba(90, 90, 96, 255);
         let mut k = 0;
         while x0 + k as f32 * cm / 2.0 < w - 8.0 {
@@ -420,6 +447,11 @@ impl Editor {
     }
 }
 
+/// Documento de texto simples (arquivo .txt), na fonte padrão.
+fn plain_doc(text: &str) -> Doc {
+    Doc::from_plain(text, Rc::new(CharStyle::default()), ParaStyle::default())
+}
+
 fn spawn_self(path: Option<&Path>) {
     let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-edit"))).unwrap_or_else(|| "glove-edit".into());
     let mut cmd = std::process::Command::new(exe);
@@ -443,7 +475,7 @@ impl Editor {
                     "Ctrl+S" => action = Some("save"),
                     "Ctrl+W" => action = Some("close"),
                     "Ctrl+P" => {
-                        let content = glove_ui::print::PrintContent::Text(self.buf.text().to_string());
+                        let content = glove_ui::print::PrintContent::Text(self.doc.plain_text());
                         self.sheet = Sheet::Print(glove_ui::print::PrintSheet::new(&self.name(), content));
                     }
                     "Ctrl+M" => action = Some("minimize"),
@@ -465,11 +497,12 @@ impl Editor {
             let mut menu_action = None;
             for a in ui.menu_actions() {
                 match a.as_str() {
-                    "delete" => self.buf.delete(),
-                    "font-reset" => self.buf.font_px = 0.0,
+                    "delete" => self.doc.delete_selection(),
+                    "font-reset" => self.doc.set_char_style(&|s| s.size = rich::DEFAULT_SIZE),
                     "align-left" => menu_action = Some("align-left"),
                     "align-center" => menu_action = Some("align-center"),
                     "align-right" => menu_action = Some("align-right"),
+                    "align-justify" => menu_action = Some("align-justify"),
                     "replace-all" => self.replace_all(),
                     _ => {}
                 }
@@ -481,7 +514,7 @@ impl Editor {
         }
 
         // Como no Tiger: o ponto no botão de fechar diz que há alterações; o ícone do arquivo vai no título.
-        ui.set_edited(self.buf.modified);
+        ui.set_edited(self.doc.modified);
         ui.set_document(self.path.as_deref());
         let title = self.name();
         if title != self.last_title {
@@ -507,18 +540,25 @@ impl Editor {
         if used_key {
             ui.set_enabled(false);
         }
-        ui.text_area(&mut self.buf, Rect::new(0.0, top, w, h - top));
+        let enabled = !sheet_open && !used_key;
+        self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
         ui.set_enabled(!sheet_open);
-        // Painel de Fontes: muda a fonte e o tamanho do documento na hora.
+        // Painel de Fontes: muda a fonte e o tamanho da seleção (ou do que se vai digitar).
         if ui.font_panel(&mut self.fonts) {
-            ui.set_doc_font(&self.fonts.family);
-            self.buf.font_px = self.fonts.size;
+            let (family, size) = (self.fonts.family.clone(), self.fonts.size);
+            self.doc.set_char_style(&|s| {
+                if !family.is_empty() {
+                    s.family = family.clone();
+                }
+                s.size = size;
+            });
         }
         self.sheet(ui);
     }
 
     fn menus(&self, tabs: usize) -> Vec<Menu> {
-        let sel = self.buf.has_selection();
+        let align = view::para_style(&self.doc).align;
+        let sel = self.doc.has_selection();
         vec![
             Menu::new(
                 tr!("Arquivo"),
@@ -540,8 +580,8 @@ impl Editor {
             Menu::new(
                 tr!("Editar"),
                 vec![
-                    MenuItem::new("undo", tr!("Desfazer"), "Ctrl+Z").enabled(self.buf.can_undo()),
-                    MenuItem::new("redo", tr!("Refazer"), "Ctrl+Shift+Z").enabled(self.buf.can_redo()),
+                    MenuItem::new("undo", tr!("Desfazer"), "Ctrl+Z").enabled(self.doc.can_undo()),
+                    MenuItem::new("redo", tr!("Refazer"), "Ctrl+Shift+Z").enabled(self.doc.can_redo()),
                     MenuItem::Separator,
                     MenuItem::new("cut", tr!("Recortar"), "Ctrl+X").enabled(sel),
                     MenuItem::new("copy", tr!("Copiar"), "Ctrl+C").enabled(sel),
@@ -570,11 +610,12 @@ impl Editor {
                     MenuItem::Separator,
                     MenuItem::new("bigger", tr!("Aumentar fonte"), "Ctrl+equal"),
                     MenuItem::new("smaller", tr!("Diminuir fonte"), "Ctrl+minus"),
-                    MenuItem::new("font-reset", tr!("Tamanho normal"), "").enabled(self.buf.font_px > 0.0),
+                    MenuItem::new("font-reset", tr!("Tamanho normal"), ""),
                     MenuItem::Separator,
-                    MenuItem::new("align-left", tr!("Alinhar à Esquerda"), "").checked(self.buf.align == Align::Left),
-                    MenuItem::new("align-center", "Centralizar", "").checked(self.buf.align == Align::Center),
-                    MenuItem::new("align-right", tr!("Alinhar à Direita"), "").checked(self.buf.align == Align::Right),
+                    MenuItem::new("align-left", tr!("Alinhar à Esquerda"), "").checked(align == Align::Left),
+                    MenuItem::new("align-center", tr!("Centralizar"), "").checked(align == Align::Center),
+                    MenuItem::new("align-right", tr!("Alinhar à Direita"), "").checked(align == Align::Right),
+                    MenuItem::new("align-justify", tr!("Justificar"), "").checked(align == Align::Justify),
                     MenuItem::Separator,
                     MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R"),
                 ],
@@ -588,6 +629,7 @@ impl Editor {
 struct Tabs {
     docs: Vec<Editor>,
     cur: usize,
+    fb: Rc<FontBook>,
 }
 
 impl Tabs {
@@ -607,7 +649,7 @@ impl App for Tabs {
             for k in ui.keys().to_vec() {
                 match k.combo.as_str() {
                     "Ctrl+Shift+T" => {
-                        self.docs.push(Editor::new(None));
+                        self.docs.push(Editor::new(None, self.fb.clone()));
                         self.cur = self.docs.len() - 1;
                     }
                     "Ctrl+Page_Down" | "Ctrl+Next" => self.cur = (self.cur + 1) % n,
@@ -620,13 +662,13 @@ impl App for Tabs {
         let w = ui.c.w;
         let top = if self.docs.len() > 1 { glove_ui::TAB_STRIP_H } else { 0.0 };
         if top > 0.0 {
-            let titles: Vec<String> = self.docs.iter().map(|d| if d.buf.modified { format!("{} •", d.name()) } else { d.name() }).collect();
+            let titles: Vec<String> = self.docs.iter().map(|d| if d.doc.modified { format!("{} •", d.name()) } else { d.name() }).collect();
             ui.set_enabled(!sheet_open);
             match ui.tab_strip(Rect::new(0.0, 0.0, w, top), &titles, self.cur) {
                 Some(glove_ui::TabAction::Select(i)) => self.cur = i,
                 Some(glove_ui::TabAction::Close(i)) => {
                     // Com alterações: pergunta na aba dela antes de fechar.
-                    if self.docs[i].buf.modified {
+                    if self.docs[i].doc.modified {
                         self.cur = i;
                         self.docs[i].sheet = Sheet::AskSave;
                     } else {
@@ -634,7 +676,7 @@ impl App for Tabs {
                     }
                 }
                 Some(glove_ui::TabAction::New) => {
-                    self.docs.push(Editor::new(None));
+                    self.docs.push(Editor::new(None, self.fb.clone()));
                     self.cur = self.docs.len() - 1;
                 }
                 None => {}
@@ -651,7 +693,7 @@ impl App for Tabs {
             ui.redraw = true;
         }
         if let Some(p) = self.docs.get_mut(cur).and_then(|d| d.open_in_tab.take()) {
-            self.docs.push(Editor::new(Some(p)));
+            self.docs.push(Editor::new(Some(p), self.fb.clone()));
             self.cur = self.docs.len() - 1;
             ui.redraw = true;
         }
@@ -663,7 +705,7 @@ impl App for Tabs {
 
     fn close_requested(&mut self) -> bool {
         // A primeira aba com alterações pergunta; as outras esperam a próxima vez.
-        match self.docs.iter().position(|d| d.buf.modified) {
+        match self.docs.iter().position(|d| d.doc.modified) {
             Some(i) => {
                 self.cur = i;
                 self.docs[i].sheet = Sheet::AskSave;
@@ -676,10 +718,11 @@ impl App for Tabs {
 
 pub fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);
-    let ed = Editor::new(path);
+    let fb = Rc::new(FontBook::new());
+    let ed = Editor::new(path, fb.clone());
     let title = ed.name();
     let opts = WindowOptions { title, app_id: "glove.TextEditor".into(), size: (640, 480), fixed: false, min_size: None };
-    if let Err(e) = run(opts, Tabs { docs: vec![ed], cur: 0 }) {
+    if let Err(e) = run(opts, Tabs { docs: vec![ed], cur: 0, fb }) {
         eprintln!("glove-edit: {e}");
     }
 }
