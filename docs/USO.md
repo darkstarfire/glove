@@ -255,8 +255,7 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   margens 3/2 cm, Times 12, 1,5, recuo de 1,25 cm, número da página em cima à direita,
   capa sem número).
 - **Imprimir e exportar**: Imprimir (Ctrl+P) sai com as folhas como na tela; Arquivo >
-  Exportar > PDF (vetorial, com as fontes embutidas); Word (.docx) e OpenDocument (.odt)
-  pelo LibreOffice, se estiver instalado (também abre e salva esses formatos).
+  Exportar como PDF (vetorial, com as fontes embutidas). O formato do Editor é o RTF.
 
 ## Instalar o Glove pela ISO
 

@@ -4983,8 +4983,6 @@ msgstr "Couldn't prepare printing: {}"
 msgid "Número de Página"
 msgstr "Page Number"
 
-msgid "O LibreOffice não conseguiu converter o arquivo."
-msgstr "LibreOffice couldn't convert the file."
 
 msgid "O texto aparece no pé da página, com o número da nota."
 msgstr "The text appears at the foot of the page, with the note number."
@@ -4992,14 +4990,10 @@ msgstr "The text appears at the foot of the page, with the note number."
 msgid "Ocultar Cores"
 msgstr "Hide Colors"
 
-msgid "OpenDocument (.odt)…"
-msgstr "OpenDocument (.odt)…"
 
 msgid "Orientação:"
 msgstr "Orientation:"
 
-msgid "PDF…"
-msgstr "PDF…"
 
 msgid "Paisagem"
 msgstr "Landscape"
@@ -5007,8 +5001,6 @@ msgstr "Landscape"
 msgid "Papel:"
 msgstr "Paper:"
 
-msgid "Para isso é preciso o LibreOffice instalado."
-msgstr "This needs LibreOffice installed."
 
 msgid "Primeira página diferente (capa sem cabeçalho e rodapé)"
 msgstr "Different first page (cover without header and footer)"
@@ -5070,8 +5062,6 @@ msgstr "Strikethrough"
 msgid "Tamanho Normal"
 msgstr "Normal Size"
 
-msgid "Word (.docx)…"
-msgstr "Word (.docx)…"
 
 msgid "× a linha"
 msgstr "× line"
@@ -5102,3 +5092,9 @@ msgstr "Letter"
 
 msgid "Ofício"
 msgstr "Legal"
+
+msgid "Exportar como PDF…"
+msgstr "Export as PDF…"
+
+msgid "O Editor abre documentos RTF e texto simples. Salve o arquivo como RTF no outro programa."
+msgstr "The Editor opens RTF documents and plain text. Save the file as RTF in the other program."

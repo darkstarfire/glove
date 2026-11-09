@@ -253,8 +253,8 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - **Table of contents**: Insert > Table of Contents and Update.
 - **ABNT** (Brazilian academic standard): File > New with ABNT Template, or Format > Apply
   ABNT Formatting.
-- **Print and export**: Print (Ctrl+P) uses the laid-out pages; File > Export > PDF (vector,
-  embedded fonts); Word (.docx) and OpenDocument (.odt) through LibreOffice when installed.
+- **Print and export**: Print (Ctrl+P) uses the laid-out pages; File > Export as PDF (vector,
+  embedded fonts). The Editor's format is RTF.
 
 ## Installing Glove from the ISO
 

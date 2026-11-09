@@ -122,8 +122,6 @@ struct Editor {
     plain: bool,
     /// Sumário a inserir (false) ou atualizar (true) quando a paginação estiver pronta.
     pending_toc: Option<bool>,
-    /// Conversão para .docx/.odt rodando (pelo LibreOffice): o resultado chega aqui.
-    converting: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
     /// Onde o documento começa (abaixo da faixa de abas).
     tab_top: f32,
     /// Arquivo aberto pelo Abrir…: vai para uma aba nova.
@@ -148,7 +146,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
-        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, plain: false, pending_toc: None, converting: None, tab_top: 0.0, open_in_tab: None };
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, plain: false, pending_toc: None, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match load(&p) {
                 Ok((doc, plain)) => {
@@ -176,19 +174,6 @@ impl Editor {
 
     fn save(&mut self, then_close: bool, ui: &mut Ui) {
         match self.path.clone() {
-            // Word e OpenDocument abertos: salva no mesmo formato (o LibreOffice converte).
-            Some(p) if matches!(ext_of(&p).as_deref(), Some("docx" | "odt" | "doc")) => {
-                let to = ext_of(&p).unwrap_or_default();
-                match convert_with_office(&rtf::write(&self.doc), &to, &p) {
-                    Ok(()) => {
-                        self.doc.modified = false;
-                        if then_close {
-                            ui.close = true;
-                        }
-                    }
-                    Err(e) => self.sheet = Sheet::Error(e),
-                }
-            }
             Some(p) => match save_file(&p, &self.contents(&p)) {
                 Ok(()) => {
                     self.doc.modified = false;
@@ -363,15 +348,11 @@ impl Editor {
                 };
                 self.sheet = Sheet::Print(glove_ui::print::PrintSheet::new(&self.name(), content));
             }
-            Some(k @ ("export-pdf" | "export-docx" | "export-odt")) => {
-                let ext = &k[7..];
+            Some("export-pdf") => {
+                let ext = "pdf";
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)).or_else(|| Some(documents_dir()));
                 let stem = self.path.as_ref().and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| tr!("Sem título").into());
-                let kind: &'static str = match ext {
-                    "pdf" => "pdf",
-                    "docx" => "docx",
-                    _ => "odt",
-                };
+                let kind: &'static str = "pdf";
                 self.sheet = Sheet::Export { fb: FileBrowser::save(dir, &format!("{stem}.{ext}")), kind };
             }
             Some("table") => self.sheet = Sheet::Table(notes::TableSheet { rows: "3".into(), cols: "3".into() }),
@@ -752,15 +733,6 @@ impl Editor {
                     self.sheet = Sheet::Error(tr!("Não consegui exportar “{}”: {}", p.display(), e));
                 }
             }
-            (Sheet::Export { kind, .. }, Choice::Picked(p)) => {
-                // Word e OpenDocument: o LibreOffice converte o RTF (sem travar a janela).
-                let rtf = rtf::write(&self.doc);
-                let (tx, rx) = std::sync::mpsc::channel();
-                std::thread::spawn(move || {
-                    let _ = tx.send(convert_with_office(&rtf, kind, &p));
-                });
-                self.converting = Some(rx);
-            }
             _ => {}
         }
     }
@@ -768,52 +740,11 @@ impl Editor {
 
 /// Arquivo que é texto simples (não RTF): .txt, código, configurações…
 fn is_plain_path(p: &Path) -> bool {
-    !matches!(ext_of(p).as_deref(), Some("rtf" | "docx" | "odt" | "doc"))
+    !matches!(ext_of(p).as_deref(), Some("rtf"))
 }
 
 fn ext_of(p: &Path) -> Option<String> {
     p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase())
-}
-
-/// O LibreOffice (para .docx e .odt), se estiver instalado.
-fn office() -> Option<PathBuf> {
-    static OFFICE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-    OFFICE
-        .get_or_init(|| {
-            let path = std::env::var_os("PATH")?;
-            std::env::split_paths(&path).flat_map(|d| ["soffice", "libreoffice"].map(|n| d.join(n))).find(|p| p.is_file())
-        })
-        .clone()
-}
-
-/// Converte com o LibreOffice: `src` (um arquivo) para a extensão `to`, numa pasta temporária.
-fn office_convert(src: &Path, to: &str) -> Result<PathBuf, String> {
-    let soffice = office().ok_or_else(|| tr!("Para isso é preciso o LibreOffice instalado.").to_string())?;
-    let dir = std::env::temp_dir().join(format!("glove-conv-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    // Perfil próprio: não briga com um LibreOffice aberto pelo usuário.
-    let profile = format!("-env:UserInstallation=file://{}", dir.join("perfil").display());
-    let ok = std::process::Command::new(soffice).args([&profile, "--headless", "--convert-to", to, "--outdir"]).arg(&dir).arg(src).output().map(|o| o.status.success()).unwrap_or(false);
-    let stem = src.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-    let out = dir.join(format!("{stem}.{}", to.split(':').next().unwrap_or(to)));
-    if ok && out.is_file() {
-        Ok(out)
-    } else {
-        Err(tr!("O LibreOffice não conseguiu converter o arquivo.").to_string())
-    }
-}
-
-/// O documento (em RTF) exportado para .docx ou .odt em `dest`.
-fn convert_with_office(rtf: &str, to: &str, dest: &Path) -> Result<(), String> {
-    let tmp = std::env::temp_dir().join(format!("glove-exportar-{}.rtf", std::process::id()));
-    std::fs::write(&tmp, rtf).map_err(|e| e.to_string())?;
-    let out = office_convert(&tmp, to)?;
-    let _ = std::fs::remove_file(&tmp);
-    std::fs::copy(&out, dest).map(|_| ()).map_err(|e| tr!("Não consegui gravar “{}”: {}", dest.display(), e).to_string())?;
-    if let Some(d) = out.parent() {
-        let _ = std::fs::remove_dir_all(d);
-    }
-    Ok(())
 }
 
 /// Grava bytes de forma segura (temporário + renomear).
@@ -825,14 +756,9 @@ fn save_bytes(path: &Path, data: &[u8]) -> std::io::Result<()> {
 
 /// Lê um arquivo: RTF vira documento rico; o resto, texto simples. Devolve se é simples.
 fn load(p: &Path) -> Result<(Doc, bool), String> {
-    // Word e OpenDocument: o LibreOffice converte para RTF e o Editor lê.
-    if matches!(ext_of(p).as_deref(), Some("docx" | "odt" | "doc")) {
-        let rtf = office_convert(p, "rtf")?;
-        let bytes = std::fs::read(&rtf).map_err(|e| e.to_string())?;
-        if let Some(d) = rtf.parent() {
-            let _ = std::fs::remove_dir_all(d);
-        }
-        return rtf::read_doc(&bytes).map(|d| (d, false));
+    // Word e OpenDocument são pacotes (zip): o Editor trabalha com RTF e texto simples.
+    if matches!(ext_of(p).as_deref(), Some("docx" | "odt" | "doc" | "pages")) {
+        return Err(tr!("O Editor abre documentos RTF e texto simples. Salve o arquivo como RTF no outro programa.").to_string());
     }
     let bytes = std::fs::read(p).map_err(|e| e.to_string())?;
     if !is_plain_path(p) || bytes.starts_with(b"{\\rtf") {
@@ -917,8 +843,6 @@ impl Editor {
                     "list-none" => menu_action = Some("list-none"),
                     "table" => menu_action = Some("table"),
                     "export-pdf" => menu_action = Some("export-pdf"),
-                    "export-docx" => menu_action = Some("export-docx"),
-                    "export-odt" => menu_action = Some("export-odt"),
                     "row-above" => menu_action = Some("row-above"),
                     "row-below" => menu_action = Some("row-below"),
                     "col-left" => menu_action = Some("col-left"),
@@ -1008,19 +932,6 @@ impl Editor {
         let enabled = !sheet_open && !used_key;
         self.view.title = self.name();
         self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
-        // Conversão para .docx/.odt terminou?
-        if let Some(rx) = &self.converting {
-            match rx.try_recv() {
-                Ok(r) => {
-                    self.converting = None;
-                    if let Err(e) = r {
-                        self.sheet = Sheet::Error(e);
-                    }
-                }
-                Err(std::sync::mpsc::TryRecvError::Empty) => ui.wake_after(std::time::Duration::from_millis(200)),
-                Err(_) => self.converting = None,
-            }
-        }
         // Sumário pedido: agora a paginação está pronta.
         if let Some(update) = self.pending_toc.take() {
             abnt::toc(&mut self.doc, &self.view, update);
@@ -1086,14 +997,7 @@ impl Editor {
                     MenuItem::Separator,
                     MenuItem::new("page-setup", tr!("Configurar Página…"), "Ctrl+Shift+P").enabled(!self.plain),
                     MenuItem::Separator,
-                    MenuItem::submenu(
-                        tr!("Exportar"),
-                        vec![
-                            MenuItem::new("export-pdf", tr!("PDF…"), "").enabled(!self.plain),
-                            MenuItem::new("export-docx", tr!("Word (.docx)…"), "").enabled(!self.plain && office().is_some()),
-                            MenuItem::new("export-odt", tr!("OpenDocument (.odt)…"), "").enabled(!self.plain && office().is_some()),
-                        ],
-                    ),
+                    MenuItem::new("export-pdf", tr!("Exportar como PDF…"), "").enabled(!self.plain),
                     MenuItem::new("print", tr!("Imprimir…"), "Ctrl+P"),
                 ],
             ),
