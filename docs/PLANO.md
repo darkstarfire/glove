@@ -715,7 +715,7 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
 - [x] 12.3 Parágrafos (M) — v0.12.3: alinhamento (esquerda, centro, direita, justificado) por parágrafo; régua
   com recuo da primeira linha, esquerdo, direito e tabulações arrastáveis; espaçamento entre linhas e
   antes/depois (Formatar > Texto > Espaçamento)
-- [ ] 12.4 RTF (G): gravar e ler (padrão dos documentos novos); abre RTF do Word, LibreOffice e TextEdit
+- [x] 12.4 RTF (G) — v0.12.4: gravar e ler (padrão dos documentos novos); abre RTF do Word, LibreOffice e TextEdit
   (fontes, cores, parágrafos, ignorando o que não conhece); Converter em Texto Simples / Rico
 - [ ] 12.5 Páginas (G): modo página (folhas A4 ou Carta sobre fundo cinza), margens, Configurar
   Página, quebra de página (Inserir > Quebra de Página); o modo "ajustar à janela" continua existindo

@@ -103,6 +103,24 @@ impl Default for ParaStyle {
     }
 }
 
+/// Papel e margens (pontos). Padrão: A4 com margens de 2,5 cm.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PageSetup {
+    pub width: f32,
+    pub height: f32,
+    pub margin_left: f32,
+    pub margin_right: f32,
+    pub margin_top: f32,
+    pub margin_bottom: f32,
+}
+
+impl Default for PageSetup {
+    fn default() -> Self {
+        let m = 2.5 * 28.3465;
+        Self { width: 595.28, height: 841.89, margin_left: m, margin_right: m, margin_top: m, margin_bottom: m }
+    }
+}
+
 /// Um trecho de `len` bytes com o mesmo estilo.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Run {
@@ -323,6 +341,7 @@ struct Step {
 
 pub struct Doc {
     pub paras: Vec<Para>,
+    pub page: PageSetup,
     pub cursor: Pos,
     pub anchor: Pos,
     /// Estilo escolhido para o que se vai digitar (Negrito sem seleção…); sai ao mexer o cursor.
@@ -348,7 +367,7 @@ impl Doc {
     }
 
     pub fn with_style(style: Rc<CharStyle>, pstyle: ParaStyle) -> Self {
-        Self { paras: vec![Para::new("", style, pstyle)], cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
+        Self { paras: vec![Para::new("", style, pstyle)], page: PageSetup::default(), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
     }
 
     /// Documento de texto simples, todo num estilo.
@@ -417,8 +436,10 @@ impl Doc {
         self.cursor != self.anchor
     }
 
+    /// A seleção em ordem, sempre dentro do texto.
     pub fn selection(&self) -> (Pos, Pos) {
-        if self.cursor <= self.anchor { (self.cursor, self.anchor) } else { (self.anchor, self.cursor) }
+        let (c, a) = (self.clamp(self.cursor), self.clamp(self.anchor));
+        if c <= a { (c, a) } else { (a, c) }
     }
 
     pub fn set_cursor(&mut self, p: Pos, extend: bool) {

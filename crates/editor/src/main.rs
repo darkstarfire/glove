@@ -5,6 +5,7 @@ mod fontbook;
 mod layout;
 mod para;
 mod rich;
+mod rtf;
 mod view;
 
 use glove_config::{tr, tr_dyn};
@@ -103,6 +104,8 @@ struct Editor {
     bar_end: f32,
     /// Marcador da régua sendo arrastado.
     ruler_drag: Option<para::RulerDrag>,
+    /// Texto simples (.txt): sem barra de formatação nem régua; grava sem estilos.
+    plain: bool,
     /// Onde o documento começa (abaixo da faixa de abas).
     tab_top: f32,
     /// Arquivo aberto pelo Abrir…: vai para uma aba nova.
@@ -127,15 +130,19 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
-        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, tab_top: 0.0, open_in_tab: None };
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, plain: false, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
-            match std::fs::read_to_string(&p) {
-                Ok(t) => {
-                    ed.doc = plain_doc(&t);
+            match load(&p) {
+                Ok((doc, plain)) => {
+                    ed.doc = doc;
+                    ed.plain = plain;
                     ed.path = Some(p);
                 }
                 // Arquivo novo: começa vazio e salva nesse caminho.
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => ed.path = Some(p),
+                Err(_) if !p.exists() => {
+                    ed.plain = is_plain_path(&p);
+                    ed.path = Some(p);
+                }
                 Err(e) => ed.sheet = Sheet::Error(tr!("Não consegui abrir “{}”: {}", p.display(), e)),
             }
         }
@@ -148,7 +155,7 @@ impl Editor {
 
     fn save(&mut self, then_close: bool, ui: &mut Ui) {
         match self.path.clone() {
-            Some(p) => match save_file(&p, &self.doc.plain_text()) {
+            Some(p) => match save_file(&p, &self.contents(&p)) {
                 Ok(()) => {
                     self.doc.modified = false;
                     if then_close {
@@ -158,16 +165,23 @@ impl Editor {
                 Err(e) => self.sheet = Sheet::Error(tr!("Não consegui salvar “{}”: {}", p.display(), e)),
             },
             None => {
-                self.sheet = Sheet::SaveAs { fb: FileBrowser::save(Some(documents_dir()), tr!("Sem título.txt")), then_close };
+                let name = if self.plain { tr!("Sem título.txt") } else { tr!("Sem título.rtf") };
+                self.sheet = Sheet::SaveAs { fb: FileBrowser::save(Some(documents_dir()), name), then_close };
             }
         }
     }
 
+    /// O que vai para o arquivo: texto simples (.txt ou modo simples) ou RTF.
+    fn contents(&self, p: &Path) -> String {
+        if self.plain || is_plain_path(p) { self.doc.plain_text() } else { rtf::write(&self.doc) }
+    }
+
     fn open(&mut self, p: PathBuf) -> Result<(), String> {
-        let t = std::fs::read_to_string(&p).map_err(|e| format!("Não consegui abrir: {e}"))?;
+        let (doc, plain) = load(&p)?;
         // Documento atual vazio e intocado: abre aqui; senão, numa janela nova.
         if self.doc.is_empty() && !self.doc.modified && self.path.is_none() {
-            self.doc = plain_doc(&t);
+            self.doc = doc;
+            self.plain = plain;
             self.view = DocView::new();
             self.path = Some(p);
         } else {
@@ -271,6 +285,30 @@ impl Editor {
             Some("superscript") => self.doc.set_char_style(&|s| s.script = 1),
             Some("subscript") => self.doc.set_char_style(&|s| s.script = -1),
             Some("colors") => self.open_colors(ColorTarget::Text),
+            Some("to-plain") => {
+                // Tira os estilos (um passo do Desfazer) e passa a gravar texto simples.
+                let text = self.doc.plain_text();
+                let mut d = plain_doc(&text);
+                d.modified = true;
+                d.page = self.doc.page.clone();
+                self.doc = d;
+                self.view = DocView::new();
+                self.plain = true;
+                if let Some(p) = &self.path {
+                    if !is_plain_path(p) {
+                        self.path = Some(p.with_extension("txt"));
+                    }
+                }
+            }
+            Some("to-rich") => {
+                self.plain = false;
+                self.doc.modified = true;
+                if let Some(p) = &self.path {
+                    if is_plain_path(p) {
+                        self.path = Some(p.with_extension("rtf"));
+                    }
+                }
+            }
             Some("spacing") => self.sheet = Sheet::Spacing(para::SpacingSheet::from(view::para_style(&self.doc))),
             Some(a) if a.starts_with("line-") => {
                 if let Some(v) = a[5..].parse::<f32>().ok() {
@@ -524,6 +562,20 @@ impl Editor {
     }
 }
 
+/// Arquivo que é texto simples (não RTF): .txt, código, configurações…
+fn is_plain_path(p: &Path) -> bool {
+    !matches!(p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(), Some("rtf"))
+}
+
+/// Lê um arquivo: RTF vira documento rico; o resto, texto simples. Devolve se é simples.
+fn load(p: &Path) -> Result<(Doc, bool), String> {
+    let bytes = std::fs::read(p).map_err(|e| e.to_string())?;
+    if !is_plain_path(p) || bytes.starts_with(b"{\\rtf") {
+        return rtf::read_doc(&bytes).map(|d| (d, false));
+    }
+    Ok((plain_doc(&String::from_utf8_lossy(&bytes)), true))
+}
+
 /// Documento de texto simples (arquivo .txt), na fonte padrão.
 fn plain_doc(text: &str) -> Doc {
     Doc::from_plain(text, Rc::new(CharStyle::default()), ParaStyle::default())
@@ -589,6 +641,8 @@ impl Editor {
                     "align-right" => menu_action = Some("align-right"),
                     "align-justify" => menu_action = Some("align-justify"),
                     "spacing" => menu_action = Some("spacing"),
+                    "to-plain" => menu_action = Some("to-plain"),
+                    "to-rich" => menu_action = Some("to-rich"),
                     "strike" | "baseline" | "superscript" | "subscript" | "hl-none" | "hl-0" | "hl-1" | "hl-2" | "hl-3" | "hl-4" => {
                         let a: &'static str = match a.as_str() {
                             "strike" => "strike",
@@ -627,7 +681,7 @@ impl Editor {
         ui.set_enabled(!sheet_open);
         let (w, h) = (ui.c.w, ui.c.h);
         let mut top = self.tab_top;
-        if self.ruler {
+        if self.ruler && !self.plain {
             self.draw_format_bar(ui, top);
             top += bar::BAR_H;
             self.draw_ruler(ui, top, RULER_H);
@@ -770,7 +824,8 @@ impl Editor {
                         ],
                     ),
                     MenuItem::Separator,
-                    MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R"),
+                    if self.plain { MenuItem::new("to-rich", tr!("Converter em Texto Rico"), "") } else { MenuItem::new("to-plain", tr!("Converter em Texto Simples"), "") },
+                    MenuItem::new("ruler", if self.ruler { tr!("Ocultar Régua") } else { tr!("Mostrar Régua") }, "Ctrl+R").enabled(!self.plain),
                 ],
             ),
         ]
