@@ -735,3 +735,6 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
   clique seleciona e o canto redimensiona (sem deformar; Desfazer volta). Gravada dentro do RTF
   (\pict com \pngblip/\jpegblip, como o Word); as imagens de RTFs do Word e do LibreOffice aparecem
   no Editor. No PDF e na impressão: JPEG como está, PNG com transparência.
+- [x] 12.11 Zoom à mão (P) — v0.12.12: barra no pé da janela com − / porcentagem / + (e Ajustar à
+  Largura), a página do cursor e as palavras; Ctrl + roda amplia em volta do ponteiro; Ctrl+Shift+.
+  e Ctrl+Shift+, aumentam e diminuem, Ctrl+0 = 100%; barra de rolagem horizontal quando a folha não cabe.

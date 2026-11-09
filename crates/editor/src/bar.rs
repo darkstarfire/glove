@@ -11,6 +11,8 @@ use crate::{ColorTarget, Editor};
 
 /// Altura da barra.
 pub const BAR_H: f32 = 32.0;
+/// Altura da barra de baixo (zoom, página, palavras).
+pub const STATUS_H: f32 = 26.0;
 
 /// Tamanhos do menu de tamanho (pontos).
 pub const SIZES: [f32; 16] = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 36.0, 48.0, 64.0, 72.0];
@@ -215,6 +217,71 @@ impl Editor {
         }
         x += 110.0;
         self.bar_end = x;
+    }
+}
+
+impl Editor {
+    /// A barra do pé da janela: zoom (− 100% +), a folha do cursor e as palavras.
+    pub fn draw_status_bar(&mut self, ui: &mut Ui, y: f32) {
+        let w = ui.c.w;
+        ui.c.fill_rect(0.0, y, w, STATUS_H, &vgrad(y, y + STATUS_H, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(216, 216, 220, 255))]));
+        ui.c.hline(0.0, y, w, rgba(160, 160, 166, 255));
+        let cy = y + (STATUS_H - 20.0) / 2.0;
+        let fb = self.fb.clone();
+        let plain = CharStyle { size: 14.0, ..CharStyle::default() };
+        let mut x = 8.0;
+        if toggle(ui, &fb, Rect::new(x, cy, 22.0, 20.0), "−", plain.clone(), false, true) {
+            self.run_action(Some("zoom-out"), ui);
+        }
+        x += 24.0;
+        // Os degraus, o valor atual (se for outro) e Ajustar à Largura no modo página.
+        let page = self.view.page_mode;
+        let z = self.view.zoom;
+        let mut vals: Vec<f32> = view::ZOOM_STEPS.to_vec();
+        let fit = page && self.view.fit_width;
+        if !fit && !vals.iter().any(|v| (v - z).abs() < 0.005) {
+            vals.push(z);
+            vals.sort_by(|a, b| a.total_cmp(b));
+        }
+        let mut opts: Vec<String> = vals.iter().map(|v| format!("{}%", (v * 100.0).round() as i32)).collect();
+        if page {
+            opts.push(glove_config::tr!("Ajustar à Largura").to_string());
+        }
+        let cur = if fit { opts.len() - 1 } else { vals.iter().position(|v| (v - z).abs() < 0.005).unwrap_or(0) };
+        let mut chosen = None;
+        let pw = if page { 136.0 } else { 76.0 };
+        ui.area(Rect::new(x, y + (STATUS_H - 22.0) / 2.0, pw, 22.0), |ui| {
+            let mut i = cur;
+            if ui.popup(&mut i, &opts, pw) {
+                chosen = Some(i);
+            }
+        });
+        if let Some(i) = chosen {
+            if i < vals.len() {
+                let pct = (vals[i] * 100.0).round() as i32;
+                self.run_action(Some(&format!("zoom-{pct}")), ui);
+            } else {
+                self.run_action(Some("zoom-fit"), ui);
+            }
+        }
+        x += pw + 2.0;
+        if toggle(ui, &fb, Rect::new(x, cy, 22.0, 20.0), "+", plain, false, true) {
+            self.run_action(Some("zoom-in"), ui);
+        }
+        x += 34.0;
+        // Folha e palavras.
+        if self.words.0 != self.doc.version {
+            self.words = (self.doc.version, self.doc.paras.iter().map(|p| p.text.split_whitespace().filter(|w| w.chars().any(char::is_alphanumeric)).count()).sum());
+        }
+        let mut info = String::new();
+        if page {
+            let (k, n) = self.view.page_info(&self.doc);
+            info.push_str(&glove_config::tr!("Página {} de {}", k, n));
+            info.push_str("   ");
+        }
+        let n = self.words.1;
+        info.push_str(&if n == 1 { glove_config::tr!("1 palavra").to_string() } else { glove_config::tr!("{} palavras", n) });
+        ui.fonts.draw(ui.c, &info, x, y + 17.0, 11.0, false, rgba(60, 60, 66, 255));
     }
 }
 

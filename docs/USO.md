@@ -242,6 +242,10 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   Estilo). Enter depois de um título volta ao corpo.
 - **Listas**: marcadores ou numeradas (barra ou Formatar > Lista); Tab no começo do item
   aprofunda, Shift+Tab volta, Enter num item vazio encerra.
+- **Zoom**: na barra do pé da janela, − e + e o menu de porcentagens (no modo página,
+  também Ajustar à Largura); Ctrl + roda do mouse amplia em volta do ponteiro; Ctrl+Shift+.
+  aumenta, Ctrl+Shift+, diminui e Ctrl+0 volta a 100%. Com a folha maior que a janela
+  aparece a barra de rolagem de baixo. A barra também mostra a página e as palavras.
 - **Páginas**: Visualizar > Modo Página (Ctrl+Shift+W) e Zoom; Arquivo > Configurar
   Página (Ctrl+Shift+P: papel, orientação, margens); Inserir > Quebra de Página (Ctrl+Enter).
 - **Cabeçalho, rodapé e notas**: Formatar > Cabeçalho e Rodapé… (campos {página},

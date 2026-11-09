@@ -118,6 +118,8 @@ struct Editor {
     panel_sync: Option<(rich::Pos, rich::Pos, u64)>,
     /// Onde a barra de formatação termina.
     bar_end: f32,
+    /// Palavras do documento (versão em que foram contadas, quantas).
+    words: (u64, usize),
     /// Marcador da régua sendo arrastado.
     ruler_drag: Option<para::RulerDrag>,
     /// Texto simples (.txt): sem barra de formatação nem régua; grava sem estilos.
@@ -148,7 +150,7 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 
 impl Editor {
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
-        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, ruler_drag: None, plain: false, pending_toc: None, tab_top: 0.0, open_in_tab: None };
+        let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, words: (u64::MAX, 0), ruler_drag: None, plain: false, pending_toc: None, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
             match load(&p) {
                 Ok((doc, plain)) => {
@@ -425,6 +427,17 @@ impl Editor {
                 self.view.reveal = true;
             }
             Some("zoom-fit") => self.view.fit_width = true,
+            Some("zoom-in") | Some("zoom-out") => {
+                let z = self.view.zoom;
+                let next = if action == Some("zoom-in") {
+                    view::ZOOM_STEPS.iter().copied().find(|v| *v > z + 0.005).unwrap_or(view::ZOOM_MAX)
+                } else {
+                    view::ZOOM_STEPS.iter().rev().copied().find(|v| *v < z - 0.005).unwrap_or(view::ZOOM_MIN)
+                };
+                self.view.fit_width = false;
+                self.view.zoom = next;
+                self.view.reveal = true;
+            }
             Some(a) if a.starts_with("zoom-") => {
                 if let Ok(v) = a[5..].parse::<f32>() {
                     self.view.fit_width = false;
@@ -844,6 +857,9 @@ impl Editor {
                     "Ctrl+Shift+P" => action = Some("page-setup"),
                     "Ctrl+Alt+N" => action = Some("footnote"),
                     "Ctrl+Shift+W" => action = Some("page-mode"),
+                    "Ctrl+0" | "Ctrl+KP_0" => action = Some("zoom-100"),
+                    "Ctrl+Shift+greater" | "Ctrl+Shift+period" | "Ctrl+greater" => action = Some("zoom-in"),
+                    "Ctrl+Shift+less" | "Ctrl+Shift+comma" | "Ctrl+less" => action = Some("zoom-out"),
                     "Ctrl+Return" | "Ctrl+KP_Enter" => action = Some("page-break"),
                     "Ctrl+B" => action = Some("bold"),
                     "Ctrl+I" => action = Some("italic"),
@@ -900,6 +916,8 @@ impl Editor {
                     "header-footer" => menu_action = Some("header-footer"),
                     "page-number" => menu_action = Some("page-number"),
                     "zoom-50" => menu_action = Some("zoom-50"),
+                    "zoom-in" => menu_action = Some("zoom-in"),
+                    "zoom-out" => menu_action = Some("zoom-out"),
                     "zoom-75" => menu_action = Some("zoom-75"),
                     "zoom-100" => menu_action = Some("zoom-100"),
                     "zoom-125" => menu_action = Some("zoom-125"),
@@ -976,7 +994,8 @@ impl Editor {
                 }
             }
         }
-        self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top), enabled);
+        self.view.ui(ui, &mut self.doc, &self.fb, Rect::new(0.0, top, w, h - top - bar::STATUS_H), enabled);
+        self.draw_status_bar(ui, h - bar::STATUS_H);
         // Sumário pedido: agora a paginação está pronta.
         if let Some(update) = self.pending_toc.take() {
             abnt::toc(&mut self.doc, &self.view, update);
@@ -1173,6 +1192,10 @@ impl Editor {
                     MenuItem::submenu(
                         tr!("Zoom"),
                         vec![
+                            MenuItem::new("zoom-in", tr!("Aumentar Zoom"), "Ctrl+Shift+period"),
+                            MenuItem::new("zoom-out", tr!("Diminuir Zoom"), "Ctrl+Shift+comma"),
+                            MenuItem::new("zoom-100", tr!("Tamanho Real"), "Ctrl+0"),
+                            MenuItem::Separator,
                             MenuItem::new("zoom-50", "50%", "").checked(!self.view.fit_width && (self.view.zoom - 0.5).abs() < 0.01),
                             MenuItem::new("zoom-75", "75%", "").checked(!self.view.fit_width && (self.view.zoom - 0.75).abs() < 0.01),
                             MenuItem::new("zoom-100", "100%", "").checked(!self.view.fit_width && (self.view.zoom - 1.0).abs() < 0.01),

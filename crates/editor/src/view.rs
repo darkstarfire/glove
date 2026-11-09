@@ -20,6 +20,10 @@ use crate::rich::{CharStyle, Doc, Frag, HeaderFooter, PageSetup, Para, ParaStyle
 /// Margens do texto no modo "ajustar à janela" (pontos).
 const MARGIN_X: f32 = 24.0;
 const MARGIN_Y: f32 = 14.0;
+/// Limites do zoom e os degraus de Aumentar/Diminuir.
+pub const ZOOM_MIN: f32 = 0.25;
+pub const ZOOM_MAX: f32 = 4.0;
+pub const ZOOM_STEPS: [f32; 9] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
 /// Modo página: espaço entre as folhas e em volta delas (pontos).
 const GAP: f32 = 18.0;
 /// Espaço do fio que separa as notas do texto (pontos).
@@ -436,6 +440,36 @@ impl DocView {
         Pos::new(pi, hit_line(p, l, fb, li, x - self.col_x - self.para_x[pi]))
     }
 
+    /// Muda o zoom mantendo parado o ponto `at` da área (pixels a partir do canto).
+    pub fn zoom_around(&mut self, zoom: f32, at: (f32, f32)) {
+        let old = self.zoom;
+        let new = zoom.clamp(ZOOM_MIN, ZOOM_MAX);
+        self.fit_width = false;
+        if (new - old).abs() < 0.0001 {
+            return;
+        }
+        self.zoom = new;
+        self.scroll = ((self.scroll + at.1) / old * new - at.1).max(0.0);
+        self.hscroll = ((self.hscroll + at.0) / old * new - at.0).max(0.0);
+    }
+
+    /// Quantas folhas (modo página) e em qual está o cursor.
+    pub fn page_info(&self, doc: &Doc) -> (usize, usize) {
+        let cur = if self.page_mode { self.caret_page(doc) } else { 0 };
+        (cur + 1, self.pages.max(1))
+    }
+
+    /// Folha em que o cursor está (modo página).
+    fn caret_page(&self, doc: &Doc) -> usize {
+        if self.lys.len() != doc.paras.len() {
+            return 0;
+        }
+        let p = &doc.paras[doc.cursor.p];
+        let Some(l) = self.cache.get(&p.id) else { return 0 };
+        let y = self.lys[doc.cursor.p][line_of(l, doc.cursor.o)];
+        (((y - GAP) / (self.page.height + GAP)).floor().max(0.0) as usize).min(self.pages.saturating_sub(1))
+    }
+
     /// Largura da coluna de texto do parágrafo (pontos).
     pub fn width_at(&self, p: usize) -> f32 {
         self.para_w.get(p).copied().unwrap_or(self.width).max(20.0)
@@ -547,13 +581,26 @@ impl DocView {
     /// A área de edição em `r`. Devolve verdadeiro se o documento mudou.
     pub fn ui(&mut self, ui: &mut Ui, doc: &mut Doc, fb: &FontBook, r: Rect, enabled: bool) -> bool {
         let sb_w = glove_ui::SCROLLBAR_W;
+        // Ctrl + roda do mouse: zoom em volta do ponteiro (o ponto debaixo dele fica parado).
+        let wheel0 = if enabled { ui.scroll_in(r) } else { 0.0 };
+        let ctrl_zoom = wheel0 != 0.0 && ui.mods().ctrl;
+        if ctrl_zoom {
+            // Um dente da roda (15) = 10%.
+            let k = (-wheel0 * 1.1f32.ln() / 15.0).exp();
+            let pt = ui.pointer();
+            self.zoom_around(self.zoom * k, (pt.0 - r.x, pt.1 - r.y));
+        }
         if self.page_mode && self.fit_width {
-            self.zoom = ((r.w - sb_w) / (doc.page.width + 2.0 * GAP)).clamp(0.25, 4.0);
+            self.zoom = ((r.w - sb_w) / (doc.page.width + 2.0 * GAP)).clamp(ZOOM_MIN, ZOOM_MAX);
         }
         let z = self.zoom;
         let width = (r.w - sb_w) / z;
         self.ensure(doc, fb, width);
         let ver = doc.version;
+        // Folha mais larga que a janela (zoom alto): barra de rolagem embaixo.
+        let full = r;
+        let wide = self.doc_w * z > r.w - sb_w + 0.5;
+        let r = if wide { Rect::new(r.x, r.y, r.w, r.h - sb_w) } else { r };
 
         // Barra de rolagem (e a roda do mouse).
         let mut scroll = self.scroll;
@@ -561,7 +608,9 @@ impl DocView {
         let wheel = ui.scroll_in(r);
         let sideways = wheel != 0.0 && ui.mods().shift;
         let inner = ui.scroll_area(r, &mut scroll, self.content_h().max(r.h), 30.0);
-        if sideways {
+        if ctrl_zoom {
+            // A roda já virou zoom: não rola.
+        } else if sideways {
             self.hscroll += wheel;
         } else {
             self.scroll = scroll;
@@ -739,6 +788,16 @@ impl DocView {
             self.hscroll = self.hscroll.clamp(0.0, max_h);
         }
         self.scroll = self.scroll.clamp(0.0, (self.content_h() - inner.h).max(0.0));
+
+        // A barra de baixo (o controle existe sempre, para a numeração não mudar).
+        if wide {
+            let mut hs = self.hscroll;
+            ui.hscrollbar(Rect::new(full.x, full.y + full.h - sb_w, full.w - sb_w, sb_w), &mut hs, self.doc_w * z, inner.w, 30.0);
+            self.hscroll = hs;
+            ui.c.fill_rect(full.x + full.w - sb_w, full.y + full.h - sb_w, sb_w, sb_w, &solid(rgba(232, 232, 236, 255)));
+        } else {
+            ui.hit(Rect::new(0.0, 0.0, 0.0, 0.0));
+        }
 
         // Desenho
         let active = ui.window_active();

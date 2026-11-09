@@ -5107,3 +5107,21 @@ msgstr "Insert Image"
 
 msgid "“{}” não é uma imagem PNG, JPEG ou WebP."
 msgstr "“{}” isn't a PNG, JPEG or WebP image."
+
+msgid "Aumentar Zoom"
+msgstr "Zoom In"
+
+msgid "Diminuir Zoom"
+msgstr "Zoom Out"
+
+msgid "Tamanho Real"
+msgstr "Actual Size"
+
+msgid "Página {} de {}"
+msgstr "Page {} of {}"
+
+msgid "1 palavra"
+msgstr "1 word"
+
+msgid "{} palavras"
+msgstr "{} words"

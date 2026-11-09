@@ -250,6 +250,10 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   (Ctrl+Alt+N; double-click the mark to edit).
 - **Tables**: Insert > Table…; Tab moves between cells (adds a row at the end); drag column
   borders; Format > Table for rows, columns, merge/split, borders and equal widths.
+- **Zoom**: in the bar at the bottom of the window, − and + and the percentage menu (in page
+  mode also Fit Width); Ctrl + mouse wheel zooms around the pointer; Ctrl+Shift+. zooms in,
+  Ctrl+Shift+, zooms out and Ctrl+0 goes back to 100%. When the page is wider than the window
+  a bottom scroll bar appears. The bar also shows the page and the word count.
 - **Images**: Insert > Image… (PNG, JPEG or WebP) or drag the image into the document. It
   sits on the text line (center the paragraph to center it); click it to select and drag the
   corner to resize. It goes along in the RTF, the PDF and printing.
