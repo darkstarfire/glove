@@ -698,3 +698,33 @@ visual gel. Cada uma será detalhada antes de começar.
   o teclado, o nome padrão vem marcado e a primeira tecla o troca, Esc desiste e, criada a pasta, o
   teclado volta ao nome do arquivo. Instalador: troca os programas pelo nome (dá para instalar com o
   Glove aberto), arquivos com dono root, e oferece remover o pacote .deb/.rpm/Arch se houver.
+
+## Fase 12 — Editor de documentos (pedido de 09/11/2026)
+
+Um Editor de Texto bom o bastante para livro, trabalhos da faculdade, formulários e relatórios, sem
+precisar de um Word. RTF é o formato padrão (abre no Word, LibreOffice e TextEdit); `.txt` continua
+texto simples, com Formatar > Converter (Ctrl+Shift+T). Atalhos com Ctrl por enquanto (a troca para o
+Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fase inteira no fim.
+
+- [ ] 12.1 Base do texto rico (G): estilo de cada trecho (fonte, tamanho, negrito, itálico, sublinhado,
+  tachado, cor, marca-texto) e de cada parágrafo (alinhamento, recuos, espaçamento, tabulações) junto
+  com o texto; desfazer/refazer e copiar/colar mantêm o estilo dentro do Editor
+- [ ] 12.2 Caracteres (M): aplicar ao trecho selecionado (ou ao que se vai digitar); menu Formatar >
+  Fonte (Mostrar Fontes, Negrito, Itálico, Sublinhado, Tachado, Maior, Menor, Mostrar Cores); painel de
+  Fontes e de Cores agindo na seleção; linhas com fontes misturadas
+- [ ] 12.3 Parágrafos (M): alinhamento (esquerda, centro, direita, justificado) por parágrafo; régua
+  com recuo da primeira linha, esquerdo, direito e tabulações arrastáveis; espaçamento entre linhas e
+  antes/depois (Formatar > Texto > Espaçamento)
+- [ ] 12.4 RTF (G): gravar e ler (padrão dos documentos novos); abre RTF do Word, LibreOffice e TextEdit
+  (fontes, cores, parágrafos, ignorando o que não conhece); Converter em Texto Simples / Rico
+- [ ] 12.5 Páginas (G): modo página (folhas A4 ou Carta sobre fundo cinza), margens, Configurar
+  Página, quebra de página (Inserir > Quebra de Página); o modo "ajustar à janela" continua existindo
+- [ ] 12.6 Cabeçalho, rodapé e notas (M): cabeçalho e rodapé com número de página, total, título e
+  data; primeira página diferente (capa sem número); notas de rodapé numeradas no pé da página
+- [ ] 12.7 Estilos e listas (M): Título, Capítulo, Seção, Subseção, Corpo, Citação; listas com
+  marcadores e numeradas (Tab aprofunda); sumário gerado dos capítulos; modelo ABNT (margens 3/2 cm,
+  Times 12, 1,5, recuo de parágrafo, número de página no canto, capa sem número)
+- [ ] 12.8 Tabelas (G): inserir tabela, acrescentar/remover linhas e colunas, juntar células, bordas e
+  largura das colunas (formulários e relatórios); gravadas e lidas no RTF
+- [ ] 12.9 Imprimir e exportar (G): exportar PDF (páginas com cabeçalho, rodapé e notas) e imprimir;
+  exportar `.docx` e `.odt` (e abrir os dois, no que der) para quem pede esses formatos
