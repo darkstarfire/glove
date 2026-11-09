@@ -343,8 +343,16 @@ impl Glove {
             if let Some((_, t)) = &g.field_tex {
                 out.extend(mem_alpha(renderer, self.grade_field_pos(), t, sc, a));
             }
+            if let Some((_, t)) = &g.dots_tex {
+                out.extend(mem_alpha(renderer, self.grade_dots_pos(), t, sc, a));
+            }
+            let pos = self.grade_grid_pos();
+            let (dx_new, dx_old) = self.grade_slide_offsets().unwrap_or((0, 0));
             if let Some((_, t)) = &g.grid_tex {
-                out.extend(mem_alpha(renderer, self.grade_grid_pos(), t, sc, a));
+                out.extend(mem_alpha(renderer, pos + Point::from((dx_new, 0)), t, sc, a));
+            }
+            if let Some((t, _, _)) = g.slide.as_ref().filter(|_| dx_old != 0 || dx_new != 0) {
+                out.extend(mem_alpha(renderer, pos + Point::from((dx_old, 0)), t, sc, a));
             }
             if let Some((_, t)) = &g.bg {
                 out.extend(mem_alpha(renderer, (0, 0).into(), t, sc, a));

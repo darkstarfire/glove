@@ -38,6 +38,8 @@ use crate::{
 };
 
 const FADE: f32 = 0.18;
+/// Troca de página: as duas páginas deslizam de lado (segundos).
+const SLIDE: f32 = 0.32;
 const FIELD_W: f32 = 240.0;
 const FIELD_H: f32 = 26.0;
 const DOTS_H: f32 = 34.0;
@@ -206,6 +208,10 @@ pub struct Grade {
     pub bg: Option<((i32, i32, u64), Tex)>,
     pub field_tex: Option<(u64, Tex)>,
     pub grid_tex: Option<(u64, Tex)>,
+    /// Bolinhas das páginas (paradas enquanto as páginas deslizam).
+    pub dots_tex: Option<(u64, Tex)>,
+    /// Página saindo: a imagem dela, o lado (1 = foi para a próxima) e o início.
+    pub slide: Option<(Tex, f32, Instant)>,
 }
 
 /// Tamanhos e posições, a partir da área livre (sem o Dock), em pontos lógicos.
@@ -524,6 +530,14 @@ impl Glove {
         if page != self.grade.page {
             if self.grade.folder.is_some() {
                 self.grade_close_folder_now();
+            }
+            // A página que sai desliza para um lado e a nova entra pelo outro
+            // (só as imagens prontas andam; nada é redesenhado).
+            if self.grade.open && self.grade.drag.is_none() {
+                if let Some((_, old)) = self.grade.grid_tex.take() {
+                    let dir = if page > self.grade.page { 1.0 } else { -1.0 };
+                    self.grade.slide = Some((old, dir, Instant::now()));
+                }
             }
             self.grade.page = page;
             self.grade.selected = None;
@@ -1280,6 +1294,52 @@ impl Glove {
         if animating {
             self.grade_tick();
         }
+        // Bolinhas das páginas, numa imagem à parte.
+        let pages = self.grade_pages();
+        let mut k = std::collections::hash_map::DefaultHasher::new();
+        (pages, self.grade.page, self.grade.fold.to_bits(), l.dots_y().to_bits(), l.x.to_bits(), self.theme_gen).hash(&mut k);
+        let key = k.finish();
+        if pages < 2 {
+            self.grade.dots_tex = None;
+        } else if self.grade.dots_tex.as_ref().map(|t| t.0) != Some(key) {
+            let fold = smooth(self.grade.fold);
+            let sc = self.scale() as f32;
+            let page = self.grade.page;
+            self.grade.dots_tex = Canvas::new((pages as f32 - 1.0) * 18.0 + 16.0, 16.0, sc)
+                .map(|mut c| {
+                    for p in 0..pages {
+                        let a = if p == page { 240.0 } else { 90.0 } * (1.0 - fold);
+                        c.fill(circle(8.0 + p as f32 * 18.0, 8.0, 3.5), &solid(rgba(255, 255, 255, a as u8)));
+                    }
+                    c
+                })
+                .map(|c| (key, to_tex(c)));
+        }
+        // Páginas deslizando: um quadro novo a cada vez até acabar.
+        if let Some((_, _, start)) = &self.grade.slide {
+            if start.elapsed().as_secs_f32() >= SLIDE {
+                self.grade.slide = None;
+            }
+            self.dirty = true;
+        }
+    }
+
+    /// Canto da imagem das bolinhas das páginas.
+    pub fn grade_dots_pos(&self) -> Point<i32, Logical> {
+        let l = self.grade_layout();
+        let pages = self.grade_pages();
+        let x0 = l.x + l.cols as f32 * l.tile_w / 2.0 - (pages as f32 - 1.0) * 9.0;
+        ((x0 - 8.0).round() as i32, (l.dots_y() - 8.0).round() as i32).into()
+    }
+
+    /// Deslocamento lateral da página nova e da que sai, durante a troca de página.
+    pub fn grade_slide_offsets(&self) -> Option<(i32, i32)> {
+        let (_, dir, start) = self.grade.slide.as_ref()?;
+        let t = (start.elapsed().as_secs_f32() / SLIDE).min(1.0);
+        // Começa rápido e freia no fim (como o Launchpad).
+        let e = 1.0 - (1.0 - t).powi(3);
+        let w = self.output_size().0 as f32;
+        Some(((dir * (1.0 - e) * w).round() as i32, (-dir * e * w).round() as i32))
     }
 
     fn grade_ensure_tile(&mut self, it: Item, l: &Layout, sc: f32) {
@@ -1352,16 +1412,6 @@ impl Glove {
             let dim = if open.is_some_and(|o| o != it) { 1.0 - 0.78 * fold } else { 1.0 };
             if let Some((_, tile)) = g.tiles.get(&it) {
                 blit(&mut c, tile, l, x, y, jiggle(it), 1.0, dim);
-            }
-        }
-        // Bolinhas das páginas.
-        let pages = (self.main_list().len() + usize::from(g.drag.as_ref().is_some_and(|d| !d.in_folder))).div_ceil(per).max(1);
-        if pages > 1 {
-            let cy = l.dots_y() - oy;
-            let x0 = l.x - ox + l.cols as f32 * l.tile_w / 2.0 - (pages as f32 - 1.0) * 9.0;
-            for p in 0..pages {
-                let a = if p == g.page { 240.0 } else { 90.0 } * (1.0 - fold);
-                c.fill(circle(x0 + p as f32 * 18.0, cy, 3.5), &solid(rgba(255, 255, 255, a as u8)));
             }
         }
         // A faixa da pasta aberta.

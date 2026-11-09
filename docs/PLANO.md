@@ -686,3 +686,9 @@ visual gel. Cada uma será detalhada antes de começar.
   das Preferências ocupa a largura toda dentro da área com rolagem (nada cortado à esquerda nem
   embaixo) e a janela fica da altura da grade. `GLOVE_PROF=1` faz o compositor registrar a cada 2 s
   quadros por segundo e o tempo de preparar e desenhar.
+- [x] 11.11 Correções (P) — v0.11.11 (glove-ui v0.2.12): Alt+Tab alterna as janelas do mesmo app
+  (antes Ctrl+`; configurações com o padrão antigo são atualizadas), juntando pelo app_id (ou pela
+  classe nos apps X11), não pelo processo: apps que abrem um processo por janela também entram.
+  "Todos os Apps": trocar de página desliza as páginas de lado (a nova entra pela direita indo para a
+  frente, pela esquerda voltando; só as imagens prontas andam, nada é redesenhado) e as bolinhas
+  ficam paradas. Ícone do Lixo: o fundo do cesto curva para baixo, como deve ser na perspectiva.

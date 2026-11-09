@@ -78,7 +78,7 @@ enum KeyAction {
     Desk(crate::desk::DeskKey),
     /// F12: abre ou fecha o Painel de Widgets.
     Dashboard,
-    /// Ctrl+`: a próxima janela do mesmo app.
+    /// Alt+Tab: a próxima janela do mesmo app.
     CycleWindows,
     /// Tecla com o Painel aberto.
     DashKey(crate::desk::DeskKey),
