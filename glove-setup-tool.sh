@@ -198,6 +198,28 @@ tamanho_kb() { du -sk "$1" | cut -f1; }
 
 lista_local() { echo "$1/share/glove/instalados.txt"; }
 
+# Copia a árvore montada ($1) para o sistema ($2) trocando cada arquivo pelo nome:
+# copia como ".novo" e renomeia. Assim dá para instalar com o Glove aberto (um
+# programa em uso não pode ser sobrescrito, "Área de texto ocupada"; renomeado, a
+# sessão atual segue com o antigo na memória e a próxima já abre o novo). Os
+# arquivos ficam com dono root, não o de quem compilou.
+copiar_sh='cd "$1" || exit 1
+find . -type d | while IFS= read -r d; do mkdir -p "$2/${d#./}" || exit 1; done
+find . ! -type d | while IFS= read -r f; do
+  alvo="$2/${f#./}"
+  rm -f "$alvo.novo"
+  cp -a "$f" "$alvo.novo" && mv -f "$alvo.novo" "$alvo" || exit 1
+  if [ "$(id -u)" = 0 ]; then chown -h root:root "$alvo"; fi
+done'
+
+# Gerenciador pelo qual o Glove está instalado como pacote (deb, rpm, arch) ou nada.
+pacote_glove() {
+    if tem dpkg-query && dpkg-query -W -f='${Status}' glove 2>/dev/null | grep -q "ok installed"; then echo deb
+    elif tem rpm && rpm -q glove >/dev/null 2>&1; then echo rpm
+    elif tem pacman && pacman -Q glove >/dev/null 2>&1; then echo arch
+    fi
+}
+
 instalar() {
     prefixo=${1:-/usr/local}
     case "$prefixo" in /*) ;; *) erro "$(t "o prefixo precisa ser um caminho absoluto" "the prefix must be an absolute path")" ;; esac
@@ -217,9 +239,25 @@ instalar() {
     mkdir -p "$tmp$(dirname "$lista")"
     (cd "$tmp" && find . ! -type d | sed 's|^\.||' | sort) > "$tmp$lista"
     echo "$lista" >> "$tmp$lista"
+    # Instalado também por pacote: os dois usam a mesma entrada de sessão (e o login
+    # abriria uma versão ou a outra). Melhor ficar só com um.
+    if [ -z "$sistema" ]; then
+        pg=$(pacote_glove)
+        if [ -n "$pg" ]; then
+            if pergunta "$(t "O Glove também está instalado por pacote ($pg). Os dois brigam pela mesma sessão. Remover o pacote antes de instalar?" "Glove is also installed as a package ($pg). Both use the same session. Remove the package before installing?")" s; then
+                case $pg in
+                    deb) root apt-get remove -y glove ;;
+                    rpm) root rpm -e glove ;;
+                    arch) root pacman -R --noconfirm glove ;;
+                esac
+            else
+                echo "$(t "Aviso: com o pacote instalado, a sessão pode continuar abrindo a versão dele." "Warning: with the package installed, the session may keep running its version.")" >&2
+            fi
+        fi
+    fi
     msg "$(t "Copiando para o sistema (pede a senha)" "Copying to the system (asks for your password)")"
     root mkdir -p "$sistema/"
-    root cp -a "$tmp/." "$sistema/"
+    root sh -c "$copiar_sh" sh "$tmp" "$sistema" || erro "$(t "a cópia para o sistema falhou" "copying to the system failed")"
     if [ -z "$sistema" ]; then
         root sh -c "$pos_instalar_sh"
     fi
