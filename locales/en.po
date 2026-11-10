@@ -5332,3 +5332,6 @@ msgstr "drawing"
 
 msgid "salva em Imagens e já copia (Ctrl+V cola)."
 msgstr "saves to Pictures and copies it (Ctrl+V pastes)."
+
+msgid "abrir ao entrar inicialização iniciar junto autostart programas aplicativos serviços systemd memória desempenho"
+msgstr "open at login startup start with autostart programs applications services systemd memory performance"

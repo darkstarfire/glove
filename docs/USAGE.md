@@ -295,7 +295,7 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - **Preferences > Appearance > Reduce effects**: no animations (minimize, Exposé,
   desktops, All Apps), no Dock magnification, no bouncing icon on launch, no window
   shadows and no pulsing alert button. Takes effect right away, no restart.
-- **Preferences > Accounts > Login Items** (or Activity Monitor > Process > Login
+- **Preferences > Startup Items** (also under Accounts, or Activity Monitor > Process > Login
   Items… / Services…): the **Applications** tab lists what opens by itself when you log
   in and how much memory each one uses now; the **Services** tab lists system services
   that tend to weigh (printing, Bluetooth, AnyDesk, Docker, SSH, automatic updates…), with

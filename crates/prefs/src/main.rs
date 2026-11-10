@@ -81,7 +81,7 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 26] = [
+const PANES: [PaneInfo; 27] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
@@ -94,6 +94,7 @@ const PANES: [PaneInfo; 26] = [
     PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
     PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
     PaneInfo { pane: Pane::Contas, id: "contas", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart serviços systemd memória desempenho" },
+    PaneInfo { pane: Pane::Inicio, id: "inicio", icon: Icon::Pref(PrefKind::LoginItems), name: "Itens de Início", category: 3, keywords: "abrir ao entrar inicialização iniciar junto autostart programas aplicativos serviços systemd memória desempenho" },
     PaneInfo { pane: Pane::Internacional, id: "internacional", icon: Icon::Pref(PrefKind::International), name: "Internacional", category: 0, keywords: "idioma língua formatos data número moeda região menu de entrada layout teclado" },
     PaneInfo { pane: Pane::Acesso, id: "acesso", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
     PaneInfo { pane: Pane::Midia, id: "midia", icon: Icon::Pref(PrefKind::Removable), name: "Mídia Removível", category: 1, keywords: "pendrive usb disco externo cartão cd dvd abrir automaticamente" },
@@ -293,11 +294,7 @@ impl Prefs {
         if std::env::args().nth(1).as_deref() == Some("protetor") {
             p.desk_tab = 1;
         }
-        if std::env::args().nth(1).as_deref() == Some("inicio") {
-            p.contas.tab = 2;
-        }
         if std::env::args().nth(1).as_deref() == Some("servicos") {
-            p.contas.tab = 2;
             p.inicio.view = 1;
         }
         if p.pane == Pane::Contas {
@@ -343,7 +340,7 @@ impl Prefs {
             "atalhos" => (Pane::Teclado, 1),
             "entrada" => (Pane::Teclado, 2),
             "protetor" => (Pane::Mesa, 0),
-            "inicio" | "servicos" => (Pane::Contas, 0),
+            "servicos" => (Pane::Inicio, 0),
             a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
         };
         Self {

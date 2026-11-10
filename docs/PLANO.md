@@ -757,7 +757,7 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   giratório mais lentos, sem animação de redimensionar. Vale na hora (o Config::load liga o ajuste).
 - [ ] 13.3 Medir no computador do usuário (P): `GLOVE_PROF=1` na sessão e nos apps, para escolher
   o próximo passo com números (o que ainda pesa: compositor, apps, fontes).
-- [x] 13.6 O que abre sozinho (M, v0.12.18): Contas ▸ Itens de Início ganhou as abas Aplicativos e
+- [x] 13.6 O que abre sozinho (M, v0.12.18; painel próprio na grade das Preferências na v0.12.22): Contas ▸ Itens de Início ganhou as abas Aplicativos e
   Serviços. Aplicativos mostra quanto cada item gasta agora (RSS dos processos da conta, pelo nome
   do programa). Serviços lista os do systemd que costumam pesar e quase sempre podem ser desligados
   (impressão, Bluetooth, modems, Avahi, AnyDesk, SSH, Docker, servidores de desenvolvimento, Exim,

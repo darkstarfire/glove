@@ -297,7 +297,7 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - **Preferências > Aparência > Reduzir efeitos**: sem animações (minimizar, Exposé,
   mesas, Todos os Apps), sem ampliação do Dock, sem o ícone pulando ao abrir, sem
   sombras nas janelas e sem o botão do alerta pulsando. Vale na hora, sem reiniciar.
-- **Preferências > Contas > Itens de Início** (ou Monitor de Atividade > Processo >
+- **Preferências > Itens de Início** (também em Contas, ou Monitor de Atividade > Processo >
   Itens de Início… / Serviços…): na aba **Aplicativos**, o que abre sozinho ao entrar e
   quanta memória cada um gasta agora; na aba **Serviços**, os serviços do sistema que
   costumam pesar (impressão, Bluetooth, AnyDesk, Docker, SSH, atualizações automáticas…),
