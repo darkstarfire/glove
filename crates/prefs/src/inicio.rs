@@ -25,6 +25,10 @@ pub struct Inicio {
     svc_sel: Option<usize>,
     /// Ligando ou desligando um serviço: (qual, resposta).
     job: Option<(usize, Receiver<Result<(), String>>)>,
+    /// Folha da senha de administrador aberta: (serviço, ligar?, pedido).
+    ask: Option<(usize, bool, crate::admin::Prompt)>,
+    scroll: f32,
+    svc_scroll: f32,
     used_h: f32,
 }
 
@@ -46,7 +50,7 @@ impl Inicio {
     }
 
     pub fn sheet_open(&self) -> bool {
-        self.picker.is_some()
+        self.picker.is_some() || self.ask.is_some()
     }
 
     /// Altura que o conteúdo pediu no último quadro (a caixa de abas acompanha).
@@ -78,18 +82,23 @@ impl Inicio {
         ui.label(tr!("Estes itens abrem sozinhos quando você entra no Glove:"));
         ui.space(6.0);
         let w = ui.available_width();
-        // A lista cresce com os itens (a janela acompanha), até 16 linhas.
-        let list_h = HEAD_H + 2.0 + self.items.len().clamp(6, 16) as f32 * ROW_H;
+        // A lista cresce com os itens (a janela acompanha), até 10 linhas; depois, rola.
+        let list_h = HEAD_H + 2.0 + self.items.len().clamp(6, 10) as f32 * ROW_H;
         let r = ui.alloc(w, list_h);
-        let mem_x = r.x + r.w - 76.0;
+        let mem_x = r.x + r.w - 76.0 - bar_width(r, self.items.len());
         table_frame(ui, r, &[(tr!("Abrir"), r.x + 8.0), (tr!("Item"), r.x + 56.0), (tr!("Comando"), r.x + r.w * 0.45), (tr!("Memória"), mem_x)]);
         let ink = rgba(20, 20, 20, 255);
         if self.items.is_empty() {
             ui.fonts.draw(ui.c, tr!("Nenhum item. Use + para escolher um aplicativo."), r.x + 12.0, r.y + HEAD_H + 22.0, 11.0, false, rgba(110, 110, 116, 255));
         }
         let mut toggle = None;
-        for (k, it) in self.items.iter().enumerate().take(((list_h - HEAD_H - 2.0) / ROW_H) as usize) {
-            let (rr, sel) = row(ui, r, k, self.sel == Some(k));
+        let mut scroll = self.scroll;
+        let (body, old_clip) = rows_begin(ui, r, self.items.len(), &mut scroll);
+        self.scroll = scroll;
+        let inside = body.contains(ui.pointer());
+        clip_to(ui, body);
+        for (k, it) in self.items.iter().enumerate() {
+            let Some((rr, sel)) = row(ui, body, scroll, k, self.sel == Some(k)) else { continue };
             let y = rr.y;
             let t = if sel { Color::WHITE } else { ink };
             let dim = if sel { Color::WHITE } else { rgba(90, 90, 96, 255) };
@@ -102,7 +111,7 @@ impl Inicio {
             let mem = self.mem.get(k).copied().flatten().map(servicos::human).unwrap_or_else(|| "—".into());
             ui.fonts.draw(ui.c, &mem, mem_x, y + 15.0, 11.0, false, dim);
             // Um clique só por linha: na coluna "Abrir" liga/desliga; no resto, escolhe.
-            if ui.hit(rr).clicked {
+            if inside && ui.hit(rr).clicked {
                 if ui.pointer().0 < rr.x + 44.0 {
                     toggle = Some(k);
                 } else {
@@ -110,6 +119,7 @@ impl Inicio {
                 }
             }
         }
+        ui.c.set_clip(old_clip);
         if let Some(k) = toggle {
             let it = self.items[k].clone();
             if let Err(e) = inicio::set_enabled(&it.id, !it.enabled) {
@@ -144,7 +154,7 @@ impl Inicio {
     }
 
     fn services_ui(&mut self, ui: &mut Ui) {
-        // Resposta do pkexec/systemctl.
+        // Resposta do systemctl.
         if let Some((k, rx)) = &self.job {
             match rx.try_recv() {
                 Ok(r) => {
@@ -160,9 +170,10 @@ impl Inicio {
         ui.label(tr!("Serviços que quase sempre podem ser desligados:"));
         ui.space(6.0);
         let w = ui.available_width();
-        let list_h = HEAD_H + 2.0 + self.services.len().clamp(6, 20) as f32 * ROW_H;
+        // Até 9 linhas (a janela acompanha); depois, a lista rola.
+        let list_h = HEAD_H + 2.0 + self.services.len().clamp(6, 9) as f32 * ROW_H;
         let r = ui.alloc(w, list_h);
-        let mem_x = r.x + r.w - 76.0;
+        let mem_x = r.x + r.w - 76.0 - bar_width(r, self.services.len());
         let state_x = mem_x - 90.0;
         table_frame(ui, r, &[(tr!("Ligado"), r.x + 8.0), (tr!("Serviço"), r.x + 56.0), (tr!("Agora"), state_x), (tr!("Memória"), mem_x)]);
         let ink = rgba(20, 20, 20, 255);
@@ -171,8 +182,13 @@ impl Inicio {
         }
         let busy = self.job.is_some();
         let mut toggle = None;
-        for (k, s) in self.services.iter().enumerate().take(((list_h - HEAD_H - 2.0) / ROW_H) as usize) {
-            let (rr, sel) = row(ui, r, k, self.svc_sel == Some(k));
+        let mut scroll = self.svc_scroll;
+        let (body, old_clip) = rows_begin(ui, r, self.services.len(), &mut scroll);
+        self.svc_scroll = scroll;
+        let inside = body.contains(ui.pointer());
+        clip_to(ui, body);
+        for (k, s) in self.services.iter().enumerate() {
+            let Some((rr, sel)) = row(ui, body, scroll, k, self.svc_sel == Some(k)) else { continue };
             let y = rr.y;
             let t = if sel { Color::WHITE } else { ink };
             let dim = if sel { Color::WHITE } else { rgba(90, 90, 96, 255) };
@@ -190,18 +206,27 @@ impl Inicio {
             ui.fonts.draw(ui.c, state, state_x, y + 15.0, 11.0, false, dim);
             let mem = s.memory.filter(|_| s.running).map(servicos::human).unwrap_or_else(|| "—".into());
             ui.fonts.draw(ui.c, &mem, mem_x, y + 15.0, 11.0, false, dim);
-            if ui.hit(rr).clicked {
+            if inside && ui.hit(rr).clicked {
                 self.svc_sel = Some(k);
                 if ui.pointer().0 < rr.x + 44.0 && !busy {
                     toggle = Some(k);
                 }
             }
         }
+        ui.c.set_clip(old_clip);
         if let Some(k) = toggle {
             let s = self.services[k].clone();
             self.message = None;
-            self.job = Some((k, servicos::set(&s, !s.on)));
-            ui.wake_after(std::time::Duration::from_millis(150));
+            let sudo = if servicos::needs_admin(&s) { crate::admin::sudo_state() } else { crate::admin::Sudo::Free };
+            if sudo == crate::admin::Sudo::Free {
+                self.start(k, !s.on, None, ui);
+            } else if sudo == crate::admin::Sudo::No {
+                self.message = Some(tr!("Só uma conta de administrador pode mudar os serviços do sistema.").to_string());
+            } else {
+                let name = servicos::known()[s.known].name;
+                let what = if s.on { tr!("Desligar o serviço “{}”.", name) } else { tr!("Ligar o serviço “{}”.", name) };
+                self.ask = Some((k, !s.on, crate::admin::Prompt::new(what)));
+            }
         }
         ui.space(6.0);
         let desc_top = ui.cursor().1;
@@ -223,8 +248,23 @@ impl Inicio {
         small_wrapped(ui, tr!("Desligar para agora e nas próximas vezes que o computador ligar. Os do sistema pedem a senha de administrador."));
     }
 
-    /// Folha com os apps instalados para escolher um.
+    /// Começa a ligar ou desligar o serviço `k`.
+    fn start(&mut self, k: usize, on: bool, password: Option<String>, ui: &mut Ui) {
+        let s = self.services[k].clone();
+        self.job = Some((k, servicos::set(&s, on, password)));
+        ui.wake_after(std::time::Duration::from_millis(150));
+    }
+
+    /// Folhas: a da senha de administrador ou a dos apps instalados para escolher um.
     pub fn picker_sheet(&mut self, ui: &mut Ui) {
+        if let Some((k, on, mut p)) = self.ask.take() {
+            match p.sheet(ui) {
+                crate::admin::Answer::Waiting => self.ask = Some((k, on, p)),
+                crate::admin::Answer::Cancel => {}
+                crate::admin::Answer::Password(pw) => self.start(k, on, Some(pw), ui),
+            }
+            return;
+        }
         let Some((apps, mut sel)) = self.picker.take() else { return };
         let (sw, sh) = (420.0, 330.0);
         let x = ((ui.c.w - sw) / 2.0).round();
@@ -293,15 +333,44 @@ fn table_frame(ui: &mut Ui, r: Rect, cols: &[(&str, f32)]) {
     }
 }
 
-/// Fundo da linha `k` (listrada ou escolhida); devolve o retângulo dela.
-fn row(ui: &mut Ui, r: Rect, k: usize, sel: bool) -> (Rect, bool) {
-    let rr = Rect::new(r.x + 1.0, r.y + HEAD_H + 1.0 + k as f32 * ROW_H, r.w - 2.0, ROW_H);
+/// Área das linhas da tabela `r` (abaixo do cabeçalho), com a barra de rolagem
+/// quando as `n` linhas não cabem. Devolve a área e o recorte que estava valendo.
+fn rows_begin(ui: &mut Ui, r: Rect, n: usize, scroll: &mut f32) -> (Rect, Option<[i32; 4]>) {
+    let body = Rect::new(r.x + 1.0, r.y + HEAD_H + 1.0, r.w - 2.0, r.h - HEAD_H - 2.0);
+    let content = n as f32 * ROW_H;
+    let inner = if content > body.h + 0.5 { ui.scroll_area(body, scroll, content, ROW_H) } else { body };
+    *scroll = scroll.clamp(0.0, (content - inner.h).max(0.0));
+    (inner, ui.c.clip())
+}
+
+/// Largura que a barra de rolagem toma da tabela `r` com `n` linhas (0 se todas cabem).
+fn bar_width(r: Rect, n: usize) -> f32 {
+    if n as f32 * ROW_H > r.h - HEAD_H - 2.0 + 0.5 { glove_ui::ui::SCROLLBAR_W } else { 0.0 }
+}
+
+/// Recorta o desenho na área das linhas (dentro do recorte que já valia).
+fn clip_to(ui: &mut Ui, body: Rect) {
+    let s = ui.c.scale;
+    let mut c = [(body.x * s).floor() as i32, (body.y * s).floor() as i32, ((body.x + body.w) * s).ceil() as i32, ((body.y + body.h) * s).ceil() as i32];
+    if let Some(o) = ui.c.clip() {
+        c = [c[0].max(o[0]), c[1].max(o[1]), c[2].min(o[2]), c[3].min(o[3])];
+    }
+    ui.c.set_clip(Some(c));
+}
+
+/// Fundo da linha `k` (listrada ou escolhida); devolve o retângulo dela, ou
+/// None quando ela está fora da área visível.
+fn row(ui: &mut Ui, body: Rect, scroll: f32, k: usize, sel: bool) -> Option<(Rect, bool)> {
+    let rr = Rect::new(body.x, body.y + k as f32 * ROW_H - scroll, body.w, ROW_H);
+    if rr.y + rr.h <= body.y || rr.y >= body.y + body.h {
+        return None;
+    }
     if sel {
         ui.c.fill_rect(rr.x, rr.y, rr.w, rr.h, &solid(ui.theme.accent));
     } else if k % 2 == 1 {
         ui.c.fill_rect(rr.x, rr.y, rr.w, rr.h, &solid(rgba(237, 243, 254, 255)));
     }
-    (rr, sel)
+    Some((rr, sel))
 }
 
 fn checkbox(ui: &mut Ui, cb: Rect, on: bool) {

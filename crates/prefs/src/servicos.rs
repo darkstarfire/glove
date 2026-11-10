@@ -116,28 +116,26 @@ pub fn installed() -> Vec<Service> {
     (0..known().len()).filter_map(|i| group(i, if known()[i].user { &usr } else { &sys })).collect()
 }
 
-/// Liga ou desliga (agora e nas próximas entradas). Roda numa linha à parte,
-/// porque o pkexec espera a senha; o resultado chega pelo canal.
-pub fn set(s: &Service, on: bool) -> Receiver<Result<(), String>> {
+/// O serviço é do sistema (precisa da senha de administrador para mudar)?
+pub fn needs_admin(s: &Service) -> bool {
+    !known()[s.known].user
+}
+
+/// Liga ou desliga (agora e nas próximas entradas). Roda numa linha à parte; o
+/// resultado chega pelo canal. `password`: a de administrador, para os do sistema
+/// (None quando o sudo não pede).
+pub fn set(s: &Service, on: bool, password: Option<String>) -> Receiver<Result<(), String>> {
+    let verb = if on { "enable" } else { "disable" };
+    if needs_admin(s) {
+        let mut args = vec!["systemctl".to_string(), verb.to_string(), "--now".to_string()];
+        args.extend(s.units.iter().cloned());
+        return crate::admin::run(args, password);
+    }
     let (tx, rx) = channel();
-    let user = known()[s.known].user;
     let units = s.units.clone();
     std::thread::spawn(move || {
-        let verb = if on { "enable" } else { "disable" };
-        let mut c = if user {
-            let mut c = Command::new("systemctl");
-            c.arg("--user");
-            c
-        } else {
-            let mut c = Command::new("pkexec");
-            c.arg("systemctl");
-            c
-        };
-        c.args([verb, "--now"]).args(&units);
-        let r = match c.output() {
+        let r = match Command::new("systemctl").args(["--user", verb, "--now"]).args(&units).output() {
             Ok(o) if o.status.success() => Ok(()),
-            // 126: a senha foi cancelada; 127: não autorizado.
-            Ok(o) if !user && matches!(o.status.code(), Some(126 | 127)) => Err(tr!("A senha de administrador não foi confirmada.").to_string()),
             Ok(o) => Err(String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("").trim().to_string()),
             Err(e) => Err(e.to_string()),
         };

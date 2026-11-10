@@ -762,7 +762,7 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   do programa). Serviços lista os do systemd que costumam pesar e quase sempre podem ser desligados
   (impressão, Bluetooth, modems, Avahi, AnyDesk, SSH, Docker, servidores de desenvolvimento, Exim,
   atualizações automáticas, indexador do GNOME…), só os instalados, com estado e memória
-  (`systemctl show`); ligar/desligar é `enable/disable --now`, com pkexec nos do sistema, numa
+  (`systemctl show`); ligar/desligar é `enable/disable --now`, com a senha de administrador numa folha da janela e `sudo -S` nos do sistema (v0.12.23: o Glove não tem agente do polkit e o pkexec ficava esperando para sempre), numa
   linha à parte. Monitor de Atividade ▸ Processo ▸ Itens de Início…/Serviços…; `glove-prefs
   servicos`. O Glove deixa de abrir pasystray, xapp-sn-watcher e o applet de impressora (volume já
   é dele; não há bandeja para os ícones).

@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use glove_config::KEYBOARD_LAYOUTS as LAYOUTS;
 
+mod admin;
 mod bluetooth;
 mod compart;
 mod contas;
@@ -248,6 +249,10 @@ struct Prefs {
     rede: rede::Rede,
     datahora: datahora::DataHora,
     inicio: inicio::Inicio,
+    /// Firewall: a folha da senha, o comando rodando e o erro, se houve.
+    fw_ask: Option<(Vec<String>, admin::Prompt)>,
+    fw_job: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
+    fw_message: Option<String>,
     contas: contas::Contas,
     internacional: internacional::Internacional,
     compart: compart::Compart,
@@ -372,6 +377,9 @@ impl Prefs {
             rede: rede::Rede::default(),
             datahora: datahora::DataHora::default(),
             inicio: inicio::Inicio::default(),
+            fw_ask: None,
+            fw_job: None,
+            fw_message: None,
             contas: contas::Contas::default(),
             internacional: internacional::Internacional::default(),
             compart: compart::Compart::default(),
@@ -1603,11 +1611,31 @@ impl Prefs {
         ui.label(if enabled { tr!("Ligado: as conexões que chegam de fora são bloqueadas (as que você abre passam).") } else { tr!("Desligado: o computador aceita conexões de fora.") });
         ui.space(6.0);
         if ui.button(if enabled { tr!("Desligar o firewall") } else { tr!("Ligar o firewall") }) {
-            let arg = if enabled { "disable" } else { "enable" };
-            // Pede a senha de administrador pelo polkit.
-            std::thread::spawn(move || {
-                let _ = std::process::Command::new("pkexec").args(["ufw", arg]).status();
-            });
+            let args: Vec<String> = ["ufw", if enabled { "disable" } else { "enable" }].iter().map(|a| a.to_string()).collect();
+            self.fw_message = None;
+            let sudo = admin::sudo_state();
+            if sudo == admin::Sudo::Free {
+                self.fw_job = Some(admin::run(args, None));
+            } else if sudo == admin::Sudo::No {
+                self.fw_message = Some(tr!("Só uma conta de administrador pode mudar o firewall.").to_string());
+            } else {
+                let what = if enabled { tr!("Desligar o firewall.") } else { tr!("Ligar o firewall.") };
+                self.fw_ask = Some((args, admin::Prompt::new(what.to_string())));
+            }
+        }
+        if let Some(rx) = &self.fw_job {
+            match rx.try_recv() {
+                Ok(r) => {
+                    self.fw_message = r.err().map(|e| tr!("Não foi possível mudar o firewall: {}", e));
+                    self.fw_job = None;
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => ui.wake_after(Duration::from_millis(150)),
+                Err(_) => self.fw_job = None,
+            }
+        }
+        if let Some(m) = self.fw_message.clone() {
+            ui.space(6.0);
+            ui.small(&m);
         }
         ui.wake_after(Duration::from_secs(2));
     }
@@ -2156,7 +2184,8 @@ impl App for Prefs {
         // Com a folha da senha aberta, só ela responde.
         let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some())
             || (matches!(self.pane, Pane::Inicio | Pane::Contas) && self.inicio.sheet_open())
-            || (self.pane == Pane::Contas && self.contas.sheet_open());
+            || (self.pane == Pane::Contas && self.contas.sheet_open())
+            || (self.pane == Pane::Seguranca && self.fw_ask.is_some());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -2242,7 +2271,13 @@ impl App for Prefs {
         });
         if sheet {
             ui.set_enabled(true);
-            if self.pane == Pane::Rede {
+            if let Some((args, mut p)) = self.fw_ask.take() {
+                match p.sheet(ui) {
+                    admin::Answer::Waiting => self.fw_ask = Some((args, p)),
+                    admin::Answer::Cancel => {}
+                    admin::Answer::Password(pw) => self.fw_job = Some(admin::run(args, Some(pw))),
+                }
+            } else if self.pane == Pane::Rede {
                 self.rede.prompt_sheet(ui);
             } else if self.contas.sheet_open() {
                 self.contas.sheets(ui);

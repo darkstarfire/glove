@@ -5335,3 +5335,27 @@ msgstr "saves to Pictures and copies it (Ctrl+V pastes)."
 
 msgid "abrir ao entrar inicialização iniciar junto autostart programas aplicativos serviços systemd memória desempenho"
 msgstr "open at login startup start with autostart programs applications services systemd memory performance"
+
+msgid "Digite a sua senha de administrador"
+msgstr "Enter your administrator password"
+
+msgid "Só uma conta de administrador pode mudar os serviços do sistema."
+msgstr "Only an administrator account can change system services."
+
+msgid "Desligar o serviço “{}”."
+msgstr "Turn off the “{}” service."
+
+msgid "Ligar o serviço “{}”."
+msgstr "Turn on the “{}” service."
+
+msgid "Só uma conta de administrador pode mudar o firewall."
+msgstr "Only an administrator account can change the firewall."
+
+msgid "Desligar o firewall."
+msgstr "Turn off the firewall."
+
+msgid "Ligar o firewall."
+msgstr "Turn on the firewall."
+
+msgid "Não foi possível mudar o firewall: {}"
+msgstr "Could not change the firewall: {}"

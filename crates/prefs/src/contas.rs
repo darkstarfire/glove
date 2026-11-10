@@ -44,8 +44,11 @@ fn prop(path: &str, name: &str) -> String {
         .unwrap_or_default()
 }
 
-fn is_admin(login: &str) -> bool {
-    Command::new("id").args(["-nG", login]).output().ok().is_some_and(|o| String::from_utf8_lossy(&o.stdout).split_whitespace().any(|g| matches!(g, "sudo" | "wheel" | "admin")))
+/// Administrador: num grupo de administradores ou, para a própria conta, aceito
+/// pelo sudo (a conta pode estar no sudoers pelo nome).
+fn is_admin(login: &str, me: &str) -> bool {
+    (login == me && crate::admin::sudo_state() != crate::admin::Sudo::No)
+        || Command::new("id").args(["-nG", login]).output().ok().is_some_and(|o| String::from_utf8_lossy(&o.stdout).split_whitespace().any(|g| matches!(g, "sudo" | "wheel" | "admin")))
 }
 
 /// Usuários do AccountsService; sem ele, os de /etc/passwd (UID 1000 ou mais).
@@ -57,7 +60,7 @@ fn accounts() -> Vec<Account> {
             .into_iter()
             .map(|p| {
                 let login = prop(&p, "UserName");
-                Account { real: prop(&p, "RealName"), icon: prop(&p, "IconFile"), admin: is_admin(&login), me: login == me, login, path: p }
+                Account { real: prop(&p, "RealName"), icon: prop(&p, "IconFile"), admin: is_admin(&login, &me), me: login == me, login, path: p }
             })
             .collect(),
         None => std::fs::read_to_string("/etc/passwd")
@@ -66,7 +69,7 @@ fn accounts() -> Vec<Account> {
             .filter_map(|l| {
                 let f: Vec<&str> = l.split(':').collect();
                 let uid: u32 = f.get(2)?.parse().ok()?;
-                ((1000..60000).contains(&uid)).then(|| Account { login: f[0].into(), real: f[4].split(',').next().unwrap_or("").into(), admin: is_admin(f[0]), me: f[0] == me, ..Default::default() })
+                ((1000..60000).contains(&uid)).then(|| Account { login: f[0].into(), real: f[4].split(',').next().unwrap_or("").into(), admin: is_admin(f[0], &me), me: f[0] == me, ..Default::default() })
             })
             .collect(),
     };
