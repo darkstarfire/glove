@@ -5125,3 +5125,9 @@ msgstr "1 word"
 
 msgid "{} palavras"
 msgstr "{} words"
+
+msgid "Reduzir efeitos (computadores mais simples)"
+msgstr "Reduce effects (simpler computers)"
+
+msgid "Sem animações, sem ampliação do Dock e sem sombras."
+msgstr "No animations, no Dock magnification and no shadows."

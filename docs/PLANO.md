@@ -738,3 +738,26 @@ Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fa
 - [x] 12.11 Zoom à mão (P) — v0.12.12: barra no pé da janela com − / porcentagem / + (e Ajustar à
   Largura), a página do cursor e as palavras; Ctrl + roda amplia em volta do ponteiro; Ctrl+Shift+.
   e Ctrl+Shift+, aumentam e diminuem, Ctrl+0 = 100%; barra de rolagem horizontal quando a folha não cabe.
+
+## Fase 13 — Computadores mais simples (pedido de 09/11/2026)
+
+O usuário notou o Glove mais pesado que o XFCE num dual-core com vídeo integrado e 4 GB.
+O que mais pesa: os apps desenham tudo no processador (tiny-skia) e redesenhavam a janela
+inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do compositor
+(sombras, animações, ampliação do Dock) gastam o vídeo integrado.
+
+- [x] 13.1 Mouse passando não redesenha (G) — v0.12.14: o kit guarda as áreas que reagem ao mouse
+  em cada quadro; movimento sem entrar nem sair de nenhuma (e sem botão) não pede quadro. Quem lê
+  a posição direto (arrastar, seguir o ponteiro) continua recebendo todo movimento. Áreas que, ao
+  serem cruzadas, não mudaram nenhum pixel são aprendidas como mudas. Medido na sessão oculta, 80
+  movimentos: Editor 80 → 0 quadros, Arquivos 80 → 10, Preferências 80 → 6; Terminal, em 40 movimentos, 40 → 0.
+- [x] 13.2 Reduzir efeitos (M) — v0.12.14: Preferências > Aparência. Animações do compositor
+  (minimizar, Exposé, mesas, Todos os Apps) terminam no quadro seguinte; sem ampliação do Dock, sem
+  pulo ao abrir, sem sombras de janela; nos apps, sem o pulso do botão do alerta, progresso e
+  giratório mais lentos, sem animação de redimensionar. Vale na hora (o Config::load liga o ajuste).
+- [ ] 13.3 Medir no computador do usuário (P): `GLOVE_PROF=1` na sessão e nos apps, para escolher
+  o próximo passo com números (o que ainda pesa: compositor, apps, fontes).
+- [ ] 13.4 Guardar desenhado o que não muda (G): fundo listrado e barras das janelas como imagem
+  pronta, redesenhando só o conteúdo.
+- [ ] 13.5 Redesenho parcial nos apps (G): quando um clique muda só um controle, refazer só a área dele.
+

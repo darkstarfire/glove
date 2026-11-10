@@ -39,7 +39,10 @@ use crate::{
 
 const FADE: f32 = 0.18;
 /// Troca de página: as duas páginas deslizam de lado (segundos).
-const SLIDE: f32 = 0.32;
+/// Duração do deslize entre páginas (segundos; quase nada com "Reduzir efeitos").
+fn slide() -> f32 {
+    glove_config::anim(std::time::Duration::from_millis(320)).as_secs_f32()
+}
 const FIELD_W: f32 = 240.0;
 const FIELD_H: f32 = 26.0;
 const DOTS_H: f32 = 34.0;
@@ -1317,7 +1320,7 @@ impl Glove {
         }
         // Páginas deslizando: um quadro novo a cada vez até acabar.
         if let Some((_, _, start)) = &self.grade.slide {
-            if start.elapsed().as_secs_f32() >= SLIDE {
+            if start.elapsed().as_secs_f32() >= slide() {
                 self.grade.slide = None;
             }
             self.dirty = true;
@@ -1335,7 +1338,7 @@ impl Glove {
     /// Deslocamento lateral da página nova e da que sai, durante a troca de página.
     pub fn grade_slide_offsets(&self) -> Option<(i32, i32)> {
         let (_, dir, start) = self.grade.slide.as_ref()?;
-        let t = (start.elapsed().as_secs_f32() / SLIDE).min(1.0);
+        let t = (start.elapsed().as_secs_f32() / slide()).min(1.0);
         // Começa rápido e freia no fim (como o Launchpad).
         let e = 1.0 - (1.0 - t).powi(3);
         let w = self.output_size().0 as f32;

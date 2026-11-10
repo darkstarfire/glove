@@ -725,6 +725,16 @@ impl Prefs {
                 self.save();
             }
         });
+        ui.space(4.0);
+        let mut reduce = self.config.appearance.reduce_effects;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut reduce, tr!("Reduzir efeitos (computadores mais simples)")) {
+                self.config.appearance.reduce_effects = reduce;
+                glove_config::set_reduce_effects(reduce);
+                self.save();
+            }
+            ui.small(tr!("Sem animações, sem ampliação do Dock e sem sombras."));
+        });
         ui.space(10.0);
         ui.separator();
         ui.space(8.0);

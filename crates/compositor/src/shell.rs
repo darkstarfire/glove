@@ -1839,7 +1839,7 @@ impl Glove {
         let (items, actions) = self.dock_model();
         let d = &self.config.dock;
         let base = d.size.clamp(24, 128) as f32;
-        let max = if d.magnification { (d.max_size as f32).max(base) } else { base };
+        let max = if d.magnification && !glove_config::reduce_effects() { (d.max_size as f32).max(base) } else { base };
         // Animação da ampliação: avança pelo relógio e pede outro quadro até acabar.
         if let Some((from, to, start)) = self.chrome.dock_zoom_anim {
             let t = (start.elapsed().as_secs_f32() / DOCK_ZOOM_SECS).min(1.0);
@@ -2024,12 +2024,15 @@ impl Glove {
                 deco.title = chrome::titlebar(&self.fonts, theme, size.w as f32, &title, &st, doc_icon, sc).map(to_tex);
                 deco.title_key = Some(tkey);
             }
-            let skey = (size.w, size.h, active, tgen);
+            // Reduzir efeitos: sem sombra (cada sombra é uma área grande misturada a cada quadro).
+            let reduce = glove_config::reduce_effects();
+            let skey = (size.w, size.h, active && !reduce, tgen ^ u64::from(reduce));
             if deco.shadow_key != Some(skey) {
-                deco.shadows = chrome::window_shadow(size.w, size.h + TITLE_H, active, sc)
-                    .into_iter()
-                    .map(|(x, y, p)| (x, y, to_tex(p)))
-                    .collect();
+                deco.shadows = if reduce {
+                    Vec::new()
+                } else {
+                    chrome::window_shadow(size.w, size.h + TITLE_H, active, sc).into_iter().map(|(x, y, p)| (x, y, to_tex(p))).collect()
+                };
                 deco.shadow_key = Some(skey);
             }
         }
@@ -2123,7 +2126,7 @@ const BOUNCE_MAX: std::time::Duration = std::time::Duration::from_secs(8);
 
 impl Glove {
     pub fn start_bounce(&mut self, app_id: &str) {
-        if app_id.is_empty() || !self.config.dock.animate_launch || self.launching.iter().any(|l| l.0.eq_ignore_ascii_case(app_id)) {
+        if app_id.is_empty() || !self.config.dock.animate_launch || glove_config::reduce_effects() || self.launching.iter().any(|l| l.0.eq_ignore_ascii_case(app_id)) {
             return;
         }
         self.launching.push((app_id.to_string(), std::time::Instant::now(), None));

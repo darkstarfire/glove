@@ -159,7 +159,8 @@ impl Editor {
         // Interação: pegar um marcador, ou clicar no vazio para pôr uma tabulação.
         let area = Rect::new(0.0, y, right_edge, h);
         let hit = ui.hit(area);
-        let (px, py) = ui.pointer();
+        // A posição só importa ao pegar ou arrastar (ler à toa faz todo movimento redesenhar).
+        let (px, py) = if hit.pressed || self.ruler_drag.is_some() { ui.pointer() } else { (-1e9, -1e9) };
         if hit.pressed {
             let near = |x: f32| (px - x).abs() <= 6.0;
             let top_half = py < y + h / 2.0;

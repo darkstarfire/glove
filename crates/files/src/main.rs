@@ -1454,7 +1454,8 @@ impl Files {
     /// um clique fora só fecha o menu (como no sistema).
     fn guard_menus(&mut self, ui: &mut Ui) {
         let full = Rect::new(0.0, 0.0, ui.c.w, ui.c.h);
-        let p = ui.pointer();
+        // Só no clique (ler a posição à toa faz todo movimento redesenhar).
+        let p = if ui.mouse_pressed() { ui.pointer() } else { (-1e9, -1e9) };
         if self.gear_open {
             let r = Self::menu_rect(ui, GEAR_MENU_X, TOOLBAR_H - 4.0, &self.gear_items());
             ui.reserve(r);
@@ -1867,8 +1868,8 @@ impl Files {
                     let (dw, dh) = (ow * fit * zoom, oh * fit * zoom);
                     // Arrastar move a foto ampliada; a rodinha aproxima e afasta.
                     let h = ui.hit(bx);
-                    let p = ui.pointer();
                     if h.down && (dw > bx.w || dh > bx.h) {
+                        let p = ui.pointer();
                         if let Some(last) = self.pv.3 {
                             self.pv.2 .0 += p.0 - last.0;
                             self.pv.2 .1 += p.1 - last.1;

@@ -265,6 +265,16 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - **Imprimir e exportar**: Imprimir (Ctrl+P) sai com as folhas como na tela; Arquivo >
   Exportar como PDF (vetorial, com as fontes embutidas). O formato do Editor é o RTF.
 
+## Computadores mais simples (Fase 13)
+
+- Os apps não redesenham mais a janela só porque o mouse passou por cima: se nada
+  muda na tela, não gastam nada. Num processador fraco era isso que mais pesava.
+- **Preferências > Aparência > Reduzir efeitos**: sem animações (minimizar, Exposé,
+  mesas, Todos os Apps), sem ampliação do Dock, sem o ícone pulando ao abrir, sem
+  sombras nas janelas e sem o botão do alerta pulsando. Vale na hora, sem reiniciar.
+- Para achar o que ainda pesa: rode um app com `GLOVE_PROF=1` no terminal (mostra o
+  tempo de cada quadro) ou a sessão inteira com `GLOVE_PROF=1`.
+
 ## Instalar o Glove pela ISO
 
 1. **Montar a ISO** (no computador onde está o código): `./glove-setup-tool.sh iso`. Ela fica em

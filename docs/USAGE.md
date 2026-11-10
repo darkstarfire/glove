@@ -263,6 +263,16 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - **Print and export**: Print (Ctrl+P) uses the laid-out pages; File > Export as PDF (vector,
   embedded fonts). The Editor's format is RTF.
 
+## Simpler computers (phase 13)
+
+- Apps no longer redraw the window just because the mouse moved over it: if nothing
+  changes on screen, they spend nothing. On a weak CPU that was the heaviest cost.
+- **Preferences > Appearance > Reduce effects**: no animations (minimize, Exposé,
+  desktops, All Apps), no Dock magnification, no bouncing icon on launch, no window
+  shadows and no pulsing alert button. Takes effect right away, no restart.
+- To find what still weighs: run an app with `GLOVE_PROF=1` in the terminal (prints the
+  time of each frame) or the whole session with `GLOVE_PROF=1`.
+
 ## Installing Glove from the ISO
 
 1. **Build the ISO** (on the computer with the source code): `./glove-setup-tool.sh iso`. It goes to

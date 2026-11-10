@@ -598,10 +598,11 @@ impl Session {
         }
 
         let resp = ui.hit(area);
-        let (px, py) = ui.pointer();
-        let py = py - top;
         let mode = *self.term.mode();
         let wheel = ui.scroll_in(area);
+        // A posição só importa com botão ou roda (ler à toa faz todo movimento redesenhar).
+        let (px, py) = if resp.pressed || resp.down || wheel != 0.0 { ui.pointer() } else { (-1.0, -1.0) };
+        let py = py - top;
         let to_program = mode.intersects(TermMode::MOUSE_MODE) && !ui.mods().shift;
         if to_program {
             // O programa (vim, htop…) recebe cliques, arrasto e roda.

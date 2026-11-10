@@ -19,7 +19,10 @@ use crate::{
     state::Glove,
 };
 
-const ANIM: Duration = Duration::from_millis(420);
+/// Duração da animação (quase nada com "Reduzir efeitos").
+fn anim() -> Duration {
+    glove_config::anim(Duration::from_millis(420))
+}
 /// Intervalo mínimo entre quadros para as janelas minimizadas.
 pub const MINIMIZED_FRAME: Duration = Duration::from_millis(500);
 
@@ -37,12 +40,12 @@ pub struct MinAnim {
 impl MinAnim {
     /// 0 = na tela, 1 = no Dock (suavizado nos dois extremos).
     pub fn progress(&self) -> f64 {
-        let t = (self.start.elapsed().as_secs_f64() / ANIM.as_secs_f64()).clamp(0.0, 1.0);
+        let t = (self.start.elapsed().as_secs_f64() / anim().as_secs_f64()).clamp(0.0, 1.0);
         let e = t * t * (3.0 - 2.0 * t);
         if self.restoring { 1.0 - e } else { e }
     }
     pub fn done(&self) -> bool {
-        self.start.elapsed() >= ANIM
+        self.start.elapsed() >= anim()
     }
 }
 

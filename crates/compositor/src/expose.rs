@@ -18,7 +18,10 @@ use crate::{
     state::Glove,
 };
 
-const ANIM: Duration = Duration::from_millis(280);
+/// Duração da animação (quase nada com "Reduzir efeitos").
+fn anim() -> Duration {
+    glove_config::anim(Duration::from_millis(280))
+}
 /// Quanto da janela fica à vista na borda, no modo mesa.
 const PEEK: f64 = 14.0;
 
@@ -71,7 +74,7 @@ pub const STRIP_H: f64 = MINI_H + 40.0;
 impl Expose {
     /// Progresso de 0 (lugar normal) a 1 (Exposé), já suavizado.
     pub fn progress(&self) -> f64 {
-        let t = |since: Instant| (since.elapsed().as_secs_f64() / ANIM.as_secs_f64()).clamp(0.0, 1.0);
+        let t = |since: Instant| (since.elapsed().as_secs_f64() / anim().as_secs_f64()).clamp(0.0, 1.0);
         let p = match &self.leaving {
             Some((since, _)) => 1.0 - t(*since),
             None => t(self.start),
@@ -213,7 +216,7 @@ impl Glove {
                 st.dirty = true;
                 let Some(e) = &st.expose else { return TimeoutAction::Drop };
                 match &e.leaving {
-                    Some((since, _)) if since.elapsed() >= ANIM => {
+                    Some((since, _)) if since.elapsed() >= anim() => {
                         let focus = e.leaving.as_ref().and_then(|l| l.1.clone());
                         st.expose = None;
                         if let Some(w) = focus {
@@ -221,7 +224,7 @@ impl Glove {
                         }
                         TimeoutAction::Drop
                     }
-                    None if e.start.elapsed() >= ANIM => TimeoutAction::Drop,
+                    None if e.start.elapsed() >= anim() => TimeoutAction::Drop,
                     _ => TimeoutAction::ToDuration(Duration::from_millis(16)),
                 }
             })
@@ -236,7 +239,7 @@ impl Glove {
         }
         // Se ainda estava entrando, volta do ponto em que está.
         let p = e.progress();
-        let back = Instant::now() - ANIM.mul_f64(1.0 - p.clamp(0.0, 1.0));
+        let back = Instant::now() - anim().mul_f64(1.0 - p.clamp(0.0, 1.0));
         e.leaving = Some((back, focus.clone()));
         e.label = None;
         if let Some(w) = &focus {

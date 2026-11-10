@@ -27,7 +27,10 @@ use crate::{
 };
 
 /// Duração do deslizar das janelas ao trocar de mesa.
-const SLIDE: Duration = Duration::from_millis(300);
+/// Duração do deslize entre mesas (quase nada com "Reduzir efeitos").
+fn slide() -> Duration {
+    glove_config::anim(Duration::from_millis(300))
+}
 /// O aviso fica na tela esse tempo e some nesse outro.
 const HUD_SHOW: Duration = Duration::from_millis(900);
 const HUD_FADE: Duration = Duration::from_millis(250);
@@ -189,7 +192,7 @@ impl Glove {
     /// Quanto as janelas que entram e as que saem estão deslocadas agora (em x ou y).
     pub fn desk_slide_offsets(&self) -> Option<(i32, i32)> {
         let s = self.mesas.slide.as_ref()?;
-        let p = ease(s.start.elapsed().as_secs_f64() / SLIDE.as_secs_f64());
+        let p = ease(s.start.elapsed().as_secs_f64() / slide().as_secs_f64());
         let (w, _) = self.output_size();
         let w = w as f64;
         let d = s.dir as f64;
@@ -215,7 +218,7 @@ impl Glove {
         let _ = self.loop_handle.insert_source(Timer::from_duration(Duration::from_millis(16)), |_, _, data| {
             let st = &mut data.state;
             st.dirty = true;
-            let sliding = st.mesas.slide.as_ref().is_some_and(|s| s.start.elapsed() < SLIDE);
+            let sliding = st.mesas.slide.as_ref().is_some_and(|s| s.start.elapsed() < slide());
             let hud = st.mesas.hud_since.is_some_and(|t| t.elapsed() < HUD_SHOW + HUD_FADE);
             if sliding || hud {
                 TimeoutAction::ToDuration(Duration::from_millis(16))
@@ -226,7 +229,7 @@ impl Glove {
     }
 
     pub fn prepare_mesas(&mut self) {
-        if self.mesas.slide.as_ref().is_some_and(|s| s.start.elapsed() >= SLIDE) {
+        if self.mesas.slide.as_ref().is_some_and(|s| s.start.elapsed() >= slide()) {
             self.mesas.slide = None;
         }
         // Janelas que fecharam no meio do deslizar.
