@@ -12,6 +12,7 @@ mod rede;
 mod smart;
 mod thumb;
 
+use std::rc::Rc;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -545,7 +546,7 @@ struct Files {
     /// Prévia: arquivo, zoom (1 = ajustar), deslocamento e o último ponto do arrasto.
     pv: (PathBuf, f32, (f32, f32), Option<(f32, f32)>),
     /// Pasta Aplicativos já montada (e quando).
-    apps_cache: HashMap<PathBuf, (std::time::Instant, Vec<Entry>)>,
+    apps_cache: HashMap<PathBuf, (std::time::Instant, Rc<Vec<Entry>>)>,
     /// Prévia da imagem selecionada (coluna de detalhes).
     thumbs: thumb::Thumbs,
     view: View,
@@ -560,7 +561,7 @@ struct Files {
     /// Texto do campo de busca da barra.
     search: String,
     hidden: bool,
-    cache: HashMap<PathBuf, (Option<SystemTime>, bool, Result<Vec<Entry>, String>)>,
+    cache: HashMap<PathBuf, (Option<SystemTime>, bool, Result<Rc<Vec<Entry>>, String>)>,
     scroll: HashMap<PathBuf, f32>,
     message: Option<String>,
     last_title: String,
@@ -1014,7 +1015,9 @@ impl Files {
     }
 
     /// Conteúdo de uma pasta, relido só se ela mudou (data de modificação).
-    fn list(&mut self, dir: &Path) -> Result<Vec<Entry>, String> {
+    /// Os itens de uma pasta. A lista é compartilhada (Rc): é consultada várias
+    /// vezes por quadro, e copiar centenas de itens a cada vez pesava.
+    fn list(&mut self, dir: &Path) -> Result<Rc<Vec<Entry>>, String> {
         // Pasta inteligente: a busca roda uma vez e fica guardada até algo mudar.
         if smart::is_smart(dir) {
             if let Some((_, _, v)) = self.cache.get(dir) {
@@ -1039,6 +1042,7 @@ impl Files {
                 })
                 .collect();
             v.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            let v = Rc::new(v);
             self.cache.insert(dir.to_path_buf(), (None, self.hidden, Ok(v.clone())));
             return Ok(v);
         }
@@ -1053,8 +1057,8 @@ impl Files {
                     *slot.lock().unwrap() = (Some(std::time::Instant::now()), false, v);
                 });
             }
-            let v = n.2.iter().map(|(name, uri)| Entry { name: name.clone(), path: PathBuf::from(format!("{}/{uri}", rede::ROOT)), kind: Kind::Server, size: 0, modified: None, link: false, app_icon: None, label: 0 }).collect();
-            return Ok(v);
+            let v: Vec<Entry> = n.2.iter().map(|(name, uri)| Entry { name: name.clone(), path: PathBuf::from(format!("{}/{uri}", rede::ROOT)), kind: Kind::Server, size: 0, modified: None, link: false, app_icon: None, label: 0 }).collect();
+            return Ok(Rc::new(v));
         }
         // Pasta Aplicativos: montada com os apps instalados. Ler todos os .desktop
         // a cada consulta (várias por quadro) deixava a janela lenta: guarda por 5 s.
@@ -1070,6 +1074,7 @@ impl Files {
                 v.push(Entry { name: tr!("Utilitários").into(), path: apps::utils_dir(), kind: Kind::Folder, size: 0, modified: None, link: false, app_icon: None, label: 0 });
             }
             v.extend(apps::all().into_iter().filter(|a| a.utility == utils).map(|a| Entry { name: a.name, path: a.path, kind: Kind::App, size: 0, modified: None, link: false, app_icon: Some(a.icon), label: 0 }));
+            let v = Rc::new(v);
             self.apps_cache.insert(dir.to_path_buf(), (std::time::Instant::now(), v.clone()));
             return Ok(v);
         }
@@ -1079,7 +1084,7 @@ impl Files {
                 return v.clone();
             }
         }
-        let v = read_dir(dir, self.hidden);
+        let v = read_dir(dir, self.hidden).map(Rc::new);
         self.cache.insert(dir.to_path_buf(), (mtime, self.hidden, v.clone()));
         v
     }
@@ -1157,7 +1162,7 @@ impl Files {
     fn selected_entry(&mut self) -> Option<Entry> {
         let sel = self.selected.clone()?;
         let dir = sel.parent()?.to_path_buf();
-        self.list(&dir).ok()?.into_iter().find(|e| e.path == sel)
+        self.list(&dir).ok()?.iter().find(|e| e.path == sel).cloned()
     }
 
     fn new_folder(&mut self) {
@@ -1962,7 +1967,8 @@ impl Files {
 
     /// Itens da lista com as pastas abertas no lugar: (item, nível), na ordem escolhida.
     fn list_rows(&mut self, dir: &Path, depth: u16, out: &mut Vec<(Entry, u16)>) {
-        let Ok(mut entries) = self.list(dir) else { return };
+        let Ok(entries) = self.list(dir) else { return };
+        let mut entries: Vec<Entry> = (*entries).clone();
         let (col, asc) = self.list_sort;
         entries.sort_by(|a, b| {
             let o = match col {
@@ -2089,7 +2095,7 @@ impl Files {
         };
         // Opções de Visualização (Ctrl+J): tamanho, nome embaixo ou ao lado, ordem e fundo.
         let cfg = self.cfg.clone();
-        let mut entries = entries;
+        let mut entries: Vec<Entry> = (*entries).clone();
         sort_entries(&mut entries, &cfg.arrange);
         let s = cfg.icon_size.clamp(32, 128) as f32;
         let px = cfg.text_size.clamp(10, 16) as f32;
@@ -2309,7 +2315,7 @@ impl Files {
                 if all.len() > 1 {
                     for p in all {
                         let dir = p.parent().map(Path::to_path_buf).unwrap_or_default();
-                        if let Some(e) = self.list(&dir).ok().and_then(|v| v.into_iter().find(|e| e.path == p)) {
+                        if let Some(e) = self.list(&dir).ok().and_then(|v| v.iter().find(|e| e.path == p).cloned()) {
                             if e.kind != Kind::Folder {
                                 self.open(&e);
                             }

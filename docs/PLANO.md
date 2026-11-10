@@ -782,5 +782,19 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   (vblank perdido) liberava a cada 1 s toda tela com quadro esperando, descartando o flip em curso;
   agora a tela guarda desde quando espera (Head.pending: Option<Instant>) e só é liberada após 1 s
   de espera real. Achado por darkstarfire (PR #1).
-  Falta: redesenhar só a área que mudou.
+  Na v0.12.19, o redesenho parcial para todo app (glove-ui 0.2.22), sem o app precisar dizer o que
+  mudou: (a) o Canvas anota cada operação de desenho (área em pixels + impressão digital dos
+  parâmetros: caminho, tinta, texto, pixels da imagem); (b) a cada quadro o app roda primeiro só
+  anotando, sem pintar (Canvas::start_record(true)); (c) a lista é comparada com a do quadro
+  anterior (diff_ops, tolera operações que entram ou saem) e as áreas diferentes são juntadas em até
+  3 retângulos (merge_rects); (d) o app roda de novo pintando só nelas (Canvas::set_region, que vale
+  junto com o set_clip do app, em superfícies encaixadas com 3 px de folga). Rascunhos (Ui::clipped,
+  editor de texto) entram na lista operação por operação (begin_sub/end_sub). Janela nova ou de
+  tamanho novo pinta tudo de uma vez, já anotando. `GLOVE_FULL_REDRAW=1` volta ao jeito antigo;
+  `GLOVE_CHECK_DAMAGE=1` pinta também o quadro inteiro e avisa se o parcial sair diferente.
+  Medido (antes → agora, por tecla): Editor 6,7 → 0,9 ms; Notas 1,6 → 0,45 ms; Arquivos em ícones
+  4,6 → 2,2 ms; em lista (pasta com 400 itens) 15,4 → 7,8 ms. No Arquivos, a lista de cada pasta
+  passou a ser compartilhada (Rc) em vez de copiada a cada consulta.
+  Falta: no Arquivos o que sobra é a conta do próprio app a cada quadro (ordenar e montar as linhas),
+  não mais o desenho.
 

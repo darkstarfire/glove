@@ -267,6 +267,10 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 
 - Apps no longer redraw the window just because the mouse moved over it: if nothing
   changes on screen, they spend nothing. On a weak CPU that was the heaviest cost.
+- Apps redraw only the part of the window that changed (the typed letter, the selected
+  row), not the whole window. If an app ever shows a stale piece on screen, run it with
+  `GLOVE_FULL_REDRAW=1` (the old way) and report it; `GLOVE_CHECK_DAMAGE=1` checks every
+  frame and prints to the terminal when it finds a difference.
 - Dragging windows no longer stutters once a second (the compositor's safety net was
   dropping the frame in flight; fix by darkstarfire).
 - **Preferences > Appearance > Reduce effects**: no animations (minimize, Exposé,

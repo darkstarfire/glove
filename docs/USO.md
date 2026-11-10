@@ -269,6 +269,10 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 
 - Os apps não redesenham mais a janela só porque o mouse passou por cima: se nada
   muda na tela, não gastam nada. Num processador fraco era isso que mais pesava.
+- Os apps redesenham só o pedaço da janela que mudou (a letra digitada, a linha
+  escolhida), não a janela inteira. Se algum app mostrar um pedaço velho na tela, rode-o
+  com `GLOVE_FULL_REDRAW=1` (o jeito antigo) e avise; `GLOVE_CHECK_DAMAGE=1` confere
+  cada quadro e escreve no terminal quando acha diferença.
 - Arrastar janelas não dá mais um tranco a cada segundo (a rede de segurança do
   compositor descartava o quadro em curso; correção de darkstarfire).
 - **Preferências > Aparência > Reduzir efeitos**: sem animações (minimizar, Exposé,
