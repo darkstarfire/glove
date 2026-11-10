@@ -281,7 +281,11 @@ impl PointerGrab<Glove> for ResizeSurfaceGrab {
         &self.start_data
     }
 
-    fn unset(&mut self, _data: &mut Glove) {}
+    fn unset(&mut self, data: &mut Glove) {
+        // Acabou de redimensionar: a seta volta ao normal.
+        data.resize_active = None;
+        data.dirty = true;
+    }
 }
 
 /// State of the resize operation.

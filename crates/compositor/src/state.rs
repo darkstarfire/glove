@@ -94,6 +94,12 @@ pub struct Glove {
     /// A seta padrão, desenhada na escala atual.
     pub cursor_tex: Option<crate::shell::Tex>,
     pub cursor_tex_scale: f64,
+    /// Setas de redimensionar: ↔, ↕, ⤡ e ⤢ (na mesma escala da seta).
+    pub resize_cursors: [Option<crate::shell::Tex>; 4],
+    /// O mouse está sobre uma borda de janela que redimensiona (quais lados).
+    pub resize_hover: Option<crate::grabs::ResizeEdge>,
+    /// Uma janela está sendo redimensionada (quais lados).
+    pub resize_active: Option<crate::grabs::ResizeEdge>,
     /// Protetor de tela na tela.
     pub saver: Option<crate::saver::ScreenSaver>,
     /// Escolhendo a área de uma captura.
@@ -249,6 +255,9 @@ impl Glove {
             dnd_icon: None,
             cursor_tex: None,
             cursor_tex_scale: 0.0,
+            resize_cursors: Default::default(),
+            resize_hover: None,
+            resize_active: None,
             effects: Default::default(),
             saver: None,
             region: None,
@@ -425,8 +434,30 @@ impl Glove {
                 t.size = t.size.to_f64().upscale(k).to_i32_round();
                 t
             });
+            for (i, angle) in [0.0, 90.0, 45.0, -45.0].into_iter().enumerate() {
+                self.resize_cursors[i] = glove_paint::chrome::cursor_resize(angle, key as f32).map(|c| {
+                    let mut t = crate::shell::to_tex(c);
+                    t.size = t.size.to_f64().upscale(k).to_i32_round();
+                    t
+                });
+            }
             self.cursor_tex_scale = key;
         }
+    }
+
+    /// A seta de redimensionar a mostrar agora (índice em `resize_cursors`), se houver.
+    pub fn resize_cursor(&self) -> Option<usize> {
+        use crate::grabs::ResizeEdge as E;
+        let e = self.resize_active.or(self.resize_hover)?;
+        let (h, v) = (e.intersects(E::LEFT | E::RIGHT), e.intersects(E::TOP | E::BOTTOM));
+        Some(match (h, v) {
+            (true, false) => 0,
+            (false, true) => 1,
+            // ⤡: canto de cima à esquerda ou de baixo à direita.
+            (true, true) if e.contains(E::TOP) == e.contains(E::LEFT) => 2,
+            (true, true) => 3,
+            _ => return None,
+        })
     }
 
     /// Depois de trocar de resolução, o ponteiro volta para dentro da tela.

@@ -704,6 +704,16 @@ impl Glove {
         }
         let hit = self.hit_test(pos);
 
+        // Borda de janela que redimensiona: a seta vira a de duas pontas.
+        let edge = match &hit {
+            Hit::Resize(_, e) => Some(*e),
+            _ => None,
+        };
+        if edge != self.resize_hover {
+            self.resize_hover = edge;
+            self.dirty = true;
+        }
+
         // Menu aberto
         // Menu aberto: passar sobre outro título troca de menu (como na época).
         if let (Some(cur), Hit::MenuBar { target: Some(t) }) = (self.chrome.menu.as_ref().map(|m| m.target), &hit) {
@@ -1207,6 +1217,7 @@ impl Glove {
                     t.send_pending_configure();
                 }
                 let grab = ResizeSurfaceGrab::start(start(pos), window, edges, Rectangle::new(loc, size));
+                self.resize_active = Some(edges);
                 pointer.set_grab(self, grab, serial, Focus::Clear);
             }
             Then::Nothing => {}
@@ -1234,6 +1245,9 @@ impl Glove {
         let pos = pointer.current_location();
         let start_data = GrabStartData { focus: None, button: 0x110, location: pos };
         let grab = ResizeSurfaceGrab::start(start_data, window, edges, Rectangle::new(loc, size));
+        // Enquanto redimensiona (inclusive pelo puxador do app), a seta é a de duas pontas.
+        self.resize_active = Some(edges);
+        self.dirty = true;
         pointer.set_grab(self, grab, serial, Focus::Clear);
     }
 }

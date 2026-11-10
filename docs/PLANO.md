@@ -809,4 +809,9 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   entram nela ao salvar (PNG por cima; JPEG ou imagem reduzida, num arquivo novo ao lado), girar ou
   copiar. Fechar ou trocar de imagem com desenhos não salvos pergunta antes. Glifo novo
   (Glyph::Pencil) e Canvas::stroke_pen na glove-ui 0.2.23.
+- [x] 14.4 Seta de redimensionar (v0.12.21): na borda das janelas (e enquanto se redimensiona,
+  inclusive pelo puxador do app) a seta vira a de duas pontas: ↔, ↕, ⤡ ou ⤢, desenhadas por código
+  (chrome::cursor_resize). A até 18 px de um canto, a borda redimensiona na diagonal.
+  `GLOVE_SHOT_CURSOR=1` põe o cursor nas capturas (depuração).
+  Falta: os apps do Glove pedirem a própria seta (texto, mão, puxador) ao compositor.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

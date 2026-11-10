@@ -278,6 +278,12 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 
+## Redimensionar janelas
+
+- Na borda de uma janela a seta do mouse vira a de duas pontas (↔, ↕ ou diagonal) e
+  continua assim enquanto você arrasta. Perto dos cantos a borda redimensiona na
+  diagonal, nas duas direções de uma vez.
+
 ## Computadores mais simples (Fase 13)
 
 - Os apps não redesenham mais a janela só porque o mouse passou por cima: se nada

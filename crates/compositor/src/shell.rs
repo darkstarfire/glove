@@ -37,6 +37,8 @@ use crate::{grabs::ResizeEdge, state::Glove};
 
 /// Largura da borda invisível para redimensionar.
 const RESIZE_BORDER: i32 = 6;
+/// A este tanto de um canto, a borda redimensiona na diagonal.
+const RESIZE_CORNER: i32 = 18;
 
 /// Uma peça desenhada: os pixels vão para a GPU no próximo quadro e a cópia
 /// na memória é descartada logo em seguida (nada fica duplicado na RAM).
@@ -652,6 +654,22 @@ impl Glove {
                     }
                     if py >= f.loc.y + f.size.h {
                         e |= ResizeEdge::BOTTOM;
+                    }
+                    // Perto de um canto, a borda redimensiona nas duas direções.
+                    let c = RESIZE_CORNER as f64;
+                    if e.intersects(ResizeEdge::LEFT | ResizeEdge::RIGHT) {
+                        if py < f.loc.y + c {
+                            e |= ResizeEdge::TOP;
+                        } else if py >= f.loc.y + f.size.h - c {
+                            e |= ResizeEdge::BOTTOM;
+                        }
+                    }
+                    if e.intersects(ResizeEdge::TOP | ResizeEdge::BOTTOM) {
+                        if px < f.loc.x + c {
+                            e |= ResizeEdge::LEFT;
+                        } else if px >= f.loc.x + f.size.w - c {
+                            e |= ResizeEdge::RIGHT;
+                        }
                     }
                     return Hit::Resize(w.clone(), e);
                 }

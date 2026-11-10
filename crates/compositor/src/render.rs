@@ -811,6 +811,18 @@ impl Glove {
             let loc = (pos + Point::<f64, Logical>::from((6.0, 6.0))).to_physical(sc).to_i32_round();
             out.extend(render_elements_from_surface_tree::<_, WaylandSurfaceRenderElement<GlesRenderer>>(renderer, icon, loc, sc, 0.9, Kind::Cursor).into_iter().map(GloveElement::Surface));
         }
+        // Na borda de uma janela (ou redimensionando): a seta de duas pontas, no
+        // lugar do cursor que o app tiver pedido.
+        if let Some(t) = self.resize_cursor().and_then(|i| self.resize_cursors[i].as_ref()) {
+            let k = self.config.access.cursor_size.clamp(1.0, 4.0) as f64;
+            let half = glove_paint::chrome::RESIZE_CURSOR_SIZE as f64 * k / 2.0;
+            let loc = Point::<f64, Logical>::from((pos.x - half, pos.y - half));
+            if let Some(buf) = t.upload(renderer) {
+                let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
+                out.push(GloveElement::Texture(TextureRenderElement::from_texture_buffer(loc.to_physical(sc), &buf, None, Some(src), Some(t.size), Kind::Cursor)));
+                return;
+            }
+        }
         match &self.cursor_status {
             CursorImageStatus::Hidden => {}
             CursorImageStatus::Surface(surface) => {
@@ -858,6 +870,11 @@ pub fn render_frame(data: &mut CalloopData) {
         crate::prof::prep(t0.elapsed());
     }
 
+    // Depuração (janela dentro de outro desktop): as setas só são preparadas na
+    // sessão de verdade; com GLOVE_SHOT_CURSOR, aqui também, para a captura.
+    if std::env::var_os("GLOVE_SHOT_CURSOR").is_some() {
+        state.prepare_cursor();
+    }
     let age = backend.buffer_age().unwrap_or(0);
     let damage = {
         let (renderer, mut fb) = match backend.bind() {
@@ -998,7 +1015,8 @@ fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path
     let sc = state.scale();
     let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);
     let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into())?;
-    let elements = state.build_elements(renderer, false);
+    // Depuração: GLOVE_SHOT_CURSOR=1 põe o cursor na captura (para conferir as setas).
+    let elements = state.build_elements(renderer, std::env::var_os("GLOVE_SHOT_CURSOR").is_some());
     let mut fb = renderer.bind(&mut tex)?;
     let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
     dt.render_output(renderer, &mut fb, 0, &elements, [0.0, 0.0, 0.0, 1.0])?;

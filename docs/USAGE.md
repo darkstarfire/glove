@@ -276,6 +276,12 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 
+## Resizing windows
+
+- On a window edge the pointer turns into the double-headed arrow (↔, ↕ or diagonal)
+  and stays that way while you drag. Near the corners the edge resizes diagonally, in
+  both directions at once.
+
 ## Simpler computers (phase 13)
 
 - Apps no longer redraw the window just because the mouse moved over it: if nothing
