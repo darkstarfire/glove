@@ -22,8 +22,12 @@ pub struct FontBook {
 }
 
 /// Arquivo e índice da face (fc-match), se houver.
-fn fc_match(family: &str, bold: bool, italic: bool) -> Option<(std::path::PathBuf, u32)> {
+fn fc_match(family: &str, bold: bool, italic: bool, truetype: bool) -> Option<(std::path::PathBuf, u32)> {
     let mut pat = family.replace([':', ','], " ");
+    // Só TrueType/OpenType (as Type 1 antigas não abrem): a mais parecida que abre.
+    if truetype {
+        pat.push_str(":fontformat=TrueType");
+    }
     if bold {
         pat.push_str(":weight=bold");
     }
@@ -54,12 +58,13 @@ impl FontBook {
         if let Some(f) = self.faces.borrow().get(&key) {
             return f.clone();
         }
-        let file = fc_match(&s.family, s.bold, s.italic);
-        if let Some(f) = &file {
+        let open = |tt: bool| fc_match(&s.family, s.bold, s.italic, tt).and_then(|(p, i)| Fonts::load_file(&p, i).map(|f| (f, (p, i))));
+        let found = open(false).or_else(|| open(true));
+        if let Some((_, f)) = &found {
             self.files.borrow_mut().insert(key.clone(), f.clone());
         }
-        let f = file
-            .and_then(|(p, i)| Fonts::load_file(&p, i))
+        let f = found
+            .map(|(f, _)| f)
             .or_else(Fonts::load_document)
             .map(Rc::new)
             .unwrap_or_else(|| Rc::new(Fonts::load_system().expect("nenhuma fonte")));

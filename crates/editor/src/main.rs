@@ -834,6 +834,13 @@ fn spawn_self(path: Option<&Path>) {
 impl Editor {
     fn ui(&mut self, ui: &mut Ui) {
         let sheet_open = !matches!(self.sheet, Sheet::None);
+        // A área dos painéis flutuantes é deles: o que se desenha antes não pega o clique ali.
+        if !sheet_open {
+            let (w, h) = (ui.c.w, ui.c.h);
+            for r in [self.fonts.rect(w, h), self.colors.rect(w, h)].into_iter().flatten() {
+                ui.reserve(r);
+            }
+        }
 
         // Atalhos (e itens de menu, que chegam como os mesmos atalhos)
         if !sheet_open {
@@ -1011,6 +1018,13 @@ impl Editor {
         if self.fonts.open || self.colors.open {
             self.sync_panels();
         }
+        // Por cima de tudo: o clique dentro dos painéis não atravessa.
+        ui.unreserved(|ui| self.panels(ui));
+        self.sheet(ui);
+    }
+
+    /// Painéis de Fontes e Cores (aplicam na seleção na hora).
+    fn panels(&mut self, ui: &mut Ui) {
         let (fam0, size0) = (self.fonts.family.clone(), self.fonts.size);
         if ui.font_panel(&mut self.fonts) {
             let (family, size) = (self.fonts.family.clone(), self.fonts.size);
@@ -1031,7 +1045,6 @@ impl Editor {
             }
             self.panel_sync = Some((self.doc.cursor, self.doc.anchor, self.doc.version));
         }
-        self.sheet(ui);
     }
 
     fn menus(&self, tabs: usize) -> Vec<Menu> {
