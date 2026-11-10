@@ -37,6 +37,53 @@ pub fn prep(d: Duration) {
     report();
 }
 
+thread_local! {
+    static LAST_VBLANK: RefCell<Option<Instant>> = const { RefCell::new(None) };
+    /// Quadros entregues ao kernel e ainda não confirmados pelo vblank: (quando, elementos).
+    static QUEUED: RefCell<std::collections::HashMap<String, (Instant, usize)>> = RefCell::new(Default::default());
+}
+
+/// Um quadro foi entregue à tela (queue_frame): começa a contar até o flip.
+pub fn queued(tela: &str, elementos: usize) {
+    // Mantém o mais antigo ainda não confirmado: o flip atrasado conta desde a entrega dele.
+    QUEUED.with(|q| {
+        q.borrow_mut().entry(tela.to_string()).or_insert((Instant::now(), elementos));
+    });
+}
+
+/// Há quanto tempo o quadro mais antigo da tela ainda espera o vblank.
+pub fn esperando(tela: &str) -> Option<Duration> {
+    QUEUED.with(|q| {
+        let q = q.borrow();
+        q.get(tela).map(|(t, _)| t.elapsed())
+    })
+}
+
+/// Um vblank chegou: se passou muito tempo desde o anterior, avisa (com GLOVE_PROF).
+pub fn vblank(tela: &str) {
+    let now = Instant::now();
+    let queued = QUEUED.with(|q| q.borrow_mut().remove(tela));
+    if !on() {
+        return;
+    }
+    if let Some((t, n)) = queued {
+        let lat = now - t;
+        if lat > Duration::from_millis(33) {
+            tracing::warn!("{tela}: quadro com {n} elementos levou {:?} para aparecer", lat);
+        }
+    }
+    LAST_VBLANK.with(|l| {
+        let mut l = l.borrow_mut();
+        if let Some(prev) = *l {
+            let gap = now - prev;
+            if gap > Duration::from_millis(50) {
+                tracing::warn!("{tela}: {:?} sem vblank", gap);
+            }
+        }
+        *l = Some(now);
+    });
+}
+
 pub fn build(d: Duration) {
     ACC.with(|a| a.borrow_mut().build += d);
 }

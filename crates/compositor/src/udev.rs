@@ -601,6 +601,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
                         tracing::warn!("vblank: {e}");
                     }
                     head.pending = false;
+                    crate::prof::vblank(&head.name);
                 }
                 if data.state.dirty || drm.heads.iter().any(|h| h.needs_frame) {
                     render_drm(data);
@@ -614,7 +615,12 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
     handle.insert_source(Timer::from_duration(Duration::from_secs(1)), |_, _, data| {
         if let Backend::Drm(drm) = &mut data.backend {
             if drm.active {
-                for h in drm.heads.iter_mut().filter(|h| h.pending) {
+                // Só libera a tela se o quadro esperar de fato há 1 s (o flip normal leva ~200 ms).
+                for h in drm.heads.iter_mut().filter(|h| h.pending && crate::prof::esperando(&h.name).is_none_or(|d| d >= std::time::Duration::from_secs(1))) {
+                    if crate::prof::on() {
+                        let espera = crate::prof::esperando(&h.name);
+                        tracing::warn!("{}: sem vblank; quadro esperando há {:?}; liberando a tela à força", h.name, espera);
+                    }
                     h.pending = false;
                     let _ = h.compositor.reset_state();
                     data.state.dirty = true;
@@ -778,7 +784,10 @@ pub fn render_drm(data: &mut CalloopData) {
             Ok(r) => {
                 if !r.is_empty {
                     match head.compositor.queue_frame(()) {
-                        Ok(()) => head.pending = true,
+                        Ok(()) => {
+                            head.pending = true;
+                            crate::prof::queued(&head.name, elements.len());
+                        }
                         Err(e) => tracing::warn!("{}: entrega do quadro: {e}", head.name),
                     }
                 }
