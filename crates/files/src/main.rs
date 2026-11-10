@@ -2653,6 +2653,13 @@ impl App for Files {
         self.quicklook_follow(ui);
         // Janela de metal do Tiger: cantos de baixo arredondados também.
         ui.c.clip_bottom_corners(6.0);
+        // Teclado e menus são tratados no começo (em `keyboard`), antes de desenhar:
+        // sem clique e sem nada que pegue teclas depois (renomear, menus, folhas), o
+        // quadro já saiu certo e não precisa da segunda passada.
+        let quiet = self.rename.is_none() && self.ctx.is_none() && !self.gear_open && self.goto.is_none() && self.ask.is_none() && self.drag.is_none() && self.message.is_none();
+        if quiet && !ui.mouse_buttons_changed() {
+            ui.settled();
+        }
     }
 
     fn watch_fd(&self) -> Option<std::os::fd::RawFd> {

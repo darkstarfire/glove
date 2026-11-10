@@ -765,5 +765,9 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   quando nada acima do documento mudou (barra, régua, abas). (b) Imagens do documento copiadas
   direto (Canvas::blit_pixmap), sem transformação: 1,5 ms → quase nada; e certas em HiDPI (antes
   sairiam com metade do tamanho). (c) A folha: sombra só nas beiradas e contorno em fios (2 → ~0,5 ms).
-  Falta: o Arquivos (trata teclas em vários pontos; precisa de cuidado) e redesenhar só a área que mudou.
+  Na v0.12.16: o Arquivos também (teclado e menus são tratados antes de desenhar; sem renomear,
+  menu ou folha abertos, o quadro já sai certo): seta 8,2 → 4,3 ms; e o brilho do metal calculado
+  numa linha só e repetido (Canvas::metal_sheen), idêntico na tela: 4,3 → ~3,2 ms, e vale para todos
+  os apps de metal. Terminal (0,7 ms) e Notas (0,9 ms) já eram baratos.
+  Falta: redesenhar só a área que mudou.
 
