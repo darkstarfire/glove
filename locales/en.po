@@ -5131,3 +5131,159 @@ msgstr "Reduce effects (simpler computers)"
 
 msgid "Sem animações, sem ampliação do Dock e sem sombras."
 msgstr "No animations, no Dock magnification and no shadows."
+
+msgid "Aplicativos"
+msgstr "Applications"
+
+msgid "Serviços"
+msgstr "Services"
+
+msgid "Memória"
+msgstr "Memory"
+
+msgid "Serviço"
+msgstr "Service"
+
+msgid "rodando"
+msgstr "running"
+
+msgid "parado"
+msgstr "stopped"
+
+msgid "mudando…"
+msgstr "changing…"
+
+msgid "Itens de Início…"
+msgstr "Login Items…"
+
+msgid "Serviços…"
+msgstr "Services…"
+
+msgid "Unidades: {}"
+msgstr "Units: {}"
+
+msgid "Memória: quanto o item gasta agora (— quando não está aberto)."
+msgstr "Memory: how much the item uses now (— when it isn't open)."
+
+msgid "Serviços que quase sempre podem ser desligados:"
+msgstr "Services that can almost always be turned off:"
+
+msgid "Nenhum dos serviços conhecidos está instalado."
+msgstr "None of the known services is installed."
+
+msgid "Escolha um serviço para ver o que ele faz."
+msgstr "Choose a service to see what it does."
+
+msgid "Desligar para agora e nas próximas vezes que o computador ligar. Os do sistema pedem a senha de administrador."
+msgstr "Turning off stops it now and the next times the computer starts. System services ask for the administrator password."
+
+msgid "A senha de administrador não foi confirmada."
+msgstr "The administrator password was not confirmed."
+
+msgid "Impressão"
+msgstr "Printing"
+
+msgid "Imprimir e achar impressoras na rede. Sem impressora, pode desligar."
+msgstr "Print and find printers on the network. Without a printer, you can turn it off."
+
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+msgid "Fones, mouses e teclados sem fio."
+msgstr "Wireless headphones, mice and keyboards."
+
+msgid "Transferência por Bluetooth"
+msgstr "Bluetooth file transfer"
+
+msgid "Mandar e receber arquivos pelo Bluetooth."
+msgstr "Send and receive files over Bluetooth."
+
+msgid "Modems 3G/4G"
+msgstr "3G/4G modems"
+
+msgid "Internet por modem USB ou chip de celular."
+msgstr "Internet through a USB modem or a phone SIM card."
+
+msgid "Descoberta na rede (Avahi)"
+msgstr "Network discovery (Avahi)"
+
+msgid "Acha impressoras e computadores na rede local."
+msgstr "Finds printers and computers on the local network."
+
+msgid "AnyDesk"
+msgstr "AnyDesk"
+
+msgid "Acesso remoto pelo AnyDesk."
+msgstr "Remote access through AnyDesk."
+
+msgid "TeamViewer"
+msgstr "TeamViewer"
+
+msgid "Acesso remoto pelo TeamViewer."
+msgstr "Remote access through TeamViewer."
+
+msgid "Acesso por SSH"
+msgstr "SSH access"
+
+msgid "Entrar neste computador pela rede com SSH."
+msgstr "Log in to this computer over the network with SSH."
+
+msgid "Docker"
+msgstr "Docker"
+
+msgid "Contêineres de desenvolvimento."
+msgstr "Development containers."
+
+msgid "Máquinas virtuais (libvirt)"
+msgstr "Virtual machines (libvirt)"
+
+msgid "Máquinas virtuais do virt-manager e do GNOME Boxes."
+msgstr "Virtual machines from virt-manager and GNOME Boxes."
+
+msgid "Servidor web Apache"
+msgstr "Apache web server"
+
+msgid "Servidor web nginx"
+msgstr "nginx web server"
+
+msgid "Servidor de páginas para desenvolvimento."
+msgstr "Web server for development."
+
+msgid "Banco de dados PostgreSQL"
+msgstr "PostgreSQL database"
+
+msgid "Banco de dados MySQL/MariaDB"
+msgstr "MySQL/MariaDB database"
+
+msgid "Banco de dados para desenvolvimento."
+msgstr "Database for development."
+
+msgid "Compartilhar com Windows (Samba)"
+msgstr "Windows sharing (Samba)"
+
+msgid "Pastas deste computador visíveis na rede do Windows."
+msgstr "Folders on this computer visible on the Windows network."
+
+msgid "E-mail do sistema (Exim)"
+msgstr "System mail (Exim)"
+
+msgid "Entrega os e-mails internos do sistema; quase ninguém precisa."
+msgstr "Delivers the system's internal mail; almost nobody needs it."
+
+msgid "Atualizações automáticas"
+msgstr "Automatic updates"
+
+msgid "Procura e baixa atualizações do sistema todo dia."
+msgstr "Looks for and downloads system updates every day."
+
+msgid "Snap"
+msgstr "Snap"
+
+msgid "Programas instalados pela loja Snap."
+msgstr "Programs installed from the Snap store."
+
+msgid "Indexador de arquivos do GNOME"
+msgstr "GNOME file indexer"
+
+msgid "Lê o conteúdo dos arquivos para a busca do GNOME; o Glove não usa."
+msgstr "Reads file contents for GNOME search; Glove doesn't use it."

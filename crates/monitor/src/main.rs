@@ -569,6 +569,12 @@ impl App for Monitor {
                     }
                 }
                 "close" => ui.close = true,
+                "startup" | "services" => {
+                    // As Preferências mostram o que abre sozinho e quanto gasta.
+                    let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-prefs"))).filter(|p| p.is_file());
+                    let arg = if a == "startup" { "inicio" } else { "servicos" };
+                    let _ = std::process::Command::new(exe.unwrap_or_else(|| "glove-prefs".into())).arg(arg).spawn();
+                }
                 _ => {}
             }
         }
@@ -644,6 +650,9 @@ impl App for Monitor {
                 vec![
                     MenuItem::new("term", tr!("Encerrar processo"), "Ctrl+Q").enabled(has),
                     MenuItem::new("kill", tr!("Forçar encerramento"), "").enabled(has),
+                    MenuItem::Separator,
+                    MenuItem::new("startup", tr!("Itens de Início…"), ""),
+                    MenuItem::new("services", tr!("Serviços…"), ""),
                     MenuItem::Separator,
                     MenuItem::new("close", tr!("Fechar janela"), "Ctrl+W"),
                 ],

@@ -757,6 +757,15 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   giratório mais lentos, sem animação de redimensionar. Vale na hora (o Config::load liga o ajuste).
 - [ ] 13.3 Medir no computador do usuário (P): `GLOVE_PROF=1` na sessão e nos apps, para escolher
   o próximo passo com números (o que ainda pesa: compositor, apps, fontes).
+- [x] 13.6 O que abre sozinho (M, v0.12.18): Contas ▸ Itens de Início ganhou as abas Aplicativos e
+  Serviços. Aplicativos mostra quanto cada item gasta agora (RSS dos processos da conta, pelo nome
+  do programa). Serviços lista os do systemd que costumam pesar e quase sempre podem ser desligados
+  (impressão, Bluetooth, modems, Avahi, AnyDesk, SSH, Docker, servidores de desenvolvimento, Exim,
+  atualizações automáticas, indexador do GNOME…), só os instalados, com estado e memória
+  (`systemctl show`); ligar/desligar é `enable/disable --now`, com pkexec nos do sistema, numa
+  linha à parte. Monitor de Atividade ▸ Processo ▸ Itens de Início…/Serviços…; `glove-prefs
+  servicos`. O Glove deixa de abrir pasystray, xapp-sn-watcher e o applet de impressora (volume já
+  é dele; não há bandeja para os ícones).
 - [ ] 13.4 Guardar desenhado o que não muda (G): fundo listrado e barras das janelas como imagem
   pronta, redesenhando só o conteúdo.
 - [~] 13.5 Menos desenho por tecla e clique (G). Feito na v0.12.15, medido no Editor digitando:

@@ -15,6 +15,7 @@ mod internacional;
 mod outros;
 mod padrao;
 mod rede;
+mod servicos;
 mod som;
 
 use glove_config::{Config, OutputsInfo};
@@ -92,7 +93,7 @@ const PANES: [PaneInfo; 26] = [
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
     PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
     PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
-    PaneInfo { pane: Pane::Contas, id: "contas", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart" },
+    PaneInfo { pane: Pane::Contas, id: "contas", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart serviços systemd memória desempenho" },
     PaneInfo { pane: Pane::Internacional, id: "internacional", icon: Icon::Pref(PrefKind::International), name: "Internacional", category: 0, keywords: "idioma língua formatos data número moeda região menu de entrada layout teclado" },
     PaneInfo { pane: Pane::Acesso, id: "acesso", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
     PaneInfo { pane: Pane::Midia, id: "midia", icon: Icon::Pref(PrefKind::Removable), name: "Mídia Removível", category: 1, keywords: "pendrive usb disco externo cartão cd dvd abrir automaticamente" },
@@ -295,6 +296,10 @@ impl Prefs {
         if std::env::args().nth(1).as_deref() == Some("inicio") {
             p.contas.tab = 2;
         }
+        if std::env::args().nth(1).as_deref() == Some("servicos") {
+            p.contas.tab = 2;
+            p.inicio.view = 1;
+        }
         if p.pane == Pane::Contas {
             p.contas.refresh();
             p.inicio.refresh();
@@ -338,7 +343,7 @@ impl Prefs {
             "atalhos" => (Pane::Teclado, 1),
             "entrada" => (Pane::Teclado, 2),
             "protetor" => (Pane::Mesa, 0),
-            "inicio" => (Pane::Contas, 0),
+            "inicio" | "servicos" => (Pane::Contas, 0),
             a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
         };
         Self {

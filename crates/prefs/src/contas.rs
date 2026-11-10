@@ -228,7 +228,8 @@ impl Contas {
         let w = ui.available_width();
         // Lista: "Minha Conta" e "Outras Contas".
         let lw = 170.0;
-        let lh = 330.0;
+        // A aba Itens de Início cresce com as listas (a janela acompanha).
+        let lh = if self.tab == 2 { 330f32.max(inicio.used_height() + 70.0) } else { 330.0 };
         ui.c.fill_rect(x0, y0, lw, lh, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(x0 + 1.0, y0 + 1.0, lw - 2.0, lh - 2.0, &solid(Color::WHITE));
         let mut y = y0 + 4.0;
