@@ -759,5 +759,11 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   o próximo passo com números (o que ainda pesa: compositor, apps, fontes).
 - [ ] 13.4 Guardar desenhado o que não muda (G): fundo listrado e barras das janelas como imagem
   pronta, redesenhando só o conteúdo.
-- [ ] 13.5 Redesenho parcial nos apps (G): quando um clique muda só um controle, refazer só a área dele.
+- [~] 13.5 Menos desenho por tecla e clique (G). Feito na v0.12.15, medido no Editor digitando:
+  14,2 → 4,2 ms por letra. (a) Ui::settled: o app avisa que o quadro já saiu certo e o kit pula a
+  segunda passada (antes, todo quadro com teclado ou clique era desenhado duas vezes); o Editor usa
+  quando nada acima do documento mudou (barra, régua, abas). (b) Imagens do documento copiadas
+  direto (Canvas::blit_pixmap), sem transformação: 1,5 ms → quase nada; e certas em HiDPI (antes
+  sairiam com metade do tamanho). (c) A folha: sombra só nas beiradas e contorno em fios (2 → ~0,5 ms).
+  Falta: o Arquivos (trata teclas em vários pontos; precisa de cuidado) e redesenhar só a área que mudou.
 

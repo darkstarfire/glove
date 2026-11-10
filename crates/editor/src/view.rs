@@ -1059,9 +1059,11 @@ impl DocView {
         }
     }
 
-    /// Desenha a imagem em (x, y) com `w` × `h` pixels.
+    /// Desenha a imagem em (x, y) com `w` × `h` (lógicos; a cópia reduzida é feita
+    /// em pixels do aparelho e copiada direto, sem transformação).
     fn draw_image(&self, c: &mut Canvas, img: &crate::rich::Image, x: f32, y: f32, w: f32, h: f32) {
-        let (wp, hp) = (w.round().max(1.0) as u32, h.round().max(1.0) as u32);
+        let sc = c.scale;
+        let (wp, hp) = ((w * sc).round().max(1.0) as u32, (h * sc).round().max(1.0) as u32);
         if wp > 8000 || hp > 8000 {
             return;
         }
@@ -1077,8 +1079,7 @@ impl DocView {
             pic.scaled = scale_pixmap(&full, wp, hp).map(|p| (wp, hp, p));
         }
         if let Some((_, _, pm)) = &pic.scaled {
-            let paint = tiny_skia::PixmapPaint::default();
-            c.draw_pixmap_t(pm.as_ref(), &paint, tiny_skia::Transform::from_translate(x.round(), y.round()));
+            c.blit_pixmap(pm, x, y);
         }
     }
 
@@ -1125,9 +1126,18 @@ impl DocView {
                 if py > view_h || py + ph < 0.0 {
                     continue;
                 }
-                c.fill_rect(px + 2.0, py + 3.0, pw, ph, &solid(rgba(0, 0, 0, 50)));
+                // Sombra só nas beiradas que aparecem (um retângulo semitransparente do
+                // tamanho da folha custava a mistura da folha inteira a cada quadro).
+                let shade = solid(rgba(0, 0, 0, 50));
+                c.fill_rect(px + pw, py + 3.0, 2.0, ph, &shade);
+                c.fill_rect(px + 2.0, py + ph, pw, 3.0, &shade);
                 c.fill_rect(px, py, pw, ph, &solid(rgba(255, 255, 255, 255)));
-                c.stroke(rrect(px - 0.5, py - 0.5, pw + 1.0, ph + 1.0, 0.0), &solid(rgba(90, 90, 96, 120)), 1.0);
+                // Contorno fino: quatro fios (mais barato que traçar o retângulo).
+                let edge = solid(rgba(90, 90, 96, 120));
+                c.fill_rect(px - 1.0, py - 1.0, pw + 2.0, 1.0, &edge);
+                c.fill_rect(px - 1.0, py + ph, pw + 2.0, 1.0, &edge);
+                c.fill_rect(px - 1.0, py, 1.0, ph, &edge);
+                c.fill_rect(px + pw, py, 1.0, ph, &edge);
                 self.draw_header_footer(c, k, px, py, fb);
                 // Notas da folha, no pé, abaixo de um fio.
                 if let Some(ids) = self.page_notes.get(k).filter(|v| !v.is_empty()) {

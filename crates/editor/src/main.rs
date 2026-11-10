@@ -1023,6 +1023,24 @@ impl Editor {
         self.sheet(ui);
     }
 
+    /// O que aparece acima do documento (barra de formatação, régua, abas): se não
+    /// mudou durante o quadro, o quadro já saiu certo e não precisa da segunda passada.
+    /// None = não dá para garantir (Localizar aberto, folha aberta).
+    fn chrome_sig(&self) -> Option<String> {
+        if self.find.is_some() || !matches!(self.sheet, Sheet::None) {
+            return None;
+        }
+        let d = &self.doc;
+        let st = (
+            view::common(d, |s| s.family.clone()),
+            view::common(d, |s| s.size.to_bits()),
+            view::common(d, |s| (s.bold, s.italic, s.underline, s.strike)),
+            view::common(d, |s| s.color),
+            view::common(d, |s| s.highlight),
+        );
+        Some(format!("{st:?}|{:?}|{}{}{}{}|{}|{}", view::para_style(d), self.ruler, self.plain, self.fonts.open, self.colors.open, d.modified, self.name()))
+    }
+
     /// Painéis de Fontes e Cores (aplicam na seleção na hora).
     fn panels(&mut self, ui: &mut Ui) {
         let (fam0, size0) = (self.fonts.family.clone(), self.fonts.size);
@@ -1286,7 +1304,13 @@ impl App for Tabs {
         }
         let cur = self.cur;
         self.docs[cur].tab_top = top;
+        let before = (self.docs.len(), self.docs[cur].chrome_sig());
         self.docs[cur].ui(ui);
+        // Digitar só muda o documento (desenhado depois da barra e da régua): se o que
+        // fica acima dele não mudou, o quadro já está certo (sem a segunda passada).
+        if self.cur == cur && before.1.is_some() && self.docs.get(cur).is_some_and(|d| (self.docs.len(), d.chrome_sig()) == before) {
+            ui.settled();
+        }
         // "Fechar" num documento com outras abas: fecha só a aba.
         if ui.close && self.docs.len() > 1 {
             ui.close = false;
