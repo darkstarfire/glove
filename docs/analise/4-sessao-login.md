@@ -75,7 +75,7 @@ systemd → greetd (root) ──PAM "greetd-greeter"──> usuário "greeter", 
    — **Alta, M**
 3. **Cliente IPC do greetd** (`crates/login/src/greetd.rs`): uns 150 linhas com `serde_json` e prefixo u32 em ordem nativa. A crate `greetd_ipc` existe, mas é fácil manter a nossa sem dependências. Modo `--fake` simula o servidor para testar dentro de uma janela (backend winit). — **Alta, P**
 4. **Energia sem D-Bus pesado:** chamar `systemctl poweroff|reboot|suspend` (logind + polkit liberam isso para a sessão ativa local, inclusive a do greeter). Assim não é preciso puxar `zbus`. — **Alta, P**
-5. **Instalação** (`data/greetd/config.toml`, `data/instalar-login.sh`): `[default_session] command="glove --greeter" user="greeter"`. O script instala o arquivo, cria `/etc/glove/login.toml`, mostra como trocar (`systemctl disable gdm && systemctl enable greetd`) e **explica como voltar**. Por segurança, nunca troca o DM sem confirmação. — **Alta, P**
+5. **Instalação** (`data/greetd/config.toml`, `data/install-login.sh`): `[default_session] command="glove --greeter" user="greeter"`. O script instala o arquivo, cria `/etc/glove/login.toml`, mostra como trocar (`systemctl disable gdm && systemctl enable greetd`) e **explica como voltar**. Por segurança, nunca troca o DM sem confirmação. — **Alta, P**
 6. **Entrada automática:** `[initial_session] user=… command="glove-session"` no greetd (equivale a "Entrar automaticamente como" em `jaguar/…Accounts`). — **Média, P**
 7. **Preferências → Contas** (`crates/prefs/src/main.rs`, novo painel):
    - Aba **Usuários**: foto, nome e tipo (admin se estiver no grupo `sudo`/`wheel`). Trocar a foto grava `~/.face` e chama o AccountsService `SetIconFile` via `busctl`.
@@ -166,7 +166,7 @@ systemd → greetd (root) ──PAM "greetd-greeter"──> usuário "greeter", 
 - `panther/installation-welcome_.png`, `-licence_-1-1.png`, `-copying_-1-3.png`: janela de ~620×440 px com **lista de etapas à esquerda**, cada uma com uma bolinha de gel (azul na atual, cinza nas futuras, com o texto apagado). Atrás das etapas, um enorme "X" de metal como marca d'água. À direita, uma caixa branca com borda de 1 px e conteúdo (título 17 px, ícones, texto). Embaixo, **Voltar** e **Continuar**. Na licença: pop-up de idioma + texto rolável. Na cópia: "Preparando…", barra em gel azul, "Tempo restante: cerca de…".
 - `panther/desktop-firstrun_.png`: o resultado do primeiro uso, com uma janela do Finder já aberta na pasta pessoal, o Dock completo e o disco na mesa.
 
-**(b)** Nada. A instalação é `cargo build` + `instalar-sessao.sh`.
+**(b)** Nada. A instalação é `cargo build` + `install-session.sh`.
 
 **(c)** Num DE para Linux, **instalar o SO é papel da distribuição**. Faz sentido ter um **assistente de primeiro uso** e, depois, um instalador do próprio Glove (pacote).
 
@@ -225,7 +225,7 @@ systemd → greetd (root) ──PAM "greetd-greeter"──> usuário "greeter", 
 
 1. **Alta, rápido** (≈1 semana): `spinner`; itens Reiniciar/Desligar/Repouso/Bloquear no menu principal; alerta com contagem + saída ordenada; painel "Iniciando sessão…".
 2. **Alta, núcleo** (≈2–3 semanas): ociosidade + DPMS + bloqueio no compositor + `glove-senha`; Forçar Encerrar com ping.
-3. **Alta, login** (≈2 semanas): `glove --greeter` + `glove-login` + IPC do greetd + `instalar-login.sh` + avatares desenhados.
+3. **Alta, login** (≈2 semanas): `glove --greeter` + `glove-login` + IPC do greetd + `install-login.sh` + avatares desenhados.
 4. **Média:** tema Plymouth gerado por `glove-arte`; Preferências Contas/Protetor; assistente de primeiro uso; Console; Perfil do Sistema; Ajuda; melhorias no Monitor.
 5. **Baixa:** troca rápida de usuário, Utilitário de Rede, Chaveiro visual, instalador.
 

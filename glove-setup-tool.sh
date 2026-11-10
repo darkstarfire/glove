@@ -765,7 +765,7 @@ Ferramenta de instalação do Glove (qualquer Linux)
 
 O pacote e o "instalar" trazem tudo, inclusive a tela de login (serviço glove-login,
 sobre o greetd). Detalhes: README.md, seção "Instalar no sistema".
-Para testar sem instalar nada: ./instalar.sh (usa os programas do projeto).
+Para testar sem instalar nada: ./install.sh (usa os programas do projeto).
 END
     else cat <<'END'
 Glove setup tool (any Linux)
@@ -782,7 +782,7 @@ Glove setup tool (any Linux)
 
 The package and "install" bring everything, including the login screen (the glove-login
 service, on top of greetd). Details: README.en.md, "Installing" section.
-To try it without installing anything: ./instalar.sh (uses the project's programs).
+To try it without installing anything: ./install.sh (uses the project's programs).
 END
     fi
 }

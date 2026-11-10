@@ -176,11 +176,11 @@ distributions' live-build is usually too old). Everything heavy stays in `iso/`,
 
 ```sh
 cargo build --release
-./instalar.sh                         # step by step: session, login screen, Plymouth
+./install.sh                         # step by step: session, login screen, Plymouth
 ./target/release/glove --monitores    # shows the display, resolution and scale the session will use
 ```
 
-`./instalar.sh` points the session at the project's own programs, so rebuilding updates it.
+`./install.sh` points the session at the project's own programs, so rebuilding updates it.
 Session log: `~/.local/state/glove/sessao.log`.
 
 ## Shortcuts (defaults, editable in Preferences)

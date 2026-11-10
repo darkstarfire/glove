@@ -31,7 +31,7 @@ use as páginas da [512pixels](https://512pixels.net/projects/aqua-screenshot-li
 ## Como cada etapa é feita
 
 1. Implementar a etapa (uma por vez, na ordem abaixo).
-2. Compilar com `./compilar.sh` (apaga antes os restos de compilações antigas). A compilação usa 6
+2. Compilar com `./build.sh` (apaga antes os restos de compilações antigas). A compilação usa 6
    núcleos (`.cargo/config.toml`), para a máquina continuar usável.
 3. Testar: `cargo test --release` e capturas de tela comparadas com as referências.
 4. Medir a memória quando a etapa mexer em processo residente (meta: máquina de 500 MB).
@@ -49,7 +49,7 @@ Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** gra
 
 - [x] Sessão própria (DRM/KMS + libinput), Monitor/Mouse/Trackpad nas Preferências
 - [x] 0.1 Dock: ampliação entra e sai suave (sem salto no primeiro movimento)
-- [x] 0.2 `compilar.sh` limpa compilações antigas; referências baixadas
+- [x] 0.2 `build.sh` limpa compilações antigas; referências baixadas
 
 ## Fase 1 — Acabamento visual rápido (o que mais salta aos olhos)
 
@@ -107,7 +107,7 @@ Meta: tela de login inteira abaixo de 25 MB.
 
 - [x] 5.1 Modo quiosque do compositor (`--greeter`: sem Dock nem menus) (M)
 - [x] 5.2 Cliente do protocolo do greetd e `glove-login`: lista de usuários com fotos, senha, painel que balança no erro, Reiniciar/Desligar (G)
-- [x] 5.3 Avatares originais desenhados por código; `data/greetd/` + `instalar-login.sh` (com volta ao gerenciador anterior) (M)
+- [x] 5.3 Avatares originais desenhados por código; `data/greetd/` + `install-login.sh` (com volta ao gerenciador anterior) (M)
 - [x] 5.4 Splash de boot e desligamento: tema Plymouth com arte gerada por código (`glove-arte`) (M)
 - [x] 5.5 Assistente de primeiro uso (teclado, data e hora, tema, foto) (M)
 
@@ -211,8 +211,8 @@ Defeitos vistos usando a sessão no dia a dia (17 capturas de tela), todos corri
   (fundo com aba e frente clara listrada); Dock em vidro cinza-lilás com os ícones passando da borda
 - [x] 9.9.14 Vídeo: o app existe (8.11) e usa o mpv para a imagem; o instalador oferece o mpv e os
   outros programas que faltarem
-- [x] 9.9.15 `./instalar.sh`: instalador que pergunta cada passo (compilar, programas que faltam, sessão,
-  tela de login com greetd e troca do gerenciador, tema do Plymouth); `--remover` desfaz
+- [x] 9.9.15 `./install.sh`: instalador que pergunta cada passo (compilar, programas que faltam, sessão,
+  tela de login com greetd e troca do gerenciador, tema do Plymouth); `--remove` desfaz
 - [x] 9.9.16 Dock refeito para o do Tiger: vidro cinza-lilás quase opaco (o tom não depende do papel de
   parede), ícones crescidos até encher a vaga e quase encostados (2 px), dentro da prateleira
 - [x] 9.9.17 Som: em português o `pw-play` lia "0.50" como 0 (vírgula decimal) e só o volume máximo

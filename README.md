@@ -193,8 +193,8 @@ de outras distribuições costuma ser velho demais). Tudo o que é pesado fica e
 
 ```sh
 cargo build --release
-./instalar.sh                         # pergunta passo a passo: sessão, tela de login, Plymouth
-sudo ./data/instalar-sessao.sh        # põe "Glove" na lista de sessões (usa os arquivos do projeto)
+./install.sh                          # pergunta passo a passo: sessão, tela de login, Plymouth
+sudo ./data/install-session.sh        # põe "Glove" na lista de sessões (usa os arquivos do projeto)
 ./target/release/glove --monitores    # mostra qual tela, resolução e escala a sessão vai usar
 ```
 
@@ -208,7 +208,7 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
 - Teclado, mouse e touchpad pelo libinput, com as preferências aplicadas na hora
 - O cursor é desenhado pelo Glove; os apps podem trocar o desenho dele (ex.: barra de texto)
 - Log da sessão: `~/.local/state/glove/sessao.log`
-- Tirar da tela de login: `sudo ./data/instalar-sessao.sh --remover`
+- Tirar da tela de login: `sudo ./data/install-session.sh --remove`
 
 Imprimir (Ctrl+P) no Editor, no Visualizador e no Correio: impressoras do CUPS, Salvar PDF e Pré-visualizar.
 
@@ -253,8 +253,8 @@ No modo de desenvolvimento (a sessão usa os programas do projeto):
 
 ```sh
 cargo build --release
-sudo ./data/instalar-login.sh            # guarda a configuração atual do greetd e instala
-sudo ./data/instalar-login.sh --remover  # devolve a configuração anterior
+sudo ./data/install-login.sh           # guarda a configuração atual do greetd e instala
+sudo ./data/install-login.sh --remove  # devolve a configuração anterior
 ```
 
 Para ver a tela numa janela, sem instalar: `glove --greeter -c "glove-login --fake"` (senha de
@@ -266,8 +266,8 @@ Tema com fundo cinza claro, orbe e giratório, desenhado por código (`glove-art
 
 ```sh
 ./target/release/glove-arte plymouth data/plymouth/glove   # (re)gera a arte
-sudo ./data/instalar-plymouth.sh             # instala e ativa (refaz o initramfs)
-sudo ./data/instalar-plymouth.sh --remover   # volta ao tema anterior
+sudo ./data/install-plymouth.sh           # instala e ativa (refaz o initramfs)
+sudo ./data/install-plymouth.sh --remove  # volta ao tema anterior
 ```
 
 ## Idiomas
@@ -299,7 +299,7 @@ require_password = true   # pede a senha ao voltar (tela apagada, Repouso, tampa
 bottom_right = "mesa"
 ```
 
-O desbloqueio confere a senha pelo PAM. `data/instalar-sessao.sh` instala o serviço
+O desbloqueio confere a senha pelo PAM. `data/install-session.sh` instala o serviço
 `/etc/pam.d/glove`; sem ele, o Glove usa o serviço `login`.
 
 ## Estrutura

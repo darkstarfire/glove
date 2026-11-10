@@ -1,7 +1,7 @@
 #!/bin/sh
-# Inicia o greetd com a tela de login do Glove (usado pelo glove-login.service).
-# A configuração é montada a cada início (o usuário da tela de login muda de uma
-# distribuição para outra). Para usar uma sua, crie /etc/glove/greetd.toml.
+# Starts greetd with the Glove login screen (used by glove-login.service).
+# The configuration is written on every start (the login screen user changes from
+# one distribution to another). To use your own, create /etc/glove/greetd.toml.
 if [ -f /etc/glove/greetd.toml ]; then
     exec greetd --config /etc/glove/greetd.toml
 fi
@@ -11,24 +11,24 @@ for u in _greetd greetd greeter; do
     if id "$u" >/dev/null 2>&1; then user=$u; break; fi
 done
 mkdir -p /run/glove
-cat > /run/glove/greetd.toml <<FIM
+cat > /run/glove/greetd.toml <<END
 [terminal]
 vt = 7
 
 [default_session]
 command = "env GLOVE_SESSION=$bin/glove-session $bin/glove --greeter"
 user = "$user"
-FIM
-# Login automático (o Glove ao vivo): /etc/glove/autologin tem o nome do usuário.
+END
+# Automatic login (live Glove): /etc/glove/autologin holds the user name.
 if [ -s /etc/glove/autologin ]; then
     auto=$(head -n1 /etc/glove/autologin | tr -cd 'a-z0-9_-')
     if [ -n "$auto" ] && id "$auto" >/dev/null 2>&1; then
-        cat >> /run/glove/greetd.toml <<FIM
+        cat >> /run/glove/greetd.toml <<END
 
 [initial_session]
 command = "$bin/glove-session"
 user = "$auto"
-FIM
+END
     fi
 fi
 exec greetd --config /run/glove/greetd.toml

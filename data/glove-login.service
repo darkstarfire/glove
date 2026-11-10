@@ -1,10 +1,10 @@
-# Tela de login do Glove: o greetd com a configuração do Glove (não mexe na do
-# greetd do sistema). Para torná-la a tela de login principal:
+# Glove login screen: greetd with the Glove configuration (the system's greetd
+# one is left alone). To make it the main login screen:
 #   sudo systemctl enable --force glove-login
-# Para voltar à anterior (ex.: GDM):
+# To go back to the previous one (e.g. GDM):
 #   sudo systemctl enable --force gdm
 [Unit]
-Description=Tela de login do Glove (greetd)
+Description=Glove login screen (greetd)
 After=systemd-user-sessions.service plymouth-quit-wait.service
 After=getty@tty7.service
 Conflicts=getty@tty7.service

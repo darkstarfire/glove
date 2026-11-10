@@ -1,8 +1,8 @@
-# Modelo da configuração do greetd para a tela de login do Glove.
-# O instalador (data/instalar-login.sh) preenche os caminhos e o usuário do greeter.
+# Template of the greetd configuration for the Glove login screen.
+# The installer (data/install-login.sh) fills in the paths and the greeter user.
 [terminal]
 vt = 1
 
 [default_session]
-command = "env GLOVE_SESSION=@SESSAO@ @LIB@/glove --greeter"
+command = "env GLOVE_SESSION=@SESSION@ @LIB@/glove --greeter"
 user = "@GREETER@"

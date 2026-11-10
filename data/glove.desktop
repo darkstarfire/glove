@@ -1,6 +1,8 @@
 [Desktop Entry]
 Name=Glove
-Comment=Ambiente gráfico leve inspirado nos anos 2000 (Wayland)
+Comment=Lightweight desktop inspired by the 2000s (Wayland)
+Comment[pt_BR]=Ambiente gráfico leve inspirado nos anos 2000 (Wayland)
+Comment[pt]=Ambiente gráfico leve inspirado nos anos 2000 (Wayland)
 Exec=glove-session
 Type=Application
 DesktopNames=Glove
