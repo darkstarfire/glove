@@ -56,9 +56,11 @@ impl SelectionHandler for Glove {
 
     /// Um app quer colar o que foi copiado na mesa.
     fn send_selection(&mut self, _ty: smithay::wayland::selection::SelectionTarget, mime_type: String, fd: std::os::fd::OwnedFd, _seat: Seat<Self>, _user_data: &()) {
-        let data = crate::desk::payload(&self.desk.clip, &mime_type);
+        // Fora da linha principal: ler a imagem e escrever no cano podem demorar.
+        let paths = self.desk.clip.clone();
         std::thread::spawn(move || {
             use std::io::Write;
+            let data = crate::desk::payload(&paths, &mime_type);
             let _ = std::fs::File::from(fd).write_all(&data);
         });
     }

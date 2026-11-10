@@ -798,3 +798,15 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   Falta: no Arquivos o que sobra é a conta do próprio app a cada quadro (ordenar e montar as linhas),
   não mais o desenho.
 
+## Fase 14 — Captura de tela com desenho (pedido de 10/11/2026)
+
+- [x] 14.1 Captura (v0.12.20): a janela abre em "Uma área" (depois Uma janela e Tela inteira).
+  Toda captura vai para a área de transferência: quem guarda é o compositor
+  (Glove::copy_file_to_clipboard, com image/png além da lista de arquivos), então vale sem
+  nenhum app aberto. Os apps pedem o mesmo com Ui::copy_file_kept ("COPIAR" no canal dos menus).
+- [x] 14.2 Desenhar no Visualizador (v0.12.20): a captura abre com `glove-view --desenhar`. Faixa
+  com 8 cores e 4 espessuras, Desfazer, Limpar e Salvar; os traços ficam em pixels da imagem e só
+  entram nela ao salvar (PNG por cima; JPEG ou imagem reduzida, num arquivo novo ao lado), girar ou
+  copiar. Fechar ou trocar de imagem com desenhos não salvos pergunta antes. Glifo novo
+  (Glyph::Pencil) e Canvas::stroke_pen na glove-ui 0.2.23.
+- [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

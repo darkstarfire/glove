@@ -212,12 +212,35 @@ pub fn payload(paths: &[PathBuf], mime: &str) -> Vec<u8> {
     match mime {
         URI_LIST => uris.iter().map(|u| format!("{u}\r\n")).collect::<String>().into_bytes(),
         GNOME_FILES => format!("copy\n{}", uris.join("\n")).into_bytes(),
+        // Uma imagem só (a captura de tela): vai também como imagem.
+        IMAGE_PNG => paths.first().filter(|p| is_png(p)).and_then(|p| std::fs::read(p).ok()).unwrap_or_default(),
         _ => paths.iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>().join("\n").into_bytes(),
     }
 }
 
 pub fn offered_mimes() -> Vec<String> {
     vec![URI_LIST.into(), GNOME_FILES.into(), TEXT.into(), "UTF8_STRING".into()]
+}
+
+pub const IMAGE_PNG: &str = "image/png";
+
+fn is_png(p: &Path) -> bool {
+    p.extension().is_some_and(|e| e.eq_ignore_ascii_case("png"))
+}
+
+impl Glove {
+    /// Põe um arquivo na área de transferência (quem guarda é o Glove, então vale
+    /// mesmo sem nenhum app aberto). Um PNG é oferecido também como imagem: colar
+    /// num chat ou editor cola a figura; no Arquivos, cola o arquivo.
+    pub fn copy_file_to_clipboard(&mut self, path: &Path) {
+        self.desk.clip = vec![path.to_path_buf()];
+        let mut mimes = offered_mimes();
+        if is_png(path) {
+            mimes.insert(0, IMAGE_PNG.into());
+        }
+        let dh = self.display_handle.clone();
+        smithay::wayland::selection::data_device::set_data_device_selection(&dh, &self.seat.clone(), mimes, ());
+    }
 }
 
 /// Nome e ícone de um atalho de app (.desktop).

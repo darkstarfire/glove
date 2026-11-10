@@ -265,6 +265,19 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - **Imprimir e exportar**: Imprimir (Ctrl+P) sai com as folhas como na tela; Arquivo >
   Exportar como PDF (vetorial, com as fontes embutidas). O formato do Editor é o RTF.
 
+## Captura de tela com desenho
+
+- O app **Captura** já abre com **Uma área** escolhida (depois vêm Uma janela e Tela
+  inteira): Enter ou Capturar, e arraste a área.
+- Toda captura (pelo app ou pelos atalhos) já vai para a área de transferência: é só
+  colar com Ctrl+V num chat, e-mail ou editor.
+- A captura abre no **Visualizador** com a caneta na mão: escolha a **cor** e a
+  **espessura do traço** na faixa de cima e desenhe por cima da imagem. Desfazer
+  (Ctrl+Z), Limpar e **Salvar** (Ctrl+S), que grava por cima da captura e já copia a
+  imagem com os desenhos. Ctrl+C copia como está na tela, mesmo sem salvar.
+- Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
+  ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
+
 ## Computadores mais simples (Fase 13)
 
 - Os apps não redesenham mais a janela só porque o mouse passou por cima: se nada

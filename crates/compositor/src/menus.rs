@@ -50,6 +50,8 @@ pub struct MenuClient {
     /// Pedido de captura de tela: (atraso em ms, abrir no Visualizador).
     /// Captura pedida: (atraso, abrir no Visualizador, modo: 0 tela, 1 área, 2 janela).
     pub shot: Option<(u64, bool, u8)>,
+    /// Arquivo que o app pediu para pôr na área de transferência.
+    pub copy: Option<PathBuf>,
     /// Pedido de fim de sessão ("encerrar", "reiniciar", "desligar"), vindo do glove-sair.
     pub end: Option<String>,
     /// Pedido de testar um protetor de tela (botão Testar das Preferências).
@@ -119,6 +121,7 @@ impl MenuClient {
                 let delay = f.get(1).and_then(|v| v.parse().ok()).unwrap_or(0);
                 self.shot = Some((delay, f.get(2) == Some(&"1"), f.get(3).and_then(|v| v.parse().ok()).unwrap_or(0)));
             }
+            "COPIAR" => self.copy = f.get(1).filter(|p| !p.is_empty()).map(PathBuf::from),
             "SAIR" => self.end = f.get(1).map(|k| k.to_string()),
             "PROTETOR" => self.saver = f.get(1).map(|k| k.to_string()),
             "EDITADO" => self.edited = f.get(1) == Some(&"1"),
@@ -153,7 +156,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None, edited: false, doc: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, copy: None, end: None, saver: None, edited: false, doc: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -178,6 +181,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                     let st = &mut data.state;
                     let mut end = None;
                     let mut saver = None;
+                    let mut copy = None;
                     if let Some(c) = st.menu_clients.iter_mut().find(|c| c.key == key) {
                         c.buf.extend_from_slice(&bytes);
                         let mut changed = false;
@@ -191,6 +195,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                         if changed {
                             st.dirty = true;
                         }
+                        copy = c.copy.take();
                         if let Some((delay, open, mode)) = c.shot.take() {
                             // Espera o atraso pedido (e a janela do app sumir) e captura (ou começa a escolher a área).
                             let _ = h2.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_millis(delay.max(300))), move |_, _, data| {
@@ -209,6 +214,9 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                     }
                     if let Some(kind) = saver {
                         st.start_saver(Some(kind), true);
+                    }
+                    if let Some(p) = copy.filter(|p: &PathBuf| p.is_file()) {
+                        st.copy_file_to_clipboard(&p);
                     }
                     if closed {
                         st.menu_clients.retain(|c| c.key != key);
@@ -231,7 +239,7 @@ mod tests {
     #[test]
     fn le_submenus() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, end: None, saver: None, edited: false, doc: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, copy: None, end: None, saver: None, edited: false, doc: None };
         let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
         let done = text.lines().fold(false, |d, l| c.line(l) || d);
         assert!(done);

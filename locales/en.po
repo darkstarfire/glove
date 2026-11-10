@@ -5287,3 +5287,48 @@ msgstr "GNOME file indexer"
 
 msgid "Lê o conteúdo dos arquivos para a busca do GNOME; o Glove não usa."
 msgstr "Reads file contents for GNOME search; Glove doesn't use it."
+
+msgid "Abrir no Visualizador para desenhar"
+msgstr "Open in the Viewer to draw on it"
+
+msgid "Cor:"
+msgstr "Color:"
+
+msgid "Deseja salvar os desenhos feitos em “{}”?"
+msgstr "Do you want to save the drawings made on “{}”?"
+
+msgid "Desenhar"
+msgstr "Draw"
+
+msgid "Desfazer Traço"
+msgstr "Undo Stroke"
+
+msgid "Fotografa uma área, uma janela ou a tela,"
+msgstr "Captures an area, a window or the screen,"
+
+msgid "Imagem copiada com os desenhos."
+msgstr "Image copied with the drawings."
+
+msgid "Limpar Desenhos"
+msgstr "Clear Drawings"
+
+msgid "Não foi possível salvar a imagem."
+msgstr "Could not save the image."
+
+msgid "Salva e copiada (Ctrl+V cola)."
+msgstr "Saved and copied (Ctrl+V pastes)."
+
+msgid "Salve ou limpe os desenhos antes de trocar de imagem."
+msgstr "Save or clear the drawings before switching images."
+
+msgid "Se você não salvar, os desenhos serão perdidos."
+msgstr "If you don't save, the drawings will be lost."
+
+msgid "Traço:"
+msgstr "Stroke:"
+
+msgid "desenho"
+msgstr "drawing"
+
+msgid "salva em Imagens e já copia (Ctrl+V cola)."
+msgstr "saves to Pictures and copies it (Ctrl+V pastes)."

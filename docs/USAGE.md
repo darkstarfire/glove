@@ -263,6 +263,19 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - **Print and export**: Print (Ctrl+P) uses the laid-out pages; File > Export as PDF (vector,
   embedded fonts). The Editor's format is RTF.
 
+## Screenshots with drawing
+
+- The **Screenshot** app opens with **An area** selected (then A window and Full
+  screen): press Enter or Capture and drag the area.
+- Every screenshot (from the app or the shortcuts) goes to the clipboard right away:
+  just paste it with Ctrl+V into a chat, e-mail or editor.
+- The screenshot opens in the **Viewer** with the pen ready: pick the **color** and the
+  **stroke width** in the strip at the top and draw on the image. Undo (Ctrl+Z), Clear
+  and **Save** (Ctrl+S), which overwrites the screenshot and copies the image with the
+  drawings. Ctrl+C copies it as shown, even without saving.
+- On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
+  reduced on opening, are saved to a new file next to them, "name (desenho).png".
+
 ## Simpler computers (phase 13)
 
 - Apps no longer redraw the window just because the mouse moved over it: if nothing

@@ -908,8 +908,11 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
         match screenshot(state, renderer, &path, crop) {
             Ok(()) => {
                 tracing::info!("captura salva em {}", path.display());
+                // Já vai para a área de transferência: é só colar (Ctrl+V).
+                state.copy_file_to_clipboard(&path);
                 if std::mem::take(&mut state.open_after_shot) {
-                    state.spawn(&format!("glove-view '{}'", path.display().to_string().replace('\'', "'\\''")));
+                    // Abre pronta para desenhar por cima.
+                    state.spawn(&format!("glove-view --desenhar '{}'", path.display().to_string().replace('\'', "'\\''")));
                 }
             }
             Err(e) => tracing::warn!("captura falhou: {e}"),

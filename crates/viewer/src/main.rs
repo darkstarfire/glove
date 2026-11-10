@@ -1,5 +1,6 @@
 //! Visualizador do Glove: imagens (PNG e JPEG) e PDF, com barra de
-//! ferramentas e miniaturas na lateral. As páginas de PDF são desenhadas pelo
+//! ferramentas e miniaturas na lateral. Nas imagens dá para desenhar por cima
+//! (caneta com cor e espessura), salvar e copiar: é onde a captura de tela abre. As páginas de PDF são desenhadas pelo
 //! pdftoppm (poppler) numa thread; as miniaturas também.
 
 use glove_config::tr;
@@ -8,7 +9,7 @@ use std::path::{Path, PathBuf};
 use glove_ui::{
     paint::{
         draw::*,
-        tiny_skia::{FilterQuality, Pixmap, PixmapPaint, Transform},
+        tiny_skia::{FilterQuality, LineCap, LineJoin, Path as SkPath, PathBuilder, Pixmap, PixmapPaint, Stroke as SkStroke, Transform},
         Color,
     },
     run,
@@ -24,6 +25,50 @@ const TOOLBAR_H: f32 = 52.0;
 const SIDEBAR_W: f32 = 132.0;
 const THUMB: u32 = 96;
 
+/// Faixa das ferramentas de desenho (abaixo da barra, quando ligada).
+const DRAW_H: f32 = 34.0;
+/// Cores da caneta.
+const PEN_COLORS: [(u8, u8, u8); 8] = [(230, 40, 40), (245, 140, 20), (250, 210, 30), (50, 170, 70), (40, 120, 230), (150, 70, 200), (20, 20, 20), (255, 255, 255)];
+/// Espessuras da caneta, em pixels da imagem.
+const PEN_WIDTHS: [f32; 4] = [2.0, 4.0, 8.0, 14.0];
+
+/// Um traço da caneta, em pixels da imagem.
+#[derive(Clone)]
+struct PenStroke {
+    pts: Vec<(f32, f32)>,
+    color: Color,
+    width: f32,
+}
+
+impl PenStroke {
+    /// O caminho do traço com cada ponto passado por `map` (um ponto só vira uma bolinha).
+    fn path(&self, map: impl Fn((f32, f32)) -> (f32, f32)) -> Option<SkPath> {
+        let mut pb = PathBuilder::new();
+        let (x0, y0) = map(*self.pts.first()?);
+        pb.move_to(x0, y0);
+        if self.pts.len() == 1 {
+            pb.line_to(x0 + 0.01, y0);
+        }
+        for p in &self.pts[1..] {
+            let (x, y) = map(*p);
+            pb.line_to(x, y);
+        }
+        pb.finish()
+    }
+}
+
+/// Desenha os traços na própria imagem.
+fn bake(base: &Pixmap, strokes: &[PenStroke]) -> Pixmap {
+    let mut out = base.clone();
+    for st in strokes {
+        if let Some(path) = st.path(|p| p) {
+            let pen = SkStroke { width: st.width, line_cap: LineCap::Round, line_join: LineJoin::Round, ..Default::default() };
+            out.stroke_path(&path, &solid(st.color), &pen, Transform::identity(), None);
+        }
+    }
+    out
+}
+
 /// Lado máximo guardado na memória (fotos maiores são reduzidas ao abrir).
 const MAX_SIDE: u32 = 4096;
 const EXTS: [&str; 4] = glove_ui::image::EXTENSIONS;
@@ -37,14 +82,19 @@ fn is_image(p: &Path) -> bool {
 }
 
 fn decode(path: &Path) -> Result<Pixmap, String> {
+    decode_ex(path).map(|(img, _)| img)
+}
+
+/// A imagem e se ela foi reduzida ao abrir (aí salvar por cima perderia pixels).
+fn decode_ex(path: &Path) -> Result<(Pixmap, bool), String> {
     let img = glove_ui::image::decode(path)?;
     // Reduz fotos enormes logo na abertura.
     let (w, h) = (img.width(), img.height());
     if w.max(h) > MAX_SIDE {
         let k = MAX_SIDE as f32 / w.max(h) as f32;
-        return Ok(scaled(&img, k));
+        return Ok((scaled(&img, k), true));
     }
-    Ok(img)
+    Ok((img, false))
 }
 
 fn scaled(src: &Pixmap, k: f32) -> Pixmap {
@@ -193,6 +243,20 @@ struct Viewer {
     ctx: Option<(f32, f32)>,
     /// Aviso curto na faixa de baixo (ex.: "Imagem copiada.").
     note: Option<(String, std::time::Instant)>,
+    /// Desenhar por cima da imagem: ferramentas à mostra e o mouse vira caneta.
+    draw: bool,
+    strokes: Vec<PenStroke>,
+    /// O traço sendo feito agora (botão apertado).
+    cur: Option<PenStroke>,
+    pen_color: usize,
+    pen_width: usize,
+    /// A imagem na memória já tem desenhos que o arquivo não tem (girou depois de desenhar).
+    image_dirty: bool,
+    /// A imagem foi reduzida ao abrir: salvar vai para um arquivo novo.
+    reduced: bool,
+    /// Pediram para fechar com desenhos não salvos: pergunta.
+    ask_close: bool,
+    copies: u32,
 }
 
 /// Itens do menu de contexto: (ação, nome); ação vazia = divisória.
@@ -236,6 +300,15 @@ impl Viewer {
             side_scroll: 0.0,
             ctx: None,
             note: None,
+            draw: false,
+            strokes: Vec::new(),
+            cur: None,
+            pen_color: 0,
+            pen_width: 1,
+            image_dirty: false,
+            reduced: false,
+            ask_close: false,
+            copies: 0,
         };
         if let Some(p) = path {
             v.load(p);
@@ -286,9 +359,14 @@ impl Viewer {
     }
 
     fn show_image(&mut self, p: &Path) {
-        match decode(p) {
-            Ok(img) => {
+        self.strokes.clear();
+        self.cur = None;
+        self.image_dirty = false;
+        self.reduced = false;
+        match decode_ex(p) {
+            Ok((img, reduced)) => {
                 self.image = Some(Image::new(img));
+                self.reduced = reduced;
                 self.error = None;
             }
             Err(e) => {
@@ -307,6 +385,10 @@ impl Viewer {
         }
         let i = i.min(n - 1);
         if i == self.index && self.image.is_some() {
+            return;
+        }
+        if self.unsaved() {
+            self.note = Some((tr!("Salve ou limpe os desenhos antes de trocar de imagem.").into(), std::time::Instant::now()));
             return;
         }
         self.index = i;
@@ -452,9 +534,64 @@ impl Viewer {
         self.zoom = Some(z.clamp(0.02, 16.0));
     }
 
+    /// Há desenhos que ainda não foram para o arquivo?
+    fn unsaved(&self) -> bool {
+        !self.strokes.is_empty() || self.image_dirty
+    }
+
+    /// Dá para desenhar: uma imagem aberta (não página de PDF).
+    fn can_draw(&self) -> bool {
+        self.image.is_some() && matches!(self.doc, Some(Doc::Images(_)))
+    }
+
+    /// A imagem com os desenhos por cima.
+    fn drawn(&self) -> Option<Pixmap> {
+        self.image.as_ref().map(|img| bake(&img.levels[0], &self.strokes))
+    }
+
+    /// Salva a imagem com os desenhos (por cima do arquivo, se for PNG inteiro;
+    /// senão num arquivo novo ao lado) e já a põe na área de transferência.
+    fn save_drawing(&mut self, ui: &mut Ui) -> bool {
+        let (Some(p), Some(pm)) = (self.current_file(), self.drawn()) else { return false };
+        let png = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("png"));
+        let target = if png && !self.reduced {
+            p.clone()
+        } else {
+            let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            p.with_file_name(format!("{stem} ({}).png", tr!("desenho")))
+        };
+        // Grava ao lado e troca o nome: o arquivo nunca fica pela metade.
+        let tmp = target.with_extension("png.parte");
+        let ok = pm.encode_png().ok().is_some_and(|data| std::fs::write(&tmp, data).is_ok() && std::fs::rename(&tmp, &target).is_ok());
+        if !ok {
+            let _ = std::fs::remove_file(&tmp);
+            self.note = Some((tr!("Não foi possível salvar a imagem.").into(), std::time::Instant::now()));
+            return false;
+        }
+        self.strokes.clear();
+        self.cur = None;
+        self.image_dirty = false;
+        if target == p {
+            self.image = Some(Image::new(pm));
+        } else {
+            let draw = self.draw;
+            self.load(target.clone());
+            self.draw = draw;
+        }
+        ui.copy_file_kept(&target);
+        self.note = Some((tr!("Salva e copiada (Ctrl+V cola).").into(), std::time::Instant::now()));
+        true
+    }
+
     fn rotate(&mut self, cw: bool) {
         if let Some(img) = &self.image {
-            self.image = Some(Image::new(rotate(&img.levels[0], cw)));
+            // Os desenhos giram junto: passam para a imagem.
+            let base = if self.strokes.is_empty() { rotate(&img.levels[0], cw) } else { rotate(&bake(&img.levels[0], &self.strokes), cw) };
+            if !self.strokes.is_empty() {
+                self.strokes.clear();
+                self.image_dirty = true;
+            }
+            self.image = Some(Image::new(base));
             self.pan = (0.0, 0.0);
         }
         self.turns = (self.turns + if cw { 1 } else { 3 }) % 4;
@@ -473,6 +610,9 @@ impl Viewer {
                     let content = if matches!(self.doc, Some(Doc::Pdf { .. })) { glove_ui::print::PrintContent::Pdf(p) } else { glove_ui::print::PrintContent::Image(p) };
                     self.print = Some(glove_ui::print::PrintSheet::new(&name, content));
                 }
+            }
+            "open" if self.unsaved() => {
+                self.note = Some((tr!("Salve ou limpe os desenhos antes de trocar de imagem.").into(), std::time::Instant::now()));
             }
             "open" => {
                 let dir = self.path.as_ref().and_then(|p| p.parent().map(|d| d.to_path_buf()));
@@ -495,13 +635,41 @@ impl Viewer {
             "first" => self.go(0),
             "last" => self.go(usize::MAX),
             "sidebar" => self.sidebar = !self.sidebar,
+            "close" if self.unsaved() => self.ask_close = true,
             "close" => ui.close = true,
+            "draw" if self.can_draw() => {
+                self.draw = !self.draw;
+                self.cur = None;
+            }
+            "undo" => {
+                self.strokes.pop();
+            }
+            "clear" => self.strokes.clear(),
+            "save" if self.unsaved() => {
+                self.save_drawing(ui);
+            }
+            "copy" if self.unsaved() => {
+                // Com desenhos ainda não salvos: copia a imagem como está na tela.
+                if let Some(pm) = self.drawn() {
+                    let dir = cache_dir();
+                    let _ = std::fs::create_dir_all(&dir);
+                    self.copies += 1;
+                    let tmp = dir.join(format!("copia-{}.png", self.copies));
+                    if pm.save_png(&tmp).is_ok() {
+                        ui.copy_files(&[tmp], false);
+                        self.note = Some((tr!("Imagem copiada com os desenhos.").into(), std::time::Instant::now()));
+                    }
+                }
+            }
             "copy" => {
                 // O arquivo de verdade: colar num chat ou editor cola a imagem.
                 if let Some(p) = self.current_file() {
                     ui.copy_files(&[p], false);
                     self.note = Some((tr!("Imagem copiada.").into(), std::time::Instant::now()));
                 }
+            }
+            "trash" if self.unsaved() => {
+                self.note = Some((tr!("Salve ou limpe os desenhos antes de trocar de imagem.").into(), std::time::Instant::now()));
             }
             "trash" => self.trash_current(),
             "reveal" => {
@@ -560,6 +728,74 @@ impl Viewer {
             None => {}
         }
         label(ui, tr!("Girar"), x + SEGMENT_W);
+        x += 2.0 * SEGMENT_W + 30.0;
+        // Desenhar por cima (só em imagens)
+        if ui.segmented_in(Rect::new(x, y, SEGMENT_W, SEGMENT_H), &[Glyph::Pencil], self.draw.then_some(0), &[self.can_draw()]).is_some() {
+            act = Some("draw");
+        }
+        label(ui, tr!("Desenhar"), x + SEGMENT_W / 2.0);
+        act
+    }
+
+    /// Faixa das ferramentas de desenho: cores, espessuras, Desfazer, Limpar e Salvar.
+    fn draw_bar(&mut self, ui: &mut Ui) -> Option<&'static str> {
+        let (w, y0) = (ui.c.w, TOOLBAR_H);
+        ui.c.fill_rect(0.0, y0, w, DRAW_H, &vgrad(y0, y0 + DRAW_H, &[(0.0, rgba(226, 228, 232, 255)), (1.0, rgba(206, 208, 214, 255))]));
+        ui.c.hline(0.0, y0 + DRAW_H - 1.0, w, rgba(140, 140, 146, 255));
+        let ink = rgba(40, 40, 44, 255);
+        let cy = y0 + DRAW_H / 2.0;
+        let mut x = 14.0;
+        ui.fonts.draw(ui.c, tr!("Cor:"), x, cy + 4.0, 11.0, false, ink);
+        x += ui.text_width(tr!("Cor:"), 11.0, false) + 8.0;
+        for (i, (r, g, b)) in PEN_COLORS.iter().enumerate() {
+            let sw = Rect::new(x, cy - 9.0, 18.0, 18.0);
+            if i == self.pen_color {
+                ui.c.fill(rrect(sw.x - 3.0, sw.y - 3.0, sw.w + 6.0, sw.h + 6.0, 5.0), &solid(ui.theme.accent));
+            }
+            ui.c.fill(rrect(sw.x, sw.y, sw.w, sw.h, 3.0), &solid(rgba(*r, *g, *b, 255)));
+            ui.c.stroke(rrect(sw.x + 0.5, sw.y + 0.5, sw.w - 1.0, sw.h - 1.0, 3.0), &solid(rgba(0, 0, 0, 110)), 1.0);
+            if ui.hit(Rect::new(sw.x - 3.0, sw.y - 3.0, sw.w + 6.0, sw.h + 6.0)).clicked {
+                self.pen_color = i;
+            }
+            x += 23.0;
+        }
+        x += 10.0;
+        ui.fonts.draw(ui.c, tr!("Traço:"), x, cy + 4.0, 11.0, false, ink);
+        x += ui.text_width(tr!("Traço:"), 11.0, false) + 8.0;
+        let (r, g, b) = PEN_COLORS[self.pen_color];
+        // Sobre a faixa clara, a caneta branca aparece em cinza.
+        let dot = if (r, g, b) == (255, 255, 255) { rgba(150, 150, 156, 255) } else { rgba(r, g, b, 255) };
+        for (i, pw) in PEN_WIDTHS.iter().enumerate() {
+            let bx = Rect::new(x, cy - 12.0, 24.0, 24.0);
+            if i == self.pen_width {
+                ui.c.fill(rrect(bx.x, bx.y, bx.w, bx.h, 5.0), &solid(rgba(255, 255, 255, 230)));
+                ui.c.stroke(rrect(bx.x + 0.5, bx.y + 0.5, bx.w - 1.0, bx.h - 1.0, 5.0), &solid(ui.theme.accent), 1.5);
+            }
+            ui.c.fill(circle(bx.x + 12.0, cy, (pw / 2.0 + 1.0).min(9.0)), &solid(dot));
+            if ui.hit(bx).clicked {
+                self.pen_width = i;
+            }
+            x += 26.0;
+        }
+        let mut act = None;
+        let (has, unsaved) = (!self.strokes.is_empty(), self.unsaved());
+        ui.area(Rect::new((x + 12.0).max(w - 296.0), cy - 10.0, 290.0, 22.0), |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing(6.0);
+                ui.set_active(has);
+                if ui.small_button(tr!("Desfazer")) {
+                    act = Some("undo");
+                }
+                if ui.small_button(tr!("Limpar")) {
+                    act = Some("clear");
+                }
+                ui.set_active(unsaved);
+                if ui.small_button(tr!("Salvar")) {
+                    act = Some("save");
+                }
+                ui.set_active(true);
+            });
+        });
         act
     }
 
@@ -634,7 +870,11 @@ impl App for Viewer {
         ui.set_document(self.path.as_deref());
         let (w, h) = (ui.c.w, ui.c.h);
         let left = if self.sidebar && self.doc.is_some() { SIDEBAR_W } else { 0.0 };
-        let area = Rect::new(left, TOOLBAR_H, w - left, h - 15.0 - TOOLBAR_H);
+        if !self.can_draw() {
+            self.draw = false;
+        }
+        let top = TOOLBAR_H + if self.draw { DRAW_H } else { 0.0 };
+        let area = Rect::new(left, top, w - left, h - 15.0 - top);
 
         // Menu de contexto aberto: o clique sobre ele não chega à imagem; fora, só fecha.
         if let Some(pos) = self.ctx {
@@ -690,6 +930,9 @@ impl App for Viewer {
                 "Ctrl+Shift+R" => "reveal",
                 "Ctrl+Shift+M" => "sidebar",
                 "Ctrl+C" => "copy",
+                "Ctrl+D" => "draw",
+                "Ctrl+S" => "save",
+                "Ctrl+Z" => "undo",
                 "Ctrl+BackSpace" | "Delete" => "trash",
                 _ => match k.key {
                     Key::Right | Key::Down | Key::PageDown => "next",
@@ -705,11 +948,16 @@ impl App for Viewer {
         }
         acts.extend(ui.menu_actions().iter().cloned());
         // Com o diálogo Abrir na frente, as teclas são dele.
-        if self.open_fb.is_some() || self.print.is_some() {
+        if self.open_fb.is_some() || self.print.is_some() || self.ask_close {
             acts.clear();
         }
         if let Some(a) = self.toolbar(ui) {
             acts.push(a.into());
+        }
+        if self.draw {
+            if let Some(a) = self.draw_bar(ui) {
+                acts.push(a.into());
+            }
         }
         for a in acts {
             self.action(&a, ui, area);
@@ -718,7 +966,7 @@ impl App for Viewer {
         // Fundo
         ui.c.fill_rect(area.x, area.y, area.w, area.h, &solid(rgba(108, 110, 116, 255)));
         if left > 0.0 {
-            self.side(ui, TOOLBAR_H, h - 15.0 - TOOLBAR_H);
+            self.side(ui, top, h - 15.0 - top);
         }
 
         // PDF: a imagem tem o dpi da tela; o zoom "real" é em relação ao papel.
@@ -757,13 +1005,15 @@ impl App for Viewer {
         if let Some(img) = &self.image {
             let (iw, ih) = img.size();
             let (dw, dh) = (iw * k, ih * k);
-            // Arrastar move a imagem quando ela é maior que a janela.
+            // Arrastar move a imagem quando ela é maior que a janela (desenhando, o
+            // arrasto é da caneta; a roda continua rolando).
             let resp = ui.hit(area);
-            let pos = ui.pointer();
-            if resp.pressed {
+            let drawing = self.draw;
+            let pos = if drawing && !resp.down && !resp.pressed && self.cur.is_none() { (0.0, 0.0) } else { ui.pointer() };
+            if resp.pressed && !drawing {
                 self.drag_from = Some(pos);
             }
-            if resp.down {
+            if resp.down && !drawing {
                 if let Some((fx, fy)) = self.drag_from {
                     self.pan.0 += pos.0 - fx;
                     self.pan.1 += pos.1 - fy;
@@ -778,6 +1028,25 @@ impl App for Viewer {
             self.pan.1 = self.pan.1.clamp(-lim(dh, area.h), lim(dh, area.h));
             let x = area.x + (area.w - dw) / 2.0 + self.pan.0;
             let y = area.y + (area.h - dh) / 2.0 + self.pan.1;
+            // Caneta: apertar começa um traço, arrastar o continua, soltar o guarda.
+            if drawing {
+                let at = ((pos.0 - x) / k, (pos.1 - y) / k);
+                if resp.pressed {
+                    let (r, g, b) = PEN_COLORS[self.pen_color];
+                    self.cur = Some(PenStroke { pts: vec![at], color: rgba(r, g, b, 255), width: PEN_WIDTHS[self.pen_width] });
+                } else if resp.down {
+                    if let Some(c) = &mut self.cur {
+                        // Pontos a menos de meio pixel da tela não mudam o traço.
+                        if c.pts.last().is_none_or(|l| ((l.0 - at.0).powi(2) + (l.1 - at.1).powi(2)).sqrt() * k >= 0.5) {
+                            c.pts.push(at);
+                        }
+                    }
+                } else if let Some(c) = self.cur.take() {
+                    self.strokes.push(c);
+                }
+            } else {
+                self.cur = None;
+            }
 
             // Só dentro da área (o zoom não passa por cima da barra nem da lateral).
             let s = ui.c.scale;
@@ -793,6 +1062,10 @@ impl App for Viewer {
             let paint = PixmapPaint { quality: if k * s >= 1.0 { FilterQuality::Nearest } else { FilterQuality::Bilinear }, ..Default::default() };
             let ks = k * s * f;
             ui.c.draw_pixmap_t(lvl.as_ref(), &paint, Transform::from_row(ks, 0.0, 0.0, ks, x * s, y * s));
+            // Os desenhos, por cima, na escala da tela.
+            for st in self.strokes.iter().chain(self.cur.iter()) {
+                ui.c.stroke_pen(st.path(|p| (x + p.0 * k, y + p.1 * k)), &solid(st.color), (st.width * k).max(1.0));
+            }
             ui.c.set_clip(old);
         } else if self.pending.is_some() {
             let (cx, cy) = (area.x + area.w / 2.0, area.y + area.h / 2.0);
@@ -857,6 +1130,31 @@ impl App for Viewer {
                 self.ctx = None;
             }
         }
+        ui.set_edited(self.unsaved());
+        // Fechar com desenhos não salvos: pergunta antes.
+        if self.ask_close {
+            let name = self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let title = tr!("Deseja salvar os desenhos feitos em “{}”?", name);
+            match ui.alert(glove_ui::AlertKind::Caution, &title, tr!("Se você não salvar, os desenhos serão perdidos."), &[tr!("Não salvar"), tr!("Cancelar"), tr!("Salvar")]) {
+                Some(0) => {
+                    self.strokes.clear();
+                    self.image_dirty = false;
+                    ui.close = true;
+                }
+                Some(2) => {
+                    self.ask_close = false;
+                    if self.save_drawing(ui) {
+                        ui.close = true;
+                    }
+                    ui.redraw = true;
+                }
+                Some(_) => {
+                    self.ask_close = false;
+                    ui.redraw = true;
+                }
+                None => {}
+            }
+        }
         // Imprimir.
         if let Some(p) = &mut self.print {
             if ui.print_sheet(p) {
@@ -885,6 +1183,7 @@ impl App for Viewer {
                 vec![
                     MenuItem::new("open", tr!("Abrir…"), "Ctrl+O"),
                     MenuItem::new("reveal", tr!("Mostrar no Arquivos"), "Ctrl+Shift+R"),
+                    MenuItem::new("save", tr!("Salvar"), "Ctrl+S").enabled(self.unsaved()),
                     MenuItem::new("trash", tr!("Mover para a Lixeira"), "Ctrl+BackSpace").enabled(self.doc.is_some()),
                     MenuItem::Separator,
                     MenuItem::new("print", tr!("Imprimir…"), "Ctrl+P").enabled(self.path.is_some()),
@@ -892,7 +1191,17 @@ impl App for Viewer {
                     MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
                 ],
             ),
-            Menu::new(tr!("Editar"), vec![MenuItem::new("copy", tr!("Copiar Imagem"), "Ctrl+C").enabled(self.doc.is_some())]),
+            Menu::new(
+                tr!("Editar"),
+                vec![
+                    MenuItem::new("undo", tr!("Desfazer Traço"), "Ctrl+Z").enabled(!self.strokes.is_empty()),
+                    MenuItem::Separator,
+                    MenuItem::new("copy", tr!("Copiar Imagem"), "Ctrl+C").enabled(self.doc.is_some()),
+                    MenuItem::Separator,
+                    MenuItem::new("draw", tr!("Desenhar"), "Ctrl+D").enabled(self.can_draw()).checked(self.draw),
+                    MenuItem::new("clear", tr!("Limpar Desenhos"), "").enabled(!self.strokes.is_empty()),
+                ],
+            ),
             Menu::new(
                 tr!("Visualizar"),
                 vec![
@@ -926,14 +1235,24 @@ impl App for Viewer {
     }
 
     fn close_requested(&mut self) -> bool {
+        if self.unsaved() {
+            self.ask_close = true;
+            return false;
+        }
         let _ = std::fs::remove_dir_all(cache_dir());
         true
     }
 }
 
 pub fn main() {
-    let path = std::env::args_os().nth(1).map(PathBuf::from);
-    let viewer = Viewer::new(path);
+    // "--desenhar ARQUIVO" (a captura de tela abre assim): já com a caneta na mão.
+    let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let draw = args.first().is_some_and(|a| a == "--desenhar" || a == "--draw");
+    if draw {
+        args.remove(0);
+    }
+    let mut viewer = Viewer::new(args.into_iter().next().map(PathBuf::from));
+    viewer.draw = draw && viewer.can_draw();
     // Janela do tamanho da imagem (dentro de limites razoáveis); PDF em formato de página.
     let (w, h) = match &viewer.doc {
         Some(Doc::Pdf { size_pt, .. }) => (size_pt.0 * 1.2, size_pt.1 * 1.2),
@@ -942,7 +1261,9 @@ pub fn main() {
     // Cabe com a barra de menu, a de ferramentas e o Dock numa tela pequena.
     let k = (900.0 / w).min(520.0 / h).min(1.0);
     let side = if viewer.sidebar { SIDEBAR_W as u32 } else { 0 };
-    let size = (((w * k) as u32 + 24 + side).max(480), ((h * k) as u32 + 24 + 15 + TOOLBAR_H as u32).max(300));
+    let bar = if viewer.draw { DRAW_H as u32 } else { 0 };
+    // Largura mínima: cabem a barra de ferramentas e a faixa de desenho.
+    let size = (((w * k) as u32 + 24 + side).max(if viewer.draw { 740 } else { 480 }), ((h * k) as u32 + 24 + 15 + TOOLBAR_H as u32 + bar).max(300));
     let opts = WindowOptions { title: "Visualizador".into(), app_id: "glove.Viewer".into(), size, fixed: false, min_size: None };
     if let Err(e) = run(opts, viewer) {
         eprintln!("glove-view: {e}");
