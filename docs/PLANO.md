@@ -769,5 +769,9 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   menu ou folha abertos, o quadro já sai certo): seta 8,2 → 4,3 ms; e o brilho do metal calculado
   numa linha só e repetido (Canvas::metal_sheen), idêntico na tela: 4,3 → ~3,2 ms, e vale para todos
   os apps de metal. Terminal (0,7 ms) e Notas (0,9 ms) já eram baratos.
+  Na v0.12.17: o arrasto de janelas dava um tranco por segundo. A rede de segurança do compositor
+  (vblank perdido) liberava a cada 1 s toda tela com quadro esperando, descartando o flip em curso;
+  agora a tela guarda desde quando espera (Head.pending: Option<Instant>) e só é liberada após 1 s
+  de espera real. Achado por darkstarfire (PR #1).
   Falta: redesenhar só a área que mudou.
 

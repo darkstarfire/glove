@@ -269,6 +269,8 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 
 - Os apps não redesenham mais a janela só porque o mouse passou por cima: se nada
   muda na tela, não gastam nada. Num processador fraco era isso que mais pesava.
+- Arrastar janelas não dá mais um tranco a cada segundo (a rede de segurança do
+  compositor descartava o quadro em curso; correção de darkstarfire).
 - **Preferências > Aparência > Reduzir efeitos**: sem animações (minimizar, Exposé,
   mesas, Todos os Apps), sem ampliação do Dock, sem o ícone pulando ao abrir, sem
   sombras nas janelas e sem o botão do alerta pulsando. Vale na hora, sem reiniciar.

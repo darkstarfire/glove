@@ -267,6 +267,8 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 
 - Apps no longer redraw the window just because the mouse moved over it: if nothing
   changes on screen, they spend nothing. On a weak CPU that was the heaviest cost.
+- Dragging windows no longer stutters once a second (the compositor's safety net was
+  dropping the frame in flight; fix by darkstarfire).
 - **Preferences > Appearance > Reduce effects**: no animations (minimize, Exposé,
   desktops, All Apps), no Dock magnification, no bouncing icon on launch, no window
   shadows and no pulsing alert button. Takes effect right away, no restart.

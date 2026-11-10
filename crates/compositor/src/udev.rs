@@ -8,7 +8,7 @@
 //! mudou, no ritmo dela (vblank).
 
 use glove_config::tr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use glove_config::{auto_scale, parse_mode, OutputInfo, OutputsInfo};
 use smithay::{
@@ -56,8 +56,8 @@ struct Head {
     mode: DrmMode,
     output: Output,
     global: GlobalId,
-    /// Um quadro foi entregue e espera o vblank desta tela.
-    pending: bool,
+    /// Um quadro foi entregue e espera o vblank desta tela desde este instante.
+    pending: Option<Instant>,
     /// Algo mudou desde o último quadro desta tela.
     needs_frame: bool,
 }
@@ -412,7 +412,7 @@ impl Drm {
         };
         state.space.map_output(&output, p.pos);
         tracing::info!("monitor {} em {} (escala {}, posição {},{})", c.name, mode_string(&p.mode), p.scale, p.pos.0, p.pos.1);
-        Some(Head { compositor, connector: c.handle, crtc: p.crtc, name: c.name.clone(), mode: p.mode, output, global, pending: false, needs_frame: true })
+        Some(Head { compositor, connector: c.handle, crtc: p.crtc, name: c.name.clone(), mode: p.mode, output, global, pending: None, needs_frame: true })
     }
 
     pub fn output(&self) -> Option<&Output> {
@@ -600,7 +600,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
                     if let Err(e) = head.compositor.frame_submitted() {
                         tracing::warn!("vblank: {e}");
                     }
-                    head.pending = false;
+                    head.pending = None;
                 }
                 if data.state.dirty || drm.heads.iter().any(|h| h.needs_frame) {
                     render_drm(data);
@@ -614,8 +614,11 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
     handle.insert_source(Timer::from_duration(Duration::from_secs(1)), |_, _, data| {
         if let Backend::Drm(drm) = &mut data.backend {
             if drm.active {
-                for h in drm.heads.iter_mut().filter(|h| h.pending) {
-                    h.pending = false;
+                // Só quando o quadro espera de fato há 1 s: o flip normal leva ~16 ms, e
+                // liberar uma tela ocupada joga fora o quadro em curso (tranco ao arrastar).
+                for h in drm.heads.iter_mut().filter(|h| h.pending.is_some_and(|t| t.elapsed() >= Duration::from_secs(1))) {
+                    tracing::warn!("{}: sem vblank há mais de 1 s; liberando a tela", h.name);
+                    h.pending = None;
                     let _ = h.compositor.reset_state();
                     data.state.dirty = true;
                 }
@@ -671,7 +674,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
                 }
                 drm.active = true;
                 for h in &mut drm.heads {
-                    h.pending = false;
+                    h.pending = None;
                     h.needs_frame = true;
                     let _ = h.compositor.reset_state();
                 }
@@ -732,7 +735,7 @@ pub fn render_drm(data: &mut CalloopData) {
                 if let Err(e) = h.compositor.clear() {
                     tracing::warn!("apagar a tela {}: {e}", h.name);
                 }
-                h.pending = false;
+                h.pending = None;
                 h.needs_frame = false;
             }
             drm.blanked = true;
@@ -756,7 +759,7 @@ pub fn render_drm(data: &mut CalloopData) {
     let mirror = drm.mirror;
     let Drm { heads, renderer, .. } = &mut **drm;
     for (i, head) in heads.iter_mut().enumerate() {
-        if head.pending || !head.needs_frame {
+        if head.pending.is_some() || !head.needs_frame {
             continue;
         }
         head.needs_frame = false;
@@ -778,7 +781,7 @@ pub fn render_drm(data: &mut CalloopData) {
             Ok(r) => {
                 if !r.is_empty {
                     match head.compositor.queue_frame(()) {
-                        Ok(()) => head.pending = true,
+                        Ok(()) => head.pending = Some(Instant::now()),
                         Err(e) => tracing::warn!("{}: entrega do quadro: {e}", head.name),
                     }
                 }
