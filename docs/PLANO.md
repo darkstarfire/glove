@@ -819,4 +819,11 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   (chrome::cursor_resize). A até 18 px de um canto, a borda redimensiona na diagonal.
   `GLOVE_SHOT_CURSOR=1` põe o cursor nas capturas (depuração).
   Falta: os apps do Glove pedirem a própria seta (texto, mão, puxador) ao compositor.
+- [x] 14.5 Monitor desconectado (v0.12.25): `rescue_windows` passou a saber de onde veio cada
+  janela (`snapshot_outputs` guarda os monitores antes da mudança). As do monitor que saiu vão
+  para o centro do principal; maiores que ele encolhem para 90% da área útil; em zoom continuam
+  em zoom na área útil dele (antes iam com o tamanho e o lugar do monitor antigo); em tela cheia,
+  na tela inteira. As do monitor que ficou acompanham a posição nova dele. Vale para minimizadas,
+  ocultas e de outras mesas. Teste: comando `fakeout add L A [left]` / `to` / `remove` do modo
+  de depuração (monitor de mentira no backend winit).
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

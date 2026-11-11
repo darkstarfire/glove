@@ -313,6 +313,7 @@ impl Drm {
             return;
         }
         self.mirror = mirror;
+        state.snapshot_outputs();
 
         // Desliga os que saíram do plano (ou trocaram de controlador).
         let mut i = 0;
@@ -691,6 +692,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
             let dh = data.display_handle.clone();
             if let Backend::Drm(drm) = &mut data.backend {
                 // Monitores que saíram do cabo: tira da mesa (as janelas voltam ao principal).
+                data.state.snapshot_outputs();
                 let list = drm.connected();
                 let mut i = 0;
                 while i < drm.heads.len() {

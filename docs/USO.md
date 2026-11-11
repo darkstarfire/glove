@@ -278,6 +278,17 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 
+## Quando um monitor é desconectado
+
+- As janelas que estavam no monitor que saiu vão para o que ficou, no centro dele.
+- Se a janela era maior que o monitor que ficou, ela encolhe para caber: no máximo 90% da
+  área útil (entre a barra de menu e o Dock).
+- Janela em zoom (maximizada) continua em zoom, ocupando a área útil do monitor que ficou; ao
+  sair do zoom, volta para um tamanho que cabe nele.
+- Janela em tela cheia continua em tela cheia no monitor que ficou.
+- As janelas do monitor que ficou continuam onde estavam nele (mesmo que ele passe a ser o
+  principal). Vale também para as minimizadas, as ocultas e as de outras mesas.
+
 ## Redimensionar janelas
 
 - Na borda de uma janela a seta do mouse vira a de duas pontas (↔, ↕ ou diagonal) e

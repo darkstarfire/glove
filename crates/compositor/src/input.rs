@@ -224,6 +224,57 @@ impl Glove {
                     kb(glove_paint::icons::cache_bytes()), kb(sb), kb(mb), kb(rb), kb(gb)
                 );
             }
+            // "fakeout add L A [left]": liga um monitor de mentira à direita do de verdade
+            // (ou, com "left", no lugar dele, como principal: o de verdade vai para a direita).
+            // "fakeout to": a janela ativa vai para ele. "fakeout remove": ele sai do cabo.
+            Some("fakeout") => {
+                use smithay::output::{Mode, Output, PhysicalProperties, Scale, Subpixel};
+                let real: Vec<Output> = self.space.outputs().filter(|o| Some(*o) != self.debug_output.as_ref()).cloned().collect();
+                let Some(real) = real.first().cloned() else { return };
+                match it.next() {
+                    Some("add") if self.debug_output.is_none() => {
+                        let w: i32 = it.next().and_then(|v| v.parse().ok()).unwrap_or(1920);
+                        let h: i32 = it.next().and_then(|v| v.parse().ok()).unwrap_or(1080);
+                        let left = it.next() == Some("left");
+                        self.snapshot_outputs();
+                        let out = Output::new("fake-1".into(), PhysicalProperties { size: (0, 0).into(), subpixel: Subpixel::Unknown, make: "Glove".into(), model: "Teste".into() });
+                        let mode = Mode { size: (w, h).into(), refresh: 60_000 };
+                        let rw = self.space.output_geometry(&real).map_or(1280, |g| g.size.w);
+                        let pos = if left { (0, 0) } else { (rw, 0) };
+                        out.change_current_state(Some(mode), None, Some(Scale::Integer(1)), Some(pos.into()));
+                        self.space.map_output(&out, pos);
+                        if left {
+                            real.change_current_state(None, None, None, Some((w, 0).into()));
+                            self.space.map_output(&real, (w, 0));
+                            self.primary_output = Some(out.name());
+                        }
+                        self.debug_output = Some(out);
+                        self.rescue_windows();
+                    }
+                    Some("to") => {
+                        if let (Some(w), Some(g)) = (self.focused_window(), self.debug_output.as_ref().and_then(|o| self.space.output_geometry(o))) {
+                            let top = crate::shell::deco_top(&w);
+                            self.space.map_element(w.clone(), (g.loc.x + 80, g.loc.y + 80 + top), true);
+                            self.sync_x11(&w);
+                        }
+                    }
+                    Some("remove") => {
+                        if let Some(out) = self.debug_output.take() {
+                            self.snapshot_outputs();
+                            self.space.unmap_output(&out);
+                            real.change_current_state(None, None, None, Some((0, 0).into()));
+                            self.space.map_output(&real, (0, 0));
+                            self.primary_output = Some(real.name());
+                            self.rescue_windows();
+                        }
+                    }
+                    _ => {}
+                }
+                for w in self.space.elements() {
+                    tracing::info!("fakeout: janela {:?} zoom={} cheia={}", self.space.element_geometry(w), crate::shell::zoom_restore(w).is_some(), crate::shell::is_fullscreen(w));
+                }
+                self.dirty = true;
+            }
             // "run comando": abre um programa nesta sessão (como o Dock abriria).
             Some("run") => {
                 let cmd = line.splitn(2, ' ').nth(1).unwrap_or("").trim();

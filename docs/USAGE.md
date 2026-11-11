@@ -276,6 +276,17 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 
+## When a display is unplugged
+
+- Windows that were on the display that went away move to the one that stayed, centered on it.
+- A window larger than the remaining display shrinks to fit: at most 90% of the usable area
+  (between the menu bar and the Dock).
+- A zoomed (maximized) window stays zoomed, filling the usable area of the remaining display;
+  leaving zoom brings it back to a size that fits there.
+- A full-screen window stays full screen on the remaining display.
+- Windows on the display that stayed keep their place on it (even if it becomes the main
+  one). This also applies to minimized and hidden windows and to those on other desktops.
+
 ## Resizing windows
 
 - On a window edge the pointer turns into the double-headed arrow (↔, ↕ or diagonal)

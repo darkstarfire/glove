@@ -13,7 +13,7 @@ use smithay::{
             Display, DisplayHandle,
         },
     },
-    utils::{Logical, Point},
+    utils::{Logical, Point, Rectangle},
     wayland::{
         compositor::{CompositorClientState, CompositorState},
         fractional_scale::FractionalScaleManagerState,
@@ -181,6 +181,10 @@ pub struct Glove {
     pub x11_overlays: Vec<Window>,
     /// Nome do monitor principal (barra de menu e Dock); os outros estendem a mesa.
     pub primary_output: Option<String>,
+    /// Nome e área de cada monitor antes da mudança em curso (ver `snapshot_outputs`).
+    pub outputs_before: Vec<(String, Rectangle<i32, Logical>)>,
+    /// Monitor de mentira dos testes (comando `fakeout` do modo de depuração).
+    pub debug_output: Option<smithay::output::Output>,
     /// Tampa do notebook fechada (com monitor externo, a tela embutida desliga).
     pub lid_closed: bool,
     /// Os monitores precisam ser reorganizados (a tampa abriu ou fechou).
@@ -306,6 +310,8 @@ impl Glove {
             xwayland_shell_state,
             x11_overlays: Vec::new(),
             primary_output: None,
+            outputs_before: Vec::new(),
+            debug_output: None,
             lid_closed: false,
             reconfigure_outputs: false,
             extra_shot: None,
@@ -502,26 +508,51 @@ impl Glove {
             .unwrap_or(p)
     }
 
-    /// Janelas que ficaram fora de todos os monitores (um saiu do cabo) voltam ao principal.
+    /// Guarda onde está cada monitor antes de uma mudança (um saiu do cabo, as
+    /// Preferências mudaram): `rescue_windows` usa para saber de onde veio cada janela.
+    pub fn snapshot_outputs(&mut self) {
+        if self.outputs_before.is_empty() {
+            self.outputs_before = self.space.outputs().filter_map(|o| Some((o.name(), self.space.output_geometry(o)?))).collect();
+        }
+    }
+
+    /// Os monitores mudaram. As janelas de um monitor que continua acompanham a
+    /// nova posição dele. As de um monitor que saiu vão para o principal, no centro:
+    /// as maiores que ele encolhem (até 90% da área útil), as em zoom continuam em
+    /// zoom, ocupando a área útil dele, e as em tela cheia, a tela inteira.
     pub fn rescue_windows(&mut self) {
-        let rects: Vec<_> = self.space.outputs().filter_map(|o| self.space.output_geometry(o)).collect();
-        if rects.is_empty() {
+        let now: Vec<(String, Rectangle<i32, Logical>)> = self.space.outputs().filter_map(|o| Some((o.name(), self.space.output_geometry(o)?))).collect();
+        if now.is_empty() {
             return;
         }
+        let before = std::mem::take(&mut self.outputs_before);
         let area = self.work_area();
-        let lost: Vec<Window> = self
-            .space
-            .elements()
-            .filter(|w| self.space.element_geometry(w).is_some_and(|g| !rects.iter().any(|r| r.overlaps(g))))
-            .cloned()
-            .collect();
-        for (i, w) in lost.iter().enumerate() {
-            let top = crate::shell::deco_top(w);
-            let off = (i as i32 % 6) * 26;
-            self.space.map_element(w.clone(), (area.loc.x + 40 + off, area.loc.y + top + 20 + off), false);
-            self.sync_x11(w);
+        let full = self.primary().and_then(|o| self.space.output_geometry(o)).unwrap_or(area);
+        let ctx = Rehome { before: &before, now: &now, area, full };
+        // As que estão na tela, de baixo para cima (recolocar todas mantém a ordem).
+        let wins: Vec<(Window, Point<i32, Logical>)> = self.space.elements().filter_map(|w| Some((w.clone(), self.space.element_location(w)?))).collect();
+        let moved: Vec<Option<Point<i32, Logical>>> = wins.iter().map(|(w, loc)| ctx.apply(w, *loc)).collect();
+        let mut changed = moved.iter().any(|m| m.is_some());
+        if changed {
+            for ((w, loc), new) in wins.iter().zip(&moved) {
+                self.space.map_element(w.clone(), new.unwrap_or(*loc), false);
+            }
         }
-        if !lost.is_empty() {
+        // As que estão guardadas (minimizadas, ocultas, em outra mesa) voltam no lugar certo.
+        for (w, loc) in self.minimized.iter_mut().chain(self.hidden.iter_mut()) {
+            if let Some(new) = ctx.apply(w, *loc) {
+                *loc = new;
+                changed = true;
+            }
+        }
+        for (w, loc, _) in self.mesas.away.iter_mut() {
+            if let Some(new) = ctx.apply(w, *loc) {
+                *loc = new;
+                changed = true;
+            }
+        }
+        if changed {
+            self.refit_zoomed();
             self.dirty = true;
         }
     }
@@ -702,5 +733,122 @@ fn write_portals_conf() {
     }
     if std::fs::create_dir_all(&dir).is_ok() {
         let _ = std::fs::write(file, text);
+    }
+}
+
+/// Para onde vai uma janela quando os monitores mudam (ver `Glove::rescue_windows`).
+struct Rehome<'a> {
+    before: &'a [(String, Rectangle<i32, Logical>)],
+    now: &'a [(String, Rectangle<i32, Logical>)],
+    /// Área útil e área inteira do monitor principal de agora.
+    area: Rectangle<i32, Logical>,
+    full: Rectangle<i32, Logical>,
+}
+
+impl Rehome<'_> {
+    /// Novo lugar da janela (que está, ou estava guardada, em `loc`); `None` se fica
+    /// onde está. Pede o tamanho novo ao app quando ele muda.
+    fn apply(&self, w: &Window, loc: Point<i32, Logical>) -> Option<Point<i32, Logical>> {
+        let size = w.geometry().size;
+        if size.w <= 0 || size.h <= 0 {
+            return None;
+        }
+        let top = crate::shell::deco_top(w);
+        let geo = Rectangle::new(loc, size);
+        let center: Point<i32, Logical> = (loc.x + size.w / 2, loc.y + size.h / 2).into();
+        // O monitor em que ela estava: o do centro ou, fora de todos, o que mais a cobria.
+        let home = self.before.iter().find(|(_, r)| r.contains(center)).or_else(|| {
+            self.before.iter().filter(|(_, r)| r.overlaps(geo)).max_by_key(|(_, r)| r.intersection(geo).map_or(0, |i| i.size.w as i64 * i.size.h as i64))
+        });
+        if let Some((name, old)) = home {
+            if let Some((_, new)) = self.now.iter().find(|(n, _)| n == name) {
+                // O monitor continua: ela acompanha a posição dele. (Se ele mudou de
+                // tamanho, o zoom e a tela cheia são refeitos por quem chamou.)
+                let d = new.loc - old.loc;
+                let moved: Point<i32, Logical> = loc + d;
+                let inside = Rectangle::new(moved, size).overlaps(*new);
+                if inside {
+                    return (d.x != 0 || d.y != 0).then_some(moved);
+                }
+            }
+        } else if self.now.iter().any(|(_, r)| r.overlaps(geo)) {
+            // Não se sabe de onde veio, mas está à vista: fica.
+            return None;
+        }
+        // O monitor dela saiu: vai para o principal.
+        if crate::shell::is_fullscreen(w) {
+            configure(w, self.full);
+            return Some(self.full.loc);
+        }
+        if let Some(restore) = crate::shell::zoom_restore(w) {
+            // Em zoom: ocupa a área útil; o tamanho "de antes" também passa a caber.
+            let (rloc, rsize) = fit(restore.size, top, self.area, true);
+            crate::shell::set_zoom_restore(w, Rectangle::new(rloc, rsize));
+            let rect = Rectangle::new((self.area.loc.x, self.area.loc.y + top).into(), (self.area.size.w, self.area.size.h - top).into());
+            configure(w, rect);
+            return Some(rect.loc);
+        }
+        let (new_loc, new_size) = fit(size, top, self.area, !crate::shell::fixed_size(w));
+        if new_size != size {
+            configure(w, Rectangle::new(new_loc, new_size));
+        } else if let Some(x) = w.x11_surface() {
+            let _ = x.configure(Rectangle::new(new_loc, size));
+        }
+        (new_loc != loc || new_size != size).then_some(new_loc)
+    }
+}
+
+/// Pede ao app a área nova (posição só vale para X11; no Wayland, o tamanho).
+fn configure(w: &Window, rect: Rectangle<i32, Logical>) {
+    if let Some(x) = w.x11_surface() {
+        let _ = x.configure(rect);
+    } else if let Some(t) = w.toplevel() {
+        t.with_pending_state(|s| s.size = Some(rect.size));
+        t.send_pending_configure();
+    }
+}
+
+/// Centraliza uma janela de tamanho `size` (mais `top` de barra de título) na
+/// área útil. Se ela é maior que a área (e pode mudar de tamanho), encolhe para
+/// no máximo 90% dela. Devolve a posição e o tamanho do conteúdo.
+fn fit(size: smithay::utils::Size<i32, Logical>, top: i32, area: Rectangle<i32, Logical>, resizable: bool) -> (Point<i32, Logical>, smithay::utils::Size<i32, Logical>) {
+    let (mut w, mut h) = (size.w, size.h + top);
+    if resizable {
+        if w > area.size.w {
+            w = area.size.w * 9 / 10;
+        }
+        if h > area.size.h {
+            h = area.size.h * 9 / 10;
+        }
+    }
+    let x = area.loc.x + (area.size.w - w) / 2;
+    // Nunca acima da área útil: a barra de título tem de ficar ao alcance.
+    let y = (area.loc.y + (area.size.h - h) / 2).max(area.loc.y);
+    ((x, y + top).into(), (w, (h - top).max(1)).into())
+}
+
+#[cfg(test)]
+mod rehome_tests {
+    use super::*;
+
+    #[test]
+    fn cabe_no_monitor_menor() {
+        let area = Rectangle::new((0, 22).into(), (1366, 680).into());
+        // Menor que a área: só centraliza.
+        let (loc, size) = fit((800, 500).into(), 22, area, true);
+        assert_eq!(size, (800, 500).into());
+        assert_eq!(loc, ((1366 - 800) / 2, 22 + (680 - 522) / 2 + 22).into());
+        // Maior: encolhe para 90% da área (com a barra de título dentro) e centraliza.
+        let (loc, size) = fit((2400, 1300).into(), 22, area, true);
+        assert_eq!(size, (1366 * 9 / 10, 680 * 9 / 10 - 22).into());
+        assert_eq!(loc.x, (1366 - 1366 * 9 / 10) / 2);
+        assert!(loc.y - 22 >= area.loc.y && loc.y + size.h <= area.loc.y + area.size.h);
+        // Só a altura passa: a largura fica.
+        let (_, size) = fit((900, 1000).into(), 0, area, true);
+        assert_eq!(size, (900, 612).into());
+        // Tamanho fixo: não encolhe, e a barra de título não sobe além da área.
+        let (loc, size) = fit((900, 1000).into(), 22, area, false);
+        assert_eq!(size, (900, 1000).into());
+        assert_eq!(loc.y, 22 + 22);
     }
 }

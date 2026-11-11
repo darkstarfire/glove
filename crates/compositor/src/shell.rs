@@ -136,6 +136,18 @@ pub fn is_ssd(w: &Window) -> bool {
     w.toplevel().map(|t| t.current_state().decoration_mode == Some(DecoMode::ServerSide)).unwrap_or(false)
 }
 
+/// O tamanho "de antes" de uma janela em zoom (`None`: não está em zoom).
+pub fn zoom_restore(w: &Window) -> Option<Rectangle<i32, Logical>> {
+    w.user_data().get::<RefCell<Restore>>().and_then(|r| r.borrow().0)
+}
+
+/// Troca o tamanho "de antes" de uma janela em zoom.
+pub fn set_zoom_restore(w: &Window, rect: Rectangle<i32, Logical>) {
+    if let Some(r) = w.user_data().get::<RefCell<Restore>>() {
+        r.borrow_mut().0 = Some(rect);
+    }
+}
+
 pub fn deco_top(w: &Window) -> i32 {
     if is_ssd(w) { TITLE_H } else { 0 }
 }
