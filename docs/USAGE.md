@@ -276,6 +276,14 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 
+## Where new windows appear
+
+- Every new window opens centered in the usable area (between the menu bar and the Dock) of
+  the main display, whether the app is Wayland or X11.
+- If the app changes the window size right after opening (common with X11 apps), the window
+  goes back to the center with the new size. Once you move it, Glove leaves it alone.
+- An app that remembers it was zoomed opens zoomed, filling the usable area.
+
 ## When a display is unplugged
 
 - Windows that were on the display that went away move to the one that stayed, centered on it.

@@ -826,4 +826,8 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   na tela inteira. As do monitor que ficou acompanham a posição nova dele. Vale para minimizadas,
   ocultas e de outras mesas. Teste: comando `fakeout add L A [left]` / `to` / `remove` do modo
   de depuração (monitor de mentira no backend winit).
+- [x] 14.6 Janelas novas no centro (v0.12.26): `place_new_window` não usa mais cascata nem o
+  terço de cima; `centered()` põe a janela no meio da área útil, igual para Wayland e X11.
+  `recenter_if_fresh`: por 2,5 s depois de abrir, se o app muda o tamanho e a janela ainda está
+  onde o Glove a pôs, ela é centralizada de novo (apps X11 que aparecem pequenos e crescem).
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

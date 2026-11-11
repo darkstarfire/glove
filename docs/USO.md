@@ -278,6 +278,14 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 
+## Onde as janelas novas aparecem
+
+- Toda janela nova abre no centro da área útil (entre a barra de menu e o Dock) do monitor
+  principal, seja de app Wayland ou X11.
+- Se o app muda o tamanho da janela logo depois de abrir (comum nos apps X11), ela volta para
+  o centro com o tamanho novo. Depois que você move a janela, o Glove não mexe mais nela.
+- Um app que lembra que estava em zoom abre em zoom, ocupando a área útil.
+
 ## Quando um monitor é desconectado
 
 - As janelas que estavam no monitor que saiu vão para o que ficou, no centro dele.

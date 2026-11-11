@@ -74,7 +74,6 @@ pub struct Glove {
     pub dirty: bool,
     /// Rodando dentro de outro desktop (atalhos usam Alt em vez de Super).
     pub nested: bool,
-    pub cascade: i32,
     pub suppressed_keys: Vec<u32>,
     pub pointer_pos: Point<f64, Logical>,
     /// Apps conectados para mostrar seus menus na barra.
@@ -250,7 +249,6 @@ impl Glove {
             proxy_press: None,
             dirty: true,
             nested: false,
-            cascade: 0,
             suppressed_keys: Vec::new(),
             pointer_pos: (0.0, 0.0).into(),
             screenshot_request: None,

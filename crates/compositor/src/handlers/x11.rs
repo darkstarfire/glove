@@ -170,6 +170,10 @@ impl XwmHandler for Glove {
             geo.size.h = h as i32;
         }
         let _ = window.configure(geo);
+        // Janela recém-aberta que mudou de tamanho: volta para o centro.
+        if let Some(m) = mapped {
+            self.recenter_if_fresh(&m);
+        }
         self.dirty = true;
     }
 

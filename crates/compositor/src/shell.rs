@@ -225,8 +225,17 @@ pub struct Deco {
 #[derive(Default)]
 struct Restore(Option<Rectangle<i32, Logical>>);
 
-/// Marca que a janela já foi posicionada na primeira exibição.
-pub struct Placed;
+/// Marca que a janela já foi posicionada na primeira exibição: quando, e onde
+/// o Glove a deixou (para centralizar de novo se o app mudar o tamanho logo depois).
+pub struct Placed(std::cell::Cell<Option<(std::time::Instant, Point<i32, Logical>)>>);
+
+/// Canto de uma janela de tamanho `size` (sem a barra de título, de altura `top`)
+/// centralizada na área útil. Se não couber, encosta em cima e à esquerda.
+pub fn centered(size: Size<i32, Logical>, top: i32, area: Rectangle<i32, Logical>) -> Point<i32, Logical> {
+    let x = area.loc.x + ((area.size.w - size.w) / 2).max(0);
+    let y = area.loc.y + top + ((area.size.h - top - size.h) / 2).max(0);
+    (x, y).into()
+}
 
 /// Último tamanho visto da janela (para saber quando o app mudou o tamanho dela).
 struct LastSize(std::cell::Cell<(i32, i32)>);
@@ -1029,7 +1038,6 @@ impl Glove {
         }
     }
 
-    /// Posiciona uma janela nova no centro da área útil (com cascata leve).
     /// O app mudou o tamanho da janela (ex.: as Preferências crescem com o painel) e
     /// ela passou do fim da área útil: sobe o que for preciso (sem passar da barra de
     /// menu). Não mexe enquanto o usuário arrasta ou redimensiona, nem em tela cheia.
@@ -1063,15 +1071,56 @@ impl Glove {
         }
     }
 
-    pub fn place_new_window(&mut self, w: &Window) {
-        if w.user_data().get::<Placed>().is_some() {
+    /// Muitos apps (X11 principalmente) aparecem com um tamanho e mudam para o
+    /// definitivo logo em seguida. Enquanto a janela é recém-aberta e continua onde
+    /// o Glove a pôs, ela é centralizada de novo com o tamanho novo.
+    pub fn recenter_if_fresh(&mut self, w: &Window) {
+        let Some(placed) = w.user_data().get::<Placed>() else { return };
+        let Some((when, at)) = placed.0.get() else { return };
+        if when.elapsed() > std::time::Duration::from_millis(2500) || self.space.element_location(w) != Some(at) {
+            placed.0.set(None);
+            return;
+        }
+        if is_fullscreen(w) || zoom_restore(w).is_some() || self.seat.get_pointer().is_some_and(|p| p.is_grabbed()) {
             return;
         }
         let size = w.geometry().size;
         if size.w <= 0 || size.h <= 0 {
             return;
         }
-        w.user_data().insert_if_missing(|| Placed);
+        let loc = self.new_window_loc(w, size);
+        if loc != at {
+            placed.0.set(Some((when, loc)));
+            self.space.map_element(w.clone(), loc, false);
+            if self.focused_window().as_ref() == Some(w) {
+                self.space.raise_element(w, true);
+            }
+            self.sync_x11(w);
+            self.dirty = true;
+        }
+    }
+
+    /// Onde uma janela nova aparece: no centro da área útil (entre a barra de menu e o Dock).
+    fn new_window_loc(&self, w: &Window, size: Size<i32, Logical>) -> Point<i32, Logical> {
+        let area = self.work_area();
+        if self.greeter {
+            // Tela de login: o painel no centro, um pouco acima do meio.
+            return (area.loc.x + (area.size.w - size.w) / 2, area.loc.y + ((area.size.h - size.h) as f32 * 0.42) as i32).into();
+        }
+        centered(size, deco_top(w), area)
+    }
+
+    /// Posiciona uma janela nova no centro da área útil.
+    pub fn place_new_window(&mut self, w: &Window) {
+        if w.user_data().get::<Placed>().is_some() {
+            self.recenter_if_fresh(w);
+            return;
+        }
+        let size = w.geometry().size;
+        if size.w <= 0 || size.h <= 0 {
+            return;
+        }
+        w.user_data().insert_if_missing(|| Placed(std::cell::Cell::new(None)));
         // Itens Recentes: só apps que o Glove sabe abrir de novo.
         let app_id = window_info(w).1;
         // A janela apareceu: o ícone para de pular (no fim do pulo atual).
@@ -1079,10 +1128,9 @@ impl Glove {
         if self.config.dock_apps.iter().any(|a| a.app_id == app_id) {
             self.recent.add_app(&app_id);
         }
-        let area = self.work_area();
         let top = deco_top(w);
         // O app pediu para abrir maximizado (lembrou do estado ao fechar): ocupa
-        // a área útil de agora, sem cascata. Como ainda não tinha tamanho, o
+        // a área útil de agora. Como ainda não tinha tamanho, o
         // tamanho de "voltar" passa a ser 2/3 da área, centralizado.
         if let Some(restore) = w.user_data().get::<RefCell<Restore>>() {
             let saved = restore.borrow().0;
@@ -1113,16 +1161,12 @@ impl Glove {
                 return;
             }
         }
-        let off = (self.cascade % 6) * 26;
-        self.cascade += 1;
-        let (x, y) = if self.greeter {
-            // Tela de login: o painel no centro, um pouco acima do meio.
-            (area.loc.x + (area.size.w - size.w) / 2, area.loc.y + ((area.size.h - size.h) as f32 * 0.42) as i32)
-        } else {
-            (area.loc.x + ((area.size.w - size.w) / 2).max(0) + off - 65, area.loc.y + top + ((area.size.h - size.h - top) / 3).max(8) + off)
-        };
+        let loc = self.new_window_loc(w, size);
+        if let Some(placed) = w.user_data().get::<Placed>() {
+            placed.0.set(Some((std::time::Instant::now(), loc)));
+        }
         // Só posiciona: não muda a ordem nem o foco.
-        self.space.map_element(w.clone(), (x.max(0), y.max(MENUBAR_H + top)), false);
+        self.space.map_element(w.clone(), loc, false);
         if self.focused_window().as_ref() == Some(w) {
             self.space.raise_element(w, true);
         }
@@ -2199,3 +2243,20 @@ impl Glove {
     }
 }
 
+
+#[cfg(test)]
+mod centered_tests {
+    use super::*;
+
+    #[test]
+    fn janela_nova_no_centro() {
+        let area = Rectangle::new((0, 22).into(), (1280, 700).into());
+        // Sobra igual dos dois lados e, contando a barra de título, em cima e embaixo.
+        assert_eq!(centered((800, 500).into(), 22, area), Point::from((240, 22 + 22 + 89)));
+        // Em outro monitor, a conta parte do canto dele.
+        let right = Rectangle::new((1280, 0).into(), (1920, 1080).into());
+        assert_eq!(centered((920, 580).into(), 0, right), Point::from((1780, 250)));
+        // Maior que a área: encosta no canto, sem sair por cima nem pela esquerda.
+        assert_eq!(centered((2000, 900).into(), 22, area), Point::from((0, 44)));
+    }
+}
