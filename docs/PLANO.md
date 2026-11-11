@@ -834,4 +834,8 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   degraus (26 px) estão as outras janelas do app em relação ao centro delas (`cascade_slot`,
   com folga de 6 px) e usa o primeiro livre (`cascade_step`, 6 degraus). Diálogos (com janela
   dona) ficam no centro.
+- [x] 14.7 Abrir/Salvar redimensionável (v0.12.28, glove-ui 0.2.26): o `glove-escolher` (janela
+  do portal) era criado com `fixed: true`; agora tem mínimo de 480×300 e cresce à vontade. A
+  folha dentro dos apps ganhou um puxador no canto (`sheet_fit`, `FileBrowser::sheet_size`):
+  cresce dos dois lados, até a janela do app.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

@@ -43,7 +43,7 @@ fn main() {
         _ => tr!("Abrir"),
     };
     let title = val("--titulo").filter(|t| !t.is_empty()).unwrap_or_else(|| default_title.into());
-    let opts = WindowOptions { title, app_id: "glove.Escolher".into(), size: (640, 410), fixed: true, min_size: None };
+    let opts = WindowOptions { title, app_id: "glove.Escolher".into(), size: (640, 410), fixed: false, min_size: Some((480, 300)) };
     if let Err(e) = run(opts, Escolher { fb }) {
         eprintln!("glove-escolher: {e}");
     }

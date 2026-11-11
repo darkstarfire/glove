@@ -276,6 +276,14 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 
+## Open and Save
+
+- Outside apps (VS Code, the browser and others that use the system portal) show Glove's
+  Open/Save window. It can be resized by its edges or by the bottom-right corner; the wider
+  it is, the more folder columns it shows.
+- In Glove apps, Open/Save is a sheet that drops from the title bar. Drag the sheet's
+  bottom-right corner to change its size (up to the size of the app window).
+
 ## Where new windows appear
 
 - Every new window opens centered in the usable area (between the menu bar and the Dock) of

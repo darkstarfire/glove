@@ -278,6 +278,14 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 
+## Abrir e Salvar
+
+- Apps de fora (VS Code, navegador e outros que usam o portal do sistema) mostram a janela
+  Abrir/Salvar do Glove. Ela pode ser redimensionada pelas bordas ou pelo canto inferior
+  direito; quanto mais larga, mais colunas de pastas aparecem.
+- Nos apps do Glove, Abrir/Salvar é uma folha que desce da barra de título. Arraste o canto
+  inferior direito da folha para mudar o tamanho dela (até o tamanho da janela do app).
+
 ## Onde as janelas novas aparecem
 
 - Toda janela nova abre no centro da área útil (entre a barra de menu e o Dock) do monitor
