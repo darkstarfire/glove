@@ -125,6 +125,7 @@ and the documentation.
 ./glove-setup-tool.sh install         # no package: builds and installs in /usr/local
 ./glove-setup-tool.sh uninstall       # the reverse of "install" (or calls the package manager)
 ./glove-setup-tool.sh deps            # what's missing to build (apt, dnf, pacman, zypper, xbps, apk)
+./glove-setup-tool.sh grub            # Glove OS wallpaper on the GRUB screen ("grub remove" undoes it)
 ```
 
 Installing the package (Debian/Ubuntu/Zorin example):
@@ -150,6 +151,15 @@ login screen and brings your display, scale, keyboard and theme settings to it;
 **Removing:** `sudo apt remove glove` (or `rpm -e`, `pacman -R`, `removepkg`). If the Glove
 login screen was the main one, removing it switches back to the previous one, so the computer
 is never left without a login screen. Personal settings (`~/.config/glove`) stay.
+
+**GRUB screen (optional).** At the end, `./glove-setup-tool.sh install` asks whether to also
+change the GRUB screen (the menu shown when the computer starts) to the Glove OS wallpaper, with
+white menu text. `./glove-setup-tool.sh grub` does it later and `./glove-setup-tool.sh grub remove`
+undoes it. It copies the image to `/boot/grub/glove-os.png`, points `GRUB_BACKGROUND` at it (in
+`/etc/default/grub.d/glove.cfg`; on distributions without that folder, in marked lines at the end
+of `/etc/default/grub`) and puts the text colors in `/etc/grub.d/06_glove`. GRUB only: with another
+bootloader (systemd-boot…) the command says so and changes nothing. On the Glove OS ISO this is
+already done: in the boot menu of the USB stick and in the installed system's GRUB.
 
 ## Glove OS (the distribution, as an ISO)
 

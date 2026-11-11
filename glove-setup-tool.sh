@@ -265,6 +265,18 @@ install_glove() {
     echo
     echo "$(t "Glove $version instalado em $prefix. Saia da sessão e escolha \"Glove\" na tela de login." "Glove $version installed in $prefix. Log out and choose \"Glove\" on the login screen.")"
     echo "$(t "Tela de login do Glove: ./glove-setup-tool.sh login (ou sudo systemctl enable --force glove-login)." "Glove login screen: ./glove-setup-tool.sh login (or sudo systemctl enable --force glove-login).")"
+    # The GRUB screen: asked once (not again when it already has the Glove image).
+    if [ -z "$sysroot" ]; then
+        gdir=$(grub_dir)
+        if [ -n "$gdir" ] && [ ! -f "$gdir/glove-os.png" ]; then
+            echo
+            if ask "$(t "Trocar também a tela do GRUB (o menu que aparece ao ligar) pelo papel de parede do Glove OS?" "Also change the GRUB screen (the menu shown at power-on) to the Glove OS wallpaper?")" n; then
+                grub_screen yes
+            else
+                echo "$(t "Para trocar depois: ./glove-setup-tool.sh grub" "To change it later: ./glove-setup-tool.sh grub")"
+            fi
+        fi
+    fi
 }
 
 uninstall_glove() {
@@ -295,6 +307,11 @@ uninstall_glove() {
         root sh -c 'while IFS= read -r f; do [ -n "$f" ] && rm -f "$2$f"; done < "$1"' sh "$list" "$sysroot" || true
         root sh -c 'for d in "$1/share/icons/Glove" "$1/share/doc/glove" "$1/share/glove"; do rm -rf "$d"; done' sh "$sysroot$p"
     done
+    # The GRUB screen with the Glove image: back to what it was.
+    gdir=$(grub_dir)
+    if [ -z "$sysroot" ] && [ -n "$gdir" ] && [ -f "$gdir/glove-os.png" ]; then
+        grub_screen remove
+    fi
     echo "$(t "Glove removido. Sua configuração pessoal (~/.config/glove) foi mantida." "Glove removed. Your personal settings (~/.config/glove) were kept.")"
 }
 
@@ -358,6 +375,8 @@ package_glove_os() {
     install -m 644 "$d/neofetch.conf" "$tmp/etc/skel/.config/neofetch/config.conf"
     install -m 644 "$d/apt-glove-os.conf" "$tmp/etc/apt/apt.conf.d/99glove-os"
     install -m 644 "$d/grub-glove-os.cfg" "$tmp/etc/default/grub.d/glove-os.cfg"
+    mkdir -p "$tmp/etc/grub.d"
+    install -m 755 "$root_dir/data/grub/06_glove" "$tmp/etc/grub.d/06_glove"
     for f in "$d"/icones/glove-os-*.png; do
         s=$(basename "$f" .png | sed 's/glove-os-//')
         mkdir -p "$tmp/usr/share/icons/hicolor/${s}x${s}/apps"
@@ -628,6 +647,96 @@ login() {
     fi
 }
 
+# --- boot menu screen (GRUB) ---------------------------------------------------------
+
+# GRUB's folder in /boot ("" when this system does not boot with GRUB).
+grub_dir() {
+    [ -d "$sysroot/etc/grub.d" ] || return 0
+    for d in /boot/grub /boot/grub2; do
+        # (On some systems only root can look inside the folder.)
+        if [ -f "$sysroot$d/grub.cfg" ] || { [ -d "$sysroot$d" ] && [ ! -r "$sysroot$d" ]; }; then echo "$d"; return 0; fi
+    done
+}
+
+# Puts the Glove OS wallpaper behind the GRUB menu (the screen where the system to
+# start is chosen), with white menu text; "grub remove" undoes it. What it writes:
+#   /boot/grub/glove-os.png           the image (in /boot, where GRUB can always read it)
+#   /etc/default/grub.d/glove.cfg     GRUB_BACKGROUND (Debian, Ubuntu…), or lines marked
+#                                     "# glove-setup-tool" at the end of /etc/default/grub
+#   /etc/grub.d/06_glove              the text colors
+# "grub yes" does not ask (used right after the question at the end of "install").
+grub_screen() {
+    if [ "$(id -u)" != 0 ] && [ -z "$sysroot" ]; then
+        root "$root_dir/glove-setup-tool.sh" grub "$@"
+        return
+    fi
+    gdir=$(grub_dir)
+    [ -n "$gdir" ] || die "$(t "não achei o GRUB neste sistema (ele usa outro carregador de início?)" "GRUB was not found on this system (does it use another bootloader?)")"
+    img="$gdir/glove-os.png"
+    dropin=/etc/default/grub.d/glove.cfg
+    main=/etc/default/grub
+    colors=/etc/grub.d/06_glove
+    mark="# glove-setup-tool"
+    refresh() {
+        [ -z "$sysroot" ] || return 0
+        msg "$(t "Refazendo o menu do GRUB" "Rebuilding the GRUB menu")"
+        if has update-grub; then update-grub
+        elif has grub-mkconfig; then grub-mkconfig -o "$gdir/grub.cfg"
+        elif has grub2-mkconfig; then grub2-mkconfig -o "$gdir/grub.cfg"
+        else die "$(t "não achei o update-grub nem o grub-mkconfig" "neither update-grub nor grub-mkconfig was found")"; fi
+    }
+    case "${1:-}" in
+        remove|remover)
+            rm -f "$sysroot$img" "$sysroot$dropin" "$sysroot$colors"
+            if [ -f "$sysroot$main" ]; then sed -i "/$mark\$/d" "$sysroot$main"; fi
+            refresh
+            echo "$(t "A tela do GRUB voltou a ser a de antes." "The GRUB screen is back to what it was.")"
+            return ;;
+    esac
+    src=""
+    for f in "$root_dir/data/papeis/glove-os.png" /usr/local/share/glove/papeis/glove-os.png /usr/share/glove/papeis/glove-os.png; do
+        if [ -f "$f" ]; then src=$f; break; fi
+    done
+    [ -n "$src" ] || die "$(t "não achei o papel de parede do Glove OS (glove-os.png)" "the Glove OS wallpaper (glove-os.png) was not found")"
+    if [ "${1:-}" != yes ]; then
+        ask "$(t "Trocar a tela do GRUB (o menu que aparece ao ligar) pelo papel de parede do Glove OS?" "Change the GRUB screen (the menu shown at power-on) to the Glove OS wallpaper?")" y || return 0
+    fi
+    install -m 644 "$src" "$sysroot$img"
+    install -m 755 "$root_dir/data/grub/06_glove" "$sysroot$colors"
+    lines="GRUB_BACKGROUND=\"$img\""
+    if [ -f "$sysroot$main" ]; then
+        sed -i "/$mark\$/d" "$sysroot$main"
+        # A theme hides the background image: off while the Glove image is in place.
+        if grep -q '^GRUB_THEME=' "$sysroot$main"; then
+            lines="$lines
+GRUB_THEME=\"\""
+            echo "$(t "O tema do GRUB configurado em $main fica desligado enquanto a imagem do Glove estiver ativa." "The GRUB theme set in $main stays off while the Glove image is in place.")"
+        fi
+        # Text-only menu (Fedora's default): the image needs the graphical one.
+        if grep -q '^GRUB_TERMINAL_OUTPUT=.*console' "$sysroot$main"; then
+            lines="$lines
+GRUB_TERMINAL_OUTPUT=\"gfxterm\""
+        fi
+        if grep -q '^GRUB_TERMINAL=.*console' "$sysroot$main"; then
+            echo "$(t "Aviso: $main tem GRUB_TERMINAL=console (menu só de texto); a imagem só aparece sem essa linha." "Warning: $main has GRUB_TERMINAL=console (text-only menu); the image only shows without that line.")" >&2
+        fi
+    fi
+    mkconfig=$(command -v grub-mkconfig 2>/dev/null || command -v grub2-mkconfig 2>/dev/null || true)
+    if [ -d "$sysroot/etc/default/grub.d" ] || { [ -n "$mkconfig" ] && grep -q 'default/grub\.d' "$mkconfig"; }; then
+        mkdir -p "$sysroot/etc/default/grub.d"
+        {
+            echo "# Glove: the Glove OS wallpaper behind the GRUB menu."
+            echo "# Written by glove-setup-tool.sh; undo with: ./glove-setup-tool.sh grub remove"
+            echo "$lines"
+        } > "$sysroot$dropin"
+    else
+        echo "$lines" | sed "s/\$/ $mark/" >> "$sysroot$main"
+    fi
+    refresh
+    echo "$(t "Pronto: o papel de parede do Glove OS aparece no menu do GRUB no próximo início." "Done: the Glove OS wallpaper shows in the GRUB menu on the next boot.")"
+    echo "$(t "Para desfazer: ./glove-setup-tool.sh grub remover" "To undo: ./glove-setup-tool.sh grub remove")"
+}
+
 # --- Glove live ISO (Debian) ----------------------------------------------------------
 # Downloads Debian's official live-build and debootstrap (the live-build from other
 # distributions is usually too old) into iso/ferramentas, builds the image in
@@ -710,9 +819,11 @@ build_iso() {
     cp -r "$root_dir/data/iso/hooks/normal/." config/hooks/normal/
     rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb
     cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" config/packages.chroot/
-    # Boot menu background image (BIOS and UEFI).
-    mkdir -p config/includes.binary
+    # Boot menu (BIOS and UEFI): the Glove OS wallpaper as the background image, and
+    # the menu placed below the glove (live-build copies config/bootloaders over its own).
+    mkdir -p config/includes.binary config/bootloaders
     cp -r "$root_dir/data/iso/includes.binary/." config/includes.binary/
+    cp -r "$root_dir/data/iso/bootloaders/." config/bootloaders/
     msg "$(t "Montando a ISO (pede a senha do sudo; leva de 15 a 40 minutos e baixa uns 1,5 GB)" "Building the ISO (asks for the sudo password; takes 15 to 40 minutes and downloads about 1.5 GB)")"
     sudo env PATH="$PATH" LIVE_BUILD="$LIVE_BUILD" DEBOOTSTRAP_DIR="$DEBOOTSTRAP_DIR" lb build
     iso=$(ls -t ./*.iso 2>/dev/null | head -1)
@@ -760,6 +871,8 @@ Ferramenta de instalação do Glove (qualquer Linux)
   ./glove-setup-tool.sh dependencias         instala o que falta para compilar
   ./glove-setup-tool.sh login [remover]      torna a tela de login do Glove a principal
                                              (= sudo systemctl enable --force glove-login)
+  ./glove-setup-tool.sh grub [remover]       põe o papel de parede do Glove OS na tela do GRUB
+                                             (o menu que aparece ao ligar o computador)
   ./glove-setup-tool.sh iso                  monta a ISO do Glove ao vivo (Debian) em iso/
   ./glove-setup-tool.sh iso testar           liga a ISO numa máquina virtual (QEMU)
 
@@ -777,6 +890,8 @@ Glove setup tool (any Linux)
   ./glove-setup-tool.sh deps                 install what's missing to build
   ./glove-setup-tool.sh login [remove]       make the Glove login screen the main one
                                              (= sudo systemctl enable --force glove-login)
+  ./glove-setup-tool.sh grub [remove]        put the Glove OS wallpaper on the GRUB screen
+                                             (the menu shown when the computer starts)
   ./glove-setup-tool.sh iso                  build the Glove live ISO (Debian) into iso/
   ./glove-setup-tool.sh iso test             start the ISO in a virtual machine (QEMU)
 
@@ -802,6 +917,7 @@ menu() {
     echo "$(t "  8) Instalar o que falta para compilar" "  8) Install what’s missing to build")"
     echo "$(t "  9) Tela de login do Glove (greetd)" "  9) Glove login screen (greetd)")"
     echo "$(t " 10) ISO do Glove ao vivo (Debian)" " 10) Glove live ISO (Debian)")"
+    echo "$(t " 11) Tela do GRUB com o papel de parede do Glove OS" " 11) GRUB screen with the Glove OS wallpaper")"
     echo "$(t "  0) Sair" "  0) Quit")"
     printf '%s ' "$(t 'Escolha:' 'Choose:')"
     read -r op || op=0
@@ -816,6 +932,7 @@ menu() {
         8) install_deps ;;
         9) login ;;
         10) build_iso ;;
+        11) grub_screen ;;
         *) exit 0 ;;
     esac
 }
@@ -833,6 +950,7 @@ case "${1:-}" in
     all|packages|todos|pacotes) package_deb; package_slackware; package_rpm; package_arch ;;
     deps|dependencies|dependencias) install_deps ;;
     login) shift; login "$@" ;;
+    grub|bootloader) shift; grub_screen "$@" ;;
     iso) case "${2:-}" in test|testar) test_iso ;; *) build_iso ;; esac ;;
     _stage|_montar) stage "$2" "$3" "$4" ;;
     -h|--help|help|ajuda) show_help ;;

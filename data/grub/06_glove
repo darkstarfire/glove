@@ -1,0 +1,9 @@
+#!/bin/sh
+# Glove: white menu text, readable over the Glove OS wallpaper that is the GRUB
+# background (GRUB_BACKGROUND). Put in /etc/grub.d by "glove-setup-tool.sh grub"
+# and by the glove-os package; "glove-setup-tool.sh grub remove" deletes it.
+cat <<'END'
+set color_normal=white/black
+set menu_color_normal=white/black
+set menu_color_highlight=black/white
+END

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/compositor", "crates/energia", "crates/about", "crates/prefs", "crates/calc", "crates/clock", "crates/editor", "crates/files", "crates/viewer", "crates/term", "crates/notes", "crates/monitor", "crates/shot", "crates/chars", "crates/find", "crates/disks", "crates/chess", "crates/sair", "crates/login", "crates/arte", "crates/boasvindas", "crates/arquivo", "crates/navegador", "crates/musica", "crates/contatos", "crates/agenda", "crates/video", "crates/registros", "crates/info", "crates/ajuda", "crates/dicionario", "crates/fontes", "crates/correio", "crates/portal", "crates/chaves", "crates/utilrede", "crates/copias", "crates/central", "crates/gravador", "crates/fotos", "crates/mensagens", "crates/instalador", "crates/apps"]
 
 [workspace.package]
-version = "0.12.28"
+version = "0.12.29"
 edition = "2024"
 license = "GPL-3.0-or-later"
 

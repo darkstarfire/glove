@@ -838,4 +838,10 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   do portal) era criado com `fixed: true`; agora tem mínimo de 480×300 e cresce à vontade. A
   folha dentro dos apps ganhou um puxador no canto (`sheet_fit`, `FileBrowser::sheet_size`):
   cresce dos dois lados, até a janela do app.
+- [x] 14.8 Tela do GRUB com o papel de parede do Glove OS (v0.12.29): `glove-setup-tool.sh grub
+  [remover]` (e a pergunta no fim do `instalar`) copia a imagem para `/boot/grub`, define o
+  `GRUB_BACKGROUND` e põe `data/grub/06_glove` (texto branco) em `/etc/grub.d`. Na ISO é automático:
+  o pacote `glove-os` leva o `GRUB_BACKGROUND` e o `06_glove`, e o menu de boot ao vivo usa o papel
+  de parede (`data/iso/includes.binary`) com o menu embaixo da luva (`data/iso/bootloaders`: tema do
+  GRUB e `stdmenu.cfg` do syslinux, que o live-build copia por cima dos dele).
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

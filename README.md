@@ -140,6 +140,7 @@ tudo: os programas, a sessão "Glove" na tela de login, a tela de login do Glove
 ./glove-setup-tool.sh instalar        # sem pacote: compila e instala em /usr/local
 ./glove-setup-tool.sh desinstalar     # o inverso do "instalar" (ou chama o gerenciador de pacotes)
 ./glove-setup-tool.sh dependencias    # o que falta para compilar (apt, dnf, pacman, zypper, xbps, apk)
+./glove-setup-tool.sh grub            # papel de parede do Glove OS na tela do GRUB ("grub remover" desfaz)
 ```
 
 Instalar o pacote (exemplo no Debian/Ubuntu/Zorin):
@@ -259,6 +260,23 @@ sudo ./data/install-login.sh --remove  # devolve a configuração anterior
 
 Para ver a tela numa janela, sem instalar: `glove --greeter -c "glove-login --fake"` (senha de
 teste: `glove`).
+
+## Tela do GRUB (opcional)
+
+O `./glove-setup-tool.sh instalar` pergunta, no fim, se você quer trocar também a tela do GRUB (o
+menu que aparece ao ligar o computador) pelo papel de parede do Glove OS, com o texto do menu em
+branco. Dá para fazer depois, ou desfazer:
+
+```sh
+./glove-setup-tool.sh grub            # pergunta e troca (refaz o menu do GRUB)
+./glove-setup-tool.sh grub remover    # volta à tela de antes
+```
+
+Ele copia a imagem para `/boot/grub/glove-os.png`, aponta o `GRUB_BACKGROUND` para ela (em
+`/etc/default/grub.d/glove.cfg`; nas distros sem essa pasta, em linhas marcadas no fim de
+`/etc/default/grub`) e põe as cores do texto em `/etc/grub.d/06_glove`. Só vale para o GRUB; em
+sistemas com outro carregador (systemd-boot…), o comando avisa e não muda nada. Na ISO do Glove OS
+isso já vem feito: no menu de boot do pendrive e no GRUB do sistema instalado.
 
 ## Tela de início do sistema (opcional, Plymouth)
 
