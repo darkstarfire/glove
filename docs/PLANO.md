@@ -768,6 +768,11 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   é dele; não há bandeja para os ícones).
 - [ ] 13.4 Guardar desenhado o que não muda (G): fundo listrado e barras das janelas como imagem
   pronta, redesenhando só o conteúdo.
+- [x] 13.5.1 Correção crítica (v0.12.24, glove-ui 0.2.25): juntar as áreas mudadas custava o cubo
+  da quantidade (`merge_rects`). Com a tela do Terminal cheia e rolando (um `ls`, ou um comando
+  longo voltando do histórico) eram milhares de letras mudadas: um quadro levava de 2,6 a 10 s de
+  CPU. Agora, com muitos pedaços, uma passada linear junta os vizinhos (letras viram trechos) e
+  depois faixas; a busca do melhor par só roda com até 24. O mesmo quadro: ~8 ms.
 - [~] 13.5 Menos desenho por tecla e clique (G). Feito na v0.12.15, medido no Editor digitando:
   14,2 → 4,2 ms por letra. (a) Ui::settled: o app avisa que o quadro já saiu certo e o kit pula a
   segunda passada (antes, todo quadro com teclado ou clique era desenhado duas vezes); o Editor usa
