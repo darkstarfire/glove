@@ -830,4 +830,8 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   terço de cima; `centered()` põe a janela no meio da área útil, igual para Wayland e X11.
   `recenter_if_fresh`: por 2,5 s depois de abrir, se o app muda o tamanho e a janela ainda está
   onde o Glove a pôs, ela é centralizada de novo (apps X11 que aparecem pequenos e crescem).
+- [x] 14.6.1 Cascata só entre janelas do mesmo app (v0.12.27): `new_window_loc` vê em que
+  degraus (26 px) estão as outras janelas do app em relação ao centro delas (`cascade_slot`,
+  com folga de 6 px) e usa o primeiro livre (`cascade_step`, 6 degraus). Diálogos (com janela
+  dona) ficam no centro.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

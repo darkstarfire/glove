@@ -229,6 +229,23 @@ struct Restore(Option<Rectangle<i32, Logical>>);
 /// o Glove a deixou (para centralizar de novo se o app mudar o tamanho logo depois).
 pub struct Placed(std::cell::Cell<Option<(std::time::Instant, Point<i32, Logical>)>>);
 
+/// Deslocamento de cada degrau da cascata (janelas do mesmo app).
+const CASCADE: i32 = 26;
+const CASCADE_STEPS: i32 = 6;
+
+/// Primeiro degrau livre da cascata, dados os ocupados; com todos ocupados, recomeça.
+pub fn cascade_step(taken: &[i32]) -> i32 {
+    (0..CASCADE_STEPS).find(|k| !taken.contains(k)).unwrap_or(taken.len() as i32 % CASCADE_STEPS)
+}
+
+/// Degrau da cascata em que está uma janela deslocada `(dx, dy)` do centro, se
+/// estiver em algum (com folga de poucos pixels: a área útil e a barra de título
+/// mudam um pouco entre uma janela e outra).
+pub fn cascade_slot(dx: i32, dy: i32) -> Option<i32> {
+    let k = (dx + CASCADE / 2).div_euclid(CASCADE);
+    ((0..CASCADE_STEPS).contains(&k) && (dx - k * CASCADE).abs() <= 6 && (dy - k * CASCADE).abs() <= 6).then_some(k)
+}
+
 /// Canto de uma janela de tamanho `size` (sem a barra de título, de altura `top`)
 /// centralizada na área útil. Se não couber, encosta em cima e à esquerda.
 pub fn centered(size: Size<i32, Logical>, top: i32, area: Rectangle<i32, Logical>) -> Point<i32, Logical> {
@@ -1107,7 +1124,32 @@ impl Glove {
             // Tela de login: o painel no centro, um pouco acima do meio.
             return (area.loc.x + (area.size.w - size.w) / 2, area.loc.y + ((area.size.h - size.h) as f32 * 0.42) as i32).into();
         }
-        centered(size, deco_top(w), area)
+        let top = deco_top(w);
+        let center = centered(size, top, area);
+        // Diálogos (janelas com dona) ficam sempre no centro.
+        let child = w.toplevel().is_some_and(|t| t.parent().is_some()) || w.x11_surface().is_some_and(|x| x.is_transient_for().is_some());
+        if child {
+            return center;
+        }
+        // Outras janelas do mesmo app: a nova desce um degrau da cascata para cada
+        // degrau já ocupado (o primeiro degrau é o centro).
+        let app = window_info(w).1;
+        let taken: Vec<i32> = self
+            .space
+            .elements()
+            .filter(|o| *o != w && !app.is_empty() && window_info(o).1 == app)
+            .filter_map(|o| {
+                let d = self.space.element_location(o)? - centered(o.geometry().size, deco_top(o), area);
+                cascade_slot(d.x, d.y)
+            })
+            .collect();
+        let step = cascade_step(&taken);
+        let loc = center + Point::from((step * CASCADE, step * CASCADE));
+        // Se o degrau faria a janela sair da área útil, fica no centro.
+        if loc.x + size.w > area.loc.x + area.size.w || loc.y + size.h > area.loc.y + area.size.h {
+            return center;
+        }
+        loc
     }
 
     /// Posiciona uma janela nova no centro da área útil.
@@ -2247,6 +2289,24 @@ impl Glove {
 #[cfg(test)]
 mod centered_tests {
     use super::*;
+
+    #[test]
+    fn cascata_do_mesmo_app() {
+        assert_eq!(cascade_step(&[]), 0);
+        assert_eq!(cascade_step(&[0]), 1);
+        assert_eq!(cascade_step(&[0, 1, 2]), 3);
+        // A primeira foi movida ou fechada: a nova volta para o centro.
+        assert_eq!(cascade_step(&[1, 2]), 0);
+        assert_eq!(cascade_step(&[0, 1, 2, 3, 4, 5]), 0);
+        assert_eq!(cascade_step(&[0, 1, 2, 3, 4, 5, 0]), 1);
+        assert_eq!(cascade_slot(0, -2), Some(0));
+        assert_eq!(cascade_slot(26, 28), Some(1));
+        assert_eq!(cascade_slot(52, 52), Some(2));
+        // Movida pelo usuário: não conta.
+        assert_eq!(cascade_slot(40, 40), None);
+        assert_eq!(cascade_slot(26, 120), None);
+        assert_eq!(cascade_slot(-200, 0), None);
+    }
 
     #[test]
     fn janela_nova_no_centro() {

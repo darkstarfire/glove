@@ -284,6 +284,9 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   principal, seja de app Wayland ou X11.
 - Se o app muda o tamanho da janela logo depois de abrir (comum nos apps X11), ela volta para
   o centro com o tamanho novo. Depois que você move a janela, o Glove não mexe mais nela.
+- Quando o app já tem uma janela no centro, a seguinte abre em cascata: um degrau para baixo
+  e para a direita de cada janela do mesmo app que ainda está no lugar. Janela de outro app
+  abre sempre no centro, e os diálogos também.
 - Um app que lembra que estava em zoom abre em zoom, ocupando a área útil.
 
 ## Quando um monitor é desconectado

@@ -282,6 +282,9 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   the main display, whether the app is Wayland or X11.
 - If the app changes the window size right after opening (common with X11 apps), the window
   goes back to the center with the new size. Once you move it, Glove leaves it alone.
+- When the app already has a window at the center, the next one cascades: one step down and
+  to the right for each window of the same app still in place. A window of another app always
+  opens centered, and so do dialogs.
 - An app that remembers it was zoomed opens zoomed, filling the usable area.
 
 ## When a display is unplugged
