@@ -844,4 +844,10 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   o pacote `glove-os` leva o `GRUB_BACKGROUND` e o `06_glove`, e o menu de boot ao vivo usa o papel
   de parede (`data/iso/includes.binary`) com o menu embaixo da luva (`data/iso/bootloaders`: tema do
   GRUB e `stdmenu.cfg` do syslinux, que o live-build copia por cima dos dele).
+- [x] 14.9 Preferências redimensionável (v0.12.30, glove-ui 0.2.27): a janela deixou de ser
+  `fixed`. `Ui::set_window_min_size` (no lugar de `set_window_size`) manda o tamanho do painel
+  como mínimo a cada quadro: a janela acompanha o mínimo (com a animação de sempre) até o usuário
+  aumentar; o que ele aumentou é guardado por eixo (`chosen_size`/`floor_size`) e continua nos
+  outros painéis. No kit, o tamanho que o compositor repete nas configurações (foco) só vale
+  quando muda: antes desfazia o tamanho que o app tinha escolhido depois.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

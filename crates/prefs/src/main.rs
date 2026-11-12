@@ -2292,7 +2292,9 @@ impl App for Prefs {
         }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
         let win_h = if todos { (TOOLBAR_H + used).clamp(240.0, MAX_TODOS_H) } else { (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, MAX_H) };
-        ui.set_window_size(W as f32, win_h, true);
+        // Esse é o tamanho mínimo: dá para aumentar a janela pelo canto, e o que foi
+        // aumentado vale para os outros painéis.
+        ui.set_window_min_size(W as f32, win_h, true);
         self.flush_save(ui);
     }
 
@@ -2395,7 +2397,7 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
 }
 
 pub fn main() {
-    let opts = WindowOptions { title: tr!("Preferências").into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: true, min_size: None };
+    let opts = WindowOptions { title: tr!("Preferências").into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: false, min_size: Some((W, 240)) };
     if let Err(e) = run(opts, Prefs::new()) {
         eprintln!("glove-prefs: {e}");
     }

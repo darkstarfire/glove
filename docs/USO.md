@@ -313,6 +313,11 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - Na borda de uma janela a seta do mouse vira a de duas pontas (↔, ↕ ou diagonal) e
   continua assim enquanto você arrasta. Perto dos cantos a borda redimensiona na
   diagonal, nas duas direções de uma vez.
+- A janela das Preferências também pode ser aumentada, pelas bordas ou pelo canto inferior
+  direito. O tamanho de cada painel é o mínimo: a janela nunca fica menor que ele. O que
+  você aumentou continua valendo ao trocar de painel; se só alargou, a altura segue
+  acompanhando cada painel. Mais larga, "Mostrar Todos" põe mais ícones por linha e a barra
+  mostra mais favoritos; mais alta, os painéis longos aparecem sem rolagem.
 
 ## Computadores mais simples (Fase 13)
 

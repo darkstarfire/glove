@@ -311,6 +311,11 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - On a window edge the pointer turns into the double-headed arrow (↔, ↕ or diagonal)
   and stays that way while you drag. Near the corners the edge resizes diagonally, in
   both directions at once.
+- The Preferences window can be enlarged too, from the edges or the bottom-right corner.
+  Each pane's own size is the minimum: the window never gets smaller than that. What you
+  enlarged is kept when you switch panes; if you only widened it, the height keeps following
+  each pane. Wider, "Show All" fits more icons per row and the toolbar shows more favorites;
+  taller, long panes show without scrolling.
 
 ## Simpler computers (phase 13)
 
