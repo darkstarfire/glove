@@ -280,7 +280,7 @@ isso já vem feito: no menu de boot do pendrive e no GRUB do sistema instalado.
 
 ## Tela de início do sistema (opcional, Plymouth)
 
-Tema com fundo cinza claro, orbe e giratório, desenhado por código (`glove-arte`):
+Tema com fundo cinza claro, a luva do Glove e o giratório, gerado por código (`glove-arte`):
 
 ```sh
 ./target/release/glove-arte plymouth data/plymouth/glove   # (re)gera a arte

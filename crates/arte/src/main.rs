@@ -236,4 +236,17 @@ mod tests {
         }
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    /// O tema guardado em data/plymouth/glove (o que vai no pacote glove-os e na ISO) é o
+    /// que o código gera hoje: mudou a logo, tem de regenerar (glove-arte plymouth).
+    #[test]
+    fn tema_do_repositorio_em_dia() {
+        let dir = std::env::temp_dir().join(format!("glove-arte-repo-{}", std::process::id()));
+        super::plymouth(&dir).unwrap();
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/plymouth/glove");
+        for f in ["logo.png", "spinner-0.png", "spinner-11.png", "glove.plymouth", "glove.script"] {
+            assert!(std::fs::read(dir.join(f)).unwrap() == std::fs::read(repo.join(f)).unwrap(), "{f} desatualizado: rode glove-arte plymouth data/plymouth/glove");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

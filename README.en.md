@@ -161,7 +161,7 @@ of `/etc/default/grub`) and puts the text colors in `/etc/grub.d/06_glove`. GRUB
 bootloader (systemd-boot…) the command says so and changes nothing. On the Glove OS ISO this is
 already done: in the boot menu of the USB stick and in the installed system's GRUB.
 
-**Boot screen (Plymouth).** The Glove theme (light grey background, orb and spinner) shows while
+**Boot screen (Plymouth).** The Glove theme (light grey background, the Glove glove and a spinner) shows while
 the system starts and shuts down. On another distribution, install it with
 `sudo ./data/install-plymouth.sh` (`--remove` goes back to the previous theme). On the Glove OS ISO
 it is already done, on the USB stick and in the installed system: Plymouth is in the package list,

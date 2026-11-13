@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Glove
-Description=Início e desligamento do Glove: fundo cinza claro, orbe e giratório (arte gerada por código).
+Description=Início e desligamento do Glove: fundo cinza claro, a logo (luva) e giratório (arte gerada por código).
 ModuleName=script
 
 [script]

@@ -870,4 +870,8 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   `--sem-initramfs` (o live-build refaz o initramfs depois dos ganchos, em `chroot_hacks`; o
   instalador já refazia o do sistema instalado). `glove-os.cfg` do GRUB acrescenta `splash` à
   linha do kernel (a menos que já tenha `splash` ou `nosplash`). Falta conferir numa ISO montada.
+- [x] 14.11.1 A luva no tema do Plymouth (v0.12.34): a arte guardada em `data/plymouth/glove` era
+  de antes da logo virar a luva (mostrava o orbe azul); regenerada com `glove-arte plymouth`. O
+  teste `tema_do_repositorio_em_dia` (glove-arte) falha se a arte guardada ficar diferente da que
+  o código gera.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.
