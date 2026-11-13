@@ -12,6 +12,8 @@ case "$1" in
         desviar /etc/issue.net
         /usr/share/glove-os/identidade
         command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
+        # Tela de início do sistema (Plymouth) com o tema do Glove, se o Plymouth estiver instalado.
+        /usr/share/glove-os/tela-de-inicio || true
         ;;
 esac
 exit 0

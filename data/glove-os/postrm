@@ -7,11 +7,28 @@ voltar() {
         dpkg-divert --package glove-os --remove --rename --divert "$1.debian" "$1" >/dev/null
     fi
 }
+# A tela de início (Plymouth) volta para o tema de antes, se ainda for a do Glove.
+tela_de_inicio() {
+    feito=/var/lib/glove-os/plymouth
+    [ -e "$feito" ] || return 0
+    if command -v plymouth-set-default-theme >/dev/null 2>&1 && [ "$(plymouth-set-default-theme 2>/dev/null)" = glove ]; then
+        antes=$(cat "$feito" 2>/dev/null || true)
+        if [ -n "$antes" ] && [ "$antes" != glove ] && [ -d "/usr/share/plymouth/themes/$antes" ]; then
+            plymouth-set-default-theme "$antes" || true
+        else
+            plymouth-set-default-theme -r || true
+        fi
+        command -v update-initramfs >/dev/null 2>&1 && update-initramfs -u || true
+    fi
+    rm -f "$feito"
+    rmdir /var/lib/glove-os 2>/dev/null || true
+}
 case "$1" in
     remove|purge|abort-install)
         voltar /usr/lib/os-release
         voltar /etc/issue
         voltar /etc/issue.net
+        tela_de_inicio
         ;;
 esac
 exit 0

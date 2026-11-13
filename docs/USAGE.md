@@ -365,6 +365,10 @@ turned on:
    by itself and opens **Install Glove**. You can use the live system before installing; the
    installer is also in Quick Search.
 
+The ISO looks like Glove OS from start to finish, with nothing to set up: the boot menu with the
+wallpaper, the system's boot and shutdown screen (Plymouth, with the Glove theme) and the login
+screen. The installed system is the same: GRUB with the wallpaper and the Glove boot screen.
+
 The installer asks for:
 
 - **Language and keyboard** of the installed system (with a field to test the keyboard).

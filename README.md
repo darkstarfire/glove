@@ -288,6 +288,10 @@ sudo ./data/install-plymouth.sh           # instala e ativa (refaz o initramfs)
 sudo ./data/install-plymouth.sh --remove  # volta ao tema anterior
 ```
 
+Na ISO do Glove OS isso já vem feito, no pendrive e no sistema instalado: o Plymouth está na lista
+de pacotes, o tema vem no pacote `glove-os` (que o ativa com `/usr/share/glove-os/tela-de-inicio`) e
+o GRUB do sistema instalado passa `splash` ao kernel.
+
 ## Idiomas
 
 O Glove segue o idioma do sistema (`LANG`, que o painel Internacional grava); `GLOVE_LANG`

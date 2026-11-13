@@ -23,6 +23,10 @@ less
 curl
 ca-certificates
 
+# Tela de início e de desligamento do sistema (o tema do Glove vem no pacote glove-os)
+plymouth
+plymouth-label
+
 # Rede
 network-manager
 wpasupplicant

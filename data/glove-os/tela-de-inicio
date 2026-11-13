@@ -1,0 +1,26 @@
+#!/bin/sh
+# Glove OS: tela de início e de desligamento do sistema (Plymouth) com o tema do Glove.
+#
+# Escolhe o tema "glove" na primeira vez em que encontra o Plymouth instalado e refaz o
+# initramfs (o tema vai dentro dele). Depois disso não mexe mais: quem trocar de tema
+# fica com o que escolheu. O tema que estava antes fica anotado em
+# /var/lib/glove-os/plymouth (o glove-os removido volta para ele).
+#
+# Roda na instalação do glove-os e na montagem da ISO. Para aplicar à mão (por exemplo,
+# depois de instalar o Plymouth num Glove OS que não o tinha): sudo /usr/share/glove-os/tela-de-inicio
+#   --sem-initramfs   só escolhe o tema (na ISO, o live-build refaz o initramfs no fim)
+set -e
+raiz=${GLOVE_OS_RAIZ:-}
+feito="$raiz/var/lib/glove-os/plymouth"
+[ -e "$feito" ] && exit 0
+[ -f "$raiz/usr/share/plymouth/themes/glove/glove.plymouth" ] || exit 0
+command -v plymouth-set-default-theme >/dev/null 2>&1 || exit 0
+# Só com o Plymouth já configurado: o arquivo de configuração dele é do pacote dele.
+[ "$(dpkg-query -W -f='${db:Status-Status}' plymouth 2>/dev/null)" = installed ] || exit 0
+mkdir -p "$raiz/var/lib/glove-os"
+plymouth-set-default-theme 2>/dev/null > "$feito" || true
+plymouth-set-default-theme glove
+if [ "${1:-}" != --sem-initramfs ] && command -v update-initramfs >/dev/null 2>&1; then
+    update-initramfs -u || true
+fi
+exit 0

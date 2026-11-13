@@ -9,6 +9,10 @@ for dm in gdm3 lightdm sddm; do systemctl disable "$dm.service" 2>/dev/null || t
 mkdir -p /etc/glove
 echo glove > /etc/glove/autologin
 
+# Tela de início do sistema (Plymouth) com o tema do Glove. O initramfs é refeito pelo
+# live-build logo depois dos ganchos; o instalador refaz o do sistema instalado.
+/usr/share/glove-os/tela-de-inicio --sem-initramfs || true
+
 # Idiomas que o instalador oferece, já prontos.
 for l in pt_BR en_US en_GB pt_PT es_ES fr_FR de_DE it_IT; do
     sed -i "s/^# *$l.UTF-8 UTF-8/$l.UTF-8 UTF-8/" /etc/locale.gen

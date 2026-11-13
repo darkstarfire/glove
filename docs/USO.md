@@ -367,6 +367,10 @@ ligado:
    abre **Instalar o Glove**. Dá para usar o Glove ao vivo antes de instalar; o instalador também está
    na Busca Rápida.
 
+A ISO já sai com a cara do Glove OS do começo ao fim, sem nada para configurar: o menu de boot com o
+papel de parede, a tela de início e de desligamento do sistema (Plymouth, com o tema do Glove) e a
+tela de login. O sistema instalado fica igual: GRUB com o papel de parede e a tela de início do Glove.
+
 O instalador pergunta:
 
 - **Idioma e teclado** do sistema instalado (com um campo para testar o teclado).

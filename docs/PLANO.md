@@ -863,4 +863,11 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   quadro do bloqueio ir para a tela antes. `lid_alone` (udev.rs): monitor externo saiu com a tampa
   fechada = apaga e bloqueia, em vez de religar a tela embutida. Teste: `sleepev going|woke` no
   modo de depuração; o caminho do monitor só tem teste de unidade (precisa do hardware).
+- [x] 14.11 Tela de início (Plymouth) na ISO (v0.12.33): `plymouth` e `plymouth-label` na lista da
+  ISO; o tema (`data/plymouth/glove`) vai no pacote `glove-os`, que o ativa com
+  `/usr/share/glove-os/tela-de-inicio` (uma vez só, com o Plymouth já configurado; anota o tema
+  anterior e o `postrm` volta para ele). O gancho da ISO chama o mesmo script com
+  `--sem-initramfs` (o live-build refaz o initramfs depois dos ganchos, em `chroot_hacks`; o
+  instalador já refazia o do sistema instalado). `glove-os.cfg` do GRUB acrescenta `splash` à
+  linha do kernel (a menos que já tenha `splash` ou `nosplash`). Falta conferir numa ISO montada.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.
