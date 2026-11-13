@@ -202,6 +202,23 @@ fn wallpaper_name(style: &str) -> String {
     std::path::Path::new(style).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| style.to_string())
 }
 
+thread_local! {
+    /// Altura que sobra na janela além do tamanho do painel, e se o painel a usou.
+    static GROW: std::cell::Cell<(f32, bool)> = const { std::cell::Cell::new((0.0, false)) };
+}
+
+/// Altura a mais para o componente principal do painel (a lista, a caixa de abas),
+/// quando a janela foi aumentada: ele soma isto à própria altura e o painel ocupa a
+/// janela toda. Em cada painel, só uma coisa por nível soma (a caixa e a lista dentro
+/// dela, nunca duas listas uma embaixo da outra): o painel tem de crescer exatamente isto.
+pub(crate) fn grow() -> f32 {
+    GROW.with(|g| {
+        let (v, _) = g.get();
+        g.set((v, true));
+        v
+    })
+}
+
 /// Altura máxima da janela (cabe numa tela de 768 linhas com a barra e o Dock);
 /// painel maior ganha rolagem.
 const MAX_H: f32 = 640.0;
@@ -215,6 +232,8 @@ struct Prefs {
     /// anterior e o painel em que estava a rolagem.
     pane_scroll: f32,
     pane_h: f32,
+    /// Altura do painel sem o que ele cresceu para ocupar a janela (o mínimo da janela).
+    pane_natural: f32,
     pane_scrolled: Option<Pane>,
     /// Imagens PNG encontradas em ~/Imagens (para usar de papel de parede).
     images: Vec<std::path::PathBuf>,
@@ -353,6 +372,7 @@ impl Prefs {
             pane,
             pane_scroll: 0.0,
             pane_h: 0.0,
+            pane_natural: f32::MAX,
             pane_scrolled: None,
             images,
             outputs: OutputsInfo::load(),
@@ -775,7 +795,7 @@ impl Prefs {
         let mut tab = self.desk_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], if shown == 0 { 400.0 } else { 456.0 }, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], (if shown == 0 { 400.0 } else { 456.0 }) + grow(), |ui| match shown {
             0 => self.mesa_tab(ui),
             _ => self.protetor_tab(ui),
         });
@@ -789,9 +809,10 @@ impl Prefs {
         let w = ui.available_width();
         let rows: Vec<String> = SAVERS.iter().map(|(_, n)| n.to_string()).collect();
         let mut sel = SAVERS.iter().position(|(id, _)| *id == self.config.saver.kind).or(Some(0));
-        ui.area(Rect::new(x0, y0, 150.0, 190.0), |ui| {
+        let g = grow();
+        ui.area(Rect::new(x0, y0, 150.0, 190.0 + g), |ui| {
             ui.label(tr!("Protetores de tela"));
-            if ui.list(&mut sel, &rows, 150.0, 166.0) {
+            if ui.list(&mut sel, &rows, 150.0, 166.0 + g) {
                 if let Some(i) = sel {
                     self.config.saver.kind = SAVERS[i].0.to_string();
                     self.save();
@@ -800,7 +821,8 @@ impl Prefs {
         });
         // Prévia (o mesmo desenho do compositor, pequeno).
         let (px, py) = (x0 + 170.0, y0 + 20.0);
-        let pw = (w - 170.0).min(300.0);
+        // Cresce com a janela (na menor, 300 × 180).
+        let pw = (w - 170.0).min(((180.0 + g) / 0.6).floor());
         let ph = (pw * 0.6).round();
         ui.c.fill(rrect(px - 3.0, py - 3.0, pw + 6.0, ph + 6.0, 3.0), &solid(rgba(0, 0, 0, 60)));
         if let Some(mut c) = glove_ui::paint::draw::Canvas::new(pw, ph, ui.c.scale) {
@@ -817,7 +839,7 @@ impl Prefs {
             }
         });
         ui.wake_after_in(Duration::from_millis(66), Rect::new(px, py, pw, ph));
-        ui.alloc(w, (20.0 + ph + 40.0).max(196.0));
+        ui.alloc(w, 240.0 + g);
         if let Some(m) = Self::minutes_slider(ui, tr!("Iniciar o protetor de tela quando inativo por:"), self.config.saver.minutes) {
             self.config.saver.minutes = m;
             self.save();
@@ -881,7 +903,7 @@ impl Prefs {
         let mut sel = Some(self.desk_source);
         let rows: Vec<String> = sources.iter().map(|s| s.to_string()).collect();
         let (lx, ly) = ui.cursor();
-        let list_h = 230.0;
+        let list_h = 230.0 + grow();
         ui.area(Rect::new(lx, ly, 150.0, list_h), |ui| {
             if ui.list(&mut sel, &rows, 150.0, list_h) {
                 if let Some(s) = sel {
@@ -1029,7 +1051,7 @@ impl Prefs {
             2 => 380.0,
             _ => 240.0,
         };
-        ui.tab_box(&mut tab, &[tr!("Teclado"), tr!("Atalhos de Teclado"), tr!("Menu de Entrada")], height, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Teclado"), tr!("Atalhos de Teclado"), tr!("Menu de Entrada")], height + grow(), |ui| match shown {
             0 => {
                 const LW: f32 = 170.0;
                 let mut delay = self.config.keyboard.repeat_delay as f32;
@@ -1129,7 +1151,7 @@ impl Prefs {
                 ui.spacing(18.0);
                 ui.column(220.0, |ui| {
                     ui.label(tr!("Resoluções:"));
-                    if ui.list(&mut sel, &rows, 220.0, 180.0) {
+                    if ui.list(&mut sel, &rows, 220.0, 180.0 + grow()) {
                         self.ask_confirm();
                         mode_changed = true;
                         mode_cfg = match sel {
@@ -1657,7 +1679,9 @@ impl Prefs {
         ui.space(4.0);
         let rows: Vec<String> = sp.excluded.clone();
         ui.indent(16.0, |ui| {
-            ui.list(&mut self.busca_sel, &rows, 420.0, 110.0);
+            // Na janela mínima, 420 de largura; depois acompanha a janela.
+            let lw = 420.0 + (ui.available_width() - 588.0).max(0.0);
+            ui.list(&mut self.busca_sel, &rows, lw, 110.0 + grow());
             ui.space(6.0);
             ui.horizontal(|ui| {
                 ui.text_field(&mut self.busca_nova, 300.0);
@@ -1742,7 +1766,7 @@ impl Prefs {
         let mut tab = self.access_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &[tr!("Visão"), tr!("Mouse")], 290.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Visão"), tr!("Mouse")], 290.0 + grow(), |ui| match shown {
             0 => {
                 let mut a = self.config.access.clone();
                 let mut zoom = usize::from(!a.zoom);
@@ -1841,7 +1865,7 @@ impl Prefs {
         let on_bat = battery && self.energy_source == 1;
         let mut tab = self.energy_tab;
         let shown = tab;
-        ui.tab_box(&mut tab, &[tr!("Repouso"), tr!("Opções")], 200.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Repouso"), tr!("Opções")], 200.0 + grow(), |ui| match shown {
             0 => {
                 let (screen, sleep) = self.config.energy.timeouts(on_bat);
                 if let Some(m) = Self::minutes_slider(ui, tr!("Colocar o computador em repouso quando inativo por:"), sleep) {
@@ -1914,15 +1938,15 @@ impl Prefs {
         let mut tab = self.sound_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &[tr!("Efeitos Sonoros"), tr!("Saída"), tr!("Entrada")], 280.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Efeitos Sonoros"), tr!("Saída"), tr!("Entrada")], 280.0 + grow(), |ui| match shown {
             0 => {
                 ui.label(tr!("Escolher um alerta sonoro:"));
                 let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| tr(a).to_string()).collect();
                 let mut sel = glove_config::sons::ALERTS.iter().position(|a| *a == self.config.sound.alert);
                 let (lx, ly) = ui.cursor();
-                let list_r = Rect::new(lx, ly, ui.available_width(), 118.0);
+                let list_r = Rect::new(lx, ly, ui.available_width(), 118.0 + grow());
                 let again = ui.mouse_pressed() && list_r.contains(ui.pointer());
-                if ui.list(&mut sel, &rows, ui.available_width(), 118.0) {
+                if ui.list(&mut sel, &rows, ui.available_width(), list_r.h) {
                     if let Some(i) = sel {
                         self.config.sound.alert = rows[i].clone();
                         self.save();
@@ -1959,7 +1983,7 @@ impl Prefs {
                 ui.label(&t);
                 let rows: Vec<String> = list.iter().map(|d| d.name.clone()).collect();
                 let mut sel = list.iter().position(|d| d.default);
-                if ui.list(&mut sel, &rows, ui.available_width(), 120.0) {
+                if ui.list(&mut sel, &rows, ui.available_width(), 120.0 + grow()) {
                     if let Some(i) = sel {
                         som::set_default(list[i].id);
                         if let Some(a) = self.audio.as_mut() {
@@ -2198,6 +2222,7 @@ impl App for Prefs {
         if self.pane_scrolled != Some(self.pane) {
             self.pane_scrolled = Some(self.pane);
             self.pane_scroll = 0.0;
+            self.pane_natural = f32::MAX;
         }
         // O painel com rolagem: a janela cresce até o máximo e, se ainda não couber,
         // aparece a barra (nada fica cortado sem jeito de ver).
@@ -2206,6 +2231,10 @@ impl App for Prefs {
         let view = if todos { Rect::new(0.0, TOOLBAR_H, w, h - TOOLBAR_H) } else { Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0) };
         let mut scroll = self.pane_scroll;
         let content = self.pane_h;
+        // Janela maior que o painel: o que sobra vai para o componente principal dele.
+        // (Os 4 pontos são a margem de baixo: no tamanho mínimo nada muda de lugar.)
+        let spare = if todos { 0.0 } else { (view.h - 4.0 - self.pane_natural).floor().max(0.0) };
+        GROW.with(|g| g.set((spare, false)));
         let used = ui.scroll_view(view, &mut scroll, content, |ui| match self.pane {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
@@ -2244,7 +2273,7 @@ impl App for Prefs {
                 let mut tab = self.internacional.tab;
                 let shown = tab;
                 ui.space(4.0);
-                ui.tab_box(&mut tab, &[tr!("Idioma"), tr!("Formatos"), tr!("Menu de Entrada")], 380.0, |ui| match shown {
+                ui.tab_box(&mut tab, &[tr!("Idioma"), tr!("Formatos"), tr!("Menu de Entrada")], 380.0 + grow(), |ui| match shown {
                     0 => self.internacional.idioma(ui),
                     1 => self.internacional.formatos(ui),
                     _ => self.menu_entrada(ui),
@@ -2290,8 +2319,13 @@ impl App for Prefs {
             self.pane_h = used;
             ui.redraw = true;
         }
+        let natural = used - GROW.with(|g| g.get()).1.then_some(spare).unwrap_or(0.0);
+        if (natural - self.pane_natural).abs() > 0.5 {
+            self.pane_natural = natural;
+            ui.redraw = true;
+        }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
-        let win_h = if todos { (TOOLBAR_H + used).clamp(240.0, MAX_TODOS_H) } else { (TOOLBAR_H + 20.0 + used + 24.0).clamp(240.0, MAX_H) };
+        let win_h = if todos { (TOOLBAR_H + natural).clamp(240.0, MAX_TODOS_H) } else { (TOOLBAR_H + 20.0 + natural + 24.0).clamp(240.0, MAX_H) };
         // Esse é o tamanho mínimo: dá para aumentar a janela pelo canto, e o que foi
         // aumentado vale para os outros painéis.
         ui.set_window_min_size(W as f32, win_h, true);

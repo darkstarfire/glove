@@ -130,7 +130,7 @@ impl Bluetooth {
         ui.space(6.0);
         // Lista de aparelhos.
         let w = ui.available_width();
-        let (row, lh) = (34.0, 200.0);
+        let (row, lh) = (34.0, 200.0 + crate::grow());
         let r = ui.alloc(w, lh);
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));

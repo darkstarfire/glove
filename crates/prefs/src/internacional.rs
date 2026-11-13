@@ -144,7 +144,7 @@ impl Internacional {
         ui.space(6.0);
         let names = self.locale_names(false);
         let mut sel = LOCALES.iter().position(|l| l.0 == self.lang).or(Some(0));
-        if ui.list(&mut sel, &names, ui.available_width(), 200.0) {
+        if ui.list(&mut sel, &names, ui.available_width(), 200.0 + crate::grow()) {
             if let Some(i) = sel {
                 self.lang = LOCALES[i].0.to_string();
                 self.write();

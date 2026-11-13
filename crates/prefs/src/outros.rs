@@ -111,7 +111,7 @@ impl Atualizacao {
                 let t = tr!("{} atualizações disponíveis:", l.len());
                 ui.label(&t);
                 let mut sel = None;
-                ui.list(&mut sel, l, ui.available_width(), 180.0);
+                ui.list(&mut sel, l, ui.available_width(), 180.0 + crate::grow());
                 ui.space(6.0);
                 if ui.button(tr!("Instalar no Terminal…")) {
                     in_terminal(install);
@@ -178,7 +178,7 @@ impl Inicializacao {
         ui.label(tr!("Escolha o sistema para iniciar o computador:"));
         ui.space(6.0);
         let rows: Vec<String> = self.entries.iter().map(|e| if e.num == self.current { tr!("{} (em uso agora)", e.name) } else { e.name.clone() }).collect();
-        ui.list(&mut self.sel, &rows, ui.available_width(), 150.0);
+        ui.list(&mut self.sel, &rows, ui.available_width(), 150.0 + crate::grow());
         ui.space(8.0);
         let chosen = self.sel.and_then(|i| self.entries.get(i)).cloned();
         let (mut once, mut always) = (false, false);
@@ -245,7 +245,7 @@ impl Fala {
         if self.sel.is_none() && !rows.is_empty() {
             self.sel = Some(0);
         }
-        ui.list(&mut self.sel, &rows, ui.available_width(), 150.0);
+        ui.list(&mut self.sel, &rows, ui.available_width(), 150.0 + crate::grow());
         ui.space(8.0);
         ui.form_row(tr!("Velocidade"), 100.0, |ui| {
             let t = Ticks { count: 5, labels: &[(0.0, tr!("Devagar")), (1.0, tr!("Depressa"))], snap: false };
@@ -321,7 +321,7 @@ impl Impressao {
             .iter()
             .map(|(n, idle)| format!("{n}{}{}", if Some(n) == self.default.as_ref() { tr!(" (padrão)") } else { "" }, if *idle { "" } else { tr!(" — ocupada") }))
             .collect();
-        ui.list(&mut self.sel, &rows, ui.available_width(), 150.0);
+        ui.list(&mut self.sel, &rows, ui.available_width(), 150.0 + crate::grow());
         if rows.is_empty() {
             ui.small(tr!("Nenhuma impressora configurada."));
         }

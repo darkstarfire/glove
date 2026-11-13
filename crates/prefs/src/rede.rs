@@ -196,7 +196,7 @@ impl Rede {
     fn status(&mut self, ui: &mut Ui, ifaces: &[Iface]) {
         let w = ui.available_width();
         let row_h = 52.0;
-        let h = (ifaces.len().max(1) as f32 * row_h + 8.0).max(80.0);
+        let h = (ifaces.len().max(1) as f32 * row_h + 8.0).max(80.0) + crate::grow();
         let r = ui.alloc(w, h);
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));
@@ -234,7 +234,7 @@ impl Rede {
         let labels: Vec<&str> = if wifi { vec!["Wi-Fi", "TCP/IP"] } else { vec!["TCP/IP"] };
         let mut tab = self.tab.min(labels.len() - 1);
         let shown = tab;
-        ui.tab_box(&mut tab, &labels, 250.0, |ui| {
+        ui.tab_box(&mut tab, &labels, 250.0 + crate::grow(), |ui| {
             if wifi && shown == 0 {
                 self.wifi_tab(ui, i);
             } else {
@@ -256,7 +256,7 @@ impl Rede {
         // Lista de redes: nome, cadeado e sinal.
         let w = ui.available_width();
         let row_h = 20.0;
-        let list_h = 128.0;
+        let list_h = 128.0 + crate::grow();
         let r = ui.alloc(w, list_h);
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(Color::WHITE));

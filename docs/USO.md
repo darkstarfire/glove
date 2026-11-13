@@ -317,7 +317,8 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   direito. O tamanho de cada painel é o mínimo: a janela nunca fica menor que ele. O que
   você aumentou continua valendo ao trocar de painel; se só alargou, a altura segue
   acompanhando cada painel. Mais larga, "Mostrar Todos" põe mais ícones por linha e a barra
-  mostra mais favoritos; mais alta, os painéis longos aparecem sem rolagem.
+  mostra mais favoritos; mais alta, os painéis longos aparecem sem rolagem. As listas e
+  as caixas de abas de cada painel crescem junto, ocupando a janela toda.
 
 ## Computadores mais simples (Fase 13)
 

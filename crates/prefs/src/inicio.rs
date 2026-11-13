@@ -53,7 +53,8 @@ impl Inicio {
         self.picker.is_some() || self.ask.is_some()
     }
 
-    /// Altura que o conteúdo pediu no último quadro (a caixa de abas acompanha).
+    /// Altura que o conteúdo pediu no último quadro, com a lista no tamanho mínimo
+    /// (a caixa de abas acompanha).
     pub fn used_height(&self) -> f32 {
         self.used_h
     }
@@ -71,7 +72,9 @@ impl Inicio {
             let m = m.clone();
             small_wrapped(ui, &m);
         }
-        let used = ui.cursor().1 - top;
+        // Sem o que a lista cresceu para ocupar a janela: quem usa isto (Contas) soma o
+        // crescimento deste quadro por conta própria.
+        let used = ui.cursor().1 - top - crate::grow();
         if (used - self.used_h).abs() > 0.5 {
             self.used_h = used;
             ui.redraw = true;
@@ -83,7 +86,7 @@ impl Inicio {
         ui.space(6.0);
         let w = ui.available_width();
         // A lista cresce com os itens (a janela acompanha), até 10 linhas; depois, rola.
-        let list_h = HEAD_H + 2.0 + self.items.len().clamp(6, 10) as f32 * ROW_H;
+        let list_h = HEAD_H + 2.0 + self.items.len().clamp(6, 10) as f32 * ROW_H + crate::grow();
         let r = ui.alloc(w, list_h);
         let mem_x = r.x + r.w - 76.0 - bar_width(r, self.items.len());
         table_frame(ui, r, &[(tr!("Abrir"), r.x + 8.0), (tr!("Item"), r.x + 56.0), (tr!("Comando"), r.x + r.w * 0.45), (tr!("Memória"), mem_x)]);
@@ -171,7 +174,7 @@ impl Inicio {
         ui.space(6.0);
         let w = ui.available_width();
         // Até 9 linhas (a janela acompanha); depois, a lista rola.
-        let list_h = HEAD_H + 2.0 + self.services.len().clamp(6, 9) as f32 * ROW_H;
+        let list_h = HEAD_H + 2.0 + self.services.len().clamp(6, 9) as f32 * ROW_H + crate::grow();
         let r = ui.alloc(w, list_h);
         let mem_x = r.x + r.w - 76.0 - bar_width(r, self.services.len());
         let state_x = mem_x - 90.0;

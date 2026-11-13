@@ -122,7 +122,7 @@ impl Compart {
         ui.label(tr!("Serviços:"));
         let w = ui.available_width();
         let row = 46.0;
-        let h = (self.services.len().max(1) as f32 * row + 6.0).max(60.0);
+        let h = (self.services.len().max(1) as f32 * row + 6.0).max(60.0) + crate::grow();
         let r = ui.alloc(w, h);
         ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(130, 130, 135, 255)));
         ui.c.fill_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, &solid(rgba(255, 255, 255, 255)));

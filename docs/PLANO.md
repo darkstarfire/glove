@@ -850,4 +850,10 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   aumentar; o que ele aumentou é guardado por eixo (`chosen_size`/`floor_size`) e continua nos
   outros painéis. No kit, o tamanho que o compositor repete nas configurações (foco) só vale
   quando muda: antes desfazia o tamanho que o app tinha escolhido depois.
+- [x] 14.9.1 Os painéis acompanham a janela (v0.12.31): `grow()` (glove-prefs) dá a altura que
+  sobra além do tamanho natural do painel; a caixa de abas e a lista principal de cada painel
+  somam esse valor (Contas, Itens de Início, Mesa e Protetor, Internacional, Som, Rede, Data e
+  Hora, Teclado, Energia, Acesso, Busca, Bluetooth, Compartilhamento, Monitores, Atualização,
+  Disco de Inicialização, Fala, Impressão). O mínimo da janela é o tamanho sem esse crescimento
+  (`pane_natural`). Painéis que são só formulário ficam como estavam (sobra espaço embaixo).
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

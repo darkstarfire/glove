@@ -315,7 +315,8 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   Each pane's own size is the minimum: the window never gets smaller than that. What you
   enlarged is kept when you switch panes; if you only widened it, the height keeps following
   each pane. Wider, "Show All" fits more icons per row and the toolbar shows more favorites;
-  taller, long panes show without scrolling.
+  taller, long panes show without scrolling. Each pane's lists and tab boxes grow along,
+  filling the whole window.
 
 ## Simpler computers (phase 13)
 

@@ -153,7 +153,7 @@ impl DataHora {
         let mut tab = self.tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &[tr!("Data e Hora"), tr!("Fuso Horário"), tr!("Relógio")], 300.0, |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Data e Hora"), tr!("Fuso Horário"), tr!("Relógio")], 300.0 + crate::grow(), |ui| match shown {
             0 => self.date_tab(ui),
             1 => self.zone_tab(ui),
             _ => save = self.clock_tab(ui, clock),
@@ -298,7 +298,7 @@ impl DataHora {
         if self.city.is_none() {
             self.city = rows.iter().position(|r| *r.1 == tz);
         }
-        ui.list(&mut self.city, &labels, ui.available_width(), 150.0);
+        ui.list(&mut self.city, &labels, ui.available_width(), 150.0 + crate::grow());
         ui.space(6.0);
         let chosen = self.city.and_then(|i| rows.get(i)).map(|r| r.1.clone());
         let can = !self.busy && chosen.as_ref().is_some_and(|z| *z != tz);
