@@ -320,6 +320,18 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   mostra mais favoritos; mais alta, os painéis longos aparecem sem rolagem. As listas e
   as caixas de abas de cada painel crescem junto, ocupando a janela toda.
 
+## Senha ao voltar do repouso e da hibernação
+
+Com **Preferências ▸ Segurança ▸ Pedir a senha ao sair do repouso ou do protetor de tela**
+ligado:
+
+- A tela bloqueia antes de qualquer repouso ou hibernação do sistema, peça quem pedir: o
+  menu Repouso, fechar a tampa, o botão de energia, a bateria no fim ou `systemctl
+  hibernate`. Ao voltar, aparece o painel da senha, nunca a mesa.
+- Fechar a tampa com um monitor externo ligado só desliga a tela do notebook (dá para
+  continuar no externo). Se o monitor externo sair com a tampa fechada, a tela apaga e
+  bloqueia na hora.
+
 ## Computadores mais simples (Fase 13)
 
 - Os apps não redesenham mais a janela só porque o mouse passou por cima: se nada

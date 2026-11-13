@@ -706,12 +706,23 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
                     tracing::info!("monitor {} saiu", old.name);
                 }
                 drm.configure(&mut data.state, &dh);
+                // O monitor externo saiu com a tampa fechada: vale como fechar a tampa sem
+                // ele (apaga a tela e bloqueia), em vez de religar a tela embutida fechada.
+                if lid_alone(data.state.lid_closed, data.state.idle.screen_off, list.iter().map(|c| c.name.as_str())) {
+                    tracing::info!("tampa fechada e sem monitor externo: apagando a tela");
+                    data.state.screen_off();
+                }
             }
             render_drm(data);
         }
     })?;
 
     Ok(backend)
+}
+
+/// Tampa fechada, tela ainda acesa e nenhum monitor externo no cabo.
+fn lid_alone<'a>(lid_closed: bool, screen_off: bool, mut connected: impl Iterator<Item = &'a str>) -> bool {
+    lid_closed && !screen_off && !connected.any(|n| !is_internal(n))
 }
 
 /// As Preferências mudaram: monitor, mouse e touchpad.
@@ -799,6 +810,19 @@ pub fn render_drm(data: &mut CalloopData) {
 
 #[cfg(test)]
 mod tests {
+    /// Tampa fechada e o monitor externo saiu: apaga e bloqueia (uma vez só).
+    #[test]
+    fn tampa_fechada_sem_externo() {
+        use super::lid_alone;
+        assert!(lid_alone(true, false, ["eDP-1"].into_iter()));
+        assert!(lid_alone(true, false, std::iter::empty()));
+        // Ainda há um externo: a mesa continua nele.
+        assert!(!lid_alone(true, false, ["eDP-1", "HDMI-A-1"].into_iter()));
+        // Tampa aberta, ou tela já apagada: nada a fazer.
+        assert!(!lid_alone(false, false, ["eDP-1"].into_iter()));
+        assert!(!lid_alone(true, true, ["eDP-1"].into_iter()));
+    }
+
     use super::*;
 
     #[test]

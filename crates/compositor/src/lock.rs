@@ -4,7 +4,10 @@
 //!   dentro de outro desktop, só fica preta) e, com `require_password`, bloqueia.
 //! - Bloqueado: só o papel de parede e o painel de desbloqueio aparecem; nenhum app
 //!   recebe teclado ou mouse. A senha é conferida pelo PAM numa thread à parte.
-//! - Tampa fechada: apaga e bloqueia; aberta: acende.
+//! - Tampa fechada: apaga e bloqueia; aberta: acende. Com monitor externo, só a tela
+//!   embutida desliga; se o externo sair com a tampa fechada, apaga e bloqueia.
+//! - Repouso ou hibernação do sistema, peça quem pedir (tampa pelo logind, botão de
+//!   energia, bateria no fim, `systemctl`): bloqueia antes (`watch_sleep`).
 
 use glove_config::tr;
 use std::{
@@ -51,6 +54,19 @@ impl Lock {
         ((e * 40.0).sin() * 14.0 * damp).round() as i32
     }
 }
+
+/// O que o logind avisa sobre repouso e hibernação (`watch_sleep`).
+pub enum SleepEvent {
+    /// O pedido de espera foi aceito (na partida e a cada volta do repouso).
+    Hold(Option<zbus::zvariant::OwnedFd>),
+    /// O sistema vai suspender ou hibernar.
+    Going,
+    /// O sistema voltou.
+    Woke,
+}
+
+/// Quanto o sistema espera o quadro do bloqueio ir para a tela antes de suspender.
+const SLEEP_HOLD: Duration = Duration::from_millis(300);
 
 #[derive(Default)]
 pub struct Idle {
@@ -203,6 +219,82 @@ impl Glove {
             self.screen_off();
         } else {
             self.note_input();
+        }
+    }
+
+    /// Acompanha o repouso e a hibernação do sistema (sinal `PrepareForSleep` do logind),
+    /// para bloquear antes mesmo quando não foi o Glove que pediu: fechar a tampa (quem
+    /// suspende é o logind), o botão de energia, a bateria no fim, `systemctl hibernate`.
+    /// O Glove segura o repouso por um instante (`Inhibit` com atraso) para o bloqueio
+    /// já estar na tela: ao voltar, a mesa não aparece nem por um quadro.
+    pub fn watch_sleep(&mut self) {
+        let (tx, rx) = channel::<SleepEvent>();
+        let _ = self.loop_handle.insert_source(rx, |ev, _, data| {
+            if let ChannelEvent::Msg(ev) = ev {
+                data.state.sleep_event(ev);
+            }
+        });
+        std::thread::spawn(move || {
+            let run = || -> zbus::Result<()> {
+                let conn = zbus::blocking::Connection::system()?;
+                let logind = zbus::blocking::Proxy::new(&conn, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager")?;
+                let hold = || -> Option<zbus::zvariant::OwnedFd> {
+                    logind
+                        .call("Inhibit", &("sleep", "Glove", "Bloquear a tela antes do repouso", "delay"))
+                        .map_err(|e| tracing::warn!("repouso: o sistema não vai esperar o bloqueio ({e})"))
+                        .ok()
+                };
+                let signals = logind.receive_signal("PrepareForSleep")?;
+                tracing::info!("repouso: acompanhando o logind");
+                let _ = tx.send(SleepEvent::Hold(hold()));
+                for msg in signals {
+                    let Ok(going) = msg.body().deserialize::<bool>() else { continue };
+                    if going {
+                        let _ = tx.send(SleepEvent::Going);
+                    } else {
+                        let _ = tx.send(SleepEvent::Woke);
+                        let _ = tx.send(SleepEvent::Hold(hold()));
+                    }
+                }
+                Ok(())
+            };
+            if let Err(e) = run() {
+                tracing::warn!("repouso: sem o aviso do logind, o bloqueio só vale para o repouso pedido pelo Glove ({e})");
+            }
+        });
+    }
+
+    pub fn sleep_event(&mut self, ev: SleepEvent) {
+        match ev {
+            SleepEvent::Hold(fd) => self.sleep_hold = fd,
+            SleepEvent::Going => {
+                tracing::info!("o sistema vai suspender ou hibernar");
+                if self.config.energy.require_password && !self.greeter {
+                    self.saver = None;
+                    self.lock_screen();
+                    // O sistema espera o quadro do bloqueio ir para a tela.
+                    self.loop_handle
+                        .insert_source(Timer::from_duration(SLEEP_HOLD), |_, _, data| {
+                            data.state.sleep_hold = None;
+                            TimeoutAction::Drop
+                        })
+                        .ok();
+                } else {
+                    self.sleep_hold = None;
+                }
+            }
+            SleepEvent::Woke => {
+                tracing::info!("o sistema voltou do repouso");
+                // O tempo parado conta de novo a partir de agora; com a tampa aberta, a
+                // tela acende (para o painel da senha aparecer).
+                if self.lid_closed {
+                    self.idle.last_input = Some(Instant::now());
+                    self.idle.slept = false;
+                } else {
+                    self.note_input();
+                }
+                self.dirty = true;
+            }
         }
     }
 

@@ -856,4 +856,11 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   Hora, Teclado, Energia, Acesso, Busca, Bluetooth, Compartilhamento, Monitores, Atualização,
   Disco de Inicialização, Fala, Impressão). O mínimo da janela é o tamanho sem esse crescimento
   (`pane_natural`). Painéis que são só formulário ficam como estavam (sobra espaço embaixo).
+- [x] 14.10 Bloqueio antes de qualquer repouso ou hibernação (v0.12.32; falha achada no uso real
+  em 12/11/2026: tampa fechada com HDMI, o HDMI saiu, o logind suspendeu e hibernou, e a sessão
+  voltou sem senha). `watch_sleep` (lock.rs) acompanha o `PrepareForSleep` do logind numa thread
+  (zbus, barramento do sistema) e segura o repouso com `Inhibit(sleep, delay)` por 300 ms, para o
+  quadro do bloqueio ir para a tela antes. `lid_alone` (udev.rs): monitor externo saiu com a tampa
+  fechada = apaga e bloqueia, em vez de religar a tela embutida. Teste: `sleepev going|woke` no
+  modo de depuração; o caminho do monitor só tem teste de unidade (precisa do hardware).
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.

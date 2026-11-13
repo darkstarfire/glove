@@ -311,7 +311,7 @@ Tudo que existe no arquivo também se ajusta nas Preferências. Exemplos:
 ```toml
 [energy]
 screen_off_minutes = 10   # parado por N minutos apaga a tela (0 = nunca)
-require_password = true   # pede a senha ao voltar (tela apagada, Repouso, tampa fechada)
+require_password = true   # pede a senha ao voltar (tela apagada, repouso, hibernação, tampa fechada)
 
 [hot_corners]             # Exposé nos cantos: "", "todas", "app" ou "mesa"
 bottom_right = "mesa"

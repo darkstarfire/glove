@@ -318,6 +318,18 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   taller, long panes show without scrolling. Each pane's lists and tab boxes grow along,
   filling the whole window.
 
+## Password after sleep and hibernation
+
+With **Preferences ▸ Security ▸ Require password to wake from sleep or screen saver**
+turned on:
+
+- The screen locks before any system sleep or hibernation, whoever asks for it: the Sleep
+  menu item, closing the lid, the power button, an empty battery or `systemctl hibernate`.
+  On wake you get the password panel, never the desktop.
+- Closing the lid with an external monitor connected only turns off the laptop screen (you
+  can keep working on the external one). If the external monitor goes away while the lid is
+  closed, the screen turns off and locks right away.
+
 ## Simpler computers (phase 13)
 
 - Apps no longer redraw the window just because the mouse moved over it: if nothing

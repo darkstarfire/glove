@@ -293,6 +293,12 @@ impl Glove {
                     self.dirty = true;
                 }
             }
+            // "sleepev going|woke": o que o logind avisaria ao suspender e ao voltar.
+            Some("sleepev") => match it.next() {
+                Some("going") => self.sleep_event(crate::lock::SleepEvent::Going),
+                Some("woke") => self.sleep_event(crate::lock::SleepEvent::Woke),
+                _ => tracing::info!("sleepev: segurando o repouso = {}", self.sleep_hold.is_some()),
+            },
             Some("down") => self.on_button(BTN_LEFT, ButtonState::Pressed, t),
             Some("up") => self.on_button(BTN_LEFT, ButtonState::Released, t),
             Some("type") => {

@@ -120,6 +120,9 @@ pub struct Glove {
     pub extras: crate::extras::Extras,
     /// Tela bloqueada (painel de senha).
     pub lock: Option<crate::lock::Lock>,
+    /// Pedido ao sistema para esperar o Glove antes de suspender ou hibernar (dá tempo
+    /// de bloquear e mostrar o bloqueio); soltar o descritor libera o repouso.
+    pub sleep_hold: Option<zbus::zvariant::OwnedFd>,
     /// Tempo parado e tela apagada.
     pub idle: crate::lock::Idle,
     /// O clique que acendeu a tela não vai para os apps (nem o soltar dele).
@@ -270,6 +273,7 @@ impl Glove {
             wait_cursor: Default::default(),
             extras: Default::default(),
             lock: None,
+            sleep_hold: None,
             idle: Default::default(),
             swallow_wake_release: false,
             startup: None,

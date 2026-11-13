@@ -182,6 +182,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     state.refresh_extras();
     state.start_idle_timer();
+    // Bloqueio antes de qualquer repouso ou hibernação do sistema. Dentro de outro desktop
+    // quem bloqueia é ele (só liga ali para os testes, com o modo de depuração).
+    if !greeter && (!state.nested || std::env::var_os("GLOVE_DEBUG_CTL").is_some()) {
+        state.watch_sleep();
+    }
     // Avisos dos apps (notify-send e cia.).
     if !greeter {
         state.start_avisos();
