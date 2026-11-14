@@ -900,4 +900,12 @@ panorâmica atravessando vários monitores e papel animado.
   monitores em miniatura (cada um com o seu papel ou o seu pedaço do panorama; clicar escolhe o
   monitor no modo por monitor), o ajuste, a coleção "Vídeos e Animações" (pastas Vídeos e Imagens)
   e as opções do animado. A Pasta Imagens mostra também JPEG e WebP.
+- [x] 15.4 Papel animado leve (M) — v0.12.36: na primeira vez, o vídeo é convertido numa thread de
+  prioridade baixa para uma cópia já no tamanho da tela (ou da área do panorama) e no ritmo
+  escolhido (x264, CRF 17: diferença invisível; o original não muda), em `~/.cache/glove/papel`
+  (até 1 GB, saem as menos usadas). Enquanto isso, toca o original; quando a cópia fica pronta,
+  passa para ela. Medido (vídeo 720p, 640×400 a 24 q/s): o ffmpeg foi de 32% para 6% de um núcleo,
+  mais 6% do Glove trocando a textura. A placa de vídeo decodifica (`-hwaccel auto`) o original e a
+  conversão; a cópia pequena toca melhor no processador com uma thread (com a placa, 11%: trazer o
+  quadro de volta da placa custa mais que decodificar um vídeo pequeno).
 

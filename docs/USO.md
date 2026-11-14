@@ -334,7 +334,9 @@ Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
   Centralizar e Lado a lado.
 - **Vídeos e Animações:** vídeos (MP4, WebM, MKV, MOV…) e GIF das pastas Vídeos e Imagens viram
   papel animado (precisa do ffmpeg). Opções: quadros por segundo, **Leve** (metade da resolução,
-  bom para computadores simples), **Parar na bateria** e **Parar com app em tela cheia**. Ele também
+  bom para computadores simples), **Parar na bateria** e **Parar com app em tela cheia**. Na primeira
+  vez o Glove prepara, em segundo plano, uma cópia do vídeo já no tamanho da tela (em
+  `~/.cache/glove/papel`, sem perda visível); com ela, o papel gasta cerca de 5 vezes menos. Ele também
   para com a tela bloqueada e com "Reduzir efeitos". O animado vale nos três modos (no panorama, um
   vídeo largo atravessa os monitores).
 - A Pasta Imagens aceita PNG, JPEG e WebP.

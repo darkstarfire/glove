@@ -345,6 +345,8 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
 - **Videos and Animations:** videos (MP4, WebM, MKV, MOV…) and GIFs from your Videos and Pictures
   folders become an animated wallpaper (needs ffmpeg). Options: frames per second, **Light** (half
   resolution, good for simple computers), **Pause on battery** and **Pause with a full-screen app**.
+  The first time, Glove prepares in the background a copy of the video already at screen size (in
+  `~/.cache/glove/papel`, no visible loss); with it the wallpaper uses about 5 times less CPU.
   It also pauses with the screen locked and with "Reduce effects". Animated works in all three
   modes (in panorama, a wide video spans the displays).
 - The Pictures folder accepts PNG, JPEG and WebP.

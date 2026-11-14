@@ -50,6 +50,10 @@ struct Want {
 /// Um papel animado tocando: o ffmpeg, o último quadro e quem o mostra.
 struct Anim {
     child: Child,
+    /// Tocando a cópia já reduzida (o cache), e não o vídeo original.
+    from_cache: bool,
+    /// Cache deste vídeo neste tamanho e ritmo (pronto ou sendo feito).
+    cache: std::path::PathBuf,
     /// (número do quadro, pixels RGBA) do último quadro que chegou.
     frame: Arc<Mutex<(u64, Vec<u8>)>>,
     seen: u64,
@@ -85,10 +89,102 @@ fn hash_of<T: std::hash::Hash>(t: &T) -> u64 {
 
 /// Começa o ffmpeg tocando `path` em laço, já no tamanho w×h (cobrindo, sem
 /// distorcer) e no ritmo `fps`; os quadros chegam numa thread.
+/// O filtro que põe o vídeo no tamanho w×h (cobrindo, sem distorcer) e no ritmo.
+fn fit_filter(w: u32, h: u32, fps: u32) -> String {
+    format!("fps={fps},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}")
+}
+
+/// Onde fica a cópia reduzida de um vídeo para um tamanho e ritmo (~/.cache/glove/papel).
+fn cache_path(path: &str, w: u32, h: u32, fps: u32) -> Option<std::path::PathBuf> {
+    let meta = std::fs::metadata(path).ok()?;
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default();
+    let dir = std::env::var_os("XDG_CACHE_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| home.join(".cache")).join("glove/papel");
+    Some(dir.join(format!("{:016x}-{w}x{h}-{fps}.mp4", hash_of(&(path, meta.len(), meta.modified().ok())))))
+}
+
+/// Faz a cópia reduzida numa thread (com prioridade baixa): o vídeo já no tamanho
+/// da tela e no ritmo escolhido, em alta qualidade. Tocar essa cópia gasta uma
+/// fração do processador (medido: 32% → 6% de um núcleo, num vídeo 720p a 24 q/s).
+fn make_cache(src: &str, out: &std::path::Path, w: u32, h: u32, fps: u32) {
+    // Já está sendo feita (o papel recomeçou no meio): não faz de novo.
+    static DOING: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
+    {
+        let mut d = DOING.lock().unwrap();
+        if d.iter().any(|p| p == out) {
+            return;
+        }
+        d.push(out.to_path_buf());
+    }
+    let (src, out) = (src.to_string(), out.to_path_buf());
+    std::thread::spawn(move || {
+        let done = |o: &std::path::Path| DOING.lock().unwrap().retain(|p| p != o);
+        let Some(dir) = out.parent() else {
+            done(&out);
+            return;
+        };
+        let _ = std::fs::create_dir_all(dir);
+        let tmp = out.with_extension("parcial.mp4");
+        let ok = Command::new("nice")
+            .args(["-n", "15", "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostdin", "-hwaccel", "auto", "-i", &src, "-an", "-vf", &fit_filter(w, h, fps)])
+            .args(["-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-pix_fmt", "yuv420p", "-g", &(fps * 2).to_string()])
+            .arg(&tmp)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        if ok {
+            let _ = std::fs::rename(&tmp, &out);
+            tracing::info!("papel animado: cópia reduzida pronta em {}", out.display());
+            prune_cache(dir);
+        } else {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        done(&out);
+    });
+}
+
+/// O cache não cresce sem fim: fica com as cópias usadas mais recentemente (até 1 GB).
+fn prune_cache(dir: &std::path::Path) {
+    let mut files: Vec<(std::time::SystemTime, u64, std::path::PathBuf)> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "mp4"))
+        .filter_map(|e| {
+            let m = e.metadata().ok()?;
+            Some((m.accessed().or_else(|_| m.modified()).ok()?, m.len(), e.path()))
+        })
+        .collect();
+    files.sort_by(|a, b| b.0.cmp(&a.0));
+    let mut total = 0u64;
+    for (_, len, p) in files {
+        total += len;
+        if total > 1 << 30 {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
+/// Começa o ffmpeg tocando em laço: a cópia reduzida (só converte as cores) ou,
+/// enquanto ela não fica pronta, o vídeo original reduzido quadro a quadro (aí a
+/// placa de vídeo decodifica quando pode: `-hwaccel auto`; sem ela, o processador).
 fn start_anim(path: &str, w: u32, h: u32, fps: u32) -> Option<Anim> {
-    let vf = format!("fps={fps},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=rgb24");
+    let cache = cache_path(path, w, h, fps)?;
+    let from_cache = cache.exists();
+    let (input, vf) = if from_cache { (cache.to_string_lossy().into_owned(), "format=rgb24".to_string()) } else { (path.to_string(), format!("{},format=rgb24", fit_filter(w, h, fps))) };
+    if !from_cache {
+        make_cache(path, &cache, w, h, fps);
+    }
+    // Medido (vídeo 720p, tela 640×400 a 24 q/s): o original reduzido a cada quadro
+    // gasta 32% de um núcleo (27% com a placa decodificando); a cópia pequena, 6% no
+    // processador com uma thread só (com a placa, 11%: trazer cada quadro de volta
+    // da placa custa mais do que decodificar um vídeo pequeno).
+    let decode: &[&str] = if from_cache { &["-threads", "1"] } else { &["-hwaccel", "auto"] };
     let mut child = Command::new("ffmpeg")
-        .args(["-hide_banner", "-loglevel", "error", "-nostdin", "-re", "-stream_loop", "-1", "-i", path, "-an", "-vf", &vf, "-pix_fmt", "rgba", "-f", "rawvideo", "-"])
+        .args(["-hide_banner", "-loglevel", "error", "-nostdin"])
+        .args(decode)
+        .args(["-re", "-stream_loop", "-1", "-i", &input, "-an", "-vf", &vf, "-pix_fmt", "rgba", "-f", "rawvideo", "-"])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -111,7 +207,7 @@ fn start_anim(path: &str, w: u32, h: u32, fps: u32) -> Option<Anim> {
             }
         }
     });
-    Some(Anim { child, frame, seen: 0, w, h, paused: false })
+    Some(Anim { child, from_cache, cache, frame, seen: 0, w, h, paused: false })
 }
 
 /// Textura de um pedaço (x, y, w, h em pixels do quadro) de um quadro RGBA,
@@ -216,6 +312,16 @@ impl Glove {
             if let Some(a) = start_anim(&w.style, fw, fh, fps) {
                 tracing::info!("papel animado {} em {fw}x{fh} a {fps} q/s", w.style);
                 self.papel.anims.insert(key.clone(), a);
+            }
+        }
+        // A cópia reduzida ficou pronta: troca o original por ela (bem mais leve).
+        let ready: Vec<String> = self.papel.anims.iter().filter(|(_, a)| !a.from_cache && a.cache.exists()).map(|(k, _)| k.clone()).collect();
+        for key in ready {
+            let Some(old) = self.papel.anims.get(&key) else { continue };
+            let (w, h) = (old.w, old.h);
+            let style = key.split_once('|').map(|x| x.1.to_string()).unwrap_or_default();
+            if let Some(a) = start_anim(&style, w, h, fps) {
+                self.papel.anims.insert(key, a);
             }
         }
         // Parar e continuar (o ffmpeg fica parado no quadro atual).
@@ -323,3 +429,23 @@ impl Glove {
 
 /// O ffmpeg existe? (Pergunta uma vez por sessão.)
 static FFMPEG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filtro_e_cache() {
+        assert_eq!(fit_filter(640, 400, 24), "fps=24,scale=640:400:force_original_aspect_ratio=increase,crop=640:400");
+        // A cópia depende do vídeo, do tamanho e do ritmo.
+        let f = std::env::temp_dir().join(format!("glove-papel-{}.mp4", std::process::id()));
+        std::fs::write(&f, b"x").unwrap();
+        let p = f.to_string_lossy();
+        let a = cache_path(&p, 640, 400, 24).unwrap();
+        assert!(a.to_string_lossy().ends_with("-640x400-24.mp4"));
+        assert_ne!(a, cache_path(&p, 1280, 800, 24).unwrap());
+        assert_ne!(a, cache_path(&p, 640, 400, 15).unwrap());
+        assert!(cache_path("/não/existe.mp4", 640, 400, 24).is_none());
+        let _ = std::fs::remove_file(&f);
+    }
+}
