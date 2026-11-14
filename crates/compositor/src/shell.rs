@@ -1796,6 +1796,8 @@ impl Glove {
             self.chrome.wallpaper = wallpaper::render_style(&self.theme, &self.config.wallpaper, w as f32, h as f32, sc).map(to_tex);
             self.chrome.wallpaper_key = Some(key);
         }
+        // O papel de cada monitor (o modo, o ajuste e os animados).
+        self.prepare_wallpapers();
 
         // Barra de menu (nome do app + menus dele)
         let titles = self.bar_titles();

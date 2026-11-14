@@ -875,3 +875,29 @@ inteira a cada movimento do mouse, mesmo sem mudar nada; e os efeitos do composi
   teste `tema_do_repositorio_em_dia` (glove-arte) falha se a arte guardada ficar diferente da que
   o código gera.
 - [ ] 14.3 Outras ferramentas (se pedirem): seta, retângulo, texto, borrar um trecho.
+
+## Fase 15 — Papel de parede moderno (pedido de 14/11/2026)
+
+Recurso que o Tiger não tinha, no visual da era: escolher o papel de cada monitor, uma imagem
+panorâmica atravessando vários monitores e papel animado.
+
+- [x] 15.1 Monitores e ajuste (G) — v0.12.35 (glove-ui v0.2.28): `wallpaper_mode` "igual" (a mesma
+  imagem em cada monitor, cada um no tamanho dele), "por_tela" (`wallpapers`, um papel por conector)
+  ou "panorama" (uma imagem só cobrindo o retângulo de todos os monitores, pela posição real deles:
+  lado a lado, um em cima do outro, em L; cada um mostra o seu pedaço). `wallpaper_fit`: preencher,
+  ajustar, esticar, centralizar, lado a lado. O papel aceita PNG, JPEG e WebP (o leitor de imagens
+  foi para o glove-paint). `papel.rs` (compositor) prepara a textura de cada tela e só refaz o que
+  muda; `chrome.wallpaper` segue sendo a imagem parada da principal (bloqueio, login, Exposé). O
+  arquivo de monitores ganhou a posição e o tamanho lógico de cada um (`rect`).
+- [x] 15.2 Papel animado (G) — v0.12.35: vídeo ou GIF (mp4, webm, mkv, mov, gif...) tocado pelo
+  ffmpeg em laço, já reduzido ao tamanho da tela (ou da área do panorama) e ao ritmo escolhido (12
+  a 60 quadros por segundo; 24 por padrão), com a opção leve (metade da resolução, a placa amplia).
+  Para (SIGSTOP) com a tela bloqueada ou apagada, com "Reduzir efeitos", e, se pedido, na bateria
+  e com app em tela cheia. Medido: vídeo 720p a 24 q/s no modo leve, ~36% de um núcleo no ffmpeg.
+  O primeiro quadro (cache em `~/.cache/glove/papel`) vale para a miniatura e enquanto o vídeo não
+  começa. ffmpeg recomendado no pacote e incluído na ISO.
+- [x] 15.3 Preferências ▸ Mesa (M) — v0.12.35: com mais de um monitor, o modo e a disposição dos
+  monitores em miniatura (cada um com o seu papel ou o seu pedaço do panorama; clicar escolhe o
+  monitor no modo por monitor), o ajuste, a coleção "Vídeos e Animações" (pastas Vídeos e Imagens)
+  e as opções do animado. A Pasta Imagens mostra também JPEG e WebP.
+

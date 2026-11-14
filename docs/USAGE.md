@@ -330,6 +330,25 @@ turned on:
   can keep working on the external one). If the external monitor goes away while the lid is
   closed, the screen turns off and locks right away.
 
+## Wallpaper: several displays, panorama and animated
+
+In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
+
+- **Displays** (shown with more than one display, in extend mode):
+  - **The same picture on all:** each display shows the wallpaper at its own size;
+  - **A picture for each display:** click a display in the miniature, then a picture;
+  - **One picture across all (panorama):** one picture spans the displays, in their real
+    positions. Two 1920×1080 displays side by side make 3840×1080: a picture that size shows
+    whole, half on each. One above the other: 1920×2160.
+- **Fit:** Fill Screen (crops the excess), Fit to Screen (whole, with bars), Stretch, Center and
+  Tile.
+- **Videos and Animations:** videos (MP4, WebM, MKV, MOV…) and GIFs from your Videos and Pictures
+  folders become an animated wallpaper (needs ffmpeg). Options: frames per second, **Light** (half
+  resolution, good for simple computers), **Pause on battery** and **Pause with a full-screen app**.
+  It also pauses with the screen locked and with "Reduce effects". Animated works in all three
+  modes (in panorama, a wide video spans the displays).
+- The Pictures folder accepts PNG, JPEG and WebP.
+
 ## Simpler computers (phase 13)
 
 - Apps no longer redraw the window just because the mouse moved over it: if nothing

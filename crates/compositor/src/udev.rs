@@ -428,6 +428,14 @@ impl Drm {
     }
 }
 
+/// Onde o monitor fica na mesa e o tamanho lógico dele.
+fn output_rect(o: &Output) -> (i32, i32, i32, i32) {
+    let loc = o.current_location();
+    let scale = o.current_scale().fractional_scale();
+    let s = o.current_mode().map(|m| m.size).unwrap_or_default();
+    (loc.x, loc.y, (s.w as f64 / scale).round() as i32, (s.h as f64 / scale).round() as i32)
+}
+
 /// Avisa as Preferências sobre os monitores e resoluções disponíveis.
 fn write_outputs_info(list: &[Connected], heads: &[Head]) {
     let outputs = list
@@ -455,6 +463,7 @@ fn write_outputs_info(list: &[Connected], heads: &[Head]) {
                 modes,
                 scale: head.map(|h| h.output.current_scale().fractional_scale()).unwrap_or(auto),
                 auto_scale: auto,
+                rect: head.map(|h| output_rect(&h.output)).unwrap_or_default(),
             }
         })
         .collect();

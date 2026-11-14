@@ -14,6 +14,7 @@ mod avisos;
 mod gestos;
 mod dmabuf;
 mod grade;
+mod papel;
 mod mesas;
 mod lock;
 mod extras;

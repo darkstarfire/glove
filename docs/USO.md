@@ -320,6 +320,25 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   mostra mais favoritos; mais alta, os painéis longos aparecem sem rolagem. As listas e
   as caixas de abas de cada painel crescem junto, ocupando a janela toda.
 
+## Papel de parede: vários monitores, panorama e animado
+
+Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
+
+- **Monitores** (aparece com mais de um monitor, no modo estender):
+  - **A mesma imagem em todos:** cada monitor mostra o papel no tamanho dele;
+  - **Uma imagem para cada monitor:** clique num monitor na miniatura e depois numa imagem;
+  - **Uma imagem cobrindo todos (panorama):** uma imagem só atravessa os monitores, na posição
+    real deles. Dois monitores 1920×1080 lado a lado formam 3840×1080: uma imagem desse tamanho
+    aparece inteira, metade em cada um. Um em cima do outro: 1920×2160.
+- **Ajuste:** Preencher a tela (corta o que sobra), Ajustar à tela (inteira, com faixas), Esticar,
+  Centralizar e Lado a lado.
+- **Vídeos e Animações:** vídeos (MP4, WebM, MKV, MOV…) e GIF das pastas Vídeos e Imagens viram
+  papel animado (precisa do ffmpeg). Opções: quadros por segundo, **Leve** (metade da resolução,
+  bom para computadores simples), **Parar na bateria** e **Parar com app em tela cheia**. Ele também
+  para com a tela bloqueada e com "Reduzir efeitos". O animado vale nos três modos (no panorama, um
+  vídeo largo atravessa os monitores).
+- A Pasta Imagens aceita PNG, JPEG e WebP.
+
 ## Senha ao voltar do repouso e da hibernação
 
 Com **Preferências ▸ Segurança ▸ Pedir a senha ao sair do repouso ou do protetor de tela**

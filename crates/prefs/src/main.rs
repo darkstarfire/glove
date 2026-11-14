@@ -219,6 +219,9 @@ pub(crate) fn grow() -> f32 {
     })
 }
 
+/// O ffmpeg existe? (Para avisar na coleção de vídeos.)
+static FFMPEG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
 /// Altura máxima da janela (cabe numa tela de 768 linhas com a barra e o Dock);
 /// painel maior ganha rolagem.
 const MAX_H: f32 = 640.0;
@@ -237,6 +240,10 @@ struct Prefs {
     pane_scrolled: Option<Pane>,
     /// Imagens PNG encontradas em ~/Imagens (para usar de papel de parede).
     images: Vec<std::path::PathBuf>,
+    /// Vídeos e GIF (Vídeos e Imagens), para papel de parede animado.
+    videos: Vec<std::path::PathBuf>,
+    /// Modo "um por monitor": o monitor cujo papel se está escolhendo.
+    desk_monitor: usize,
     /// Monitores conectados (escritos pelo compositor).
     outputs: Option<OutputsInfo>,
     /// Resolução nova esperando confirmação: (monitor e resolução anteriores, prazo).
@@ -346,17 +353,25 @@ impl Prefs {
     fn build() -> Self {
         let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
         let mut images = Vec::new();
-        for d in [tr!("Imagens"), "Pictures"] {
+        let mut videos = Vec::new();
+        let ext = |p: &std::path::Path| p.extension().and_then(|x| x.to_str()).map(|x| x.to_ascii_lowercase()).unwrap_or_default();
+        for d in [tr!("Imagens"), "Pictures", tr!("Vídeos"), "Videos"] {
             if let Ok(rd) = std::fs::read_dir(home.join(d)) {
                 for e in rd.flatten() {
                     let p = e.path();
-                    if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("png")) {
+                    let x = ext(&p);
+                    if ["png", "jpg", "jpeg", "webp"].contains(&x.as_str()) {
                         images.push(p);
+                    } else if glove_ui::paint::wallpaper::ANIMATED.contains(&x.as_str()) {
+                        videos.push(p);
                     }
                 }
             }
         }
         images.sort();
+        images.dedup();
+        videos.sort();
+        videos.dedup();
         let args: Vec<String> = std::env::args().skip(1).collect();
         let arg = args.first().cloned().unwrap_or_default();
         // "atalhos" é a segunda aba do Teclado (como no 10.4).
@@ -375,6 +390,8 @@ impl Prefs {
             pane_natural: f32::MAX,
             pane_scrolled: None,
             images,
+            videos,
+            desk_monitor: 0,
             outputs: OutputsInfo::load(),
             confirm: None,
             confirm_arrangement: None,
@@ -795,7 +812,8 @@ impl Prefs {
         let mut tab = self.desk_tab;
         let shown = tab;
         ui.space(4.0);
-        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], (if shown == 0 { 400.0 } else { 456.0 }) + grow(), |ui| match shown {
+        let extra = if self.desk_monitors().len() > 1 { 70.0 } else { 0.0 } + if glove_ui::paint::wallpaper::is_animated(&self.desk_current()) { 64.0 } else { 0.0 };
+        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], (if shown == 0 { 430.0 + extra } else { 456.0 }) + grow(), |ui| match shown {
             0 => self.mesa_tab(ui),
             _ => self.protetor_tab(ui),
         });
@@ -887,19 +905,62 @@ impl Prefs {
     }
 
     fn mesa_tab(&mut self, ui: &mut Ui) {
-        let (x0, y0) = ui.cursor();
         let w = ui.available_width();
-        // Poço com a imagem atual.
-        let (pw, ph) = (128.0, 88.0);
-        let cur = self.config.wallpaper.clone();
+        let monitors = self.desk_monitors();
+        let multi = monitors.len() > 1;
+        let mode = self.config.wallpaper_mode.clone();
+        // Vários monitores: como o papel se reparte entre eles.
+        if multi {
+            let modes = [("igual", tr!("A mesma imagem em todos")), ("por_tela", tr!("Uma imagem para cada monitor")), ("panorama", tr!("Uma imagem cobrindo todos (panorama)"))];
+            let names: Vec<String> = modes.iter().map(|m| m.1.to_string()).collect();
+            let mut cur = modes.iter().position(|m| m.0 == mode).unwrap_or(0);
+            ui.form_row(tr!("Monitores:"), 90.0, |ui| {
+                if ui.popup(&mut cur, &names, 340.0) {
+                    self.config.wallpaper_mode = modes[cur].0.to_string();
+                    self.save();
+                }
+            });
+            ui.space(6.0);
+        }
+        let (x0, y0) = ui.cursor();
+        // Poço: a imagem atual; com vários monitores, a disposição deles (cada um com o
+        // seu papel ou o seu pedaço do panorama; clicar escolhe o monitor).
+        let (pw, ph) = (if multi { 220.0 } else { 128.0 }, 88.0);
+        let cur = self.desk_current();
         ui.c.fill(rrect(x0 - 3.0, y0 - 3.0, pw + 6.0, ph + 6.0, 3.0), &solid(rgba(0, 0, 0, 30)));
         ui.c.stroke(rrect(x0 - 2.5, y0 - 2.5, pw + 5.0, ph + 5.0, 3.0), &solid(rgba(0, 0, 0, 70)), 1.0);
-        self.draw_thumb(ui, &cur, Rect::new(x0, y0, pw, ph));
-        ui.fonts.draw(ui.c, &wallpaper_name(&cur), x0 + pw + 20.0, y0 + 40.0, 13.0, true, rgba(20, 20, 20, 255));
-        ui.fonts.draw(ui.c, tr!("Clique numa imagem para usar na mesa."), x0 + pw + 20.0, y0 + 58.0, 11.0, false, rgba(90, 90, 96, 255));
+        if multi {
+            self.draw_monitors(ui, &monitors, Rect::new(x0, y0, pw, ph));
+        } else {
+            self.draw_thumb(ui, &cur, Rect::new(x0, y0, pw, ph));
+        }
+        let tx = x0 + pw + 20.0;
+        let title = if multi && self.config.wallpaper_mode == "por_tela" {
+            format!("{} — {}", monitors.get(self.desk_monitor).map(|m| m.1.as_str()).unwrap_or(""), wallpaper_name(&cur))
+        } else {
+            wallpaper_name(&cur)
+        };
+        let title = ui.fonts.ellipsize(&title, 13.0, true, w - pw - 24.0);
+        ui.fonts.draw(ui.c, &title, tx, y0 + 30.0, 13.0, true, rgba(20, 20, 20, 255));
+        let hint = if multi && self.config.wallpaper_mode == "por_tela" { tr!("Clique num monitor e depois numa imagem.") } else { tr!("Clique numa imagem para usar na mesa.") };
+        ui.fonts.draw(ui.c, hint, tx, y0 + 48.0, 11.0, false, rgba(90, 90, 96, 255));
+        // Ajuste da imagem.
+        let fits = glove_ui::paint::wallpaper::Fit::ALL;
+        let fit_names: Vec<String> = fits.iter().map(|f| tr(f.2).to_string()).collect();
+        let mut fi = fits.iter().position(|f| f.1 == self.config.wallpaper_fit).unwrap_or(0);
+        ui.area(Rect::new(tx, y0 + 58.0, (w - pw - 24.0).min(220.0), 24.0), |ui| {
+            if ui.popup(&mut fi, &fit_names, (w - pw - 24.0).min(220.0)) {
+                self.config.wallpaper_fit = fits[fi].1.to_string();
+                self.save();
+            }
+        });
         ui.alloc(w, ph + 16.0);
+        // Papel animado: ritmo, leve e quando parar.
+        if glove_ui::paint::wallpaper::is_animated(&cur) {
+            self.anim_options(ui);
+        }
         // Coleções.
-        let sources = [tr!("Imagens do Glove"), tr!("Cores Sólidas"), tr!("Pasta Imagens")];
+        let sources = [tr!("Imagens do Glove"), tr!("Cores Sólidas"), tr!("Pasta Imagens"), tr!("Vídeos e Animações")];
         let mut sel = Some(self.desk_source);
         let rows: Vec<String> = sources.iter().map(|s| s.to_string()).collect();
         let (lx, ly) = ui.cursor();
@@ -918,14 +979,19 @@ impl Prefs {
                 .chain(WALLPAPERS.iter().map(|(i, _)| i.to_string()))
                 .collect(),
             1 => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
-            _ => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
+            2 => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
+            _ => self.videos.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
         };
         let gx = lx + 166.0;
         let gw = w - 166.0;
         ui.c.fill_rect(gx, ly, gw, list_h, &solid(rgba(255, 255, 255, 255)));
         ui.c.stroke(rrect(gx + 0.5, ly + 0.5, gw - 1.0, list_h - 1.0, 0.0), &solid(rgba(130, 130, 135, 255)), 1.0);
         if items.is_empty() {
-            ui.fonts.draw(ui.c, tr!("Ponha imagens PNG na sua pasta Imagens."), gx + 14.0, ly + 24.0, 11.0, false, rgba(110, 110, 116, 255));
+            let t = if self.desk_source == 3 { tr!("Ponha vídeos (MP4, WebM…) ou GIF na pasta Vídeos ou Imagens.") } else { tr!("Ponha imagens (PNG, JPEG, WebP) na sua pasta Imagens.") };
+            ui.fonts.draw(ui.c, t, gx + 14.0, ly + 24.0, 11.0, false, rgba(110, 110, 116, 255));
+        }
+        if self.desk_source == 3 && !*FFMPEG.get_or_init(glove_ui::paint::wallpaper::has_ffmpeg) {
+            ui.fonts.draw(ui.c, tr!("Para papel animado, instale o ffmpeg (sudo apt install ffmpeg)."), gx + 14.0, ly + list_h - 12.0, 11.0, false, rgba(180, 60, 40, 255));
         }
         let (tw, th, gap) = (88.0, 62.0, 10.0);
         let per_row = ((gw - gap) / (tw + gap)).floor().max(1.0) as usize;
@@ -945,11 +1011,106 @@ impl Prefs {
             }
         }
         if let Some(c) = chosen {
-            self.config.wallpaper = c;
+            self.set_desk_wallpaper(c);
             self.save();
             ui.redraw = true;
         }
         ui.alloc(w, list_h);
+    }
+
+    /// Os monitores ligados (nome do conector, nome para mostrar, retângulo na mesa),
+    /// o principal primeiro. Dentro de outro desktop ou espelhando, um só.
+    fn desk_monitors(&self) -> Vec<(String, String, (i32, i32, i32, i32))> {
+        let Some(info) = &self.outputs else { return Vec::new() };
+        if info.nested || self.config.monitor.arrangement != "estender" {
+            return Vec::new();
+        }
+        let mut v: Vec<_> = info.outputs.iter().filter(|o| o.active && o.rect.2 > 0).map(|o| (o.primary, o.name.clone(), o.description.clone(), o.rect)).collect();
+        v.sort_by_key(|o| (!o.0, o.3 .0, o.3 .1));
+        v.into_iter().map(|o| (o.1, o.2, o.3)).collect()
+    }
+
+    /// O papel que o poço mostra (o do monitor escolhido no modo "um por monitor").
+    fn desk_current(&self) -> String {
+        let mons = self.desk_monitors();
+        if self.config.wallpaper_mode == "por_tela" {
+            if let Some(m) = mons.get(self.desk_monitor.min(mons.len().saturating_sub(1))) {
+                return self.config.wallpaper_for(&m.0).to_string();
+            }
+        }
+        self.config.wallpaper.clone()
+    }
+
+    /// Escolheu um papel: o do monitor escolhido (um por monitor) ou o de todos.
+    fn set_desk_wallpaper(&mut self, style: String) {
+        let mons = self.desk_monitors();
+        if self.config.wallpaper_mode == "por_tela" && mons.len() > 1 {
+            if let Some(m) = mons.get(self.desk_monitor.min(mons.len() - 1)) {
+                self.config.wallpapers.insert(m.0.clone(), style);
+                return;
+            }
+        }
+        self.config.wallpaper = style;
+    }
+
+    /// Os monitores em miniatura, na posição deles, cada um com o seu papel (ou o seu
+    /// pedaço do panorama). Clicar num escolhe o monitor (modo "um por monitor").
+    fn draw_monitors(&mut self, ui: &mut Ui, mons: &[(String, String, (i32, i32, i32, i32))], r: Rect) {
+        let bb = mons.iter().fold((i32::MAX, i32::MAX, i32::MIN, i32::MIN), |b, m| (b.0.min(m.2 .0), b.1.min(m.2 .1), b.2.max(m.2 .0 + m.2 .2), b.3.max(m.2 .1 + m.2 .3)));
+        let (bw, bh) = ((bb.2 - bb.0).max(1) as f32, (bb.3 - bb.1).max(1) as f32);
+        let k = ((r.w - 8.0) / bw).min((r.h - 8.0) / bh);
+        let (ox, oy) = (r.x + (r.w - bw * k) / 2.0, r.y + (r.h - bh * k) / 2.0);
+        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(70, 72, 80, 255)));
+        let mode = self.config.wallpaper_mode.clone();
+        let fit = glove_ui::paint::wallpaper::Fit::from_id(&self.config.wallpaper_fit);
+        for (i, m) in mons.iter().enumerate() {
+            let mr = Rect::new((ox + (m.2 .0 - bb.0) as f32 * k).round() + 1.0, (oy + (m.2 .1 - bb.1) as f32 * k).round() + 1.0, (m.2 .2 as f32 * k).round() - 2.0, (m.2 .3 as f32 * k).round() - 2.0);
+            let style = if mode == "panorama" { self.config.wallpaper.clone() } else { self.config.wallpaper_for(&m.0).to_string() };
+            let span = (mode == "panorama").then(|| glove_ui::paint::wallpaper::Span { total_w: bw * k, total_h: bh * k, x: (m.2 .0 - bb.0) as f32 * k, y: (m.2 .1 - bb.1) as f32 * k });
+            let key = format!("{style}@mon{i}:{}x{}:{:?}:{}", mr.w, mr.h, span.map(|s| (s.x as i32, s.y as i32, s.total_w as i32)), fit.id());
+            if !self.thumbs.contains_key(&key) {
+                let c = glove_ui::paint::wallpaper::render_part(ui.theme, &style, mr.w, mr.h, ui.c.scale, fit, span);
+                self.thumbs.insert(key.clone(), c);
+            }
+            if let Some(Some(c)) = self.thumbs.get(&key) {
+                ui.c.draw_canvas(c, mr.x, mr.y);
+            }
+            let sel = mode == "por_tela" && i == self.desk_monitor;
+            ui.c.stroke(rrect(mr.x - 0.5, mr.y - 0.5, mr.w + 1.0, mr.h + 1.0, 0.0), &solid(if sel { ui.theme.accent } else { rgba(20, 20, 24, 255) }), if sel { 2.0 } else { 1.0 });
+            if mode == "por_tela" && ui.hit(mr).clicked {
+                self.desk_monitor = i;
+                ui.redraw = true;
+            }
+        }
+    }
+
+    /// Papel animado: quadros por segundo, leve e quando parar.
+    fn anim_options(&mut self, ui: &mut Ui) {
+        let a = self.config.wallpaper_anim.clone();
+        let mut changed = false;
+        let rates = [12u32, 15, 24, 30, 60];
+        let names: Vec<String> = rates.iter().map(|r| tr!("{} quadros por segundo", r).to_string()).collect();
+        let mut ri = rates.iter().position(|r| *r == a.fps).unwrap_or(2);
+        let mut light = a.light;
+        let mut bat = a.pause_on_battery;
+        let mut full = a.pause_fullscreen;
+        ui.horizontal(|ui| {
+            if ui.popup(&mut ri, &names, 200.0) {
+                changed = true;
+            }
+            ui.space(12.0);
+            changed |= ui.checkbox(&mut light, tr!("Leve (metade da resolução)"));
+        });
+        ui.horizontal(|ui| {
+            changed |= ui.checkbox(&mut bat, tr!("Parar na bateria"));
+            ui.space(12.0);
+            changed |= ui.checkbox(&mut full, tr!("Parar com app em tela cheia"));
+        });
+        ui.space(6.0);
+        if changed {
+            self.config.wallpaper_anim = glove_config::WallpaperAnim { fps: rates[ri], light, pause_on_battery: bat, pause_fullscreen: full };
+            self.save();
+        }
     }
 
     /// Miniatura de um papel de parede (guardada; os PNG só são lidos uma vez).

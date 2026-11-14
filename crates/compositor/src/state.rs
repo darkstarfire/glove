@@ -136,6 +136,8 @@ pub struct Glove {
     /// Painel de Widgets (F12).
     pub dashboard: crate::dashboard::Dashboard,
     pub grade: crate::grade::Grade,
+    /// Papel de parede de cada monitor (igual, por monitor, panorama, animado).
+    pub papel: crate::papel::Papel,
     /// Tela cheia: o mouse encostou no alto e a barra de menu apareceu.
     pub bar_peek: bool,
     /// Gesto do touchpad em andamento.
@@ -281,6 +283,7 @@ impl Glove {
             desk: Default::default(),
             dashboard: Default::default(),
             grade: Default::default(),
+            papel: Default::default(),
             bar_peek: false,
             gesto: None,
             avisos: Default::default(),
@@ -576,6 +579,10 @@ impl Glove {
                 modes: vec![mode],
                 scale,
                 auto_scale: scale,
+                rect: {
+                    let s = output.current_mode().map(|m| m.size).unwrap_or_default();
+                    (0, 0, (s.w as f64 / scale).round() as i32, (s.h as f64 / scale).round() as i32)
+                },
             }],
         }
         .save();

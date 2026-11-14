@@ -5359,3 +5359,56 @@ msgstr "Turn on the firewall."
 
 msgid "Não foi possível mudar o firewall: {}"
 msgstr "Could not change the firewall: {}"
+
+# Papel de parede: monitores, ajuste e animados (Fase 15)
+
+msgid "A mesma imagem em todos"
+msgstr "The same picture on all"
+
+msgid "Uma imagem para cada monitor"
+msgstr "A picture for each display"
+
+msgid "Uma imagem cobrindo todos (panorama)"
+msgstr "One picture across all (panorama)"
+
+msgid "Monitores:"
+msgstr "Displays:"
+
+msgid "Clique num monitor e depois numa imagem."
+msgstr "Click a display, then a picture."
+
+msgid "Vídeos e Animações"
+msgstr "Videos and Animations"
+
+msgid "Ponha vídeos (MP4, WebM…) ou GIF na pasta Vídeos ou Imagens."
+msgstr "Put videos (MP4, WebM…) or GIFs in your Videos or Pictures folder."
+
+msgid "Ponha imagens (PNG, JPEG, WebP) na sua pasta Imagens."
+msgstr "Put pictures (PNG, JPEG, WebP) in your Pictures folder."
+
+msgid "Para papel animado, instale o ffmpeg (sudo apt install ffmpeg)."
+msgstr "For an animated desktop, install ffmpeg (sudo apt install ffmpeg)."
+
+msgid "{} quadros por segundo"
+msgstr "{} frames per second"
+
+msgid "Leve (metade da resolução)"
+msgstr "Light (half resolution)"
+
+msgid "Parar na bateria"
+msgstr "Pause on battery"
+
+msgid "Parar com app em tela cheia"
+msgstr "Pause with a full-screen app"
+
+msgid "Preencher a tela"
+msgstr "Fill Screen"
+
+msgid "Ajustar à tela"
+msgstr "Fit to Screen"
+
+msgid "Esticar"
+msgstr "Stretch to Fill Screen"
+
+msgid "Lado a lado"
+msgstr "Tile"

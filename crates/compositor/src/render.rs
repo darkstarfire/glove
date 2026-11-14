@@ -254,8 +254,9 @@ impl Glove {
             let m = glove_paint::chrome::LOCK_SHADOW as i32;
             out.extend(mem(renderer, (x - m - origin.x, y - m - origin.y).into(), t, sc));
         }
-        // Papel de parede esticado para esta tela.
-        if let Some(t) = &self.chrome.wallpaper {
+        // O papel desta tela (o dela, o pedaço do panorama ou o da principal esticado).
+        let own = self.space.outputs().find(|o| self.space.output_geometry(o) == Some(area)).and_then(|o| self.wallpaper_of(&o.name()));
+        if let Some(t) = own.or(self.chrome.wallpaper.as_ref()) {
             if let Some(buf) = t.upload(renderer) {
                 let src = Rectangle::from_size((t.px.0 as f64, t.px.1 as f64).into());
                 out.push(GloveElement::Texture(TextureRenderElement::from_texture_buffer((0.0, 0.0), &buf, None, Some(src), Some(area.size), Kind::Unspecified)));
@@ -584,7 +585,9 @@ impl Glove {
                 out.extend(mem(renderer, r.loc, t, sc));
             }
         }
-        if let Some(b) = &c.wallpaper {
+        // O papel da tela principal (o próprio dela, animado ou não).
+        let own = self.primary().and_then(|o| self.wallpaper_of(&o.name()));
+        if let Some(b) = own.or(c.wallpaper.as_ref()) {
             out.extend(mem(renderer, (0, 0).into(), b, sc));
         }
         out

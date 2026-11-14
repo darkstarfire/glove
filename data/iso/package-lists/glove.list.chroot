@@ -50,6 +50,7 @@ pipewire-bin
 wireplumber
 xwayland
 mpv
+ffmpeg
 poppler-utils
 xdg-utils
 desktop-file-utils
