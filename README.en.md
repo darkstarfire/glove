@@ -106,7 +106,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 | Passwords | Passwords in the system keychain: view, copy, delete, lock and change the keychain password |
 | Network Tools | Interface info, Ping, Lookup, Traceroute, Whois, Finger and port scan |
 | System Monitor, Logs, System Information | Processes and graphs, journal logs, hardware |
-| Disks | Through udisks2 (like gnome-disks): disks, images and the volume map (partitions and free space), mount, unmount and eject; **create startup disks** (UEFI) from Linux **or Windows** ISOs, without WoeUSB; formatting, partitions and resizing come in phase 16 |
+| Disks | Through udisks2 (like gnome-disks): disks, images and the volume map (partitions and free space), mount, unmount and eject; **create startup disks** (UEFI) from Linux **or Windows** ISOs, without WoeUSB; formatting (disk and volume), creating, deleting and editing partitions, **resizing** (making room next to Windows) |
 | Search, Screenshot, Archive Manager | Find files, capture the screen, compress/expand |
 | Calculator, Clock, Chess, Help, About Glove | Scientific calculator, clock in the Dock, chess with 3 levels, searchable help |
 | Backups | Hourly backups of the home folder to an external disk, timeline and Restore |

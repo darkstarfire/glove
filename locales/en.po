@@ -5641,3 +5641,153 @@ msgstr "Finishing writing (this may take a while)…"
 
 msgid "Tudo o que está em {} será apagado, e o disco vai iniciar o computador com “{}” (UEFI). Imagens de Linux são gravadas inteiras; o instalador do Windows vira um pendrive FAT32."
 msgstr "Everything on {} will be erased, and the disk will start the computer with “{}” (UEFI). Linux images are written whole; the Windows installer becomes a FAT32 USB stick."
+
+msgid "Apagando “{}”…"
+msgstr "Deleting “{}”…"
+
+msgid "Apagar Partição"
+msgstr "Delete Partition"
+
+msgid "Apagar a partição “{}”?"
+msgstr "Delete the partition “{}”?"
+
+msgid "Apagar com zeros (lento, sem volta)"
+msgstr "Overwrite with zeros (slow, no undo)"
+
+msgid "Btrfs — Linux (instantâneos)"
+msgstr "Btrfs — Linux (snapshots)"
+
+msgid "Criando a partição…"
+msgstr "Creating the partition…"
+
+msgid "Criar"
+msgstr "Create"
+
+msgid "Criar Partição…"
+msgstr "Create Partition…"
+
+msgid "Disco formatado."
+msgstr "Disk formatted."
+
+msgid "Editar partição"
+msgstr "Edit partition"
+
+msgid "Editar…"
+msgstr "Edit…"
+
+msgid "Ext4 — Linux (recomendado para o Glove OS)"
+msgstr "Ext4 — Linux (recommended for Glove OS)"
+
+msgid "FAT32 — todos os sistemas (arquivos até 4 GB)"
+msgstr "FAT32 — every system (files up to 4 GB)"
+
+msgid "Formatando o disco…"
+msgstr "Formatting the disk…"
+
+msgid "Formatando…"
+msgstr "Formatting…"
+
+msgid "Formatar Disco…"
+msgstr "Format Disk…"
+
+msgid "Formatar o disco “{}”"
+msgstr "Format the disk “{}”"
+
+msgid "Formatar “{}”"
+msgstr "Format “{}”"
+
+msgid "Formatar…"
+msgstr "Format…"
+
+msgid "Formato:"
+msgstr "Format:"
+
+msgid "GPT — computadores com UEFI (recomendado)"
+msgstr "GPT — UEFI computers (recommended)"
+
+msgid "MBR — computadores antigos e aparelhos (TV, som)"
+msgstr "MBR — old computers and devices (TV, stereo)"
+
+msgid "Mudando a partição…"
+msgstr "Changing the partition…"
+
+msgid "NTFS — Windows"
+msgstr "NTFS — Windows"
+
+msgid "Nenhuma — o disco vazio, sem partições"
+msgstr "None — an empty disk, no partitions"
+
+msgid "Nova partição"
+msgstr "New partition"
+
+msgid "Não há espaço livre logo depois deste volume para aumentá-lo, e {} não pode ser diminuído."
+msgstr "There is no free space right after this volume to grow it, and {} cannot be shrunk."
+
+msgid "O Discos não sabe redimensionar {}."
+msgstr "Disks cannot resize {}."
+
+msgid "O sistema de arquivos tem erros que não puderam ser consertados."
+msgstr "The file system has errors that could not be repaired."
+
+msgid "O tipo só avisa os sistemas o que a partição guarda; os arquivos não mudam."
+msgstr "The type only tells systems what the partition holds; the files do not change."
+
+msgid "Os arquivos ficam. Para diminuir, o volume é desmontado e conferido antes; faça uma cópia do que for importante."
+msgstr "The files stay. To shrink, the volume is unmounted and checked first; back up anything important."
+
+msgid "Partição criada."
+msgstr "Partition created."
+
+msgid "Partição mudada."
+msgstr "Partition changed."
+
+msgid "Partições:"
+msgstr "Partitions:"
+
+msgid "Redimensionando…"
+msgstr "Resizing…"
+
+msgid "Redimensionar"
+msgstr "Resize"
+
+msgid "Redimensionar…"
+msgstr "Resize…"
+
+msgid "Tamanho (GB):"
+msgstr "Size (GB):"
+
+msgid "Todas as partições e arquivos deste disco serão apagados."
+msgstr "Every partition and file on this disk will be erased."
+
+msgid "Todos os arquivos dela serão perdidos. O espaço fica livre para uma partição nova."
+msgstr "All its files will be lost. The space becomes free for a new partition."
+
+msgid "Tudo o que está neste volume será apagado."
+msgstr "Everything on this volume will be erased."
+
+msgid "Vazio"
+msgstr "Empty"
+
+msgid "Volume formatado."
+msgstr "Volume formatted."
+
+msgid "Volume redimensionado."
+msgstr "Volume resized."
+
+msgid "até {}"
+msgstr "up to {}"
+
+msgid "de {} a {}"
+msgstr "from {} to {}"
+
+msgid "exFAT — pendrives e cartões (Windows, Mac, Linux)"
+msgstr "exFAT — USB sticks and cards (Windows, Mac, Linux)"
+
+msgid "“{}” apagada."
+msgstr "“{}” deleted."
+
+msgid "Windows / exFAT / NTFS"
+msgstr "Windows / exFAT / NTFS"
+
+msgid "Inicialização da BIOS (GPT)"
+msgstr "BIOS boot (GPT)"

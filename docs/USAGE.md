@@ -326,6 +326,25 @@ connection and the **volume map**, with partitions sized to scale and the **free
 volume to see its contents (Ext4, FAT, NTFS…), device, partition type, UUID, where it is mounted and
 how full it is. Mount, Unmount, Open and Eject are under the map and in the Volume menu.
 
+**Partitions and formatting** (choose a piece of the map; the buttons below change with it):
+
+- **Format Disk…** (at the top): a new **GPT** table (UEFI computers, recommended), **MBR** (old
+  computers, TVs, stereos) or none; option to overwrite with zeros. Erases the whole disk.
+- **Create Partition…** (with a **Free** space chosen): size in GB (the suggestion is all the
+  space), format (**Ext4** for Linux and Glove OS, **FAT32** for everything with files up to 4 GB,
+  **exFAT** for USB sticks and cards, **NTFS** for Windows, **Btrfs**) and name.
+- **Format…**: erases the volume and recreates it in the chosen format, with a name.
+- **Resize…**: grows (up to the end of the free space right after it) or shrinks the volume along
+  with its file system; the files stay. To shrink, the volume is unmounted and checked first. This
+  is how to make room for Glove OS next to Windows: shrink the Windows (NTFS) partition and the
+  installer uses the free space. Back up anything important first.
+- **Edit…**: the partition type (Linux, Windows, FAT32, EFI System, swap, BIOS boot) and the volume
+  name.
+- **Delete**: deletes the partition (asks first); the space becomes free.
+
+System volumes in use (`/`, `/boot`, `/home`…) cannot be formatted, deleted or resized. Changing
+internal disks asks for the administrator password; USB sticks do not.
+
 **Create a startup disk** (a USB stick that starts the computer, in UEFI), like Rufus:
 
 1. Choose the USB stick on the left and click **Startup Disk…** (or Disk ▸ Create Startup Disk…).

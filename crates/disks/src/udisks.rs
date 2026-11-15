@@ -342,7 +342,15 @@ pub fn open_for_backup(block: &str) -> Result<std::fs::File, String> {
 /// Formata o bloco: "gpt"/"dos" (tabela nova, apaga tudo), "vfat", "ext4", "exfat",
 /// "ntfs", "btrfs" ou "empty". `label` vazio = sem nome.
 pub fn format(block: &str, kind: &str, label: &str) -> Result<(), String> {
+    format_with(block, kind, label, false)
+}
+
+/// Formata; `zero` apaga com zeros antes (demora: o disco inteiro é escrito).
+pub fn format_with(block: &str, kind: &str, label: &str, zero: bool) -> Result<(), String> {
     let mut o: HashMap<&str, Value> = HashMap::new();
+    if zero {
+        o.insert("erase", Value::from("zero"));
+    }
     if !label.is_empty() {
         o.insert("label", Value::from(label.to_string()));
     }
@@ -363,6 +371,47 @@ pub fn create_partition(table: &str, offset: u64, size: u64, ptype: &str, fs: &s
     let m = call(table, "org.freedesktop.UDisks2.PartitionTable", "CreatePartitionAndFormat", &(offset, size, ptype, "", no_options(), fs, fo))?;
     let p: OwnedObjectPath = m.body().deserialize().map_err(|e| e.to_string())?;
     Ok(p.as_str().to_string())
+}
+
+pub fn delete_partition(block: &str) -> Result<(), String> {
+    call(block, "org.freedesktop.UDisks2.Partition", "Delete", &(no_options(),)).map(|_| ())
+}
+
+pub fn set_partition_type(block: &str, ptype: &str) -> Result<(), String> {
+    call(block, "org.freedesktop.UDisks2.Partition", "SetType", &(ptype, no_options())).map(|_| ())
+}
+
+pub fn set_partition_name(block: &str, name: &str) -> Result<(), String> {
+    call(block, "org.freedesktop.UDisks2.Partition", "SetName", &(name, no_options())).map(|_| ())
+}
+
+pub fn set_label(block: &str, label: &str) -> Result<(), String> {
+    call(block, "org.freedesktop.UDisks2.Filesystem", "SetLabel", &(label, no_options())).map(|_| ())
+}
+
+/// Confere (e conserta, com `repair`) o sistema de arquivos; Ok(true) = sem problemas.
+pub fn check(block: &str, repair: bool) -> Result<bool, String> {
+    let m = call(block, "org.freedesktop.UDisks2.Filesystem", if repair { "Repair" } else { "Check" }, &(no_options(),))?;
+    m.body().deserialize::<bool>().map_err(|e| e.to_string())
+}
+
+/// O udisks sabe redimensionar este sistema de arquivos? (pode crescer, pode encolher, montado?)
+pub fn can_resize(fs: &str) -> (bool, bool, bool) {
+    let Ok(m) = call("/org/freedesktop/UDisks2/Manager", "org.freedesktop.UDisks2.Manager", "CanResize", &(fs,)) else { return (false, false, false) };
+    // (b available, t mode, s util): mode = BDFSResizeFlags (2 diminuir desmontado, 4 aumentar
+    // desmontado, 8 diminuir montado, 16 aumentar montado). Ext4 = 22.
+    let Ok((ok, mode, _)) = m.body().deserialize::<(bool, u64, String)>() else { return (false, false, false) };
+    (ok && mode & (4 | 16) != 0, ok && mode & (2 | 8) != 0, ok && mode & (8 | 16) != 0)
+}
+
+/// Muda o tamanho da partição (bytes).
+pub fn resize_partition(block: &str, size: u64) -> Result<(), String> {
+    call(block, "org.freedesktop.UDisks2.Partition", "Resize", &(size, no_options())).map(|_| ())
+}
+
+/// Muda o tamanho do sistema de arquivos (bytes; 0 = ocupar a partição toda).
+pub fn resize_fs(block: &str, size: u64) -> Result<(), String> {
+    call(block, "org.freedesktop.UDisks2.Filesystem", "Resize", &(size, no_options())).map(|_| ())
 }
 
 /// Liga um arquivo de imagem como disco (só leitura); devolve o bloco dele.

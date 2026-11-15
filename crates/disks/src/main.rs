@@ -6,6 +6,7 @@
 //! (a janela do `glove-senha`). As operações rodam numa linha à parte, para a
 //! janela não travar enquanto a senha é pedida.
 
+mod dialogos;
 mod gravar;
 mod udisks;
 
@@ -49,6 +50,10 @@ struct Disks {
     iso_fb: Option<FileBrowser>,
     confirm: Option<PathBuf>,
     progress: Option<Arc<gravar::Progress>>,
+    /// A folha da operação aberta (formatar, criar partição…).
+    dialog: Option<dialogos::Dialog>,
+    /// Apagar a partição: pedindo confirmação.
+    delete_confirm: Option<String>,
 }
 
 /// Pontos de montagem do próprio sistema: um disco com algum deles não é apagado.
@@ -65,6 +70,11 @@ pub(crate) fn gb(n: u64) -> String {
     } else {
         format!("{:.0} KB", n as f64 / 1e3)
     }
+}
+
+/// Nome do volume: no FAT, até 11 letras maiúsculas (o limite dele).
+fn fat_label(fs: &str, name: &str) -> String {
+    if fs == "vfat" { name.to_uppercase().chars().filter(|c| c.is_ascii_alphanumeric() || " _-".contains(*c)).take(11).collect() } else { name.to_string() }
 }
 
 fn sibling(name: &str) -> PathBuf {
@@ -98,10 +108,18 @@ impl Disks {
             self.disk = disks.first().map(|d| self.model.blocks[d.block].path.clone());
             self.pick = None;
         }
-        if let Some(Pick::Block(p)) = &self.pick {
-            if self.model.block(p).is_none() {
-                self.pick = None;
+        match self.pick.clone() {
+            Some(Pick::Block(p)) if self.model.block(&p).is_none() => self.pick = None,
+            // O espaço livre escolhido virou partição: escolhe a partição que começa ali.
+            Some(Pick::Free(off)) => {
+                if let Some(di) = self.disk_index() {
+                    let slots: Vec<Slot> = self.model.layout(di).into_iter().chain(self.ext_layout()).collect();
+                    if !slots.iter().any(|s| matches!(s, Slot::Free { offset, .. } if *offset == off)) {
+                        self.pick = self.model.parts_of(di).into_iter().find(|&i| self.model.blocks[i].part.as_ref().is_some_and(|p| p.offset.abs_diff(off) < 2 * 1024 * 1024)).map(|i| Pick::Block(self.model.blocks[i].path.clone()));
+                    }
+                }
             }
+            _ => {}
         }
     }
 
@@ -163,7 +181,10 @@ impl Disks {
             }
         }
         if b.fstype.is_empty() {
-            return tr!("Partição {}", b.part.as_ref().map(|p| p.number).unwrap_or(0));
+            return match &b.part {
+                Some(p) => tr!("Partição {}", p.number),
+                None => tr!("Vazio").into(),
+            };
         }
         udisks::fs_name(&b.fstype)
     }
@@ -258,6 +279,176 @@ impl Disks {
         self.progress = Some(p.clone());
         let name = iso.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         self.start(tr!("Gravando {}…", name), move || gravar::write(iso, t, p));
+    }
+
+    /// O volume está em uso pelo sistema (/, /boot, /home…): não se mexe nele.
+    fn is_system_volume(&self, bi: usize) -> bool {
+        self.model.blocks[bi].mounts.as_ref().is_some_and(|m| m.iter().any(|p| SYSTEM_MOUNTS.contains(&p.as_str())))
+    }
+
+    /// O volume escolhido pode ser formatado, apagado ou redimensionado.
+    fn can_change_volume(&self) -> Option<usize> {
+        let bi = self.picked_block()?;
+        let b = &self.model.blocks[bi];
+        (!b.read_only && !self.is_system_volume(bi) && !b.part.as_ref().is_some_and(|p| p.container)).then_some(bi)
+    }
+
+    fn table_is_gpt(&self) -> bool {
+        self.disk_index().is_some_and(|di| self.model.blocks[di].table.as_deref() == Some("gpt"))
+    }
+
+    fn open_new_part(&mut self) {
+        let (Some(di), Some(Pick::Free(off))) = (self.disk_index(), self.pick.clone()) else { return };
+        let all: Vec<Slot> = self.model.layout(di).into_iter().chain(self.ext_layout()).collect();
+        let Some(max) = all.iter().find_map(|s| match s { Slot::Free { offset, size } if *offset == off => Some(*size), _ => None }) else { return };
+        let gpt = self.table_is_gpt();
+        self.dialog = Some(dialogos::Dialog::NewPart { offset: off, max, gpt, table: self.model.blocks[di].path.clone(), size: dialogos::gb_text(max), fs: 0, name: String::new() });
+    }
+
+    fn open_format(&mut self) {
+        let Some(bi) = self.can_change_volume() else { return };
+        let b = &self.model.blocks[bi];
+        let fs = dialogos::FORMATS.iter().position(|f| f.0 == b.fstype).unwrap_or(0);
+        self.dialog = Some(dialogos::Dialog::Format { block: b.path.clone(), what: self.volume_name(bi), fs, name: b.label.clone() });
+    }
+
+    fn open_format_disk(&mut self) {
+        let Some(di) = self.disk_index().filter(|_| self.can_overwrite()) else { return };
+        self.dialog = Some(dialogos::Dialog::FormatDisk { block: self.model.blocks[di].path.clone(), what: self.disk_name(di), scheme: 0, zero: false });
+    }
+
+    fn open_edit(&mut self) {
+        let Some(bi) = self.picked_block() else { return };
+        let b = &self.model.blocks[bi];
+        let Some(p) = &b.part else { return };
+        let gpt = self.table_is_gpt();
+        let kind = dialogos::TYPES.iter().position(|t| if gpt { t.0 == p.ptype.to_ascii_lowercase() } else { t.1 == p.ptype.to_ascii_lowercase() }).unwrap_or(0);
+        let name = if b.has_fs() { b.label.clone() } else { p.name.clone() };
+        self.dialog = Some(dialogos::Dialog::Edit { block: b.path.clone(), gpt: gpt || b.has_fs(), kind, name });
+    }
+
+    /// Redimensionar: o máximo é a partição mais o espaço livre logo depois dela; o
+    /// mínimo, o que os arquivos ocupam (medido montando só para leitura, se preciso).
+    fn open_resize(&mut self) {
+        let Some(bi) = self.can_change_volume() else { return };
+        let b = self.model.blocks[bi].clone();
+        let Some(p) = b.part.clone() else { return };
+        let (grow_ok, shrink_ok, _) = if b.fstype.is_empty() { (true, true, true) } else { udisks::can_resize(&b.fstype) };
+        if !grow_ok {
+            self.message = Some(tr!("O Discos não sabe redimensionar {}.", udisks::fs_name(&b.fstype)));
+            return;
+        }
+        let Some(di) = self.disk_index() else { return };
+        let slots: Vec<Slot> = if p.contained { self.ext_layout() } else { self.model.layout(di) };
+        let end = p.offset + b.size;
+        let free_after = slots.iter().find_map(|s| match s { Slot::Free { offset, size } if offset.abs_diff(end) < 2 * 1024 * 1024 => Some(*size + (*offset - end.min(*offset))), _ => None }).unwrap_or(0);
+        let max = b.size + free_after;
+        // Montado: o mínimo é o que os arquivos ocupam (com folga). Desmontado, sem montar
+        // só para medir (o Glove abriria a janela do volume): o programa de
+        // redimensionar recusa, com segurança, um tamanho menor que os arquivos.
+        let used = b.mounted().and_then(|m| statvfs(Path::new(m))).map(|(t, f)| t - f).unwrap_or(0);
+        let min = if shrink_ok { ((used as f64 * 1.1) as u64 + 100_000_000).max(64_000_000).min(b.size) } else { b.size };
+        if max <= min + 1_000_000 && !shrink_ok {
+            self.message = Some(tr!("Não há espaço livre logo depois deste volume para aumentá-lo, e {} não pode ser diminuído.", udisks::fs_name(&b.fstype)));
+            return;
+        }
+        self.dialog = Some(dialogos::Dialog::Resize { block: b.path.clone(), fs: b.fstype.clone(), min, max, size: dialogos::gb_text(b.size) });
+    }
+
+    /// Faz a operação confirmada numa linha à parte.
+    fn run(&mut self, d: dialogos::Do) {
+        use dialogos::Do;
+        let unmount_all = |blocks: Vec<String>| -> Result<(), String> {
+            for b in blocks {
+                udisks::unmount(&b)?;
+            }
+            Ok(())
+        };
+        match d {
+            Do::NewPart { table, offset, size, ptype, fs, name } => {
+                let label = fat_label(&fs, &name);
+                self.start(tr!("Criando a partição…").into(), move || udisks::create_partition(&table, offset, size, &ptype, &fs, &label).map(|_| tr!("Partição criada.").to_string()));
+            }
+            Do::Format { block, fs, name } => {
+                let mounted: Vec<String> = self.model.block(&block).filter(|&i| self.model.blocks[i].mounted().is_some()).map(|_| block.clone()).into_iter().collect();
+                let label = fat_label(&fs, &name);
+                self.start(tr!("Formatando…").into(), move || {
+                    unmount_all(mounted)?;
+                    udisks::format(&block, &fs, &label).map(|_| tr!("Volume formatado.").to_string())
+                });
+            }
+            Do::FormatDisk { block, scheme, zero } => {
+                let Some(di) = self.model.block(&block) else { return };
+                let mounted: Vec<String> = std::iter::once(di).chain(self.model.parts_of(di)).filter(|&i| self.model.blocks[i].mounted().is_some()).map(|i| self.model.blocks[i].path.clone()).collect();
+                self.pick = None;
+                self.start(tr!("Formatando o disco…").into(), move || {
+                    unmount_all(mounted)?;
+                    udisks::format_with(&block, &scheme, "", zero).map(|_| tr!("Disco formatado.").to_string())
+                });
+            }
+            Do::Edit { block, ptype, name } => {
+                let gpt = self.table_is_gpt();
+                let b = self.model.block(&block).map(|i| self.model.blocks[i].clone());
+                let has_fs = b.as_ref().is_some_and(|b| b.has_fs());
+                let label = fat_label(b.as_ref().map(|b| b.fstype.as_str()).unwrap_or(""), &name);
+                let changed_label = b.as_ref().is_some_and(|b| b.label != label);
+                self.start(tr!("Mudando a partição…").into(), move || {
+                    let (g, m) = ptype.split_once('|').unwrap_or((&ptype, &ptype));
+                    udisks::set_partition_type(&block, if gpt { g } else { m })?;
+                    // O nome: do volume (o que aparece na mesa), ou da partição GPT sem volume.
+                    if has_fs && changed_label {
+                        udisks::set_label(&block, &label)?;
+                    } else if gpt && !has_fs {
+                        udisks::set_partition_name(&block, &name)?;
+                    }
+                    Ok(tr!("Partição mudada.").to_string())
+                });
+            }
+            Do::Resize { block, fs, size } => {
+                let Some(bi) = self.model.block(&block) else { return };
+                let old = self.model.blocks[bi].size;
+                let mounted = self.model.blocks[bi].mounted().is_some();
+                self.start(tr!("Redimensionando…").into(), move || {
+                    if mounted {
+                        udisks::unmount(&block)?;
+                    }
+                    const MIB: u64 = 1024 * 1024;
+                    if size < old {
+                        // Diminuir: confere o sistema de arquivos, encolhe ele um pouco
+                        // abaixo do novo tamanho, encolhe a partição e ocupa o que sobrou.
+                        if !fs.is_empty() {
+                            if !udisks::check(&block, true)? {
+                                return Err(tr!("O sistema de arquivos tem erros que não puderam ser consertados.").into());
+                            }
+                            udisks::resize_fs(&block, size - 4 * MIB)?;
+                        }
+                        udisks::resize_partition(&block, size)?;
+                        if !fs.is_empty() {
+                            udisks::resize_fs(&block, 0)?;
+                        }
+                    } else {
+                        udisks::resize_partition(&block, size)?;
+                        if !fs.is_empty() {
+                            udisks::resize_fs(&block, 0)?;
+                        }
+                    }
+                    Ok(tr!("Volume redimensionado.").to_string())
+                });
+            }
+        }
+    }
+
+    fn delete_part(&mut self, block: String) {
+        let Some(bi) = self.model.block(&block) else { return };
+        let mounted = self.model.blocks[bi].mounted().is_some();
+        let name = self.volume_name(bi);
+        self.pick = None;
+        self.start(tr!("Apagando “{}”…", name), move || {
+            if mounted {
+                udisks::unmount(&block)?;
+            }
+            udisks::delete_partition(&block).map(|_| tr!("“{}” apagada.", name))
+        });
     }
 
     fn can_eject(&self) -> bool {
@@ -487,10 +678,11 @@ impl Disks {
                 ui.set_active(true);
             });
         });
-        let mut boot = false;
-        ui.area(Rect::new(r.x + r.w - 290.0, r.y + 76.0, 274.0, 26.0), |ui| {
+        let (mut boot, mut fdisk) = (false, false);
+        ui.area(Rect::new(r.x + r.w - 410.0, r.y + 76.0, 394.0, 26.0), |ui| {
             ui.horizontal(|ui| {
                 ui.set_active(self.can_overwrite() && !busy);
+                fdisk = ui.button(tr!("Formatar Disco…"));
                 boot = ui.button(tr!("Disco Inicializável…"));
                 ui.set_active(self.can_eject() && !busy);
                 eject = ui.button(tr!("Ejetar"));
@@ -500,7 +692,48 @@ impl Disks {
         if boot {
             self.ask_image();
         }
-        y += 40.0;
+        if fdisk {
+            self.open_format_disk();
+        }
+        // Segunda fileira: o que dá para fazer com o pedaço escolhido.
+        let free = matches!(self.pick, Some(Pick::Free(_)));
+        let changeable = self.can_change_volume().is_some();
+        let is_part = picked.as_ref().is_some_and(|b| b.part.as_ref().is_some_and(|p| !p.container));
+        let (mut newp, mut fmt, mut edit, mut resize, mut del) = (false, false, false, false, false);
+        ui.area(Rect::new(r.x + 18.0, y + 34.0, r.w - 36.0, 26.0), |ui| {
+            ui.horizontal(|ui| {
+                if free {
+                    ui.set_active(!busy);
+                    newp = ui.button(tr!("Criar Partição…"));
+                } else {
+                    ui.set_active(changeable && !busy);
+                    fmt = ui.button(tr!("Formatar…"));
+                    ui.set_active(is_part && changeable && !busy);
+                    resize = ui.button(tr!("Redimensionar…"));
+                    ui.set_active(is_part && !busy && picked.as_ref().is_some_and(|b| !self.model.block(&b.path).is_some_and(|i| self.is_system_volume(i))));
+                    edit = ui.button(tr!("Editar…"));
+                    ui.set_active(is_part && changeable && !busy);
+                    del = ui.button(tr!("Apagar"));
+                }
+                ui.set_active(true);
+            });
+        });
+        if newp {
+            self.open_new_part();
+        }
+        if fmt {
+            self.open_format();
+        }
+        if edit {
+            self.open_edit();
+        }
+        if resize {
+            self.open_resize();
+        }
+        if del {
+            self.delete_confirm = self.picked_block().map(|i| self.model.blocks[i].path.clone());
+        }
+        y += 74.0;
         ui.c.hline(r.x + 20.0, y, r.w - 40.0, rgba(200, 200, 206, 255));
         self.volume_info(ui, Rect::new(r.x, y + 4.0, r.w, r.h - (y - r.y) - 4.0));
         if mount {
@@ -521,8 +754,11 @@ impl Disks {
 impl App for Disks {
     fn ui(&mut self, ui: &mut Ui) {
         let (w, h) = (ui.c.w, ui.c.h);
-        let mut acts: Vec<String> = ui.menu_actions().to_vec();
-        for k in ui.keys() {
+        // Folha ou aviso aberto: a janela de baixo não recebe cliques nem atalhos
+        // (um clique no campo da folha não pode cair num botão atrás dela).
+        let modal = self.dialog.is_some() || self.confirm.is_some() || self.delete_confirm.is_some() || self.iso_fb.is_some();
+        let mut acts: Vec<String> = if modal { Vec::new() } else { ui.menu_actions().to_vec() };
+        for k in ui.keys().iter().filter(|_| !modal) {
             match k.combo.as_str() {
                 "Ctrl+O" => acts.push("open".into()),
                 "Ctrl+E" => acts.push("eject".into()),
@@ -537,12 +773,19 @@ impl App for Disks {
                 "unmount" => self.unmount(),
                 "eject" => self.eject(),
                 "bootable" => self.ask_image(),
+                "format-disk" => self.open_format_disk(),
+                "format" => self.open_format(),
+                "new-part" => self.open_new_part(),
+                "edit-part" => self.open_edit(),
+                "resize" => self.open_resize(),
+                "delete-part" => self.delete_confirm = self.can_change_volume().map(|i| self.model.blocks[i].path.clone()),
                 "close" => ui.close = true,
                 _ => {}
             }
         }
         let foot = 24.0;
         ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(244, 244, 246, 255)));
+        ui.set_enabled(!modal);
         self.list(ui, Rect::new(0.0, 0.0, LIST_W, h - foot));
         self.details(ui, Rect::new(LIST_W, 0.0, w - LIST_W, h - foot));
         // Rodapé: a operação em andamento ou a resposta da última.
@@ -571,6 +814,7 @@ impl App for Disks {
             let m = ui.fonts.ellipsize(m, 11.0, false, w - 30.0);
             ui.fonts.draw(ui.c, &m, 12.0, fy + 16.0, 11.0, false, rgba(60, 60, 60, 255));
         }
+        ui.set_enabled(true);
         // Escolher a imagem e confirmar que o disco será apagado.
         if let Some(fb) = &mut self.iso_fb {
             if let Some(c) = ui.file_sheet(fb) {
@@ -579,6 +823,28 @@ impl App for Disks {
                     self.confirm = Some(p);
                 }
                 ui.redraw = true;
+            }
+        }
+        if let Some(d) = &mut self.dialog {
+            match dialogos::sheet(ui, d) {
+                dialogos::Answer::Waiting => {}
+                dialogos::Answer::Cancel => self.dialog = None,
+                dialogos::Answer::Go(g) => {
+                    self.dialog = None;
+                    self.run(g);
+                }
+            }
+            ui.redraw = true;
+        }
+        if let Some(block) = self.delete_confirm.clone() {
+            let name = self.model.block(&block).map(|i| self.volume_name(i)).unwrap_or_default();
+            match ui.alert(AlertKind::Caution, &tr!("Apagar a partição “{}”?", name), tr!("Todos os arquivos dela serão perdidos. O espaço fica livre para uma partição nova."), &[tr!("Cancelar"), tr!("Apagar")]) {
+                Some(1) => {
+                    self.delete_confirm = None;
+                    self.delete_part(block);
+                }
+                Some(_) => self.delete_confirm = None,
+                None => {}
             }
         }
         if let Some(iso) = self.confirm.clone() {
@@ -619,6 +885,7 @@ impl App for Disks {
             Menu::new(
                 tr!("Disco"),
                 vec![
+                    MenuItem::new("format-disk", tr!("Formatar Disco…"), "").enabled(self.can_overwrite() && !busy),
                     MenuItem::new("bootable", tr!("Criar Disco Inicializável…"), "").enabled(self.can_overwrite() && !busy),
                     MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(self.can_eject() && !busy),
                     MenuItem::Separator,
@@ -631,6 +898,12 @@ impl App for Disks {
                     MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(b.is_some_and(|b| b.mounted().is_some())),
                     MenuItem::new("mount", tr!("Montar"), "").enabled(!busy && b.is_some_and(|b| b.has_fs() && b.mounted().is_none())),
                     MenuItem::new("unmount", tr!("Desmontar"), "").enabled(!busy && b.is_some_and(|b| b.mounted().is_some())),
+                    MenuItem::Separator,
+                    MenuItem::new("new-part", tr!("Criar Partição…"), "").enabled(!busy && matches!(self.pick, Some(Pick::Free(_)))),
+                    MenuItem::new("format", tr!("Formatar…"), "").enabled(!busy && self.can_change_volume().is_some()),
+                    MenuItem::new("edit-part", tr!("Editar…"), "").enabled(!busy && b.is_some_and(|b| b.part.is_some())),
+                    MenuItem::new("resize", tr!("Redimensionar…"), "").enabled(!busy && self.can_change_volume().is_some_and(|i| self.model.blocks[i].part.is_some())),
+                    MenuItem::new("delete-part", tr!("Apagar Partição"), "").enabled(!busy && self.can_change_volume().is_some_and(|i| self.model.blocks[i].part.is_some())),
                 ],
             ),
         ]
@@ -652,7 +925,7 @@ fn write_cli(iso: &str, device: &str) -> i32 {
         eprintln!("glove-disks: {device} não é um disco inteiro");
         return 1;
     };
-    let mut app = Disks { conn: None, model, disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None };
+    let mut app = Disks { conn: None, model, disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None };
     app.disk = Some(app.model.blocks[di].path.clone());
     if !app.can_overwrite() {
         eprintln!("glove-disks: {device} é o disco do sistema (ou só de leitura): não será apagado");
@@ -693,7 +966,7 @@ pub fn main() {
         };
         std::process::exit(write_cli(iso, dev));
     }
-    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None };
+    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None };
     app.reload();
     // Começa no disco do sistema, com o volume do sistema escolhido.
     if let Some(sys) = app.model.blocks.iter().find(|b| b.mounted() == Some("/")).cloned() {

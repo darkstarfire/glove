@@ -973,10 +973,25 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   gera calendários com data fixa (17/07, `fix_calendar_date`), e o glove-icons foi regenerado.
 - [x] 16.2.2 Instalador: o campo "Teste o teclado aqui" não guardava o texto (uma variável nova a
   cada quadro); agora guarda, e no Glove ao vivo o teclado escolhido já vale na sessão.
-- [ ] 16.3 Formatar (M): o disco inteiro (GPT ou MBR, opção de apagar com zeros) e a partição
-  (ext4, FAT32, exFAT, NTFS, btrfs), com nome.
-- [ ] 16.4 Partições (M): criar no espaço livre, apagar, mudar o tipo, o nome e as marcas (EFI, boot).
-- [ ] 16.5 Redimensionar (M): aumentar e diminuir a partição junto com o sistema de arquivos.
+- [x] 16.3 Formatar (M) — v0.12.45: o disco (`Block.Format` gpt/dos/empty, com `erase=zero`
+  opcional) e o volume (ext4, FAT32, exFAT, NTFS, btrfs, com nome; FAT em 11 letras maiúsculas).
+- [x] 16.4 Partições (M) — v0.12.45: criar no espaço livre (`CreatePartitionAndFormat`, tipo pelo
+  formato e pela tabela), apagar (com confirmação), Editar o tipo (Linux, Windows, FAT32, EFI,
+  troca, BIOS boot; GPT ou MBR) e o nome do volume (`SetLabel`; o nome da partição GPT só sem volume).
+- [x] 16.5 Redimensionar (M) — v0.12.45: `Manager.CanResize` (marcas 2/4/8/16: diminuir e aumentar,
+  desmontado e montado). Aumentar até o fim do espaço livre logo depois (partição, depois o sistema
+  de arquivos ocupando tudo); diminuir: desmonta, `Repair`, sistema de arquivos 4 MiB abaixo do
+  novo tamanho, partição, e o sistema de arquivos ocupa o resto. Mínimo pelo uso quando montado;
+  desmontado, o programa de redimensionar recusa tamanhos menores que os arquivos (montar só para
+  medir abria a janela do volume). Volumes do sistema em uso ficam de fora.
+  Testado num disco de imagem de 2 GB: GPT, Ext4 de 1 GB e FAT32 de 1,1 GB criadas; Ext4 diminuída
+  para 500 MB e aumentada de volta (Check do udisks: íntegro); FAT32 apagada; nome mudado.
+  **Defeito achado no teste e corrigido** (glove-ui 0.2.31): as folhas não bloqueavam os cliques —
+  o `set_active(true)` dos botões desfazia o `set_enabled(false)` (o mesmo campo). Um clique no
+  campo Nome da folha caiu no "Formatar Disco…" de trás e o disco de teste foi formatado. Agora
+  o bloqueio de folha (`sheet_blocked`) e o de fora da `scroll_view` (`clip_blocked`) são campos à
+  parte, que o `set_active` não desfaz (vale para todos os apps); o Discos bloqueia a janela e os
+  atalhos com qualquer folha ou aviso aberto.
 - [x] 16.6 Disco inicializável (G) — v0.12.44: `gravar.rs`. ISO híbrida (assinatura 55 AA no MBR):
   `OpenForRestore` do udisks (senha pelo polkit), cópia em blocos de 4 MiB com andamento e
   Cancelar, `sync_all` e conferência lendo de volta pelo `OpenForBackup`. Instalador do Windows (sem

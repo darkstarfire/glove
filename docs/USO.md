@@ -350,6 +350,26 @@ Clique num volume para ver o conteúdo (Ext4, FAT, NTFS…), o dispositivo, o ti
 onde está montado e quanto está usado. Montar, Desmontar, Abrir e Ejetar ficam embaixo do mapa e no
 menu Volume.
 
+**Partições e formatação** (escolha o pedaço no mapa; os botões de baixo mudam conforme ele):
+
+- **Formatar Disco…** (no alto): tabela nova **GPT** (computadores com UEFI, o recomendado),
+  **MBR** (computadores antigos, TVs, aparelhos de som) ou nenhuma; opção de apagar com zeros.
+  Apaga tudo o que está no disco.
+- **Criar Partição…** (com um espaço **Livre** escolhido): tamanho em GB (o sugerido é o espaço
+  todo), formato (**Ext4** para Linux e o Glove OS, **FAT32** para tudo com arquivos até 4 GB,
+  **exFAT** para pendrives e cartões, **NTFS** para o Windows, **Btrfs**) e nome.
+- **Formatar…**: apaga o volume e o refaz no formato escolhido, com nome.
+- **Redimensionar…**: aumenta (até o fim do espaço livre logo depois) ou diminui o volume, junto com
+  o sistema de arquivos; os arquivos ficam. Para diminuir, o volume é desmontado e conferido antes.
+  É assim que se abre espaço para instalar o Glove OS ao lado do Windows: diminua a partição do
+  Windows (NTFS) e o instalador usa o espaço livre. Faça antes uma cópia do que for importante.
+- **Editar…**: o tipo da partição (Linux, Windows, FAT32, Sistema EFI, troca, inicialização da BIOS)
+  e o nome do volume.
+- **Apagar**: apaga a partição (pede confirmação); o espaço fica livre.
+
+Os volumes do sistema em uso (`/`, `/boot`, `/home`…) não podem ser formatados, apagados nem
+redimensionados. Mexer em discos internos pede a senha de administrador; em pendrives, não.
+
 **Criar disco inicializável** (pendrive que liga o computador, em UEFI), como o Rufus:
 
 1. Escolha o pendrive à esquerda e clique em **Disco Inicializável…** (ou Disco ▸ Criar Disco
