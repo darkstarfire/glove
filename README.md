@@ -117,10 +117,24 @@ O Arquivos, o Editor e o Terminal têm **abas**; o Arquivos tem a **Olhada Rápi
 
 ## Leveza
 
-Os 38 apps são um executável só (`glove-apps`; `glove-files`, `glove-prefs`… são atalhos para ele): o
-código é dividido entre eles na memória e no disco (cerca de 55 MB com o compositor e o portal), e as
-fontes são mapeadas do arquivo em vez de copiadas. Parado, o Glove usa 0% do processador: só redesenha
-o que muda.
+Os 38 apps são um executável só (`glove-apps`; `glove-files`, `glove-prefs`… são atalhos para ele, e
+ele abre o app pelo nome com que foi chamado, como o BusyBox). Por quê:
+
+- **Disco:** todos os apps usam a mesma biblioteca de interface e de desenho (botões, ícones, fontes,
+  temas). Com um executável por app, esse código se repetia em cada um: eram 166 MB. Juntos, ele
+  existe uma vez só: 44 MB (cerca de 55 MB com o compositor e o portal). Menos para baixar na ISO e
+  nas atualizações.
+- **Memória:** o Linux carrega as páginas de código de um executável uma vez e as divide entre
+  todos os processos que o usam. Cada app aberto deixa de trazer a sua cópia do código; só os dados
+  dele (janela, arquivos, texto) são próprios. Com Arquivos, Preferências e Boas-vindas abertos, a
+  memória caiu de 35 para 26 MB (−26%), e a economia cresce a cada app aberto.
+- **Compilação:** a biblioteca é ligada uma vez, não 38: de ~7 para ~2,5 minutos.
+- **O que não muda:** cada app continua sendo um processo separado. Se um trava, os outros seguem, e
+  o Forçar Encerrar fecha só aquele.
+- **O custo:** qualquer mudança gera de novo o executável inteiro (31 MB), e não só o do app mudado.
+
+As fontes também são mapeadas do arquivo em vez de copiadas (as mesmas páginas para todos os
+processos). Parado, o Glove usa 0% do processador: só redesenha o que muda.
 
 Memória própria de cada processo (RssAnon), medida em 15/11/2026 numa sessão de verdade (tela 1920×1200
 em escala 1.5):

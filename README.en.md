@@ -120,9 +120,23 @@ Files, Text Editor and Terminal have **tabs**; Files has **Quick Look** (Space).
 
 ## Lightness
 
-All 38 apps are one executable (`glove-apps`; `glove-files`, `glove-prefs`… are links to it),
-so their code is shared in memory and on disk (about 55 MB with the compositor and the portal),
-and font files are mapped instead of copied. Idle, Glove uses 0% CPU: it only redraws what changes.
+All 38 apps are one executable (`glove-apps`; `glove-files`, `glove-prefs`… are links to it, and
+it opens the app by the name it was called with, like BusyBox). Why:
+
+- **Disk:** every app uses the same interface and drawing library (buttons, icons, fonts, themes).
+  With one executable per app, that code was repeated in each: 166 MB. Together it exists once:
+  44 MB (about 55 MB with the compositor and the portal). Less to download in the ISO and updates.
+- **Memory:** Linux loads an executable's code pages once and shares them among every process
+  running it. Each open app no longer brings its own copy of the code; only its data (window,
+  files, text) is its own. With Files, Preferences and the welcome window open, memory went from
+  35 to 26 MB (−26%), and the saving grows with each app opened.
+- **Build:** the library is linked once, not 38 times: from ~7 to ~2.5 minutes.
+- **What doesn't change:** each app is still a separate process. If one hangs the others keep
+  going, and Force Quit closes only that one.
+- **The cost:** any change rebuilds the whole executable (31 MB), not just the changed app.
+
+Font files are also mapped instead of copied (the same pages for every process). Idle, Glove uses
+0% CPU: it only redraws what changes.
 
 Each process's own memory (RssAnon), measured on 15/11/2026 in a real session (1920×1200 screen
 at scale 1.5):
