@@ -40,8 +40,9 @@ enum Txt {
     Right,
 }
 
-/// Onde vai a luva: o monitor, o centro do grupo (luva e nome) em frações do monitor, a
-/// altura da luva em fração da altura do monitor e onde fica o nome.
+/// Onde vai a luva: o monitor, a posição do grupo (luva, nome e reflexo) dentro da área
+/// segura do monitor (0 = encostado à esquerda/em cima, 1 = à direita/embaixo), a altura
+/// da luva em fração da altura do monitor (o máximo: diminui se não couber) e onde fica o nome.
 type Layout = (usize, f32, f32, f32, Txt);
 
 struct Fmt {
@@ -50,6 +51,10 @@ struct Fmt {
     h: u32,
     /// Os monitores, em frações da imagem (x, y, l, a).
     mons: &'static [[f32; 4]],
+    /// As telas em que o papel tem de ficar bom (a mais estreita e a mais larga): no
+    /// "Preencher a tela", uma tela mais estreita que a imagem corta os lados, e uma mais
+    /// larga corta em cima e embaixo. A luva fica no que sobra nas duas.
+    aspects: (f32, f32),
     layouts: [Layout; 5],
 }
 
@@ -59,12 +64,13 @@ const FMTS: [Fmt; 4] = [
         w: 3840,
         h: 2160,
         mons: &[[0.0, 0.0, 1.0, 1.0]],
+        aspects: (4.0 / 3.0, 16.0 / 9.0),
         layouts: [
-            (0, 0.50, 0.47, 0.40, Txt::Below),
-            (0, 0.28, 0.48, 0.34, Txt::Below),
-            (0, 0.66, 0.56, 0.24, Txt::Right),
-            (0, 0.79, 0.34, 0.22, Txt::Below),
-            (0, 0.34, 0.62, 0.28, Txt::Right),
+            (0, 0.50, 0.45, 0.40, Txt::Below),
+            (0, 0.08, 0.50, 0.34, Txt::Below),
+            (0, 0.95, 0.70, 0.24, Txt::Right),
+            (0, 0.90, 0.10, 0.22, Txt::Below),
+            (0, 0.10, 0.85, 0.28, Txt::Right),
         ],
     },
     Fmt {
@@ -72,12 +78,13 @@ const FMTS: [Fmt; 4] = [
         w: 7680,
         h: 2160,
         mons: &[[0.0, 0.0, 0.5, 1.0], [0.5, 0.0, 0.5, 1.0]],
+        aspects: (4.0 / 3.0, 16.0 / 9.0),
         layouts: [
-            (0, 0.50, 0.47, 0.40, Txt::Below),
-            (1, 0.50, 0.47, 0.40, Txt::Below),
-            (0, 0.60, 0.52, 0.28, Txt::Right),
-            (1, 0.40, 0.58, 0.26, Txt::Right),
-            (0, 0.26, 0.36, 0.24, Txt::Below),
+            (0, 0.50, 0.45, 0.40, Txt::Below),
+            (1, 0.50, 0.45, 0.40, Txt::Below),
+            (0, 0.70, 0.60, 0.28, Txt::Right),
+            (1, 0.30, 0.70, 0.26, Txt::Right),
+            (0, 0.15, 0.15, 0.24, Txt::Below),
         ],
     },
     Fmt {
@@ -85,12 +92,13 @@ const FMTS: [Fmt; 4] = [
         w: 3840,
         h: 4320,
         mons: &[[0.0, 0.0, 1.0, 0.5], [0.0, 0.5, 1.0, 0.5]],
+        aspects: (4.0 / 3.0, 16.0 / 9.0),
         layouts: [
-            (0, 0.50, 0.48, 0.40, Txt::Below),
-            (1, 0.50, 0.46, 0.40, Txt::Below),
-            (0, 0.32, 0.56, 0.28, Txt::Right),
-            (1, 0.68, 0.42, 0.26, Txt::Right),
-            (0, 0.76, 0.36, 0.24, Txt::Below),
+            (0, 0.50, 0.50, 0.40, Txt::Below),
+            (1, 0.50, 0.40, 0.40, Txt::Below),
+            (0, 0.10, 0.70, 0.28, Txt::Right),
+            (1, 0.90, 0.30, 0.26, Txt::Right),
+            (0, 0.85, 0.15, 0.24, Txt::Below),
         ],
     },
     Fmt {
@@ -98,12 +106,13 @@ const FMTS: [Fmt; 4] = [
         w: 5120,
         h: 2160,
         mons: &[[0.0, 0.0, 1.0, 1.0]],
+        aspects: (16.0 / 9.0, 24.0 / 9.0),
         layouts: [
-            (0, 0.50, 0.47, 0.42, Txt::Below),
-            (0, 0.24, 0.50, 0.34, Txt::Below),
-            (0, 0.70, 0.52, 0.28, Txt::Right),
-            (0, 0.83, 0.34, 0.22, Txt::Below),
-            (0, 0.32, 0.58, 0.30, Txt::Right),
+            (0, 0.50, 0.45, 0.42, Txt::Below),
+            (0, 0.05, 0.55, 0.34, Txt::Below),
+            (0, 0.90, 0.60, 0.28, Txt::Right),
+            (0, 0.95, 0.10, 0.22, Txt::Below),
+            (0, 0.15, 0.80, 0.30, Txt::Right),
         ],
     },
 ];
@@ -260,12 +269,76 @@ fn name_layer(fonts: &Fonts, px: f32, pal: &Pal) -> Option<(Pixmap, f32, f32)> {
     Some((c.pm, pad, base))
 }
 
+/// A área segura de um monitor (x, y, l, a em pixels da imagem): o que aparece em todas
+/// as telas de `fmt.aspects` no "Preencher a tela", menos a barra de menu em cima, o Dock
+/// embaixo e a coluna dos ícones da mesa à direita (com folga).
+fn safe_area(fmt: &Fmt, m: [f32; 4]) -> [f32; 4] {
+    let (mx, my, mw, mh) = (m[0] * fmt.w as f32, m[1] * fmt.h as f32, m[2] * fmt.w as f32, m[3] * fmt.h as f32);
+    let a = mw / mh;
+    // Fração visível na tela mais estreita (largura) e na mais larga (altura).
+    let vw = (fmt.aspects.0 / a).min(1.0);
+    let vh = (a / fmt.aspects.1).min(1.0);
+    let (x0, x1) = (mx + mw * (1.0 - vw) / 2.0, mx + mw * (1.0 + vw) / 2.0);
+    let (y0, y1) = (my + mh * (1.0 - vh) / 2.0, my + mh * (1.0 + vh) / 2.0);
+    let (vw, vh) = (x1 - x0, y1 - y0);
+    let (l, r, t, b) = (x0 + vw * 0.06, x1 - vw * 0.13, y0 + vh * 0.08, y1 - vh * 0.17);
+    [l, t, r - l, b - t]
+}
+
+/// Onde ficam a luva e o nome.
+struct Geo {
+    lx: f32,
+    ly: f32,
+    lw: f32,
+    lh: f32,
+    px: f32,
+    cap: f32,
+    tw: f32,
+    gap: f32,
+    /// O grupo inteiro (luva, nome e reflexo).
+    group: [f32; 4],
+}
+
+fn geometry(fmt: &Fmt, k: usize, logo_box: (u32, u32, u32, u32), fonts: &Fonts) -> Geo {
+    let (mi, gx, gy, size, txt) = fmt.layouts[k];
+    let mh = fmt.mons[mi][3] * fmt.h as f32;
+    let safe = safe_area(fmt, fmt.mons[mi]);
+    let (_, _, bw, bh) = logo_box;
+    let mut lh = size * mh;
+    loop {
+        let lw = bw as f32 * lh / bh as f32;
+        let px = match txt {
+            Txt::Below => lh * 0.27,
+            Txt::Right => lh * 0.36,
+        };
+        let (_, _, _, cap) = fonts.v_metrics(px);
+        let tw = fonts.measure("Glove OS", px, false);
+        let gap = lh * 0.10;
+        // O reflexo desce uns 70% da altura das letras abaixo da linha de base.
+        let refl = cap * 0.75;
+        let (gw, gh) = match txt {
+            Txt::Below => (lw.max(tw), lh + gap + cap + refl),
+            Txt::Right => (lw + gap * 1.4 + tw, lh.max(lh / 2.0 + cap / 2.0 + refl)),
+        };
+        if (gw > safe[2] || gh > safe[3]) && lh > mh * 0.08 {
+            lh *= 0.95;
+            continue;
+        }
+        let gx0 = safe[0] + gx * (safe[2] - gw).max(0.0);
+        let gy0 = safe[1] + gy * (safe[3] - gh).max(0.0);
+        let (lx, ly) = match txt {
+            Txt::Below => (gx0 + gw / 2.0 - lw / 2.0, gy0),
+            Txt::Right => (gx0, gy0),
+        };
+        return Geo { lx, ly, lw, lh, px, cap, tw, gap, group: [gx0, gy0, gw, gh] };
+    }
+}
+
 fn render(fmt: &Fmt, k: usize, logo: &Pixmap, fonts: &Fonts) -> Option<Pixmap> {
     let (w, h) = (fmt.w as f32, fmt.h as f32);
     let pal = &PALS[(k + FMTS.iter().position(|f| f.id == fmt.id).unwrap_or(0)) % PALS.len()];
-    let (mi, gx, gy, size, txt) = fmt.layouts[k];
-    let m = fmt.mons[mi];
-    let (mx, my, mw, mh) = (m[0] * w, m[1] * h, m[2] * w, m[3] * h);
+    let (mi, _, _, _, txt) = fmt.layouts[k];
+    let mh = fmt.mons[mi][3] * h;
     let s = mh / 2160.0;
     let mut rng = Rng(0x9e37_79b9_7f4a_7c15 ^ ((fmt.w as u64) << 20) ^ ((fmt.h as u64) << 4) ^ k as u64 * 0x5851_f42d);
     for _ in 0..8 {
@@ -274,27 +347,11 @@ fn render(fmt: &Fmt, k: usize, logo: &Pixmap, fonts: &Fonts) -> Option<Pixmap> {
 
     // Medidas do grupo (luva e nome), para o fundo já saber onde fica a luz.
     let (bx, by, bw, bh) = content_box(logo);
-    let lh = size * mh;
+    let g = geometry(fmt, k, (bx, by, bw, bh), fonts);
+    let (lx, ly, lw, lh, px, cap, tw, gap) = (g.lx, g.ly, g.lw, g.lh, g.px, g.cap, g.tw, g.gap);
     let lsc = lh / bh as f32;
-    let lw = bw as f32 * lsc;
-    let px = match txt {
-        Txt::Below => lh * 0.27,
-        Txt::Right => lh * 0.36,
-    };
-    let (_, _, _, cap) = fonts.v_metrics(px);
-    let tw = fonts.measure("Glove OS", px, false);
-    let gap = lh * 0.10;
-    let (gw, gh) = match txt {
-        Txt::Below => (lw.max(tw), lh + gap + cap),
-        Txt::Right => (lw + gap * 1.4 + tw, lh),
-    };
-    let cx = (mx + gx * mw).clamp(mx + gw / 2.0 + mw * 0.05, mx + mw - gw / 2.0 - mw * 0.05);
-    let cy = (my + gy * mh).clamp(my + gh / 2.0 + mh * 0.07, my + mh - gh / 2.0 - mh * 0.13);
-    let (gx0, gy0) = (cx - gw / 2.0, cy - gh / 2.0);
-    let (lx, ly) = match txt {
-        Txt::Below => (cx - lw / 2.0, gy0),
-        Txt::Right => (gx0, gy0),
-    };
+    let (gw, gh) = (g.group[2], g.group[3]);
+    let (cx, cy) = (g.group[0] + gw / 2.0, g.group[1] + gh / 2.0);
     let lcx = lx + lw / 2.0;
     let lcy = ly + lh / 2.0;
 
@@ -498,4 +555,31 @@ pub fn papeis(dir: &Path, logo: &Path, only: Option<&str>) -> Result<(), String>
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A luva, o nome e o reflexo cabem na área segura em todos os papéis, e a área segura
+    /// fica dentro do monitor (nada cortado em telas 4:3 a 16:9, nem embaixo do Dock).
+    #[test]
+    fn grupo_na_area_segura() {
+        let Some(fonts) = name_font() else { return };
+        let logo_box = (114, 13, 795, 997);
+        for fmt in &FMTS {
+            for k in 0..5 {
+                let g = geometry(fmt, k, logo_box, &fonts);
+                let m = fmt.mons[fmt.layouts[k].0];
+                let safe = safe_area(fmt, m);
+                let [x, y, w, h] = g.group;
+                let e = 0.5;
+                assert!(x >= safe[0] - e && y >= safe[1] - e && x + w <= safe[0] + safe[2] + e && y + h <= safe[1] + safe[3] + e, "{} {k}: {:?} fora de {:?}", fmt.id, g.group, safe);
+                let (mx, my, mw, mh) = (m[0] * fmt.w as f32, m[1] * fmt.h as f32, m[2] * fmt.w as f32, m[3] * fmt.h as f32);
+                assert!(safe[0] >= mx && safe[1] >= my && safe[0] + safe[2] <= mx + mw && safe[1] + safe[3] <= my + mh);
+                // Nem pequena demais.
+                assert!(g.lh >= mh * 0.15, "{} {k}: luva pequena ({})", fmt.id, g.lh / mh);
+            }
+        }
+    }
 }

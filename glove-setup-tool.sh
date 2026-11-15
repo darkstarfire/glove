@@ -9,7 +9,7 @@ root_dir=$(pwd)
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 # The gel wallpapers package has its own version: it only changes when the art changes
 # (crates/arte/src/papeis.rs), so Glove updates don't download 17 MB of images again.
-papeis_version=1.0
+papeis_version=1.1
 arch=$(uname -m)
 out_dir="$root_dir/pacotes"
 url="https://github.com/fabioaacarneiro/glove"
