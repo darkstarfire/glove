@@ -5563,3 +5563,81 @@ msgstr "“{}” mounted at {}."
 
 msgid "“{}” pode ser removido com segurança."
 msgstr "“{}” can be safely removed."
+
+msgid "A conferência achou diferenças: o pendrive pode estar com defeito."
+msgstr "The check found differences: the USB stick may be faulty."
+
+msgid "A imagem ({}) não cabe no disco ({})."
+msgstr "The image ({}) does not fit on the disk ({})."
+
+msgid "Abrindo a imagem…"
+msgstr "Opening the image…"
+
+msgid "Apagar e Gravar"
+msgstr "Erase and Write"
+
+msgid "Apagar o disco e criar o disco inicializável?"
+msgstr "Erase the disk and create the startup disk?"
+
+msgid "Cancelado."
+msgstr "Cancelled."
+
+msgid "Conferindo a gravação…"
+msgstr "Checking what was written…"
+
+msgid "Copiando {}…"
+msgstr "Copying {}…"
+
+msgid "Criar Disco Inicializável…"
+msgstr "Create Startup Disk…"
+
+msgid "Desmontando o disco…"
+msgstr "Unmounting the disk…"
+
+msgid "Disco Inicializável…"
+msgstr "Startup Disk…"
+
+msgid "Dividindo o install.wim em partes (limite de 4 GB do FAT32)…"
+msgstr "Splitting install.wim into parts (FAT32's 4 GB limit)…"
+
+msgid "Escolha à esquerda o pendrive (ou outro disco que não seja o do sistema)."
+msgstr "Choose the USB stick on the left (or another disk that is not the system's)."
+
+msgid "Esta imagem do Windows não tem o inicializador UEFI (efi/boot/bootx64.efi)."
+msgstr "This Windows image has no UEFI boot loader (efi/boot/bootx64.efi)."
+
+msgid "Esta imagem não é híbrida nem um instalador do Windows: não dá para fazer um pendrive que inicie com ela."
+msgstr "This image is neither hybrid nor a Windows installer: it cannot make a USB stick that starts the computer."
+
+msgid "Gravando a imagem…"
+msgstr "Writing the image…"
+
+msgid "Gravando {}…"
+msgstr "Writing {}…"
+
+msgid "O install.esd desta imagem passa de 4 GB, o limite do FAT32."
+msgstr "This image's install.esd is over 4 GB, FAT32's limit."
+
+msgid "O install.wim desta imagem passa de 4 GB e precisa ser dividido: instale o pacote wimtools (sudo apt install wimtools)."
+msgstr "This image's install.wim is over 4 GB and must be split: install the wimtools package (sudo apt install wimtools)."
+
+msgid "O sistema de arquivos não apareceu a tempo."
+msgstr "The file system did not show up in time."
+
+msgid "Os arquivos da imagem ({}) não cabem no disco ({})."
+msgstr "The image's files ({}) do not fit on the disk ({})."
+
+msgid "Preparando o pendrive (GPT e FAT32)…"
+msgstr "Preparing the USB stick (GPT and FAT32)…"
+
+msgid "Pronto: {} instala o Windows em computadores com UEFI (inclusive com o Secure Boot ligado)."
+msgstr "Done: {} installs Windows on UEFI computers (even with Secure Boot on)."
+
+msgid "Pronto: {} já inicia o computador."
+msgstr "Done: {} now starts the computer."
+
+msgid "Terminando de gravar (pode levar um tempo)…"
+msgstr "Finishing writing (this may take a while)…"
+
+msgid "Tudo o que está em {} será apagado, e o disco vai iniciar o computador com “{}” (UEFI). Imagens de Linux são gravadas inteiras; o instalador do Windows vira um pendrive FAT32."
+msgstr "Everything on {} will be erased, and the disk will start the computer with “{}” (UEFI). Linux images are written whole; the Windows installer becomes a FAT32 USB stick."

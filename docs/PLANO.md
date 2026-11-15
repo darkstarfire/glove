@@ -977,7 +977,20 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   (ext4, FAT32, exFAT, NTFS, btrfs), com nome.
 - [ ] 16.4 Partições (M): criar no espaço livre, apagar, mudar o tipo, o nome e as marcas (EFI, boot).
 - [ ] 16.5 Redimensionar (M): aumentar e diminuir a partição junto com o sistema de arquivos.
-- [ ] 16.6 Imagens e disco inicializável (G): gravar uma ISO/IMG num pendrive ou disco e criar a
+- [x] 16.6 Disco inicializável (G) — v0.12.44: `gravar.rs`. ISO híbrida (assinatura 55 AA no MBR):
+  `OpenForRestore` do udisks (senha pelo polkit), cópia em blocos de 4 MiB com andamento e
+  Cancelar, `sync_all` e conferência lendo de volta pelo `OpenForBackup`. Instalador do Windows (sem
+  55 AA, com sources/install.wim|esd ou bootmgr.efi e efi/boot/bootx64.efi): a ISO ligada como loop
+  só de leitura (`LoopSetup`) e montada; o pendrive formatado em GPT, uma partição "dados básicos"
+  FAT32 com o nome da ISO (11 letras), os arquivos copiados e o install.wim > 4 GB dividido com
+  `wimlib-imagex split` (partes de 3800 MB, andamento pelo tamanho das .swm). Formatar e criar a
+  partição não pedem senha em disco que não é do sistema (polkit: modify-device = yes). Discos do
+  sistema em uso nunca são oferecidos. `glove-disks --gravar <iso> <dispositivo>` para scripts.
+  Testado com um "pendrive" loop de 3 GB e uma ISO UDF com a estrutura do Windows (GPT, FAT32 e
+  conteúdo idêntico); a gravação inteira tem teste de unidade (precisa da senha para o real).
+  wimtools, exfatprogs, ntfs-3g e btrfs-progs na ISO e nas recomendações do pacote.
+- [ ] 16.6.1 Imagem de disco (M): criar a imagem de um disco (backup) e gravar uma `.img` qualquer.
+- [ ] 16.6.2 (antigo texto da etapa, para referência) Imagens e disco inicializável (G): gravar uma ISO/IMG num pendrive ou disco e criar a
   imagem de um disco, com progresso e conferência. **Criar disco inicializável (UEFI)**, como o Rufus:
   as ISOs híbridas (Linux: Glove OS, Debian, Ubuntu…) são gravadas bloco a bloco e já iniciam em UEFI
   e BIOS; as que não são híbridas (o instalador do Windows) viram um pendrive GPT com uma partição

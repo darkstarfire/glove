@@ -318,6 +318,34 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   taller, long panes show without scrolling. Each pane's lists and tab boxes grow along,
   filling the whole window.
 
+## Disks and startup disks
+
+**Disks** (in the Dock, in Utilities) lists the disks on the left (internal disks, USB sticks, cards
+and disk images in use) and shows the chosen disk on the right: model, size, table (GPT or MBR),
+connection and the **volume map**, with partitions sized to scale and the **free space**. Click a
+volume to see its contents (Ext4, FAT, NTFS…), device, partition type, UUID, where it is mounted and
+how full it is. Mount, Unmount, Open and Eject are under the map and in the Volume menu.
+
+**Create a startup disk** (a USB stick that starts the computer, in UEFI), like Rufus:
+
+1. Choose the USB stick on the left and click **Startup Disk…** (or Disk ▸ Create Startup Disk…).
+2. Choose the image (`.iso` or `.img`; the sheet opens in Downloads).
+3. Read the warning: it says which disk will be **erased** (name, device and size). **Erase and
+   Write** starts; the footer shows the progress and has **Cancel**.
+
+Disks recognises the image by itself:
+
+- **Linux** (Glove OS, Debian, Ubuntu, Fedora… "hybrid" ISOs): written whole, block by block, and
+  checked at the end (read back and compared). Starts in UEFI and BIOS. Asks for the administrator
+  password (writing the whole disk needs it).
+- **Windows installer** (10 and 11): the stick becomes GPT with a FAT32 partition and the ISO's
+  files. If `install.wim` is over 4 GB (FAT32's limit), it is split into parts (`install.swm`…) by
+  `wimtools`, which the Windows installer accepts. Starts UEFI computers, **even with Secure Boot
+  on**, without WoeUSB. Computers with only an old BIOS will not start this stick.
+
+The system disk in use (with `/`, `/boot`, `/home`…) is never offered for erasing. For scripts:
+`glove-disks --gravar image.iso /dev/sdX` does the same in the terminal.
+
 ## System password (administrator requests)
 
 When a program needs administrator permission (formatting a disk in Disks, installing with

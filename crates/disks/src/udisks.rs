@@ -325,6 +325,72 @@ pub fn loop_delete(block: &str) -> Result<(), String> {
     call(block, "org.freedesktop.UDisks2.Loop", "Delete", &(no_options(),)).map(|_| ())
 }
 
+/// Abre o disco inteiro para gravar uma imagem por cima (pede a senha se precisar).
+pub fn open_for_restore(block: &str) -> Result<std::fs::File, String> {
+    let m = call(block, "org.freedesktop.UDisks2.Block", "OpenForRestore", &(no_options(),))?;
+    let fd: zbus::zvariant::OwnedFd = m.body().deserialize().map_err(|e| e.to_string())?;
+    Ok(std::fs::File::from(std::os::fd::OwnedFd::from(fd)))
+}
+
+/// Abre o disco inteiro para ler (conferir uma gravação).
+pub fn open_for_backup(block: &str) -> Result<std::fs::File, String> {
+    let m = call(block, "org.freedesktop.UDisks2.Block", "OpenForBackup", &(no_options(),))?;
+    let fd: zbus::zvariant::OwnedFd = m.body().deserialize().map_err(|e| e.to_string())?;
+    Ok(std::fs::File::from(std::os::fd::OwnedFd::from(fd)))
+}
+
+/// Formata o bloco: "gpt"/"dos" (tabela nova, apaga tudo), "vfat", "ext4", "exfat",
+/// "ntfs", "btrfs" ou "empty". `label` vazio = sem nome.
+pub fn format(block: &str, kind: &str, label: &str) -> Result<(), String> {
+    let mut o: HashMap<&str, Value> = HashMap::new();
+    if !label.is_empty() {
+        o.insert("label", Value::from(label.to_string()));
+    }
+    // O dono do sistema de arquivos novo é quem pediu (pode gravar nele sem root).
+    if !matches!(kind, "gpt" | "dos" | "empty" | "vfat" | "exfat" | "ntfs") {
+        o.insert("take-ownership", Value::from(true));
+    }
+    call(block, "org.freedesktop.UDisks2.Block", "Format", &(kind, o)).map(|_| ())
+}
+
+/// Cria uma partição na tabela (offset e tamanho em bytes; 0 = o resto do disco) e a
+/// formata; devolve o caminho dela no udisks.
+pub fn create_partition(table: &str, offset: u64, size: u64, ptype: &str, fs: &str, label: &str) -> Result<String, String> {
+    let mut fo: HashMap<&str, Value> = HashMap::new();
+    if !label.is_empty() {
+        fo.insert("label", Value::from(label.to_string()));
+    }
+    let m = call(table, "org.freedesktop.UDisks2.PartitionTable", "CreatePartitionAndFormat", &(offset, size, ptype, "", no_options(), fs, fo))?;
+    let p: OwnedObjectPath = m.body().deserialize().map_err(|e| e.to_string())?;
+    Ok(p.as_str().to_string())
+}
+
+/// Liga um arquivo de imagem como disco (só leitura); devolve o bloco dele.
+pub fn loop_setup(file: &std::path::Path) -> Result<String, String> {
+    let f = std::fs::File::open(file).map_err(|e| e.to_string())?;
+    let mut o: HashMap<&str, Value> = HashMap::new();
+    o.insert("read-only", Value::from(true));
+    let fd = zbus::zvariant::Fd::from(&f);
+    let m = call("/org/freedesktop/UDisks2/Manager", "org.freedesktop.UDisks2.Manager", "LoopSetup", &(fd, o))?;
+    let p: OwnedObjectPath = m.body().deserialize().map_err(|e| e.to_string())?;
+    Ok(p.as_str().to_string())
+}
+
+/// Espera o udisks mostrar o sistema de arquivos do bloco (logo depois de formatar
+/// ou de ligar uma imagem, ele ainda está lendo).
+pub fn wait_fs(block: &str) -> Result<(), String> {
+    let conn = Connection::system().map_err(|e| e.to_string())?;
+    for _ in 0..50 {
+        let p = zbus::blocking::Proxy::new(&conn, BUS, block, "org.freedesktop.DBus.Properties").map_err(|e| e.to_string())?;
+        let has: Result<OwnedValue, _> = p.call("Get", &("org.freedesktop.UDisks2.Filesystem", "MountPoints"));
+        if has.is_ok() {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+    Err(glove_config::tr!("O sistema de arquivos não apareceu a tempo.").into())
+}
+
 // --- nomes para gente ----------------------------------------------------------
 
 /// Nome do tipo de partição (GPT ou MBR).

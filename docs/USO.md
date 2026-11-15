@@ -341,6 +341,37 @@ Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
   vídeo largo atravessa os monitores).
 - A Pasta Imagens aceita PNG, JPEG e WebP.
 
+## Discos e disco inicializável
+
+O **Discos** (no Dock, em Utilitários) mostra à esquerda os discos (internos, pendrives, cartões e
+imagens de disco em uso) e, à direita, o disco escolhido: modelo, tamanho, tabela (GPT ou MBR),
+conexão e o **mapa dos volumes**, com as partições do tamanho proporcional e o **espaço livre**.
+Clique num volume para ver o conteúdo (Ext4, FAT, NTFS…), o dispositivo, o tipo de partição, o UUID,
+onde está montado e quanto está usado. Montar, Desmontar, Abrir e Ejetar ficam embaixo do mapa e no
+menu Volume.
+
+**Criar disco inicializável** (pendrive que liga o computador, em UEFI), como o Rufus:
+
+1. Escolha o pendrive à esquerda e clique em **Disco Inicializável…** (ou Disco ▸ Criar Disco
+   Inicializável…).
+2. Escolha a imagem (`.iso` ou `.img`; a folha abre em Downloads).
+3. Confira o aviso: ele diz qual disco será **apagado** (nome, dispositivo e tamanho). **Apagar e
+   Gravar** começa; o rodapé mostra o andamento e tem **Cancelar**.
+
+O Discos reconhece a imagem sozinho:
+
+- **Linux** (Glove OS, Debian, Ubuntu, Fedora… as ISOs "híbridas"): gravada inteira, bloco a bloco,
+  e conferida no fim (lida de volta e comparada). Inicia em UEFI e BIOS. Pede a senha de
+  administrador (gravar o disco inteiro precisa dela).
+- **Instalador do Windows** (10 e 11): o pendrive vira GPT com uma partição FAT32 e os arquivos da
+  ISO. Se o `install.wim` passar de 4 GB (o limite do FAT32), ele é dividido em partes
+  (`install.swm`…) pelo `wimtools`, que o instalador do Windows aceita. Inicia em computadores com
+  UEFI, **inclusive com o Secure Boot ligado**, sem o WoeUSB. Computadores só com BIOS antiga não
+  iniciam esse pendrive.
+
+O disco do sistema em uso (com `/`, `/boot`, `/home`…) nunca aparece como opção para apagar. Para
+scripts: `glove-disks --gravar imagem.iso /dev/sdX` faz o mesmo no terminal.
+
 ## Senha do sistema (pedidos de administrador)
 
 Quando um programa precisa de permissão de administrador (formatar um disco no Discos, instalar pelo

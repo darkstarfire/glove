@@ -30,6 +30,11 @@ plymouth-label
 # Senha do sistema (o agente do Glove atende o polkit) e o serviço de discos (Discos)
 polkitd
 udisks2
+# Discos: pendrive do Windows (dividir o install.wim) e formatos de disco
+wimtools
+exfatprogs
+ntfs-3g
+btrfs-progs
 
 # Rede
 network-manager

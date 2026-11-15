@@ -6,16 +6,18 @@
 //! (a janela do `glove-senha`). As operações rodam numa linha à parte, para a
 //! janela não travar enquanto a senha é pedida.
 
+mod gravar;
 mod udisks;
 
 use glove_config::tr;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
+use std::sync::Arc;
 use std::time::Duration;
 
 use glove_ui::{
     paint::{draw::*, icons::{self, Icon}, Color},
-    run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
+    run, AlertKind, App, Choice, FileBrowser, Menu, MenuItem, Rect, Ui, WindowOptions,
 };
 use udisks::{Model, Slot};
 
@@ -43,9 +45,16 @@ struct Disks {
     pick: Option<Pick>,
     message: Option<String>,
     job: Option<Job>,
+    /// Criar disco inicializável: escolhendo a imagem, confirmando, gravando.
+    iso_fb: Option<FileBrowser>,
+    confirm: Option<PathBuf>,
+    progress: Option<Arc<gravar::Progress>>,
 }
 
-fn gb(n: u64) -> String {
+/// Pontos de montagem do próprio sistema: um disco com algum deles não é apagado.
+const SYSTEM_MOUNTS: [&str; 7] = ["/", "/boot", "/boot/efi", "/efi", "/home", "/usr", "/var"];
+
+pub(crate) fn gb(n: u64) -> String {
     let g = n as f64 / 1e9;
     if g >= 100.0 {
         format!("{g:.0} GB")
@@ -218,6 +227,37 @@ impl Disks {
             }
             Ok(tr!("“{}” pode ser removido com segurança.", name))
         });
+    }
+
+    /// O disco escolhido pode ser apagado (não é o do sistema em uso).
+    fn can_overwrite(&self) -> bool {
+        let Some(di) = self.disk_index() else { return false };
+        let b = &self.model.blocks[di];
+        if b.read_only || b.size == 0 || self.drive_of(di).is_some_and(|d| d.optical) {
+            return false;
+        }
+        !std::iter::once(di).chain(self.model.parts_of(di)).any(|i| self.model.blocks[i].mounts.as_ref().is_some_and(|m| m.iter().any(|p| SYSTEM_MOUNTS.contains(&p.as_str()))))
+    }
+
+    fn ask_image(&mut self) {
+        if !self.can_overwrite() || self.job.is_some() {
+            self.message = Some(tr!("Escolha à esquerda o pendrive (ou outro disco que não seja o do sistema).").into());
+            return;
+        }
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| "/".into());
+        let start = ["Downloads", "Transferências"].iter().map(|d| home.join(d)).find(|p| p.is_dir()).unwrap_or(home);
+        self.iso_fb = Some(FileBrowser::open(Some(start), &["iso", "img"]));
+    }
+
+    fn start_bootable(&mut self, iso: PathBuf) {
+        let Some(di) = self.disk_index() else { return };
+        let b = self.model.blocks[di].clone();
+        let mounted: Vec<String> = std::iter::once(di).chain(self.model.parts_of(di)).filter(|&i| self.model.blocks[i].mounted().is_some()).map(|i| self.model.blocks[i].path.clone()).collect();
+        let t = gravar::Target { disk: b.path.clone(), device: b.device.clone(), size: b.size, mounted };
+        let p = Arc::new(gravar::Progress::default());
+        self.progress = Some(p.clone());
+        let name = iso.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        self.start(tr!("Gravando {}…", name), move || gravar::write(iso, t, p));
     }
 
     fn can_eject(&self) -> bool {
@@ -447,11 +487,19 @@ impl Disks {
                 ui.set_active(true);
             });
         });
-        ui.area(Rect::new(r.x + r.w - 120.0, r.y + 22.0, 104.0, 26.0), |ui| {
-            ui.set_active(self.can_eject() && !busy);
-            eject = ui.button(tr!("Ejetar"));
-            ui.set_active(true);
+        let mut boot = false;
+        ui.area(Rect::new(r.x + r.w - 290.0, r.y + 76.0, 274.0, 26.0), |ui| {
+            ui.horizontal(|ui| {
+                ui.set_active(self.can_overwrite() && !busy);
+                boot = ui.button(tr!("Disco Inicializável…"));
+                ui.set_active(self.can_eject() && !busy);
+                eject = ui.button(tr!("Ejetar"));
+                ui.set_active(true);
+            });
         });
+        if boot {
+            self.ask_image();
+        }
         y += 40.0;
         ui.c.hline(r.x + 20.0, y, r.w - 40.0, rgba(200, 200, 206, 255));
         self.volume_info(ui, Rect::new(r.x, y + 4.0, r.w, r.h - (y - r.y) - 4.0));
@@ -488,6 +536,7 @@ impl App for Disks {
                 "mount" => self.mount(),
                 "unmount" => self.unmount(),
                 "eject" => self.eject(),
+                "bootable" => self.ask_image(),
                 "close" => ui.close = true,
                 _ => {}
             }
@@ -500,9 +549,51 @@ impl App for Disks {
         let fy = h - foot;
         ui.c.fill_rect(0.0, fy, w, foot, &vgrad(fy, h, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(216, 216, 220, 255))]));
         ui.c.hline(0.0, fy, w, rgba(150, 150, 156, 255));
-        if let Some(m) = &self.message {
+        let progress = self.progress.clone().filter(|_| self.job.is_some());
+        if let Some(p) = progress {
+            // Gravando: barra, a fase e o Cancelar.
+            let frac = *p.fraction.lock().unwrap();
+            let phase = p.phase.lock().unwrap().clone();
+            let bar = Rect::new(12.0, fy + 7.0, 180.0, 10.0);
+            ui.c.fill(rrect(bar.x, bar.y, bar.w, bar.h, 5.0), &vgrad(bar.y, bar.y + bar.h, &[(0.0, rgba(160, 160, 166, 255)), (1.0, rgba(225, 225, 230, 255))]));
+            if frac > 0.01 {
+                gel_rect(ui.c, bar.x, bar.y, (bar.w * frac).max(bar.h), bar.h, 5.0, ui.theme.accent);
+            }
+            let t = format!("{:.0}%  {}", frac * 100.0, phase);
+            let t = ui.fonts.ellipsize(&t, 11.0, false, w - 320.0);
+            ui.fonts.draw(ui.c, &t, 202.0, fy + 16.0, 11.0, false, rgba(60, 60, 60, 255));
+            let mut cancel = false;
+            ui.area(Rect::new(w - 100.0, fy + 1.0, 90.0, 22.0), |ui| cancel = ui.button(tr!("Cancelar")));
+            if cancel {
+                p.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        } else if let Some(m) = &self.message {
             let m = ui.fonts.ellipsize(m, 11.0, false, w - 30.0);
             ui.fonts.draw(ui.c, &m, 12.0, fy + 16.0, 11.0, false, rgba(60, 60, 60, 255));
+        }
+        // Escolher a imagem e confirmar que o disco será apagado.
+        if let Some(fb) = &mut self.iso_fb {
+            if let Some(c) = ui.file_sheet(fb) {
+                self.iso_fb = None;
+                if let Choice::Picked(p) = c {
+                    self.confirm = Some(p);
+                }
+                ui.redraw = true;
+            }
+        }
+        if let Some(iso) = self.confirm.clone() {
+            let di = self.disk_index();
+            let disk = di.map(|d| format!("{} ({}, {})", self.disk_name(d), self.model.blocks[d].device, gb(self.model.blocks[d].size))).unwrap_or_default();
+            let name = iso.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let text = tr!("Tudo o que está em {} será apagado, e o disco vai iniciar o computador com “{}” (UEFI). Imagens de Linux são gravadas inteiras; o instalador do Windows vira um pendrive FAT32.", disk, name);
+            match ui.alert(AlertKind::Caution, tr!("Apagar o disco e criar o disco inicializável?"), &text, &[tr!("Cancelar"), tr!("Apagar e Gravar")]) {
+                Some(1) => {
+                    self.confirm = None;
+                    self.start_bootable(iso);
+                }
+                Some(_) => self.confirm = None,
+                None => {}
+            }
         }
     }
 
@@ -528,6 +619,7 @@ impl App for Disks {
             Menu::new(
                 tr!("Disco"),
                 vec![
+                    MenuItem::new("bootable", tr!("Criar Disco Inicializável…"), "").enabled(self.can_overwrite() && !busy),
                     MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(self.can_eject() && !busy),
                     MenuItem::Separator,
                     MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
@@ -545,8 +637,63 @@ impl App for Disks {
     }
 }
 
+/// `glove-disks --gravar <imagem> <dispositivo>`: cria o disco inicializável sem a
+/// janela (para scripts e testes), com o andamento no terminal.
+fn write_cli(iso: &str, device: &str) -> i32 {
+    let Ok(conn) = zbus::blocking::Connection::system() else {
+        eprintln!("glove-disks: sem o D-Bus do sistema");
+        return 1;
+    };
+    let Ok(model) = Model::read(&conn) else {
+        eprintln!("glove-disks: o udisks2 não respondeu");
+        return 1;
+    };
+    let Some(di) = model.blocks.iter().position(|b| b.device == device && b.part.is_none()) else {
+        eprintln!("glove-disks: {device} não é um disco inteiro");
+        return 1;
+    };
+    let mut app = Disks { conn: None, model, disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None };
+    app.disk = Some(app.model.blocks[di].path.clone());
+    if !app.can_overwrite() {
+        eprintln!("glove-disks: {device} é o disco do sistema (ou só de leitura): não será apagado");
+        return 1;
+    }
+    let b = app.model.blocks[di].clone();
+    let mounted: Vec<String> = std::iter::once(di).chain(app.model.parts_of(di)).filter(|&i| app.model.blocks[i].mounted().is_some()).map(|i| app.model.blocks[i].path.clone()).collect();
+    let t = gravar::Target { disk: b.path, device: b.device, size: b.size, mounted };
+    let p = Arc::new(gravar::Progress::default());
+    let (tx, rx) = channel();
+    let (iso, pc) = (PathBuf::from(iso), p.clone());
+    std::thread::spawn(move || {
+        let _ = tx.send(gravar::write(iso, t, pc));
+    });
+    loop {
+        if let Ok(r) = rx.recv_timeout(Duration::from_secs(2)) {
+            return match r {
+                Ok(m) => {
+                    println!("{m}");
+                    0
+                }
+                Err(e) => {
+                    eprintln!("glove-disks: {e}");
+                    1
+                }
+            };
+        }
+        println!("{:3.0}%  {}", *p.fraction.lock().unwrap() * 100.0, p.phase.lock().unwrap());
+    }
+}
+
 pub fn main() {
-    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None };
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("--gravar") {
+        let (Some(iso), Some(dev)) = (args.get(2), args.get(3)) else {
+            eprintln!("uso: glove-disks --gravar <imagem.iso> <dispositivo>");
+            std::process::exit(2);
+        };
+        std::process::exit(write_cli(iso, dev));
+    }
+    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None };
     app.reload();
     // Começa no disco do sistema, com o volume do sistema escolhido.
     if let Some(sys) = app.model.blocks.iter().find(|b| b.mounted() == Some("/")).cloned() {
