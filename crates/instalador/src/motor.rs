@@ -33,6 +33,8 @@ pub enum Modo {
     Inteiro,
     /// Usa o maior espaço livre (outro sistema continua).
     Livre,
+    /// Formata só esta partição (pelo número) e instala nela; o resto do disco fica.
+    Particao(u32),
 }
 
 #[derive(Clone, Debug)]
@@ -121,6 +123,17 @@ fn particoes(e: &Escolhas) -> (String, Option<String>, Vec<Acao>) {
             let raiz = part_path(&d.path, n);
             v.push(rodar(&["mkfs.ext4", "-F", "-L", "Glove", &raiz]));
             // Reaproveita a partição EFI que já existe (a do outro sistema).
+            (raiz, d.esp().map(|p| p.path.clone()), v)
+        }
+        Modo::Particao(n) => {
+            let raiz = d.particoes.iter().find(|p| p.numero == n).map(|p| p.path.clone()).unwrap_or_else(|| part_path(&d.path, n));
+            v.push(opcional(&["swapoff", "-a"]));
+            v.push(opcional(&["umount", &raiz]));
+            v.push(rodar(&["wipefs", "-a", &raiz]));
+            v.push(rodar(&["mkfs.ext4", "-F", "-L", "Glove", &raiz]));
+            // O tipo da partição: Linux (o Windows e os outros sistemas deixam ela em paz).
+            v.push(opcional(&["sfdisk", "--part-type", &d.path, &n.to_string(), "0FC63DAF-8483-4772-8E79-3D69D8477DE4"]));
+            v.push(opcional(&["udevadm", "settle"]));
             (raiz, d.esp().map(|p| p.path.clone()), v)
         }
     }
@@ -428,6 +441,17 @@ mod tests {
         assert!(!c.iter().any(|x| x.starts_with("wipefs") || x.contains("mkfs.vfat")));
         assert!(c.iter().any(|x| x == "mkfs.ext4 -F -L Glove /dev/nvme0n1p2"));
         assert!(c.iter().any(|x| x == "mount /dev/nvme0n1p1 /mnt/glove/boot/efi"));
+    }
+
+    #[test]
+    fn numa_particao_escolhida() {
+        let c = cmds(&plano(&esc(Modo::Particao(2), true)));
+        // Só a partição escolhida é apagada e formatada; a EFI do disco é reaproveitada.
+        assert!(c.iter().any(|x| x == "wipefs -a /dev/nvme0n1p2"));
+        assert!(c.iter().any(|x| x == "mkfs.ext4 -F -L Glove /dev/nvme0n1p2"));
+        assert!(!c.iter().any(|x| x.contains("sfdisk --wipe") || x.contains("mkfs.vfat") || x == "wipefs -a /dev/nvme0n1"));
+        assert!(c.iter().any(|x| x == "mount /dev/nvme0n1p2 /mnt/glove"));
+        assert!(c.iter().any(|x| x.starts_with("mount /dev/nvme0n1p1 /mnt/glove/boot/efi")));
     }
 
     #[test]

@@ -477,6 +477,10 @@ O instalador pergunta:
     menor e feche o Discos; a lista do instalador se atualiza sozinha e passa a oferecer o espaço
     livre. (Também dá para diminuir pelo próprio Windows, em "Gerenciamento de Disco ▸ Diminuir
     volume".)
+  - **Instalar numa partição escolhida**: formata só a partição escolhida (20 GB ou mais) e instala
+    nela; as outras partições do disco ficam como estão. Precisa de UEFI e de uma partição EFI no
+    disco (a do Windows, por exemplo). Boa para reaproveitar a partição de um Linux antigo, ou uma
+    criada antes no Discos.
 - **Conta:** nome, nome de usuário, senha e nome do computador. A conta é de administrador (`sudo`).
 - **Resumo:** confira e marque "Entendi. Pode instalar".
 

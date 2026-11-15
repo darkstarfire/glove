@@ -1022,6 +1022,8 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   instalador acompanha o Discos aberto por ele (tique de 1 s) e, quando ele fecha, relê os discos
   mantendo o escolhido. O caminho de instalar ao lado do Windows fica: Discos ▸ diminuir o NTFS ▸
   fechar ▸ "Instalar ao lado, no espaço livre".
-- [ ] 16.8.1 Instalar numa partição escolhida (M): escolher no instalador uma partição já feita
-  (formatar só ela), em vez de só "disco inteiro" ou "maior espaço livre".
+- [x] 16.8.1 Instalar numa partição escolhida (M) — v0.12.48: `Modo::Particao(n)` no motor (desmonta,
+  `wipefs` e `mkfs.ext4` só nela, tipo Linux pelo `sfdisk --part-type`, a EFI do disco reaproveitada);
+  na página Disco, a terceira opção com a lista das partições possíveis (UEFI, GPT com EFI, 20 GB
+  ou mais, não a EFI) e o aviso de que só ela é apagada; Resumo diz qual. Teste de unidade do plano.
 - [ ] 16.9 ISO e pacote (P): udisks2, polkitd, exfatprogs, ntfs-3g, btrfs-progs e dosfstools.

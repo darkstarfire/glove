@@ -94,6 +94,8 @@ struct Instalador {
     teclado: usize,
     /// O que foi digitado no campo de teste do teclado.
     teste_teclado: String,
+    /// A partição escolhida no modo "numa partição" (índice em `particoes_ok`).
+    particao: usize,
     fusos: Vec<String>,
     fuso: Option<usize>,
     busca_fuso: String,
@@ -142,6 +144,7 @@ impl Instalador {
             idioma,
             teclado,
             teste_teclado: String::new(),
+            particao: 0,
             fusos,
             fuso,
             busca_fuso: String::new(),
@@ -167,7 +170,22 @@ impl Instalador {
 
     fn modo(&self) -> Modo {
         let d = self.discos.get(self.disco);
-        if self.modo == 1 && d.is_some_and(|d| self.livre_ok(d)) { Modo::Livre } else { Modo::Inteiro }
+        if self.modo == 1 && d.is_some_and(|d| self.livre_ok(d)) {
+            Modo::Livre
+        } else if self.modo == 2 && let Some(p) = d.and_then(|d| self.particoes_ok(d).get(self.particao).map(|p| p.numero)) {
+            Modo::Particao(p)
+        } else {
+            Modo::Inteiro
+        }
+    }
+
+    /// Partições onde dá para instalar (UEFI, GPT, com a partição EFI no disco, 20 GB ou
+    /// mais, e não a própria EFI): o conteúdo delas é apagado.
+    fn particoes_ok<'a>(&self, d: &'a Disco) -> Vec<&'a discos::Particao> {
+        if !self.uefi || d.tabela != "gpt" || d.esp().is_none() {
+            return Vec::new();
+        }
+        d.particoes.iter().filter(|p| !p.esp && p.tamanho >= 20_000_000_000).collect()
     }
 
     /// Dá para instalar no espaço livre deste disco? (UEFI, GPT, com partição EFI e 20 GB livres)
@@ -328,11 +346,25 @@ impl Instalador {
                     }
                     ui.space(10.0);
                     let livre_txt = if livre { tr!("Instalar ao lado, no espaço livre ({})", discos::tamanho(d.livre_bytes())) } else { tr!("Instalar ao lado do sistema atual").to_string() };
-                    let ops = [tr!("Apagar o disco inteiro e instalar o Glove OS").to_string(), livre_txt];
+                    let parts: Vec<(String, String)> = self.particoes_ok(&d).iter().map(|p| {
+                        let nome = if p.rotulo.is_empty() { String::new() } else { format!("“{}” ", p.rotulo) };
+                        (p.path.clone(), format!("{} {}{} {}", p.path, nome, p.fs, discos::tamanho(p.tamanho)))
+                    }).collect();
+                    let ops = [tr!("Apagar o disco inteiro e instalar o Glove OS").to_string(), livre_txt, tr!("Instalar numa partição escolhida (só ela é apagada)").to_string()];
                     let ops_ref: Vec<&str> = ops.iter().map(String::as_str).collect();
                     ui.radio_group(&mut self.modo, &ops_ref);
-                    if self.modo == 1 && !livre {
+                    if self.modo == 1 && !livre || self.modo == 2 && parts.is_empty() {
                         self.modo = 0;
+                    }
+                    if self.modo == 2 {
+                        let nomes: Vec<String> = parts.iter().map(|p| p.1.clone()).collect();
+                        self.particao = self.particao.min(nomes.len().saturating_sub(1));
+                        ui.form_row(tr!("Partição:"), 70.0, |ui| {
+                            ui.popup(&mut self.particao, &nomes, area.w - 100.0);
+                        });
+                        ui.label_ex(&tr!("Tudo o que está em {} será apagado; o resto do disco fica.", parts[self.particao].0), 12.5, true, rgba(190, 30, 30, 255));
+                    } else if parts.is_empty() {
+                        ui.small(tr!("Para instalar numa partição: UEFI, uma partição EFI no disco e uma partição de 20 GB ou mais."));
                     }
                     ui.space(6.0);
                     if !livre {
@@ -417,12 +449,19 @@ impl Instalador {
                     linha(ui, tr!("Teclado:"), tr(TECLADOS[self.teclado].2));
                     linha(ui, tr!("Fuso horário:"), &e.fuso.replace('_', " "));
                     linha(ui, tr!("Disco:"), &format!("{} ({})", e.disco.nome, e.disco.path));
-                    linha(ui, tr!("Como:"), if e.modo == Modo::Inteiro { tr!("apagar o disco inteiro") } else { tr!("no espaço livre, ao lado do outro sistema") });
+                    let como = match e.modo {
+                        Modo::Inteiro => tr!("apagar o disco inteiro").to_string(),
+                        Modo::Livre => tr!("no espaço livre, ao lado do outro sistema").to_string(),
+                        Modo::Particao(n) => tr!("na partição {} (só ela é apagada)", discos::part_path(&e.disco.path, n)),
+                    };
+                    linha(ui, tr!("Como:"), &como);
                     linha(ui, tr!("Conta:"), &format!("{} ({})", e.nome, e.usuario));
                     linha(ui, tr!("Computador:"), &e.computador);
                     ui.space(12.0);
-                    if e.modo == Modo::Inteiro {
-                        ui.label_ex(&tr!("Tudo o que está em {} será apagado.", e.disco.nome), 12.5, true, rgba(190, 30, 30, 255));
+                    match e.modo {
+                        Modo::Inteiro => ui.label_ex(&tr!("Tudo o que está em {} será apagado.", e.disco.nome), 12.5, true, rgba(190, 30, 30, 255)),
+                        Modo::Particao(n) => ui.label_ex(&tr!("Tudo o que está em {} será apagado.", discos::part_path(&e.disco.path, n)), 12.5, true, rgba(190, 30, 30, 255)),
+                        Modo::Livre => {}
                     }
                     ui.checkbox(&mut self.confirmar, tr!("Entendi. Pode instalar."));
                 });

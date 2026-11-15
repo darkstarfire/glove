@@ -471,6 +471,9 @@ The installer asks for:
     choose the Windows (NTFS) partition, **Resize…** it smaller and close Disks; the installer's list
     updates by itself and offers the free space. (Windows can also shrink it, in "Disk Management ▸
     Shrink Volume".)
+  - **Install on a chosen partition**: formats only the chosen partition (20 GB or more) and installs
+    there; the disk's other partitions stay as they are. Needs UEFI and an EFI partition on the disk
+    (Windows', for example). Good for reusing an old Linux partition, or one made first in Disks.
 - **Account:** name, user name, password and computer name. The account is an administrator (`sudo`).
 - **Summary:** check it and tick "I understand. Install."
 

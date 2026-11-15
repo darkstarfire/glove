@@ -5929,3 +5929,18 @@ msgstr "“{}” has errors that could not be repaired. Copy your important file
 
 msgid "“{}” tinha erros e foi consertado."
 msgstr "“{}” had errors and was repaired."
+
+msgid "Instalar numa partição escolhida (só ela é apagada)"
+msgstr "Install on a chosen partition (only it is erased)"
+
+msgid "Para instalar numa partição: UEFI, uma partição EFI no disco e uma partição de 20 GB ou mais."
+msgstr "To install on a partition: UEFI, an EFI partition on the disk and a partition of 20 GB or more."
+
+msgid "Partição:"
+msgstr "Partition:"
+
+msgid "Tudo o que está em {} será apagado; o resto do disco fica."
+msgstr "Everything on {} will be erased; the rest of the disk stays."
+
+msgid "na partição {} (só ela é apagada)"
+msgstr "on partition {} (only it is erased)"
