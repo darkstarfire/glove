@@ -460,8 +460,11 @@ O instalador pergunta:
 - **Disco:**
   - **Apagar o disco inteiro e instalar o Glove**: o aviso em vermelho mostra qual disco será apagado;
   - **Instalar ao lado do sistema atual**: usa o maior espaço livre do disco. Precisa de UEFI, de uma
-    partição EFI e de 20 GB livres. O instalador não diminui partições: libere o espaço antes, no
-    outro sistema (no Windows, "Gerenciamento de Disco ▸ Diminuir volume") ou com o Discos.
+    partição EFI e de 20 GB livres. Para abrir esse espaço, clique em **Preparar o disco com o
+    Discos…**: no Discos, escolha a partição do Windows (NTFS), **Redimensionar…** para um tamanho
+    menor e feche o Discos; a lista do instalador se atualiza sozinha e passa a oferecer o espaço
+    livre. (Também dá para diminuir pelo próprio Windows, em "Gerenciamento de Disco ▸ Diminuir
+    volume".)
 - **Conta:** nome, nome de usuário, senha e nome do computador. A conta é de administrador (`sudo`).
 - **Resumo:** confira e marque "Entendi. Pode instalar".
 

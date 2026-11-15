@@ -5791,3 +5791,9 @@ msgstr "Windows / exFAT / NTFS"
 
 msgid "Inicialização da BIOS (GPT)"
 msgstr "BIOS boot (GPT)"
+
+msgid "Preparar o disco com o Discos…"
+msgstr "Prepare the disk with Disks…"
+
+msgid "Quando fechar o Discos, a lista de discos se atualiza sozinha."
+msgstr "When you close Disks, the disk list updates by itself."

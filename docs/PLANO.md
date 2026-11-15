@@ -1006,5 +1006,10 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   wimtools, exfatprogs, ntfs-3g e btrfs-progs na ISO e nas recomendações do pacote.
 - [ ] 16.6.1 Imagem de disco (M): criar a imagem de um disco (backup) e gravar uma `.img` qualquer.
 - [ ] 16.7 Saúde e reparo (M): verificar e reparar, mudar o rótulo, saúde (SMART/NVMe) e temperatura.
-- [ ] 16.8 Instalador (M): "Preparar o disco com o Discos…" e instalar numa partição escolhida.
+- [x] 16.8 Instalador (P) — v0.12.46: botão "Preparar o disco com o Discos…" na página Disco; o
+  instalador acompanha o Discos aberto por ele (tique de 1 s) e, quando ele fecha, relê os discos
+  mantendo o escolhido. O caminho de instalar ao lado do Windows fica: Discos ▸ diminuir o NTFS ▸
+  fechar ▸ "Instalar ao lado, no espaço livre".
+- [ ] 16.8.1 Instalar numa partição escolhida (M): escolher no instalador uma partição já feita
+  (formatar só ela), em vez de só "disco inteiro" ou "maior espaço livre".
 - [ ] 16.9 ISO e pacote (P): udisks2, polkitd, exfatprogs, ntfs-3g, btrfs-progs e dosfstools.

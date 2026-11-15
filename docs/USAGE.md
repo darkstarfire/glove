@@ -454,8 +454,10 @@ The installer asks for:
 - **Disk:**
   - **Erase the whole disk and install Glove**: the red warning shows which disk will be erased;
   - **Install alongside the current system**: uses the disk's largest free space. Needs UEFI, an EFI
-    partition and 20 GB free. The installer does not shrink partitions: free the space first, in
-    the other system (on Windows, "Disk Management ▸ Shrink Volume") or with Disks.
+    partition and 20 GB free. To make that space, click **Prepare the disk with Disks…**: in Disks,
+    choose the Windows (NTFS) partition, **Resize…** it smaller and close Disks; the installer's list
+    updates by itself and offers the free space. (Windows can also shrink it, in "Disk Management ▸
+    Shrink Volume".)
 - **Account:** name, user name, password and computer name. The account is an administrator (`sudo`).
 - **Summary:** check it and tick "I understand. Install."
 

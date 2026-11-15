@@ -114,6 +114,8 @@ struct Instalador {
     pedir_admin: bool,
     texto_admin: String,
     uefi: bool,
+    /// O Discos aberto pela página Disco (preparar o disco): ao fechar, a lista é relida.
+    discos_app: Option<std::process::Child>,
 }
 
 impl Instalador {
@@ -159,6 +161,7 @@ impl Instalador {
             pedir_admin: false,
             texto_admin: String::new(),
             uefi: std::path::Path::new("/sys/firmware/efi").exists(),
+            discos_app: None,
         }
     }
 
@@ -340,6 +343,19 @@ impl Instalador {
                         ui.space(6.0);
                         ui.label_ex(&tr!("Tudo o que está em {} será apagado.", d.nome), 12.5, true, rgba(190, 30, 30, 255));
                     }
+                    // Preparar o disco antes (diminuir o Windows, apagar partições velhas…).
+                    ui.space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.set_active(self.discos_app.is_none());
+                        if ui.button(tr!("Preparar o disco com o Discos…")) {
+                            let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-disks"))).filter(|p| p.exists()).unwrap_or_else(|| "glove-disks".into());
+                            self.discos_app = std::process::Command::new(exe).spawn().ok();
+                        }
+                        ui.set_active(true);
+                    });
+                    if self.discos_app.is_some() {
+                        ui.small(tr!("Quando fechar o Discos, a lista de discos se atualiza sozinha."));
+                    }
                 });
             }
             4 => {
@@ -519,6 +535,21 @@ impl Instalador {
 }
 
 impl App for Instalador {
+    fn tick(&self) -> Option<std::time::Duration> {
+        self.discos_app.as_ref().map(|_| std::time::Duration::from_secs(1))
+    }
+
+    /// O Discos fechou: relê os discos (o usuário pode ter mudado as partições).
+    fn on_tick(&mut self) {
+        let done = self.discos_app.as_mut().is_some_and(|c| !matches!(c.try_wait(), Ok(None)));
+        if done {
+            self.discos_app = None;
+            let atual = self.discos.get(self.disco).map(|d| d.path.clone());
+            self.discos = discos::listar().into_iter().filter(|d| !d.ao_vivo).collect();
+            self.disco = atual.and_then(|p| self.discos.iter().position(|d| d.path == p)).unwrap_or(0);
+        }
+    }
+
     fn ui(&mut self, ui: &mut Ui) {
         self.lateral(ui);
         ui.set_enabled(!self.pedir_admin);
