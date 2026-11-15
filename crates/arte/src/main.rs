@@ -4,6 +4,8 @@
 //!                                 logo (a luva), 12 quadros do giratório, glove.plymouth e glove.script
 //!   glove-arte icones <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
 //!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
+//!   glove-arte previa <arquivo>   folha de amostra do tema de ícones (PNG): todos os ícones
+//!                                 a 128 px com o nome freedesktop embaixo (preview do glove-icons)
 
 use std::path::Path;
 
@@ -209,6 +211,34 @@ fn icones(dir: &Path) -> Result<usize, String> {
     Ok(count)
 }
 
+/// Folha de amostra do tema de ícones: grade com todos os ícones a 128 px e o
+/// nome freedesktop de cada um embaixo (a imagem do README do glove-icons).
+fn previa(file: &Path) -> Result<usize, String> {
+    use glove_paint::{draw::solid, icons};
+    let fonts = glove_paint::Fonts::load_system().ok_or("nenhuma fonte do sistema")?;
+    let entries = icons::theme_entries();
+    const COLS: usize = 10;
+    let (cell_w, cell_h, icon, margin, px) = (176.0, 176.0, 128.0, 24.0, 11.0);
+    let rows = entries.len().div_ceil(COLS);
+    let w = margin * 2.0 + cell_w * COLS as f32;
+    let h = margin * 2.0 + cell_h * rows as f32;
+    let mut c = Canvas::new(w, h, 1.0).ok_or("canvas")?;
+    c.fill_rect(0.0, 0.0, w, h, &solid(rgba(236, 236, 236, 255)));
+    for (i, (ic, _, names)) in entries.iter().enumerate() {
+        let x = margin + cell_w * (i % COLS) as f32;
+        let y = margin + cell_h * (i / COLS) as f32;
+        icons::draw(&mut c, &fonts, *ic, x + (cell_w - icon) / 2.0, y, icon, None);
+        let label = fonts.ellipsize(names[0], px, false, cell_w - 8.0);
+        let tw = fonts.measure(&label, px, false);
+        fonts.draw(&mut c, &label, x + (cell_w - tw) / 2.0, y + icon + 22.0, px, false, rgba(40, 40, 42, 255));
+    }
+    if let Some(d) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
+    }
+    save_compact(&c, file.parent().unwrap_or(Path::new(".")), &file.file_name().ok_or("arquivo")?.to_string_lossy())?;
+    Ok(entries.len())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let r = match args.first().map(String::as_str) {
@@ -217,7 +247,11 @@ fn main() {
             Some(d) => icones(Path::new(d)).map(|n| println!("{n} imagens em {d}")),
             None => Err("uso: glove-arte icones <pasta>".into()),
         },
-        _ => Err("uso: glove-arte plymouth <pasta> | glove-arte icones <pasta>".into()),
+        Some("previa") => match args.get(1) {
+            Some(f) => previa(Path::new(f)).map(|n| println!("{n} ícones em {f}")),
+            None => Err("uso: glove-arte previa <arquivo.png>".into()),
+        },
+        _ => Err("uso: glove-arte plymouth <pasta> | glove-arte icones <pasta> | glove-arte previa <arquivo.png>".into()),
     };
     if let Err(e) = r {
         eprintln!("glove-arte: {e}");

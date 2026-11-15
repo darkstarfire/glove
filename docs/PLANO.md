@@ -908,4 +908,10 @@ panorâmica atravessando vários monitores e papel animado.
   mais 6% do Glove trocando a textura. A placa de vídeo decodifica (`-hwaccel auto`) o original e a
   conversão; a cópia pequena toca melhor no processador com uma thread (com a placa, 11%: trazer o
   quadro de volta da placa custa mais que decodificar um vídeo pequeno).
+- [x] 15.5 ISO pela integração contínua (M) — v0.12.37: a cada tag `v…`, o GitHub Actions
+  (`.github/workflows/iso.yml`) monta a ISO num contêiner Debian trixie privilegiado (`ci/iso.sh`:
+  dependências, Rust pelo rustup e `./glove-setup-tool.sh iso`), confere a versão do Cargo.toml com
+  a tag e publica a ISO, os `.deb` e o `SHA256SUMS` na release da versão (ISO acima de 2 GB vai em
+  partes). Rodado à mão, deixa os arquivos como artefato por 7 dias. `glove-arte previa` gera a
+  folha de amostra do tema de ícones (o preview do glove-icons, atualizado com os 89 ícones).
 

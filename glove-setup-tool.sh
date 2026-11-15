@@ -59,6 +59,12 @@ distro() {
     else echo other; fi
 }
 
+# The maintainer's e-mail for the packages: the Git one; in CI (no Git identity), the
+# author of the commit being packaged.
+maintainer_email() {
+    git config user.email 2>/dev/null || git log -1 --format=%ae 2>/dev/null || echo glove@localhost
+}
+
 # --- dependencies ---------------------------------------------------------------
 
 install_deps() {
@@ -335,7 +341,7 @@ package_deb() {
 Package: glove
 Version: $version
 Architecture: $a
-Maintainer: Fabio Carneiro <$(git config user.email 2>/dev/null || echo glove@localhost)>
+Maintainer: Fabio Carneiro <$(maintainer_email)>
 Installed-Size: $(size_kb "$tmp")
 Depends: $deps_deb
 Recommends: $rec_deb
@@ -392,7 +398,7 @@ package_glove_os() {
         echo "Package: glove-os"
         echo "Version: $version"
         echo "Architecture: all"
-        echo "Maintainer: Fabio Carneiro <$(git config user.email 2>/dev/null || echo glove@localhost)>"
+        echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
         echo "Installed-Size: $(size_kb "$tmp")"
         echo "Depends: glove (>= $version), base-files"
         echo "Recommends: plymouth, plymouth-label"

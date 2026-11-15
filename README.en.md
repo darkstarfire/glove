@@ -189,6 +189,10 @@ logs into Glove by itself and opens **Install Glove OS**, which copies the syste
 The script downloads Debian's official live-build and debootstrap into `iso/ferramentas` (other
 distributions' live-build is usually too old). Everything heavy stays in `iso/`, outside Git.
 
+**Ready-made ISO:** for every new version (tag `v…`), GitHub Actions builds the ISO on Debian 13 and
+publishes it, with the `.deb` packages and `SHA256SUMS`, on the [Releases](https://github.com/fabioaacarneiro/glove/releases) page
+([.github/workflows/iso.yml](.github/workflows/iso.yml); the build takes about an hour).
+
 ## Development session
 
 ```sh

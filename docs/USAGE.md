@@ -375,8 +375,9 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
 
 ## Installing Glove from the ISO
 
-1. **Build the ISO** (on the computer with the source code): `./glove-setup-tool.sh iso`. It goes to
-   `iso/glove-os-VERSION-amd64.iso`.
+1. **Download the ISO** for the version from the [Releases](https://github.com/fabioaacarneiro/glove/releases) page (GitHub builds one for
+   every version; check it with `sha256sum -c SHA256SUMS`) **or build it** (on the computer with the
+   source code): `./glove-setup-tool.sh iso`. It goes to `iso/glove-os-VERSION-amd64.iso`.
 2. **Try it in a virtual machine** before using it on a real computer: `./glove-setup-tool.sh iso test`
    (needs QEMU: `sudo apt install qemu-system-x86 ovmf`). The 32 GB virtual disk is
    `iso/disco-teste.qcow2`. GNOME Boxes and VirtualBox also open the ISO.

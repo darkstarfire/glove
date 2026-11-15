@@ -377,8 +377,9 @@ ligado:
 
 ## Instalar o Glove pela ISO
 
-1. **Montar a ISO** (no computador onde está o código): `./glove-setup-tool.sh iso`. Ela fica em
-   `iso/glove-os-VERSÃO-amd64.iso`.
+1. **Baixar a ISO** pronta da versão na página de [Releases](https://github.com/fabioaacarneiro/glove/releases) (o GitHub monta uma a cada
+   versão; confira com `sha256sum -c SHA256SUMS`) **ou montar** (no computador onde está o código):
+   `./glove-setup-tool.sh iso`. Ela fica em `iso/glove-os-VERSÃO-amd64.iso`.
 2. **Testar numa máquina virtual** antes de usar num computador de verdade:
    `./glove-setup-tool.sh iso testar` (precisa do QEMU: `sudo apt install qemu-system-x86 ovmf`). O
    disco virtual de 32 GB fica em `iso/disco-teste.qcow2`. GNOME Boxes e VirtualBox também abrem a ISO.
