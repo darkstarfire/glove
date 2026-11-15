@@ -1,8 +1,8 @@
-# Using Glove — new features (phase 10)
+# Using Glove — new features (phases 10 to 15)
 
 *Em português: [USO.md](USO.md)*
 
-This guide covers what arrived in phase 10 (v0.10.1 to v0.10.9): how to open each feature,
+This guide covers what arrived from phase 10 on (v0.10.1 to now): how to open each feature,
 what it does and its shortcuts. Shortcuts with **Super** use the Windows key; with Glove running
 in a window inside another desktop, **Alt** works as Super. Every shortcut can be changed in
 **Preferences ▸ Keyboard ▸ Keyboard shortcuts**.
@@ -384,7 +384,7 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
 3. **Write it to a USB stick** (erases the stick): `sudo dd if=iso/glove-os-VERSION-amd64.iso
    of=/dev/sdX bs=4M status=progress oflag=sync`, replacing `sdX` with the stick (check with `lsblk`).
 4. **Start the computer from the stick** (the computer's boot menu). The Glove live system logs in
-   by itself and opens **Install Glove**. You can use the live system before installing; the
+   by itself and opens **Install Glove OS**. You can use the live system before installing; the
    installer is also in Quick Search.
 
 The ISO looks like Glove OS from start to finish, with nothing to set up: the boot menu with the

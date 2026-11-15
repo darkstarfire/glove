@@ -39,7 +39,10 @@ use as páginas da [512pixels](https://512pixels.net/projects/aqua-screenshot-li
 6. Subir a versão (`version` em `[workspace.package]` do `Cargo.toml`) e criar a tag `vX.Y.Z`, também
    enviada ao GitHub. Esquema: **0.(fase).(etapa)**: `v0.9.0` = fases 1 a 9.9 completas; cada etapa da
    9.10 sobe o último número (9.10.1 → `v0.9.1`, …, 9.10.11 → `v0.9.11`); a Fase 10 começa em
-   `v0.10.0` (10.1 → `v0.10.1`…). Correções soltas entre etapas não mudam a versão.
+   `v0.10.0` (10.1 → `v0.10.1`…). Da Fase 11 em diante, as etapas seguem numa sequência só: a Fase 11 usou
+   `v0.11.x` e as fases 12 a 15 continuam em `v0.12.x` (cada etapa sobe o último número). Cada tag
+   publica a ISO e os pacotes na release do GitHub (`.github/workflows/iso.yml`). Correções soltas entre
+   etapas não mudam a versão.
 
 Legenda de esforço: **P** pequeno (horas), **M** médio (1–2 dias), **G** grande (vários dias).
 
@@ -703,7 +706,7 @@ visual gel. Cada uma será detalhada antes de começar.
 
 Um Editor de Texto bom o bastante para livro, trabalhos da faculdade, formulários e relatórios, sem
 precisar de um Word. RTF é o formato padrão (abre no Word, LibreOffice e TextEdit); `.txt` continua
-texto simples, com Formatar > Converter (Ctrl+Shift+T). Atalhos com Ctrl por enquanto (a troca para o
+texto simples, com Formatar > Converter em Texto Rico / Simples. Atalhos com Ctrl por enquanto (a troca para o
 Command do Mac, quando decidida, vale para todos os apps). O usuário testa a fase inteira no fim.
 
 - [x] 12.1 Base do texto rico (G) — v0.12.1 (glove-ui v0.2.14): estilo de cada trecho (fonte, tamanho, negrito, itálico, sublinhado,

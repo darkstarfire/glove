@@ -4,8 +4,8 @@
 
 A lightweight Linux desktop written in Rust, with a look inspired by the "gel" era of the
 2000s: translucent buttons, fine pinstripes, brushed metal, soft shadows and a magnifying
-Dock. All artwork is drawn in code (no image files) and is original: Mac OS X Tiger is the
-style reference, never copied.
+Dock. All artwork is original and drawn in code (Mac OS X Tiger is the style reference, never
+copied); the only ready-made images are the glove logo and the Glove OS wallpaper.
 
 The interface speaks **Portuguese and English** (it follows the system language) and new
 languages are added with a `.po` file — see [Languages](#languages).
@@ -13,7 +13,11 @@ languages are added with a `.po` file — see [Languages](#languages).
 ## Current state
 
 Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for the
-10.0–10.2 look). Phases 1 to 10 of the [plan](docs/PLANO.md) (in Portuguese) are done; phase 11 (installer and ISO) is being tested. How to use each feature: [docs/USAGE.md](docs/USAGE.md).
+10.0–10.2 look). Phases 1 to 15 of the [plan](docs/PLANO.md) (in Portuguese) are done: the whole era (1 to 9.16), phase 10 (beyond
+the era), the **Glove OS** installer and ISO (11), the document editor (12), simpler computers (13),
+screenshots with drawing (14) and modern wallpaper (15). Steps 13.3, 13.4 and 14.3 are still open,
+and the installer and ISO still need testing on real computers. How to use each feature:
+[docs/USAGE.md](docs/USAGE.md).
 
 **System (the `glove` compositor)**
 
@@ -34,8 +38,12 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
   and drop, in-place rename, Arrange By, Clean Up and View Options (Ctrl+J)
 - **Widget Dashboard** (F12): Clock, Calendar, Calculator, Weather (Open-Meteo), Note, System
   Monitor and Dictionary
-- **All Apps** (F4 or the Dock): every installed app full screen, in pages, with search and a
-  Utilities folder
+- **All Apps** (F4 or the rocket in the Dock): every installed app full screen, in pages, over the
+  blurred wallpaper, with search, folders (Utilities and your own) and drag-to-arrange (hold an
+  icon until they all wiggle)
+- **Wallpaper** the same on every display, one per display or as a **panorama** (one picture across
+  the displays, side by side or stacked), and **animated** (a video, played from a light cached
+  copy and paused when the screen is locked, on battery or with a full-screen app)
 - **Desktops** (Ctrl+Super+arrows; with Shift the window comes along), also in a strip in Exposé,
   where windows can be dragged from one desktop to another
 - **Notification center**: bubbles for app notifications (the standard Linux service, the one
@@ -48,7 +56,8 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
 - Accessibility: zoom, inverted colors, large cursor
 - Drag and drop between apps, text and file clipboard
 - Glove's Open/Save sheet also for other apps (FileChooser portal: Firefox, Chromium…)
-- **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes
+- **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes; selectable system icon theme
+- **Reduce effects** (Preferences ▸ Appearance), for simpler computers
 - Redraws only what changed: 0% CPU when idle
 
 **Session and login**
@@ -56,19 +65,20 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
 - Its own login screen on greetd (`glove-login`), with session choice; a code-drawn Plymouth
   splash; first-run assistant; Shut Down/Restart with countdown
 
-**Apps (all built with glove-kit and original artwork)**
+**Apps (all built with glove-ui and original artwork)**
 
 | App | What it does |
 |---|---|
 | Files | The Tiger file browser: metal, sidebar, columns/list/icons, preview, copy/move with progress, Trash, Get Info, smart folders, compress, eject, color labels, Open With, Connect to Server (smb, sftp, ftp, webdav) and Network |
 | Preferences | "Show All" grid with the era's panes (Appearance, Desktop & Screen Saver, Dock, Displays, Sound, Network, Power Saving, Keyboard, Mouse, Trackpad, Date & Time, Accounts, International, Startup Items, Accessibility, Terminal…) |
 | Terminal | Alacritty core: truecolor, nvim/htop, mouse, OSC 52, themes, Nerd Font |
-| Text Editor | Ruler, alignment, Find/Replace, undo, unsaved-changes warning |
-| Viewer | Pictures (PNG, JPEG, WebP) and PDF, thumbnails, zoom, rotate |
+| Text Editor | RTF documents (open in Word and LibreOffice): fonts, paragraphs and ruler, styles, lists, tables, pictures, pages with header, footer and footnotes, ABNT template, PDF export; plain text too; Find/Replace |
+| Viewer | Pictures (PNG, JPEG, WebP) and PDF, thumbnails, zoom, rotate; drawing on screenshots |
 | Browser | Opens the browser that fits the machine (NetSurf with little RAM, Firefox above) |
 | Mail | IMAP and SMTP with TLS, mailboxes, compose, reply and forward |
 | Calendar and Contacts | Month grid with events (.ics) and cards (vCard) |
-| Music and Video | Light library and player (pure Rust); video through mpv with its own controls |
+| Music | Library (the Music folder and any you add), Artists and Albums, playlists (M3U), shuffle and repeat; light pure-Rust player |
+| Video | mpv shows the picture, Video controls it: menus, subtitles, audio tracks, speed, resume where you left off |
 | Notes | Colored sticky notes, all in one process |
 | Dictionary | Free StarDict and DICT dictionaries |
 | Font Viewer and Characters | View, install and disable fonts; character map |
@@ -82,17 +92,27 @@ Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for
 | Photos | The Pictures folder as thumbnails by month, albums from subfolders and slideshow |
 | Recorder | Records voice to WAV with level and waveform; play, delete |
 | Messages | IRC chat (Libera.Chat by default, with TLS) in bubbles |
+| Install Glove OS | From the USB stick (the ISO) to the disk: the whole disk or alongside another system |
 
 Files, Text Editor and Terminal have **tabs**; Files has **Quick Look** (Space).
 
 ## Lightness
 
-All 32 apps are one executable (`glove-apps`; `glove-files`, `glove-prefs`… are links to it),
-so their code is shared in memory and on disk (166 MB → 44 MB), and font files are mapped
-instead of copied. With Files, Preferences and the welcome window open, the apps use about
-26 MB together. Idle, Glove uses 0.1% of one CPU core. Most of the compositor's memory is the
-Mesa OpenGL driver, a fixed cost of any accelerated compositor. Details (in Portuguese):
-[docs/MEMORIA.md](docs/MEMORIA.md).
+All 38 apps are one executable (`glove-apps`; `glove-files`, `glove-prefs`… are links to it),
+so their code is shared in memory and on disk (about 55 MB with the compositor and the portal),
+and font files are mapped instead of copied. Idle, Glove uses 0% CPU: it only redraws what changes.
+
+Each process's own memory (RssAnon), measured on 15/11/2026 in a real session (1920×1200 screen
+at scale 1.5):
+
+| Process | Memory |
+|---|---|
+| `glove` (compositor) | ~32 MB, including the video driver's heap (Mesa), textures and the wallpaper |
+| `glove-prefs` | ~4 MB |
+| `glove-calc` | ~2.6 MB |
+| `glove-term` | ~1.5 MB idle; 200,000 lines in 0.16 s |
+
+Details and how to measure (in Portuguese): [docs/MEMORIA.md](docs/MEMORIA.md).
 
 ## Running
 
@@ -216,6 +236,8 @@ Inside another desktop, Alt works as Super.
 | Super+H / Super+Alt+H | Hide the app / hide the others |
 | Super+↑ | Zoom |
 | Super+Tab | Switch apps |
+| Alt+Tab | Switch between the front app's windows |
+| Ctrl+Super+F | Full screen |
 | F12 | Widget Dashboard |
 | F4 | All Apps |
 | Ctrl+Super+← / → | Previous / next desktop (with Shift, takes the window) |
@@ -239,7 +261,8 @@ to English. Dates, number separators and app names follow the language.
 
 To add a language: copy `locales/en.po` to `locales/<code>.po` (for example `es.po`), translate
 the `msgstr` lines and put it in `~/.local/share/glove/locales/` to try it without rebuilding;
-to ship it, add it to `EMBUTIDOS` in `crates/i18n/src/lib.rs`. `cargo test -p glove-i18n`
+to ship it, leave the file in `locales/`: every `.po` there is built into the program (the
+`build.rs` of `glove-i18n`, in `ui/crates/i18n`). `cargo test -p glove-i18n`
 fails if any marked text has no English translation, and `tools/i18n.py` helps mark new texts.
 
 ## Configuration
@@ -256,9 +279,12 @@ crates/compositor  the compositor (`glove`)
 crates/apps        `glove-apps`: one executable for every app
 crates/portal      `glove-portal` (FileChooser portal) and `glove-escolher`
 crates/login       login screen (`glove-login`, on greetd; `--fake` to try it)
-crates/arte        `glove-arte`: Plymouth theme and the "Glove" icon theme
+crates/arte        `glove-arte`: Plymouth theme, the "Glove" icon theme and its preview sheet
+crates/energia     battery (library used by the compositor and Preferences)
+crates/instalador  Install Glove OS (`glove-instalador`)
 crates/…           one folder per app (files, prefs, term, editor, viewer, correio, agenda…)
-data/              session, greetd, Plymouth, portals and installers
+data/              session, greetd, Plymouth, GRUB, wallpapers, the Glove OS identity and the ISO
+ci/iso.sh          builds the ISO in continuous integration (.github/workflows/iso.yml)
 tools/i18n.py      helper to mark texts for translation
 ```
 

@@ -1,9 +1,9 @@
-# Como usar o Glove — recursos novos (Fase 10)
+# Como usar o Glove — recursos novos (Fases 10 a 15)
 
 *In English: [USAGE.md](USAGE.md)*
 
-Este guia explica o que chegou na Fase 10 (v0.10.1 a v0.10.9): como abrir cada recurso, o que
-ele faz e os atalhos. Os atalhos com **Super** usam a tecla do Windows; com o Glove aberto
+Este guia explica o que chegou da Fase 10 em diante (v0.10.1 até agora): como abrir cada recurso, o
+que ele faz e os atalhos. Os atalhos com **Super** usam a tecla do Windows; com o Glove aberto
 numa janela dentro de outro desktop, a tecla **Alt** faz o papel do Super. Todos os atalhos
 podem ser trocados em **Preferências ▸ Teclado ▸ Atalhos de teclado**.
 
@@ -386,7 +386,7 @@ ligado:
 3. **Gravar num pendrive** (apaga o pendrive): `sudo dd if=iso/glove-os-VERSÃO-amd64.iso of=/dev/sdX
    bs=4M status=progress oflag=sync`, trocando `sdX` pelo pendrive (confira com `lsblk`).
 4. **Ligar o computador pelo pendrive** (menu de boot do computador). O Glove ao vivo entra sozinho e
-   abre **Instalar o Glove**. Dá para usar o Glove ao vivo antes de instalar; o instalador também está
+   abre **Instalar o Glove OS**. Dá para usar o Glove ao vivo antes de instalar; o instalador também está
    na Busca Rápida.
 
 A ISO já sai com a cara do Glove OS do começo ao fim, sem nada para configurar: o menu de boot com o

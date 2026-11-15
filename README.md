@@ -4,13 +4,17 @@
 
 Ambiente gráfico leve para Linux, escrito em Rust, com visual inspirado na era
 "gel" dos anos 2000: botões translúcidos, listras finas, metal escovado, sombras
-suaves e um Dock com ampliação. Toda a arte é desenhada por código (sem imagens).
+suaves e um Dock com ampliação. Toda a arte é original e desenhada por código; as únicas imagens
+prontas são a logo da luva e o papel de parede do Glove OS.
 
 ## Estado atual
 
 Base visual e de comportamento: **Mac OS X 10.4 Tiger** (com o tema Listras para o visual 10.0–10.2).
-Fases 1 a 9 do [plano](docs/PLANO.md) feitas, incluindo as extras 9.10 a 9.15 (ícones realistas, leveza,
-instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (além da era) também. Como usar cada recurso: [docs/USO.md](docs/USO.md).
+Fases 1 a 15 do [plano](docs/PLANO.md) feitas: a era inteira (1 a 9.16, com a interface em **português e
+inglês**), a Fase 10 (além da era), o instalador e a ISO do **Glove OS** (11), o editor de documentos (12),
+computadores mais simples (13), captura com desenho (14) e papel de parede moderno (15). Ficam em aberto
+13.3, 13.4 e 14.3, e o instalador e a ISO ainda precisam ser testados em computadores de verdade. Como usar
+cada recurso: [docs/USO.md](docs/USO.md).
 
 **Sistema (compositor `glove`)**
 
@@ -31,8 +35,12 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (al�
   menus do Arquivos
 - **Painel de Widgets** (F12): Relógio, Calendário, Calculadora, Clima (Open-Meteo), Lembrete,
   Monitor e Dicionário sobre a tela escurecida, com a barra de widgets do "+"
-- **Todos os Apps** (F4 ou o Dock): todos os apps instalados em tela cheia, em páginas, com busca e a
-  pasta Utilitários
+- **Todos os Apps** (F4 ou o foguete no Dock): todos os apps instalados em tela cheia, em páginas, sobre
+  o papel de parede desfocado, com busca, pastas (a Utilitários e as que você criar) e arrumação
+  arrastando (segure um ícone até todos balançarem)
+- **Papel de parede** igual em todos os monitores, um por monitor ou em **panorama** (uma imagem
+  atravessando os monitores, lado a lado ou empilhados), e **animado** (um vídeo, tocado numa cópia leve
+  guardada em cache e pausado com a tela bloqueada, na bateria ou com app em tela cheia)
 - **Mesas virtuais** (Ctrl+Super+setas; com Shift a janela vai junto), também na faixa do Exposé, onde dá
   para arrastar janelas de uma mesa para outra
 - **Central de avisos**: balões das notificações dos apps (o serviço padrão do Linux, o do `notify-send`),
@@ -46,6 +54,7 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (al�
 - Arrastar e soltar entre apps, área de transferência de texto e de arquivos
 - Janela Abrir/Salvar do Glove também para outros apps (portal FileChooser: Firefox, Chromium…)
 - Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**; tema de ícones do sistema escolhível
+- **Reduzir efeitos** (Preferências ▸ Aparência), para computadores mais simples
 - Redesenha só o que mudou: 0% de CPU parado
 
 **Sessão e login**
@@ -53,19 +62,20 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (al�
 - Tela de login própria pelo greetd (`glove-login`), com escolha da sessão; splash do Plymouth
   desenhado por código; assistente de primeiro uso; Desligar/Reiniciar com contagem
 
-**Apps (todos com o glove-kit e arte própria)**
+**Apps (todos com a glove-ui e arte própria)**
 
 | App | O que faz |
 |---|---|
 | Arquivos | Finder do Tiger: metal, barra lateral, colunas/lista/ícones, prévia com zoom, copiar/mover com progresso, Lixo, Obter Informações, pastas inteligentes, compactar, ejetar (⏏ na barra lateral, ou arrastar o disco para o Lixo), rótulos de cor, Abrir com, Conectar ao Servidor (smb, sftp, ftp, webdav) e Rede, Preferências do Arquivos e Opções de Visualização |
 | Preferências | Grade "Mostrar Todos" com os painéis da era (Aparência, Mesa e Protetor, Dock, Monitores, Som, Rede, Energia, Teclado, Mouse, Trackpad, Data e Hora, Contas, Internacional, Itens de Início, Acesso Universal, Terminal…) |
 | Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font; arrastar um arquivo escreve o caminho |
-| Editor de Texto | Régua, alinhamento, Localizar/Substituir, desfazer, aviso de não salvo |
-| Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar |
+| Editor de Texto | Documentos em RTF (abre no Word e no LibreOffice): fontes, parágrafos e régua, estilos, listas, tabelas, imagens, páginas com cabeçalho, rodapé e notas, modelo ABNT, exportar PDF; também texto simples; Localizar/Substituir |
+| Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar; desenhar sobre as capturas de tela |
 | Navegador | Abre o navegador que cabe na máquina (NetSurf com pouca RAM, Firefox acima) |
 | Correio | IMAP e SMTP com TLS, caixas, escrever, responder e encaminhar |
 | Agenda e Contatos | Mês em grade com eventos (.ics) e fichas (vCard) |
-| Música e Vídeo | Biblioteca e tocador leve (Rust puro); vídeo pelo mpv com controles próprios |
+| Música | Biblioteca (a pasta Música e as que você juntar), Artistas e Álbuns, listas (M3U), aleatório e repetir; tocador leve em Rust puro |
+| Vídeo | O mpv mostra a imagem, o Vídeo controla: menus, legendas, faixas de áudio, velocidade, continuar de onde parou |
 | Lembretes | Notas adesivas coloridas, todas num processo só |
 | Dicionário | Dicionários livres StarDict e DICT |
 | Livro de Fontes e Caracteres | Ver, instalar e desativar fontes; mapa de caracteres |
@@ -79,34 +89,30 @@ instalador e pacotes, e a interface em **português e inglês**). A Fase 10 (al�
 | Fotos | A pasta Imagens em miniaturas por mês, álbuns pelas subpastas e apresentação |
 | Gravador | Grava a voz em WAV com nível e onda; ouvir, apagar |
 | Mensagens | Bate-papo no IRC (Libera.Chat por padrão, com TLS) em balões |
+| Instalar o Glove OS | Do pendrive (a ISO) para o disco: o disco inteiro ou ao lado de outro sistema |
 
 O Arquivos, o Editor e o Terminal têm **abas**; o Arquivos tem a **Olhada Rápida** (Espaço).
 
 ## Leveza
 
-Memória própria de cada processo (RssAnon), com tela 1920×1200 em escala 1.5:
+Os 38 apps são um executável só (`glove-apps`; `glove-files`, `glove-prefs`… são atalhos para ele): o
+código é dividido entre eles na memória e no disco (cerca de 55 MB com o compositor e o portal), e as
+fontes são mapeadas do arquivo em vez de copiadas. Parado, o Glove usa 0% do processador: só redesenha
+o que muda.
+
+Memória própria de cada processo (RssAnon), medida em 15/11/2026 numa sessão de verdade (tela 1920×1200
+em escala 1.5):
 
 | Processo | Memória |
 |---|---|
-| `glove` (compositor) | ~17 MB (+ bibliotecas do driver de vídeo, compartilhadas) |
-| `glove-prefs` | ~5 MB |
-| `glove-about` | ~3 MB |
-| `glove-calc` | ~3 MB, 0% de CPU parado |
-| `glove-edit` | ~8 MB com um arquivo de 400 KB (5 mil linhas), 0% de CPU parado |
-| `glove-files` | ~7 MB, 0% de CPU parado |
-| `glove-view` | ~20 MB com uma imagem de 1920×1200 (a imagem em si ocupa 9 MB); 0% de CPU parado |
-| `glove-term` | ~8 MB parado (~16 MB com histórico cheio); 0% de CPU parado; 200 mil linhas em 0,16 s |
-| `glove-notes` | ~4 MB por lembrete |
-| `glove-monitor` | ~7,5 MB, ~1% de CPU (lê os processos a cada 2 s) |
-| `glove-chars` | ~7 MB |
-| `glove-find` | ~7 MB |
-| `glove-disks` | ~4 MB |
-| `glove-chess` | ~5 MB |
-| `glove-shot` | ~4 MB |
-| `glove-clock` | ~4 MB, ~0,25% de CPU (só os ponteiros são redesenhados a cada segundo) |
+| `glove` (compositor) | ~32 MB, com o heap do driver de vídeo (Mesa), as texturas e o papel de parede |
+| `glove-prefs` | ~4 MB |
+| `glove-calc` | ~2,6 MB |
+| `glove-term` | ~1,5 MB parado; 200 mil linhas em 0,16 s |
 
-Regras para manter assim: fontes lidas sob demanda, peças da interface vão para a GPU sem cópia
-na RAM, buffers reaproveitados entre quadros e o alocador devolve memória ao sistema.
+Detalhes e como medir: [docs/MEMORIA.md](docs/MEMORIA.md). Regras para manter assim: fontes lidas sob
+demanda, peças da interface vão para a GPU sem cópia na RAM, buffers reaproveitados entre quadros e o
+alocador devolve memória ao sistema.
 
 ## Como rodar
 
@@ -231,6 +237,8 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 | Super+↑ | Zoom |
 | Ctrl+clique no Dock | Abre mais uma instância do app (o clique simples traz o que já está aberto) |
 | Super+Tab | Trocar de app: faixa de ícones no meio da tela (Tab/← → andam, Q encerra, H oculta, Esc cancela; soltar o Super troca) |
+| Alt+Tab | Trocar entre as janelas do app da frente |
+| Ctrl+Super+F | Tela cheia |
 | F12 | Painel de Widgets (de novo, Esc ou clique fora fecha) |
 | F4 | Todos os Apps (de novo, Esc ou clique fora fecha) |
 | Ctrl+Super+← / → | Mesa virtual anterior / próxima (com Shift, leva a janela) |
@@ -305,7 +313,8 @@ separador decimal e nomes dos apps seguem o idioma; o `glove-setup-tool.sh` tamb
 
 Para acrescentar um idioma: copie `locales/en.po` para `locales/<código>.po` (ex.: `es.po`),
 traduza as linhas `msgstr` e ponha em `~/.local/share/glove/locales/` para testar sem
-recompilar; para vir junto com o Glove, acrescente em `EMBUTIDOS` no `crates/i18n/src/lib.rs`.
+recompilar; para vir junto com o Glove, deixe o arquivo em `locales/`: todo `.po` dessa pasta entra no
+programa na compilação (o `build.rs` da `glove-i18n`, em `ui/crates/i18n`).
 `cargo test -p glove-i18n` falha se algum texto marcado ficar sem tradução em inglês, e
 `tools/i18n.py` ajuda a marcar textos novos.
 
@@ -338,7 +347,9 @@ crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`
 crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
 crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
-crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth e o tema de ícones "Glove": `glove-arte icones <pasta>`)
+crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-arte icones <pasta>` e a amostra dele com `glove-arte previa <arquivo.png>`)
+crates/energia     bateria (biblioteca usada pelo compositor e pelas Preferências)
+crates/instalador  Instalar o Glove OS (`glove-instalador`)
 crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
 crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
 crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)
@@ -353,8 +364,11 @@ crates/shot        Captura (`glove-shot`)            crates/arquivo    Utilitár
 crates/calc        Calculadora (`glove-calc`)        crates/clock      Relógio (`glove-clock`)
 crates/chess       Xadrez (`glove-chess`)            crates/ajuda      Ajuda (`glove-ajuda`)
 crates/about       Sobre o Glove (`glove-about`)       crates/chaves     Acesso às Chaves (`glove-chaves`)
-crates/utilrede    Utilitário de Rede (`glove-utilrede`)
-data/              sessão, greetd, Plymouth, portais e instaladores
+crates/utilrede    Utilitário de Rede (`glove-utilrede`) crates/copias      Cópias de Segurança (`glove-copias`)
+crates/central     Central de Apps (`glove-central`)  crates/fotos       Fotos (`glove-fotos`)
+crates/gravador    Gravador (`glove-gravador`)        crates/mensagens   Mensagens (`glove-mensagens`)
+data/              sessão, greetd, Plymouth, GRUB, papéis de parede, a identidade do Glove OS e a ISO
+ci/iso.sh          monta a ISO na integração contínua (.github/workflows/iso.yml)
 ```
 
 ## Próximas etapas
