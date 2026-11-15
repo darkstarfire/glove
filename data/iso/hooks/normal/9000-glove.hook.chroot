@@ -49,7 +49,10 @@ FIM
 
 # Sem o assistente de boas-vindas no sistema ao vivo (o instalador pergunta tudo).
 mkdir -p /etc/skel/.config/glove
-echo 'welcome_done = true' > /etc/skel/.config/glove/config.toml
+# Ao vivo, a tela que apaga ou o repouso não pedem senha ao voltar (a conta ao vivo
+# tem a senha "live", que ninguém sabe). O instalador apaga este arquivo: o sistema
+# instalado pede a senha, como deve.
+printf 'welcome_done = true\n\n[energy]\nrequire_password = false\n' > /etc/skel/.config/glove/config.toml
 
 # Flathub disponível para a Central de Apps.
 flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true

@@ -480,7 +480,8 @@ ligado:
 4. **Ligar o computador pelo pendrive** (menu de boot do computador). O Glove ao vivo entra sozinho e
    abre **Instalar o Glove OS**. Dá para usar o Glove ao vivo antes de instalar; o instalador também está
    na Busca Rápida. No sistema ao vivo, o usuário é `glove` e a senha é **`live`** (para o `sudo` e
-   para entrar pelo console); o `root` não tem senha.
+   para entrar pelo console, e para desbloquear se você bloquear a tela com Super+L); o `root` não tem
+   senha. No sistema ao vivo, a tela que apaga sozinha e o repouso não pedem senha ao voltar.
 
 A ISO já sai com a cara do Glove OS do começo ao fim, sem nada para configurar: o menu de boot com o
 papel de parede, a tela de início e de desligamento do sistema (Plymouth, com o tema do Glove) e a

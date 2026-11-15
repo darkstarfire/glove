@@ -475,7 +475,9 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
 4. **Start the computer from the stick** (the computer's boot menu). The Glove live system logs in
    by itself and opens **Install Glove OS**. You can use the live system before installing; the
    installer is also in Quick Search. On the live system the user is `glove` and the password is
-   **`live`** (for `sudo` and console logins); `root` has no password.
+   **`live`** (for `sudo`, console logins, and unlocking if you lock the screen with Super+L);
+   `root` has no password. On the live system, the screen blanking by itself and sleep do not ask
+   for a password when coming back.
 
 The ISO looks like Glove OS from start to finish, with nothing to set up: the boot menu with the
 wallpaper, the system's boot and shutdown screen (Plymouth, with the Glove theme) and the login

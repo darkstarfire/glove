@@ -1069,3 +1069,8 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   `chrome.peek` (0 a 1, 0,2 s, nada com Reduzir efeitos) desliza a barra de cima para baixo e o
   Dock (pelo `dock_pos`, junto com o `dock_hide`) de baixo para cima. Só no monitor principal (os
   outros não têm barra nem Dock). Testado no Glove aninhado com o Editor.
+
+- [x] 11.13 Ao vivo sem senha ao voltar (P) — v0.12.53: no teste num computador real, o sistema ao
+  vivo apagou a tela e pediu a senha (a `live`, que ninguém sabe). O modelo de configuração do ao
+  vivo (`/etc/skel/.config/glove/config.toml`, que o instalador apaga) leva
+  `[energy] require_password = false`; o Super+L continua pedindo.
