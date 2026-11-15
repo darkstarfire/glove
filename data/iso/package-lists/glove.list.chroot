@@ -56,7 +56,6 @@ firmware-intel-sound
 firmware-sof-signed
 firmware-cirrus
 firmware-iwlwifi
-firmware-ipw2x00
 firmware-realtek
 firmware-atheros
 firmware-ath9k-htc

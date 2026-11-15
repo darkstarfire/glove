@@ -1018,6 +1018,9 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
 - [x] 16.9.1 ISO "sleeper" (P) — v0.12.47: `--firmware-chroot false` e a lista de firmwares de uso
   diário (vídeo AMD/NVIDIA/Intel, Wi-Fi, Bluetooth e som); os de servidor (Netronome, Cavium, QLogic,
   Myricom, NetXtreme…) saem, uns 160 MB instalados a menos.
+  v0.12.49: a ISO da v0.12.47 não montou: o `firmware-ipw2x00` (Wi-Fi Intel PRO/Wireless de 2004)
+  pede para aceitar a licença numa pergunta do debconf, e na montagem não há quem responda (antes
+  ele vinha pelo `--firmware-chroot`, que aceita sozinho). Saiu da lista.
 - [x] 16.8 Instalador (P) — v0.12.46: botão "Preparar o disco com o Discos…" na página Disco; o
   instalador acompanha o Discos aberto por ele (tique de 1 s) e, quando ele fecha, relê os discos
   mantendo o escolhido. O caminho de instalar ao lado do Windows fica: Discos ▸ diminuir o NTFS ▸
