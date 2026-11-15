@@ -1147,5 +1147,12 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   apt, continua o Terminal.
 - [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
   apps (escolha em Aparência), sem perder o visual da época.
-- [ ] 20.15 Papéis de parede em gel, 4K (M): 20 com o logo e o nome do Glove OS em tamanhos e lugares
-  diferentes (5 para um monitor, 5 para dois lado a lado, 5 para dois empilhados e 5 ultrawide).
+- [x] 20.15 Papéis de parede em gel, 4K (M) — v0.12.58: `glove-arte papeis` desenha os 20 (fundo em
+  degradê, faixas de gel com o fio de luz e o halo desfocado, gotas, pontos de luz, cantos escuros
+  por monitor, a luva com sombra e o nome em Lato com o reflexo) em cinco cores e quatro formatos
+  (4K 3840×2160, ultrawide 5120×2160, dupla 7680×2160 e empilhada 3840×4320), JPEG 90 com um ruído
+  leve contra faixas, e miniaturas de 480 px em `mini/`. Nos panoramas a luva fica num monitor só.
+  Pacote à parte, `glove-papeis` (versão própria, 1.0: as atualizações do Glove não baixam as
+  imagens de novo), recomendado pelo glove-os e na ISO. Preferências: a coleção Imagens do Glove
+  rola, abre as miniaturas prontas, mostra o nome ("Gel Azul (dois monitores lado a lado)") e um
+  papel de dois monitores liga o panorama.

@@ -350,6 +350,12 @@ Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
   para com a tela bloqueada e com "Reduzir efeitos". O animado vale nos três modos (no panorama, um
   vídeo largo atravessa os monitores).
 - A Pasta Imagens aceita PNG, JPEG e WebP.
+- **Papéis em gel do Glove OS** (em Imagens do Glove; pacote `glove-papeis`, que já vem no Glove
+  OS): 20 imagens 4K com a luva e o nome, em cinco cores (Azul, Água, Grafite, Noite e Menta) e
+  quatro formatos: um monitor (3840×2160), ultrawide (5120×2160) e, para o panorama, dois monitores
+  lado a lado (7680×2160) ou empilhados (3840×4320). Com dois monitores, escolher um papel de dois
+  monitores já passa a mesa para o panorama; a luva fica sempre inteira num dos monitores, nunca na
+  emenda.
 
 ## Central de controle
 

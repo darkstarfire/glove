@@ -6,8 +6,13 @@
 //!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
 //!   glove-arte firefox <pasta>    tema do Glove para o Firefox (metal escovado, como o
 //!                                 Safari clássico): manifest.json e metal.png
+//!   glove-arte papeis <pasta> [logo.png] [só]
+//!                                 os 20 papéis de parede em gel do Glove OS (JPEG 4K: um
+//!                                 monitor, dois lado a lado, dois empilhados e ultrawide)
 //!   glove-arte previa <arquivo>   folha de amostra do tema de ícones (PNG): todos os ícones
 //!                                 a 128 px com o nome freedesktop embaixo (preview do glove-icons)
+
+mod papeis;
 
 use std::path::Path;
 
@@ -322,6 +327,10 @@ fn main() {
         Some("firefox") => match args.get(1) {
             Some(d) => firefox(Path::new(d)).map(|_| println!("tema do Firefox em {d}")),
             None => Err("uso: glove-arte firefox <pasta>".into()),
+        },
+        Some("papeis") => match args.get(1) {
+            Some(d) => papeis::papeis(Path::new(d), Path::new(args.get(2).map(String::as_str).unwrap_or("data/glove-os/glove-os.png")), args.get(3).map(String::as_str)),
+            None => Err("uso: glove-arte papeis <pasta> [logo.png] [só]".into()),
         },
         Some("previa") => match args.get(1) {
             Some(f) => previa(Path::new(f)).map(|n| println!("{n} ícones em {f}")),

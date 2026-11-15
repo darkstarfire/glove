@@ -481,6 +481,12 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
   `~/.cache/glove/papel`, no visible loss); with it the wallpaper uses about 5 times less CPU.
   It also pauses with the screen locked and with "Reduce effects". Animated works in all three
   modes (in panorama, a wide video spans the displays).
+- **Glove OS gel wallpapers** (in Glove Pictures; the `glove-papeis` package, included in Glove OS):
+  20 4K pictures with the glove and the name, in five colors (Blue, Aqua, Graphite, Night and Mint)
+  and four shapes: one display (3840×2160), ultrawide (5120×2160) and, for the panorama, two displays
+  side by side (7680×2160) or stacked (3840×4320). With two displays, picking a two-display
+  wallpaper switches the desktop to panorama; the glove always sits whole on one display, never on
+  the seam.
 - The Pictures folder accepts PNG, JPEG and WebP.
 
 ## Simpler computers (phase 13)

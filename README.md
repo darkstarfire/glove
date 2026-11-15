@@ -57,6 +57,8 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - **Papel de parede** igual em todos os monitores, um por monitor ou em **panorama** (uma imagem
   atravessando os monitores, lado a lado ou empilhados), e **animado** (um vídeo, tocado numa cópia leve
   guardada em cache e pausado com a tela bloqueada, na bateria ou com app em tela cheia)
+- **20 papéis em gel 4K** do Glove OS (`glove-papeis`): cinco cores, para um monitor, ultrawide e
+  panorama de dois monitores (lado a lado ou empilhados), desenhados por código pelo `glove-arte`
 - **Mesas virtuais** (Ctrl+Super+setas; com Shift a janela vai junto), também na faixa do Exposé, onde dá
   para arrastar janelas de uma mesa para outra
 - **Central de avisos**: balões das notificações dos apps (o serviço padrão do Linux, o do `notify-send`),

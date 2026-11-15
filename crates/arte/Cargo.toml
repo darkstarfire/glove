@@ -8,3 +8,4 @@ license.workspace = true
 [dependencies]
 glove-paint = { path = "../../ui/crates/paint" }
 png = "0.17"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }

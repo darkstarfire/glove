@@ -7,6 +7,9 @@ set -e
 cd "$(dirname "$0")"
 root_dir=$(pwd)
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+# The gel wallpapers package has its own version: it only changes when the art changes
+# (crates/arte/src/papeis.rs), so Glove updates don't download 17 MB of images again.
+papeis_version=1.0
 arch=$(uname -m)
 out_dir="$root_dir/pacotes"
 url="https://github.com/fabioaacarneiro/glove"
@@ -391,6 +394,40 @@ EOF
     msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
+# The glove-papeis package: the 20 gel wallpapers of Glove OS (4K: one display,
+# ultrawide, two side by side and two stacked), drawn by glove-arte at build time.
+package_papeis() {
+    has dpkg-deb || die "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
+    [ -x target/release/glove-arte ] || compile
+    tmp=$(mktemp -d)
+    g="$tmp/usr/share/glove/papeis/gel"
+    target/release/glove-arte papeis "$g" "$root_dir/data/glove-os/glove-os.png" >/dev/null
+    mkdir -p "$tmp/DEBIAN"
+    find "$tmp" -type d -exec chmod 755 {} +
+    chmod 644 "$g"/*.jpg "$g"/mini/*.jpg
+    {
+        echo "Package: glove-papeis"
+        echo "Version: $papeis_version"
+        echo "Architecture: all"
+        echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
+        echo "Installed-Size: $(size_kb "$tmp")"
+        echo "Enhances: glove"
+        echo "Section: x11"
+        echo "Priority: optional"
+        echo "Homepage: $url"
+        echo "Description: Glove OS gel wallpapers (4K)"
+        echo " Twenty gel-style wallpapers with the Glove OS glove and name, in five colors:"
+        echo " for one display (3840x2160), ultrawide (5120x2160) and, for the panorama"
+        echo " mode, two displays side by side (7680x2160) or stacked (3840x4320)."
+        echo " They show in Preferences > Desktop > Glove Pictures."
+    } > "$tmp/DEBIAN/control"
+    mkdir -p "$out_dir"
+    f="$out_dir/glove-papeis_${papeis_version}_all.deb"
+    dpkg-deb --root-owner-group -Zxz --build "$tmp" "$f" >/dev/null
+    rm -rf "$tmp"
+    msg "$(t "Pacote dos papéis de parede: $f" "Wallpapers package: $f")"
+}
+
 # The glove-os package: the identity of the Glove OS distro (name, logo, fastfetch
 # and neofetch, GRUB). Only for Glove OS (the ISO): the glove package alone,
 # installed on another distro, does not change its name.
@@ -463,7 +500,7 @@ FIM
         echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
         echo "Installed-Size: $(size_kb "$tmp")"
         echo "Depends: glove (>= $version), base-files"
-        echo "Recommends: plymouth, plymouth-label"
+        echo "Recommends: plymouth, plymouth-label, glove-papeis"
         echo "Section: misc"
         echo "Priority: optional"
         echo "Homepage: $url"
@@ -848,11 +885,12 @@ build_iso() {
     # live-build checks for the system's debootstrap even when it uses the downloaded one.
     [ -x /usr/sbin/debootstrap ] || die "$(t "falta o debootstrap (sudo apt install debootstrap)" "debootstrap is missing (sudo apt install debootstrap)")"
     # GLOVE_USAR_PACOTES: the .deb files of this version are already in pacotes/ (CI).
-    if [ -n "${GLOVE_USAR_PACOTES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ]; then
+    if [ -n "${GLOVE_USAR_PACOTES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ] && [ -f "$out_dir/glove-papeis_${papeis_version}_all.deb" ]; then
         msg "$(t "Usando os pacotes prontos em $out_dir" "Using the ready packages in $out_dir")"
     else
         package_deb
         package_glove_os
+        package_papeis
     fi
     base="$root_dir/iso"
     tools_dir="$base/ferramentas"
@@ -908,8 +946,8 @@ build_iso() {
         printf '#!/bin/sh\n# The Glove repository was offline when this ISO was built.\nrm -f /etc/apt/sources.list.d/glove-os.sources\n' > config/hooks/normal/0050-sem-repositorio.hook.chroot
         chmod +x config/hooks/normal/0050-sem-repositorio.hook.chroot
     fi
-    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb
-    cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" config/packages.chroot/
+    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb config/packages.chroot/glove-papeis_*.deb
+    cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" "$out_dir/glove-papeis_${papeis_version}_all.deb" config/packages.chroot/
     # Boot menu (BIOS and UEFI): the Glove OS wallpaper as the background image, and
     # the menu placed below the glove (live-build copies config/bootloaders over its own).
     mkdir -p config/includes.binary config/bootloaders
@@ -1035,6 +1073,7 @@ case "${1:-}" in
     uninstall|remove|desinstalar|remover) uninstall_glove "$2" ;;
     deb) package_deb ;;
     glove-os) package_glove_os ;;
+    papeis|wallpapers) package_papeis ;;
     slackware|slack|tgz) package_slackware ;;
     rpm|fedora) package_rpm ;;
     arch|pacman) package_arch ;;
