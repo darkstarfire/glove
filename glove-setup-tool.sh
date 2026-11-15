@@ -813,8 +813,13 @@ build_iso() {
     has sudo || die "$(t "falta o sudo" "sudo is missing")"
     # live-build checks for the system's debootstrap even when it uses the downloaded one.
     [ -x /usr/sbin/debootstrap ] || die "$(t "falta o debootstrap (sudo apt install debootstrap)" "debootstrap is missing (sudo apt install debootstrap)")"
-    package_deb
-    package_glove_os
+    # GLOVE_USAR_PACOTES: the .deb files of this version are already in pacotes/ (CI).
+    if [ -n "${GLOVE_USAR_PACOTES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ]; then
+        msg "$(t "Usando os pacotes prontos em $out_dir" "Using the ready packages in $out_dir")"
+    else
+        package_deb
+        package_glove_os
+    fi
     base="$root_dir/iso"
     tools_dir="$base/ferramentas"
     mkdir -p "$tools_dir"
@@ -863,6 +868,12 @@ build_iso() {
     cp -r "$root_dir/data/iso/package-lists/." config/package-lists/
     mkdir -p config/hooks/normal config/packages.chroot
     cp -r "$root_dir/data/iso/hooks/normal/." config/hooks/normal/
+    # GLOVE_SEM_REPOSITORIO: the Glove apt repository is not online (a fork without the
+    # signing key, Pages off): the image goes without it, or apt would stop the build.
+    if [ -n "${GLOVE_SEM_REPOSITORIO:-}" ]; then
+        printf '#!/bin/sh\n# The Glove repository was offline when this ISO was built.\nrm -f /etc/apt/sources.list.d/glove-os.sources\n' > config/hooks/normal/0050-sem-repositorio.hook.chroot
+        chmod +x config/hooks/normal/0050-sem-repositorio.hook.chroot
+    fi
     rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb
     cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" config/packages.chroot/
     # Boot menu (BIOS and UEFI): the Glove OS wallpaper as the background image, and

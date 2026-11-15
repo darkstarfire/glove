@@ -1,7 +1,9 @@
-# Builds the Glove OS ISO and the .deb packages for every version tag (v0.12.37…)
-# and publishes them on the version's GitHub release. It can also be started by hand
-# (Actions → ISO do Glove OS → Run workflow): then the files are only kept as the
-# run's artifacts, without a release.
+# A cada tag de versão (v0.12.37…): os pacotes .deb, o repositório apt do Glove OS
+# (GitHub Pages, assinado) e a ISO, publicados na release da versão. Nessa ordem: a
+# ISO já traz o repositório configurado (pacote glove-os), e o apt da montagem lê o
+# repositório, que então precisa estar no ar.
+# Também pode ser rodado à mão (Actions → ISO do Glove OS → Run workflow): os arquivos
+# ficam como artefatos da execução, sem release nem repositório.
 name: ISO do Glove OS
 
 on:
@@ -17,18 +19,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  iso:
+  # 1. Os pacotes glove e glove-os, compilados no Debian trixie (a base da ISO).
+  pacotes:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 90
     steps:
-      # The runner comes with ~14 GB free; the build (Rust + the image) needs more.
-      - name: Liberar espaço em disco
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
-                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
-          sudo docker image prune -af >/dev/null || true
-          df -h /
-
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -40,70 +35,20 @@ jobs:
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::Cargo.toml diz $v, mas a tag é $GITHUB_REF_NAME"; exit 1; }
 
-      # Inside Debian trixie (the ISO's base) and privileged (live-build mounts /proc
-      # and /dev in the image's chroot).
-      - name: Montar a ISO (Debian trixie)
-        run: docker run --rm --privileged -v "$PWD:/src" -w /src debian:trixie sh ci/iso.sh
+      - name: Compilar e empacotar (Debian trixie)
+        run: docker run --rm -v "$PWD:/src" -w /src debian:trixie sh ci/pacotes.sh
 
-      - name: Preparar os arquivos
-        run: |
-          sudo chown -R "$(id -u):$(id -g)" iso pacotes
-          mkdir saida
-          mv iso/glove-os-*-amd64.iso pacotes/*.deb saida/
-          cd saida
-          # Release assets are limited to 2 GiB each: split a bigger ISO in parts.
-          for f in *.iso; do
-            if [ "$(stat -c %s "$f")" -gt 2000000000 ]; then
-              sha256sum "$f" > "$f.sha256"
-              split -b 1900M -d "$f" "$f.part"
-              rm "$f"
-            fi
-          done
-          sha256sum * | grep -v '\.sha256$' > SHA256SUMS
-          ls -lh
-
-      # Os .deb para o trabalho do repositório apt (abaixo).
-      - name: Guardar os pacotes para o repositório
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: pacotes
-          path: saida/*.deb
-          retention-days: 3
-
-      - name: Guardar como artefato (execução manual)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: glove-os
-          path: saida/
+          path: pacotes/*.deb
           retention-days: 7
 
-      - name: Publicar na release da versão
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag=$GITHUB_REF_NAME
-          if ! gh release view "$tag" >/dev/null 2>&1; then
-            # The notes: the version's commit message (without the co-author line).
-            msg=$(git log -1 --format=%B | grep -v '^Co-Authored-By:' || true)
-            cat > notas.md <<EOF
-          $msg
-
-          **Glove OS (ISO ao vivo, amd64):** grave num pendrive com
-          \`sudo dd if=glove-os-${tag#v}-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync\`
-          (apaga o pendrive). Os pacotes \`.deb\` servem para instalar o Glove num Debian/Ubuntu.
-          Confira os arquivos com \`sha256sum -c SHA256SUMS\`.
-          EOF
-            gh release create "$tag" --title "Glove $tag" --notes-file notas.md --verify-tag
-          fi
-          gh release upload "$tag" saida/* --clobber
-
-  # O repositório apt do Glove OS (atualizações do glove e do glove-os sem esperar o
-  # Debian): GitHub Pages, assinado com a chave do segredo APT_SIGNING_KEY. Sem o
-  # segredo (ou sem o Pages ligado), este trabalho não publica e a ISO sai do mesmo jeito.
+  # 2. O repositório apt (atualizações do glove e do glove-os sem esperar o Debian):
+  # assinado com o segredo APT_SIGNING_KEY e publicado no GitHub Pages. Sem o segredo
+  # (ou sem o Pages), não publica; a ISO sai do mesmo jeito.
   repositorio:
-    needs: iso
+    needs: pacotes
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -143,7 +88,7 @@ jobs:
           KEY: ${{ secrets.APT_SIGNING_KEY }}
         run: |
           set -e
-          sudo apt-get install -y --no-install-recommends apt-utils gnupg >/dev/null
+          sudo apt-get install -y --no-install-recommends apt-utils gnupg jq >/dev/null
           export GNUPGHOME="$(mktemp -d)"
           echo "$KEY" | gpg --batch --import
           r=site
@@ -186,3 +131,90 @@ jobs:
         id: deploy
         if: steps.chave.outputs.ok == 'true'
         uses: actions/deploy-pages@v4
+
+  # 3. A ISO, com os pacotes do passo 1 (sem compilar de novo).
+  iso:
+    needs: [pacotes, repositorio]
+    if: ${{ always() && needs.pacotes.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Liberar espaço em disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker image prune -af >/dev/null || true
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacotes
+          path: pacotes
+
+      # O repositório do Glove no ar? Se não (fork sem a chave, Pages desligado), a ISO
+      # sai sem ele configurado, em vez de o apt da montagem parar no erro.
+      - name: Conferir o repositório do Glove
+        id: repo
+        run: |
+          if curl -fsS --max-time 20 https://fabioaacarneiro.github.io/glove/dists/glove/InRelease >/dev/null; then
+            echo "sem=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Repositório do Glove fora do ar: a ISO sai sem ele."
+            echo "sem=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Inside Debian trixie (the ISO's base) and privileged (live-build mounts /proc
+      # and /dev in the image's chroot).
+      - name: Montar a ISO (Debian trixie)
+        run: docker run --rm --privileged -e GLOVE_USAR_PACOTES=1 -e GLOVE_SEM_REPOSITORIO=${{ steps.repo.outputs.sem }} -v "$PWD:/src" -w /src debian:trixie sh ci/iso.sh
+
+      - name: Preparar os arquivos
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" iso pacotes
+          mkdir saida
+          mv iso/glove-os-*-amd64.iso pacotes/*.deb saida/
+          cd saida
+          # Release assets are limited to 2 GiB each: split a bigger ISO in parts.
+          for f in *.iso; do
+            if [ "$(stat -c %s "$f")" -gt 2000000000 ]; then
+              sha256sum "$f" > "$f.sha256"
+              split -b 1900M -d "$f" "$f.part"
+              rm "$f"
+            fi
+          done
+          sha256sum * | grep -v '\.sha256$' > SHA256SUMS
+          ls -lh
+
+      - name: Guardar como artefato (execução manual)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: glove-os
+          path: saida/
+          retention-days: 7
+
+      - name: Publicar na release da versão
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$GITHUB_REF_NAME
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            # The notes: the version's commit message (without the co-author line).
+            msg=$(git log -1 --format=%B | grep -v '^Co-Authored-By:' || true)
+            cat > notas.md <<EOF
+          $msg
+
+          **Glove OS (ISO ao vivo, amd64):** grave num pendrive com
+          \`sudo dd if=glove-os-${tag#v}-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync\`
+          (apaga o pendrive), ou com o Discos do Glove (Disco Inicializável…). Os pacotes \`.deb\`
+          servem para instalar o Glove num Debian/Ubuntu. Confira os arquivos com \`sha256sum -c SHA256SUMS\`.
+          EOF
+            gh release create "$tag" --title "Glove $tag" --notes-file notas.md --verify-tag
+          fi
+          gh release upload "$tag" saida/* --clobber

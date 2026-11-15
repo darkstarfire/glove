@@ -1051,5 +1051,11 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   instalada e nova, o que há de novo, Atualizar o Glove (só o índice do repositório do Glove e
   `apt-get install --only-upgrade glove glove-os`, com a senha pela folha do sudo) e Encerrar
   Sessão. Fora do Glove OS, Adicionar o Repositório do Glove. `GLOVE_REPO` troca o endereço.
+- [x] 17.1.1 Ordem da CI (P): a ISO da v0.12.50 falhou porque o pacote glove-os já traz o
+  repositório e o apt da montagem tentou lê-lo antes de ele existir. Agora são três trabalhos:
+  `pacotes` (compila e gera os .deb no trixie, `ci/pacotes.sh`), `repositorio` (publica) e `iso`
+  (usa os mesmos .deb com `GLOVE_USAR_PACOTES`, sem compilar de novo). Com o repositório fora do ar
+  (fork sem a chave), `GLOVE_SEM_REPOSITORIO` tira o glove-os.sources da imagem em vez de falhar.
 - [ ] 17.3 Ligar no GitHub (usuário): o segredo `APT_SIGNING_KEY` e o Pages com origem "GitHub
-  Actions" (o token do gh desta máquina não tem permissão para os dois).
+  Actions" (feitos em 15/11/2026), e no ambiente `github-pages` a regra de tag `v*` (ele só
+  aceitava publicar do ramo master). O token do gh desta máquina não tem permissão para isso.
