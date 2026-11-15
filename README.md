@@ -192,7 +192,7 @@ de outras distribuições costuma ser velho demais). Tudo o que é pesado fica e
 
 **ISO pronta:** a cada versão nova (tag `v…`), o GitHub Actions monta a ISO num Debian 13 e a publica,
 com os pacotes `.deb` e o `SHA256SUMS`, na página de [Releases](https://github.com/fabioaacarneiro/glove/releases)
-([.github/workflows/iso.yml](.github/workflows/iso.yml); a montagem leva perto de uma hora).
+([.github/workflows/iso.yml](.github/workflows/iso.yml); a montagem leva uns 15 minutos).
 
 ## Sessão própria (escolher "Glove" na tela de login)
 

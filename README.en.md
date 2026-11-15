@@ -191,7 +191,7 @@ distributions' live-build is usually too old). Everything heavy stays in `iso/`,
 
 **Ready-made ISO:** for every new version (tag `v…`), GitHub Actions builds the ISO on Debian 13 and
 publishes it, with the `.deb` packages and `SHA256SUMS`, on the [Releases](https://github.com/fabioaacarneiro/glove/releases) page
-([.github/workflows/iso.yml](.github/workflows/iso.yml); the build takes about an hour).
+([.github/workflows/iso.yml](.github/workflows/iso.yml); the build takes about 15 minutes).
 
 ## Development session
 
