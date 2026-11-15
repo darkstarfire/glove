@@ -18,6 +18,7 @@ mod papel;
 mod mesas;
 mod lock;
 mod extras;
+mod controle;
 mod forcequit;
 mod menus;
 mod minimize;

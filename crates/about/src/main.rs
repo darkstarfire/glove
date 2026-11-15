@@ -11,11 +11,10 @@ struct About {
     processor: String,
 }
 
-/// No Glove OS (`NAME="Glove OS"` no os-release), a base dele: "Debian 13".
-fn glove_os() -> Option<String> {
-    let text = std::fs::read_to_string("/etc/os-release").ok()?;
-    let get = |k: &str| text.lines().find_map(|l| l.strip_prefix(&format!("{k}="))).map(|v| v.trim_matches('"').to_string());
-    (get("NAME")? == "Glove OS").then(|| format!("Debian {}", get("VERSION_ID").unwrap_or_default()).trim().to_string())
+/// O sistema é o Glove OS (`NAME="Glove OS"` no os-release)?
+fn glove_os() -> bool {
+    let text = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    text.lines().any(|l| l.trim() == "NAME=\"Glove OS\"" || l.trim() == "NAME=Glove OS")
 }
 
 impl App for About {
@@ -32,11 +31,9 @@ impl App for About {
             let tw = ui.text_width(t, px, bold);
             ui.fonts.draw(ui.c, t, (w - tw) / 2.0, y, px, bold, c);
         };
-        // No Glove OS, o nome do sistema e a base Debian; em outra distro, só a área de trabalho.
-        let (name, version) = match glove_os() {
-            Some(base) => ("Glove OS", tr!("Versão {} (base {})", env!("CARGO_PKG_VERSION"), base)),
-            None => ("Glove", tr!("Versão {}", env!("CARGO_PKG_VERSION"))),
-        };
+        // No Glove OS, o nome da distro; em outra distro, o da área de trabalho.
+        let name = if glove_os() { "Glove OS" } else { "Glove" };
+        let version = tr!("Versão {}", env!("CARGO_PKG_VERSION"));
         center(ui, name, 150.0, 30.0, true, rgba(20, 20, 20, 255));
         center(ui, &version, 170.0, 11.0, false, rgba(60, 60, 60, 255));
         center(ui, &tr!("Memória: {}", self.memory), 202.0, 13.0, false, rgba(20, 20, 20, 255));

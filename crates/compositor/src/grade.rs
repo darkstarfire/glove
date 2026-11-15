@@ -424,6 +424,7 @@ impl Glove {
         self.close_search();
         self.close_dashboard();
         self.close_volume_slider();
+        self.close_control();
         // O Dock volta ao tamanho normal (o mouse agora é da grade).
         if self.chrome.dock_hover_x.take().is_some() {
             self.chrome.dock_hover = None;

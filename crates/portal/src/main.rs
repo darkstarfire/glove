@@ -124,6 +124,63 @@ impl FileChooser {
     }
 }
 
+/// O "gerenciador de arquivos" do sistema (org.freedesktop.FileManager1): o
+/// "Mostrar na pasta" do Firefox, do VS Code, do Chromium… abre o Arquivos do Glove.
+struct FileManager;
+
+/// file:///home/a%20b → /home/a b
+fn uri_path(uri: &str) -> Option<PathBuf> {
+    let rest = uri.strip_prefix("file://")?;
+    let rest = rest.find('/').map(|i| &rest[i..]).unwrap_or(rest);
+    let bytes = rest.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(b) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).ok()?, 16) {
+                out.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    use std::os::unix::ffi::OsStringExt;
+    Some(PathBuf::from(std::ffi::OsString::from_vec(out)))
+}
+
+fn files(args: &[&std::ffi::OsStr]) {
+    let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-files"))).filter(|p| p.exists()).unwrap_or_else(|| "glove-files".into());
+    if let Ok(mut c) = std::process::Command::new(exe).args(args).spawn() {
+        std::thread::spawn(move || c.wait());
+    }
+}
+
+#[zbus::interface(name = "org.freedesktop.FileManager1")]
+impl FileManager {
+    #[zbus(name = "ShowFolders")]
+    fn show_folders(&self, uris: Vec<String>, _startup_id: &str) {
+        for p in uris.iter().filter_map(|u| uri_path(u)) {
+            files(&[p.as_os_str()]);
+        }
+    }
+
+    #[zbus(name = "ShowItems")]
+    fn show_items(&self, uris: Vec<String>, _startup_id: &str) {
+        for p in uris.iter().filter_map(|u| uri_path(u)) {
+            files(&[std::ffi::OsStr::new("--mostrar"), p.as_os_str()]);
+        }
+    }
+
+    #[zbus(name = "ShowItemProperties")]
+    fn show_item_properties(&self, uris: Vec<String>, _startup_id: &str) {
+        for p in uris.iter().filter_map(|u| uri_path(u)) {
+            files(&[std::ffi::OsStr::new("--info"), p.as_os_str()]);
+        }
+    }
+}
+
 fn downloads() -> Option<PathBuf> {
     let h = PathBuf::from(std::env::var_os("HOME")?);
     let text = std::fs::read_to_string(h.join(".config/user-dirs.dirs")).unwrap_or_default();
@@ -137,12 +194,33 @@ fn downloads() -> Option<PathBuf> {
 }
 
 fn main() -> zbus::Result<()> {
-    let _conn = zbus::blocking::connection::Builder::session()?
-        .name("org.freedesktop.impl.portal.desktop.glove")?
-        .serve_at("/org/freedesktop/portal/desktop", FileChooser)?
-        .build()?;
+    // Os dois serviços, cada um na sua conexão: o D-Bus pode iniciar este programa por
+    // qualquer um deles, e o outro nome pode já estar com outro programa (o Nautilus
+    // atende o FileManager1 noutros desktops). O que não der, fica de fora.
+    let chooser = zbus::blocking::connection::Builder::session()?
+        .name("org.freedesktop.impl.portal.desktop.glove")
+        .and_then(|b| b.serve_at("/org/freedesktop/portal/desktop", FileChooser))
+        .and_then(|b| b.build());
+    let manager = zbus::blocking::connection::Builder::session()?
+        .name("org.freedesktop.FileManager1")
+        .and_then(|b| b.serve_at("/org/freedesktop/FileManager1", FileManager))
+        .and_then(|b| b.build());
+    if chooser.is_err() && manager.is_err() {
+        return chooser.map(|_| ());
+    }
+    let _keep = (chooser, manager);
     // O D-Bus inicia este programa quando precisa; ele fica atendendo.
     loop {
         std::thread::park();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn caminho_do_uri() {
+        assert_eq!(super::uri_path("file:///home/ana/Downloads/code%201.98.deb"), Some("/home/ana/Downloads/code 1.98.deb".into()));
+        assert_eq!(super::uri_path("file://localhost/tmp/a%C3%A7%C3%A3o"), Some("/tmp/ação".into()));
+        assert_eq!(super::uri_path("https://exemplo.com/x"), None);
     }
 }

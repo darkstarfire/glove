@@ -12,9 +12,9 @@ src=/usr/lib/os-release.debian
 versao=$(cat /usr/share/glove-os/versao 2>/dev/null || echo "")
 # Os valores do Debian (VERSION_ID, VERSION_CODENAME...).
 . "$src"
-base="Debian ${VERSION_ID:-}"
-pretty="Glove OS ${versao} (${base} ${VERSION_CODENAME:-})"
-pretty=$(echo "$pretty" | sed 's/  */ /g; s/ )/)/')
+# O nome que aparece é só o da distro: "Glove OS 0.12.55" (a base Debian continua
+# nos outros campos, que os programas usam, mas não aparece para as pessoas).
+pretty=$(echo "Glove OS ${versao}" | sed 's/  */ /g; s/ *$//')
 tmp=/usr/lib/os-release.glove-os.tmp
 {
     echo "PRETTY_NAME=\"$pretty\""
@@ -32,5 +32,5 @@ else
     rm -f "$tmp"
 fi
 # Texto antes do login no console e por rede.
-printf 'Glove OS %s (%s) \\n \\l\n\n' "$versao" "$base" > /etc/issue
-printf 'Glove OS %s (%s)\n' "$versao" "$base" > /etc/issue.net
+printf 'Glove OS %s \\n \\l\n\n' "$versao" > /etc/issue
+printf 'Glove OS %s\n' "$versao" > /etc/issue.net

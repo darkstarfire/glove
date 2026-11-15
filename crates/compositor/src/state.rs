@@ -144,6 +144,8 @@ pub struct Glove {
     pub papel: crate::papel::Papel,
     /// Tela cheia: o mouse encostou no alto e a barra de menu apareceu.
     pub bar_peek: bool,
+    /// A central de controle aberta.
+    pub control: Option<crate::controle::ControlPanel>,
     /// Gesto do touchpad em andamento.
     pub gesto: Option<crate::gestos::Gesto>,
     /// Avisos (notificações) e a central.
@@ -291,6 +293,7 @@ impl Glove {
             grade: Default::default(),
             papel: Default::default(),
             bar_peek: false,
+            control: None,
             gesto: None,
             avisos: Default::default(),
             mesas: Default::default(),
@@ -689,6 +692,10 @@ pub fn export_session_env(wayland: &std::ffi::OsStr, xdisplay: Option<u32>) {
             let _ = std::process::Command::new("systemctl").args(["--user", "import-environment"]).args(&names).status();
         }
         if first {
+            // As pastas padrão da conta (Downloads, Imagens…), no idioma da sessão: sem
+            // elas, a barra lateral do Arquivos não mostra os atalhos de sempre.
+            let _ = std::process::Command::new("xdg-user-dirs-update").status();
+            gtk_window_buttons();
             write_portals_conf();
             // Portais de uma sessão anterior (o systemd do usuário continua de pé
             // entre logins) guardam a tela velha: saem e voltam sob demanda.
@@ -729,7 +736,40 @@ fn setup_portal_dir() -> Option<std::path::PathBuf> {
         services.join("org.freedesktop.impl.portal.desktop.glove.service"),
         format!("[D-BUS Service]\nName=org.freedesktop.impl.portal.desktop.glove\nExec={}\n", exe.display()),
     );
+    // "Mostrar na pasta" dos apps (Firefox, VS Code…): o Arquivos do Glove.
+    let _ = std::fs::write(services.join("org.freedesktop.FileManager1.service"), format!("[D-BUS Service]\nName=org.freedesktop.FileManager1\nExec={}\n", exe.display()));
     Some(dir)
+}
+
+/// Os botões das janelas que se desenham sozinhas (GTK: Firefox, apps do GNOME):
+/// fechar, minimizar e maximizar à esquerda, como no Glove. Sem isso o GTK mostra só
+/// o de fechar. Não mexe numa escolha que a pessoa já tenha feito.
+fn gtk_window_buttons() {
+    const LAYOUT: &str = "close,minimize,maximize:";
+    let Some(base) = std::env::var_os("XDG_CONFIG_HOME").map(std::path::PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config"))) else { return };
+    for v in ["gtk-3.0", "gtk-4.0"] {
+        let file = base.join(v).join("settings.ini");
+        let text = std::fs::read_to_string(&file).unwrap_or_default();
+        if text.contains("gtk-decoration-layout") {
+            continue;
+        }
+        let new = if text.contains("[Settings]") {
+            text.replacen("[Settings]", &format!("[Settings]\ngtk-decoration-layout={LAYOUT}"), 1)
+        } else {
+            format!("{text}{}[Settings]\ngtk-decoration-layout={LAYOUT}\n", if text.is_empty() || text.ends_with('\n') { "" } else { "\n" })
+        };
+        if std::fs::create_dir_all(file.parent().unwrap()).is_ok() {
+            let _ = std::fs::write(&file, new);
+        }
+    }
+    // Pelo portal, os apps GTK 4 e o Firefox também leem o do GNOME (se ainda for o padrão).
+    let get = std::process::Command::new("gsettings").args(["get", "org.gnome.desktop.wm.preferences", "button-layout"]).output();
+    if let Ok(o) = get {
+        let cur = String::from_utf8_lossy(&o.stdout).trim().trim_matches('\'').to_string();
+        if o.status.success() && (cur == "appmenu:close" || cur == ":close" || cur.is_empty()) {
+            let _ = std::process::Command::new("gsettings").args(["set", "org.gnome.desktop.wm.preferences", "button-layout", LAYOUT]).status();
+        }
+    }
 }
 
 /// Quais portais o Glove usa (`glove-portals.conf`): o Glove para escolher arquivo,

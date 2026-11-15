@@ -632,7 +632,7 @@ struct Files {
 impl Files {
     fn new(start: PathBuf) -> Self {
         Self {
-            view: View::Columns,
+            view: View::List,
             columns: vec![start.clone()],
             base: start,
             selected: None,
@@ -1775,6 +1775,9 @@ impl Files {
                 continue;
             }
             let resp = ui.hit(Rect::new(r.x, top, r.w - 1.0, bot - top));
+            // O nome inteiro, quando não coube na coluna.
+            let shown = glove_config::arquivos::shown_name(&e.name, e.kind == Kind::Folder, self.cfg.show_extensions);
+            ui.tooltip_if_cut(Rect::new(r.x, top, r.w - 1.0, bot - top), &shown, 12.0, false, r.w - 44.0);
             if resp.pressed {
                 // Apertar num dos vários escolhidos não desfaz a seleção (pode ser
                 // o começo de arrastar todos); sem arrastar, vira seleção única ao soltar.
@@ -2033,7 +2036,9 @@ impl Files {
         let mut state = TableState::sorted_by(self.list_sort.0, self.list_sort.1);
         state.scroll = *self.scroll.get(&dir).unwrap_or(&0.0);
         // O Arquivos não usa linhas alternadas (como o Finder).
-        let r = ui.table(area, &cols, &rows, sel, &mut state, &TableStyle { row_h: ROW_H, px: 12.0, zebra: false });
+        // As outras escolhidas (Ctrl/Shift + clique) também ficam destacadas.
+        let also: Vec<usize> = self.extra.iter().filter_map(|p| entries.iter().position(|e| &e.path == p)).collect();
+        let r = ui.table(area, &cols, &rows, sel, &mut state, &TableStyle { row_h: ROW_H, px: 12.0, zebra: false, also });
         if let (Some(i), true) = (sel, std::mem::take(&mut self.reveal)) {
             state.reveal(i);
             ui.redraw = true;
@@ -2080,9 +2085,13 @@ impl Files {
         }
         let action = r.pressed.map(|i| (entries[i].clone(), r.double == Some(i)));
         if let Some((e, double)) = action {
-            self.selected = Some(e.path.clone());
-            if double {
-                self.open(&e);
+            // Ctrl alterna o item, Shift escolhe a faixa (como nas colunas e nos ícones).
+            if double || !self.multi_click(ui, &e, &entries) {
+                self.selected = Some(e.path.clone());
+                self.extra.clear();
+                if double {
+                    self.open(&e);
+                }
             }
             ui.redraw = true;
         }
@@ -2126,6 +2135,9 @@ impl Files {
             let r = Rect::new(area.x + x, (area.y + y).max(area.y), cw, ch.min(area.y + area.h - (area.y + y).max(area.y)));
             if r.h > 0.0 {
                 let resp = ui.hit(r);
+                // O nome inteiro, quando não coube embaixo (ou ao lado) do ícone.
+                let shown = glove_config::arquivos::shown_name(&e.name, e.kind == Kind::Folder, self.cfg.show_extensions);
+                ui.tooltip(r, &shown);
                 if resp.pressed {
                     let m = ui.mods();
                     if !resp.double && !(m.ctrl || m.shift) && !self.extra.is_empty() && self.is_chosen(&e.path) {
@@ -2825,9 +2837,20 @@ pub fn main() {
         }
         return;
     }
-    let start = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir() || rede::is_rede(p)).unwrap_or_else(|| glove_config::Config::load().files.new_window_dir());
+    // "--mostrar ARQUIVO" (Mostrar na pasta, do Firefox e outros, pelo FileManager1): a
+    // pasta dele, com ele já escolhido.
+    let show = args.iter().position(|a| a == "--mostrar").and_then(|i| args.get(i + 1)).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok());
+    let start = match &show {
+        Some(p) if !p.is_dir() => p.parent().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/")),
+        Some(p) => p.clone(),
+        None => std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.is_dir() || rede::is_rede(p)).unwrap_or_else(|| glove_config::Config::load().files.new_window_dir()),
+    };
     let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false, min_size: None };
-    if let Err(e) = run(opts, Files::new(start)) {
+    let mut files = Files::new(start);
+    if let Some(p) = show.filter(|p| !p.is_dir()) {
+        files.selected = Some(p);
+    }
+    if let Err(e) = run(opts, files) {
         eprintln!("glove-files: {e}");
     }
 }

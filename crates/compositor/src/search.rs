@@ -320,6 +320,7 @@ impl Glove {
     pub fn open_search(&mut self) {
         self.close_menu();
         self.close_volume_slider();
+        self.close_control();
         self.close_grade();
         self.search.open = true;
         self.search.query.clear();

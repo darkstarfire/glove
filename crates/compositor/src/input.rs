@@ -74,6 +74,10 @@ enum KeyAction {
     Mute,
     BrightnessUp,
     BrightnessDown,
+    /// Luz do teclado: mais, menos, liga/desliga.
+    KbdLightUp,
+    KbdLightDown,
+    KbdLightToggle,
     /// Tecla com a mesa em foco.
     Desk(crate::desk::DeskKey),
     /// F12: abre ou fecha o Painel de Widgets.
@@ -489,8 +493,14 @@ impl Glove {
                 "xf86audioraisevolume" => Some(KeyAction::VolumeUp),
                 "xf86audiolowervolume" => Some(KeyAction::VolumeDown),
                 "xf86audiomute" => Some(KeyAction::Mute),
+                // Ctrl + brilho da tela = luz do teclado (como no Chromebook e no Mide).
+                "xf86monbrightnessup" if mods.ctrl => Some(KeyAction::KbdLightUp),
+                "xf86monbrightnessdown" if mods.ctrl => Some(KeyAction::KbdLightDown),
                 "xf86monbrightnessup" => Some(KeyAction::BrightnessUp),
                 "xf86monbrightnessdown" => Some(KeyAction::BrightnessDown),
+                "xf86kbdbrightnessup" => Some(KeyAction::KbdLightUp),
+                "xf86kbdbrightnessdown" => Some(KeyAction::KbdLightDown),
+                "xf86kbdlightonoff" => Some(KeyAction::KbdLightToggle),
                 _ => None,
             };
             if media.is_some() {
@@ -745,6 +755,9 @@ impl Glove {
             Some(KeyAction::Mute) => self.toggle_mute(),
             Some(KeyAction::BrightnessUp) => self.step_brightness(1.0),
             Some(KeyAction::BrightnessDown) => self.step_brightness(-1.0),
+            Some(KeyAction::KbdLightUp) => self.step_kbd_light(Some(true)),
+            Some(KeyAction::KbdLightDown) => self.step_kbd_light(Some(false)),
+            Some(KeyAction::KbdLightToggle) => self.step_kbd_light(None),
             Some(KeyAction::ForceQuitKey(k)) => {
                 self.force_quit_key(k);
             }
@@ -754,6 +767,10 @@ impl Glove {
 
     fn update_hover(&mut self, pos: Point<f64, Logical>) {
         // Arrastando o controle de volume: segue o mouse mesmo fora dele.
+        if self.control.as_ref().is_some_and(|c| c.drag.is_some()) {
+            let x = (pos.x - self.control.as_ref().unwrap().origin.x as f64) as f32;
+            self.control_drag(x, false);
+        }
         if self.extras.slider.as_ref().is_some_and(|s| s.dragging) {
             let y = (pos.y - self.extras.slider.as_ref().unwrap().origin.y as f64) as f32;
             self.volume_slider_drag(y, false);
@@ -1072,6 +1089,26 @@ impl Glove {
             self.chrome.swallow_release = true;
             return;
         }
+        // Central de controle aberta: clicar nela age; fora (menos noutro título), fecha.
+        if state == ButtonState::Pressed && !pointer.is_grabbed() && self.control.is_some() {
+            match self.hit_test(pos) {
+                Hit::Control(Some(part), x) => self.control_press(part, x),
+                Hit::Control(None, _) => {}
+                Hit::MenuBar { target: Some(crate::shell::BarTarget::Extra(k)) } if self.control.as_ref().is_some_and(|c| c.extra == k) => self.close_control(),
+                Hit::MenuBar { target: Some(t) } => {
+                    self.close_control();
+                    self.open_bar_menu(t);
+                }
+                _ => self.close_control(),
+            }
+            self.chrome.swallow_release = true;
+            return;
+        }
+        if state == ButtonState::Released && self.control.as_ref().is_some_and(|c| c.drag.is_some()) {
+            let x = (pos.x - self.control.as_ref().unwrap().origin.x as f64) as f32;
+            self.control_drag(x, true);
+            return;
+        }
         if state == ButtonState::Pressed && !pointer.is_grabbed() && self.extras.slider.is_some() {
             // Controle de volume aberto: clicar nele ajusta; fora, fecha.
             match self.hit_test(pos) {
@@ -1103,7 +1140,7 @@ impl Glove {
                 // Com o menu aberto: clicar no mesmo título fecha, em outro troca;
                 // fora dos menus, só fecha.
                 match hit {
-                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Search(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Control(..) | Hit::Search(_) => {}
                     Hit::Dock(Some(i)) if button == BTN_RIGHT => self.open_dock_menu(i),
                     Hit::MenuBar { target: Some(t) } if t != cur => self.open_bar_menu(t),
                     _ => self.close_menu(),
@@ -1211,7 +1248,7 @@ impl Glove {
                         self.focus_window(None);
                         self.desk_press(None, button, pos);
                     }
-                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Search(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Control(..) | Hit::Search(_) => {}
                 }
             }
             self.chrome.swallow_release = swallow;

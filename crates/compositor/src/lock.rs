@@ -323,6 +323,7 @@ impl Glove {
         self.close_menu();
         self.close_force_quit();
         self.close_volume_slider();
+        self.close_control();
         // Nenhum app fica com o teclado enquanto está bloqueado.
         self.focus_window(None);
         let name = crate::shell::user_full_name();

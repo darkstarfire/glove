@@ -1093,3 +1093,35 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   recorte de 400×300 certo.
 - [x] 19.4 `glove-setup-tool.sh` com sudo (P): sem cargo, como root vindo do sudo, diz para rodar sem
   o sudo; a mensagem do Rust mínimo dizia 1.85 (é 1.89).
+
+## Fase 20 — Pedidos do teste no Glove OS (15/11/2026)
+
+- [x] 20.1 Arquivos em lista por padrão (P) — v0.12.55.
+- [x] 20.2 Nome inteiro ao passar o mouse (M) — v0.12.55 (glove-ui 0.2.34): `Ui::tooltip` e
+  `tooltip_if_cut` (meio segundo parado; balão por cima de tudo no fim do quadro; acorda sozinho
+  na hora). Na tabela (nome cortado da primeira coluna: Arquivos em lista e todo app com tabela),
+  nas colunas e nos ícones do Arquivos e nas folhas Abrir/Salvar (`file_sheet`).
+- [x] 20.3 Nome do sistema sem o Debian (P) — v0.12.55: `PRETTY_NAME="Glove OS 0.12.55"`, /etc/issue
+  e o Sobre o Glove; `ID=debian` e a versão do Debian continuam nos outros campos.
+- [x] 20.4 Luz do teclado (M) — v0.12.55: Ctrl + teclas de brilho e as teclas XF86KbdBrightness/
+  KbdLightOnOff; `/sys/class/leds/*::kbd_backlight` (o do Chromebook primeiro), pelo logind
+  (`SetBrightness("leds")`), passos de 10% (como no Mide); aviso na tela com o desenho de teclado.
+- [x] 20.5 Central de controle (G) — v0.12.55: ícone na barra (ExtraKind::Control, ao lado do
+  relógio); painel (`chrome::control_panel`, `controle.rs`) com Wi-Fi (nmcli, nome da rede),
+  Bluetooth (bluetoothctl, rfkill unblock), Não perturbe e trilhos de brilho, luz do teclado (se
+  houver) e som; comandos em linhas à parte, no máximo a cada 40 ms ao arrastar.
+- [x] 20.6 "Mostrar na pasta" (M) — v0.12.55: o `glove-portal` atende o `org.freedesktop.FileManager1`
+  (ShowItems/ShowFolders/ShowItemProperties; ativado pelo D-Bus como o portal), e o Arquivos ganhou
+  `--mostrar ARQUIVO`; o Arquivos é o app padrão de `inode/directory`. Testado: abre a pasta com o
+  arquivo escolhido.
+- [x] 20.7 Botões das janelas GTK (P) — v0.12.55: na entrada, `gtk-decoration-layout=close,minimize,
+  maximize:` no settings.ini do GTK 3 e 4 (e o button-layout do GNOME, se ainda for o padrão), sem
+  mexer numa escolha feita. O Firefox passa a mostrar os três botões.
+- [x] 20.8 Ctrl/Shift na lista do Arquivos (P) — v0.12.55: a lista usa o `multi_click` das colunas, e
+  a tabela destaca as escolhidas a mais (`TableStyle::also`).
+- [x] 20.9 Pastas padrão na barra lateral (P) — v0.12.55: `xdg-user-dirs` na ISO e nas recomendações,
+  e a sessão roda o `xdg-user-dirs-update` ao entrar.
+- [ ] 20.10 Tema do Glove para o Firefox (M): metal escovado no estilo do Safari clássico.
+- [ ] 20.11 AppImage (M): abrir com duplo clique e instalar arrastando para Aplicativos (janela como as
+  do Mac).
+- [ ] 20.12 Arduino IDE (Java) com blocos pretos e a versão em .zip com erro de segmentação.

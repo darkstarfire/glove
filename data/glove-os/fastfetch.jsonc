@@ -1,4 +1,4 @@
-// Glove OS: o fastfetch mostra a luva e o nome do sistema (base Debian).
+// Glove OS: o fastfetch mostra a luva e o nome do sistema.
 {
   "logo": {
     "type": "file",

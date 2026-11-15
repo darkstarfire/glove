@@ -575,6 +575,8 @@ pub enum Hit {
     ForceQuit(chrome::FqHit),
     /// Controle de volume (y relativo ao conteúdo).
     VolumeSlider(f32),
+    /// Central de controle: a parte sob o mouse (None = o fundo) e o x relativo.
+    Control(Option<chrome::ControlPart>, f32),
     /// Lupa da Busca Rápida na barra.
     SearchButton,
     /// Painel da Busca Rápida (linha sob o mouse).
@@ -611,6 +613,9 @@ impl Glove {
                     return Hit::Menu(l, chrome::menu_item_at(&lv.items, (py - lv.origin.y as f64) as f32));
                 }
             }
+        }
+        if let Some((part, x)) = self.control_hit(pos) {
+            return Hit::Control(part, x);
         }
         if let Some(y) = self.volume_slider_y(pos) {
             return Hit::VolumeSlider(y);
@@ -1326,6 +1331,7 @@ impl Glove {
 
     pub fn open_bar_menu(&mut self, target: BarTarget) {
         self.close_volume_slider();
+        self.close_control();
         self.close_search();
         match target {
             BarTarget::Extra(k) => self.open_extra(k),
@@ -1872,7 +1878,7 @@ impl Glove {
         });
         let open_extra = match self.chrome.menu.as_ref().map(|m| m.target) {
             Some(BarTarget::Extra(k)) => Some(k),
-            _ => self.extras.slider.as_ref().and(self.volume_extra_index()),
+            _ => self.control.as_ref().map(|c| c.extra).or(self.extras.slider.as_ref().and(self.volume_extra_index())),
         };
         let extras = self.extras_for_bar();
         let open_t = self.chrome.menu.as_ref().map(|m| m.target);

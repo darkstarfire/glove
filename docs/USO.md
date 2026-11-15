@@ -351,6 +351,27 @@ Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
   vídeo largo atravessa os monitores).
 - A Pasta Imagens aceita PNG, JPEG e WebP.
 
+## Central de controle
+
+O ícone de dois botões na barra de menu (ao lado do relógio) abre a **central de controle**, como nos
+Mac mais novos:
+
+- **Wi-Fi** (com o nome da rede), **Bluetooth** e **Não perturbe**: clique para ligar ou desligar.
+- **Tela** (brilho), **Luz do teclado** (só nos computadores que têm) e **Som**: arraste o trilho.
+
+**Luz do teclado:** **Ctrl + teclas de brilho** aumentam e diminuem a luz do teclado (no Chromebook e
+nos notebooks com teclado iluminado), com o aviso na tela; as teclas próprias de luz do teclado
+também funcionam.
+
+## Arquivos: nome inteiro, várias escolhas e "Mostrar na pasta"
+
+- O Arquivos abre em **lista** (a visualização muda em Visualizar, ou nos botões da barra).
+- **Nome inteiro:** parado sobre um nome cortado (na lista, nas colunas, nos ícones e nas janelas de
+  Abrir e Salvar de todos os apps), aparece um balão com o nome todo.
+- **Várias escolhas:** **Ctrl + clique** escolhe ou tira um item; **Shift + clique** escolhe a faixa.
+- **"Mostrar na pasta"** dos outros apps (o ícone de pasta nos downloads do Firefox, o do VS Code…)
+  abre o Arquivos na pasta, com o arquivo escolhido.
+
 ## Discos e disco inicializável
 
 O **Discos** (no Dock, em Utilitários) mostra à esquerda os discos (internos, pendrives, cartões e

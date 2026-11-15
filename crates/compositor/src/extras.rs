@@ -27,6 +27,8 @@ use glove_paint::chrome::MenuItem;
 /// Qual extra está em cada posição da barra.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExtraKind {
+    /// Central de controle (Wi-Fi, Bluetooth, brilho, luz do teclado, som).
+    Control,
     Input,
     Display,
     Wifi,
@@ -73,7 +75,7 @@ pub struct Extras {
 }
 
 /// Estado do Wi-Fi para o ícone da barra (lê o NetworkManager).
-fn read_wifi() -> Option<(bool, Option<u8>)> {
+pub(crate) fn read_wifi() -> Option<(bool, Option<u8>)> {
     let devs = glove_config::rede::devices()?;
     if !devs.iter().any(|d| d.kind == "wifi") {
         return None;
@@ -101,7 +103,7 @@ pub fn parse_wpctl(out: &str) -> Option<(f32, bool)> {
     Some((level.clamp(0.0, 1.5), rest.contains("[MUTED]")))
 }
 
-fn read_volume() -> Option<(f32, bool)> {
+pub(crate) fn read_volume() -> Option<(f32, bool)> {
     let out = Command::new("wpctl").args(["get-volume", SINK]).output().ok()?;
     parse_wpctl(&String::from_utf8_lossy(&out.stdout))
 }
@@ -111,14 +113,53 @@ fn read_num(p: &Path) -> Option<f64> {
 }
 
 /// Muda o brilho pelo logind (sem root).
-fn set_backlight(name: &str, raw: u32) {
+pub(crate) fn set_backlight(name: &str, raw: u32) {
     let _ = Command::new("busctl")
         .args(["call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto", "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight", name, &raw.to_string()])
         .spawn();
 }
 
+/// Luz do teclado (`/sys/class/leds/*::kbd_backlight`; no Chromebook,
+/// `chromeos::kbd_backlight`, que vem primeiro): (nome, atual, máximo).
+pub fn kbd_light() -> Option<(String, u32, u32)> {
+    let mut found: Vec<(String, u32, u32)> = std::fs::read_dir("/sys/class/leds")
+        .ok()?
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if !name.ends_with("::kbd_backlight") {
+                return None;
+            }
+            let max = read_num(&e.path().join("max_brightness"))? as u32;
+            (max > 0).then(|| (name, (read_num(&e.path().join("brightness")).unwrap_or(0.0) as u32).min(max), max))
+        })
+        .collect();
+    found.sort_by_key(|l| (!l.0.starts_with("chromeos::"), l.0.clone()));
+    found.into_iter().next()
+}
+
+/// Muda a luz do teclado pelo logind (sem root); sem logind, direto no arquivo.
+pub fn set_kbd_light(name: &str, raw: u32) {
+    let ok = Command::new("busctl")
+        .args(["call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto", "org.freedesktop.login1.Session", "SetBrightness", "ssu", "leds", name, &raw.to_string()])
+        .status()
+        .is_ok_and(|s| s.success());
+    if !ok {
+        let _ = std::fs::write(format!("/sys/class/leds/{name}/brightness"), raw.to_string());
+    }
+}
+
+/// Próximo nível da luz do teclado: passos de 10% (com poucos níveis, um por aperto).
+pub fn kbd_light_next(current: u32, max: u32, up: bool) -> u32 {
+    let step = ((max as f32) * 0.1).round().max(1.0) as u32;
+    if up { current.saturating_add(step).min(max) } else { current.saturating_sub(step) }
+}
+
+/// Nível de antes de desligar pela tecla própria (para voltar a ele).
+static KBD_BEFORE_OFF: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
 /// Tela com luz de fundo ajustável: (nome, atual, máximo).
-fn backlight() -> Option<(String, u32, u32)> {
+pub(crate) fn backlight() -> Option<(String, u32, u32)> {
     let dir = std::fs::read_dir("/sys/class/backlight").ok()?.flatten().next()?.path();
     let name = dir.file_name()?.to_string_lossy().into_owned();
     Some((name, read_num(&dir.join("brightness"))? as u32, read_num(&dir.join("max_brightness"))? as u32))
@@ -206,6 +247,10 @@ impl Glove {
         if self.extras.battery.is_some() && self.config.energy.battery_menu {
             v.push(ExtraKind::Battery);
         }
+        // A central de controle, ao lado do relógio (como nos Mac mais novos).
+        if !self.greeter {
+            v.push(ExtraKind::Control);
+        }
         if self.config.clock.show {
             v.push(ExtraKind::Clock);
         }
@@ -223,6 +268,7 @@ impl Glove {
             .into_iter()
             .map(|k| match k {
                 ExtraKind::Display => Extra::Display,
+                ExtraKind::Control => Extra::Control,
                 ExtraKind::Input => Extra::Input { badge: glove_config::layout_badge(&self.config.keyboard.layout, &self.config.keyboard.variant) },
                 ExtraKind::Clock => {
                     let c = &self.config.clock;
@@ -286,6 +332,7 @@ impl Glove {
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
             ExtraKind::Notifications => self.toggle_avisos_center(),
+            ExtraKind::Control => self.open_control(k),
         }
     }
 
@@ -584,6 +631,25 @@ impl Glove {
         set_backlight(&name, raw);
     }
 
+    /// Luz do teclado: mais (`Some(true)`), menos (`Some(false)`) ou liga/desliga.
+    pub fn step_kbd_light(&mut self, up: Option<bool>) {
+        use std::sync::atomic::Ordering;
+        let Some((name, cur, max)) = kbd_light() else { return };
+        let target = match up {
+            Some(u) => kbd_light_next(cur, max, u),
+            None if cur > 0 => {
+                KBD_BEFORE_OFF.store(cur, Ordering::Relaxed);
+                0
+            }
+            None => match KBD_BEFORE_OFF.load(Ordering::Relaxed) {
+                0 => max.div_ceil(2),
+                b => b.min(max),
+            },
+        };
+        std::thread::spawn(move || set_kbd_light(&name, target));
+        self.show_osd(OsdKind::Keyboard, target as f32 / max as f32, false);
+    }
+
     /// Brilho pelo logind (a sessão ativa pode mudar sem root).
     pub fn step_brightness(&mut self, dir: f32) {
         let Some((name, cur, max)) = backlight() else { return };
@@ -655,6 +721,8 @@ impl Glove {
     }
 
     pub fn prepare_extras(&mut self) {
+        let sc_c = self.scale() as f32;
+        self.prepare_control(sc_c, self.theme_gen);
         let sc = self.scale() as f32;
         let tgen = self.theme_gen;
         if let Some(o) = &mut self.extras.osd {
@@ -757,5 +825,19 @@ mod usuarios_tests {
         assert_eq!(u, vec![(1000, "ana".into(), "Ana Souza".into()), (1002, "bia".into(), "bia".into())]);
         let s = "      2 1000 ana  seat0 tty2 active no -\n      5 1002 bia  seat0 tty3 online yes 5min\n     c1  120 gdm  seat0 tty1 active no -\n";
         assert_eq!(super::parse_sessions(s), vec![(1000, 2), (1002, 3), (120, 1)]);
+    }
+}
+
+#[cfg(test)]
+mod kbd_tests {
+    #[test]
+    fn luz_do_teclado_em_passos() {
+        // Chromebook (0 a 100): 10 em 10, sem passar do máximo nem do zero.
+        assert_eq!(super::kbd_light_next(50, 100, true), 60);
+        assert_eq!(super::kbd_light_next(95, 100, true), 100);
+        assert_eq!(super::kbd_light_next(5, 100, false), 0);
+        // Poucos níveis (0 a 3): um por aperto.
+        assert_eq!(super::kbd_light_next(1, 3, true), 2);
+        assert_eq!(super::kbd_light_next(0, 3, false), 0);
     }
 }

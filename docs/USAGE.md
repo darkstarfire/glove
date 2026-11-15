@@ -327,6 +327,27 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   taller, long panes show without scrolling. Each pane's lists and tab boxes grow along,
   filling the whole window.
 
+## Control Center
+
+The two-switch icon in the menu bar (next to the clock) opens the **Control Center**, like on newer
+Macs:
+
+- **Wi-Fi** (with the network name), **Bluetooth** and **Do Not Disturb**: click to turn on or off.
+- **Display** (brightness), **Keyboard light** (only on computers that have one) and **Sound**: drag
+  the track.
+
+**Keyboard light:** **Ctrl + brightness keys** raise and lower the keyboard light (on Chromebooks and
+laptops with a backlit keyboard), with the on-screen notice; dedicated keyboard light keys work too.
+
+## Files: full names, several items and "Show in folder"
+
+- Files opens in **list** view (change it in View, or with the toolbar buttons).
+- **Full name:** resting on a cut name (in the list, columns, icons and every app's Open and Save
+  sheets) shows a balloon with the whole name.
+- **Several items:** **Ctrl + click** adds or removes an item; **Shift + click** picks the range.
+- Other apps' **"Show in folder"** (the folder icon in Firefox's downloads, VS Code's…) opens Files
+  at the folder with the file chosen.
+
 ## Disks and startup disks
 
 **Disks** (in the Dock, in Utilities) lists the disks on the left (internal disks, USB sticks, cards

@@ -77,6 +77,8 @@ mpv
 ffmpeg
 poppler-utils
 xdg-utils
+# As pastas padrão de cada conta (Downloads, Imagens, Músicas…), no idioma do sistema
+xdg-user-dirs
 desktop-file-utils
 libnotify-bin
 fonts-dejavu

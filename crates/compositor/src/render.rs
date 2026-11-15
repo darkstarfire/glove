@@ -496,6 +496,11 @@ impl Glove {
                 out.extend(mem(renderer, (o.x - glove_paint::chrome::MENU_SHADOW, o.y).into(), t, sc));
             }
         }
+        if let Some(cp) = &self.control {
+            if let Some(t) = &cp.tex {
+                out.extend(mem(renderer, (cp.origin.x - glove_paint::chrome::MENU_SHADOW, cp.origin.y).into(), t, sc));
+            }
+        }
         if let Some(s) = &self.extras.slider {
             if let Some(t) = &s.tex {
                 out.extend(mem(renderer, (s.origin.x - glove_paint::chrome::MENU_SHADOW, s.origin.y).into(), t, sc));
