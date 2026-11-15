@@ -1074,3 +1074,22 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   vivo apagou a tela e pediu a senha (a `live`, que ninguém sabe). O modelo de configuração do ao
   vivo (`/etc/skel/.config/glove/config.toml`, que o instalador apaga) leva
   `[energy] require_password = false`; o Super+L continua pedindo.
+
+## Fase 19 — Achados do teste em computador real (15/11/2026)
+
+- [x] 19.1 Disco inicializável sem pedir a senha (P) — v0.12.54: a gravação falhava porque a sessão
+  em uso era anterior ao `glove-senha` (instalado por cima, sem entrar de novo): ninguém respondia ao
+  polkit e o udisks negava. O Discos inicia o `glove-senha` ao abrir (com outro agente registrado,
+  ele sai sozinho).
+- [x] 19.2 Submenu na borda (P) — v0.12.54: no Arquivos, o submenu (Rótulo, Abrir com) era empurrado
+  para dentro da janela e cobria o próprio menu. Agora abre à esquerda quando não cabe à direita
+  (`sub_x_in`, com teste), e o menu sobe só o necessário perto do rodapé. Os menus ainda são
+  desenhados dentro da janela do app; menus que saem da janela (xdg_popup) ficam para depois.
+- [x] 19.3 Captura: temporizador e tela congelada (M) — v0.12.54: o temporizador vale para área e
+  janela (`request_screenshot_area_in`/`window_in`, glove-ui 0.2.33). Ao começar a escolha, o
+  compositor fotografa a tela (`grab`, sem a película) e a mostra por baixo da película
+  (`Frozen`); o recorte sai dessa imagem (`shot_from_freeze`), ou ao vivo se a área for noutro
+  monitor. Testado no Glove aninhado com fundo animado: quadros idênticos durante a escolha e o
+  recorte de 400×300 certo.
+- [x] 19.4 `glove-setup-tool.sh` com sudo (P): sem cargo, como root vindo do sudo, diz para rodar sem
+  o sudo; a mensagem do Rust mínimo dizia 1.85 (é 1.89).

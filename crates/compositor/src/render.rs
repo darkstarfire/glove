@@ -397,8 +397,14 @@ impl Glove {
                 }
             }
         }
-        // Escolhendo a área de uma captura: a película fica por cima de tudo (menos do cursor).
+        // Escolhendo a área de uma captura: a película fica por cima de tudo (menos do cursor),
+        // e, logo atrás dela, a tela congelada do momento em que a seleção começou.
         self.region_elements(sc, &mut out);
+        if self.region.is_some() {
+            if let Some(f) = &self.freeze {
+                out.extend(mem(renderer, (0, 0).into(), &f.tex, sc));
+            }
+        }
 
         // Tela de login: só as janelas (o app de login) sobre o papel de parede.
         if self.greeter {
@@ -925,6 +931,16 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
             Err(e) => tracing::warn!("captura do monitor extra falhou: {e}"),
         }
     }
+    // Captura de área pedida: congela a tela (sem a película) e começa a seleção.
+    if state.region_pending.is_some() {
+        let frozen = grab(state, renderer).ok().and_then(|(pix, sc)| {
+            let (lw, lh) = state.output_size();
+            let mut c = glove_paint::draw::Canvas::new(lw as f32, lh as f32, sc as f32)?;
+            c.pm.draw_pixmap(0, 0, pix.as_ref(), &glove_paint::tiny_skia::PixmapPaint::default(), glove_paint::tiny_skia::Transform::identity(), None);
+            Some(crate::region::Frozen { pix, tex: crate::shell::to_tex(c), scale: sc })
+        });
+        state.begin_region(frozen);
+    }
     if let Some(path) = state.screenshot_request.take() {
         let crop = state.screenshot_crop.take();
         match screenshot(state, renderer, &path, crop) {
@@ -988,6 +1004,23 @@ fn extra_screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path
     let pm = glove_paint::Pixmap::from_vec(data, size).ok_or("dados inválidos")?;
     pm.save_png(path)?;
     Ok(())
+}
+
+/// A tela principal inteira, como está agora (sem o cursor), em pixels reais.
+fn grab(state: &Glove, renderer: &mut GlesRenderer) -> Result<(glove_paint::Pixmap, f64), Box<dyn std::error::Error>> {
+    let (lw, lh) = state.output_size();
+    let sc = state.scale();
+    let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);
+    let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into())?;
+    let elements = state.build_elements(renderer, false);
+    let mut fb = renderer.bind(&mut tex)?;
+    let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
+    dt.render_output(renderer, &mut fb, 0, &elements, [0.0, 0.0, 0.0, 1.0])?;
+    let mapping = renderer.copy_framebuffer(&fb, Rectangle::from_size((w, h).into()), Fourcc::Abgr8888)?;
+    let data = renderer.map_texture(&mapping)?.to_vec();
+    let size = glove_paint::tiny_skia::IntSize::from_wh(w as u32, h as u32).ok_or("tamanho inválido")?;
+    let pm = glove_paint::Pixmap::from_vec(data, size).ok_or("dados inválidos")?;
+    Ok((pm, sc))
 }
 
 fn screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path::Path, crop: Option<Rectangle<i32, Logical>>) -> Result<(), Box<dyn std::error::Error>> {

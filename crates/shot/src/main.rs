@@ -24,9 +24,9 @@ const DELAYS: [(u64, &str); 3] = [(0, "Agora"), (5000, "Em 5 segundos"), (10000,
 impl Shot {
     fn take(&mut self, ui: &mut Ui, delay_ms: u64) {
         if self.what == AREA {
-            ui.request_screenshot_area(self.open);
+            ui.request_screenshot_area_in(delay_ms, self.open);
         } else if self.what == WINDOW {
-            ui.request_screenshot_window(self.open);
+            ui.request_screenshot_window_in(delay_ms, self.open);
         } else {
             ui.request_screenshot(delay_ms.max(400), self.open);
         }
@@ -92,9 +92,9 @@ impl App for Shot {
             ui.horizontal(|ui| {
                 ui.label_right(tr!("Quando:"), 70.0);
                 let opts: Vec<String> = DELAYS.iter().map(|(_, l)| tr(l).to_string()).collect();
-                ui.set_active(self.what == SCREEN);
+                // O temporizador vale para os três: na área e na janela, a tela congela
+                // quando o tempo acaba, e aí se escolhe com calma (menus abertos ficam).
                 ui.popup(&mut self.delay, &opts, 180.0);
-                ui.set_active(true);
             });
             ui.space(2.0);
             ui.indent(78.0, |ui| {

@@ -268,6 +268,12 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 
 ## Screenshots with drawing
 
+- **Timer for every mode:** Screenshot ▸ When ("Now", "In 5 seconds", "In 10 seconds") also works
+  for "An area" and "A window": time to open a menu or set the screen up.
+- **The screen freezes:** when choosing the area (or window) starts, Glove takes a picture of the
+  screen at that instant and shows it still under the film; the capture comes from that picture, even
+  if something changes afterwards (a menu closing, a video playing).
+
 - The **Screenshot** app opens with **An area** selected (then A window and Full
   screen): press Enter or Capture and drag the area.
 - Every screenshot (from the app or the shortcuts) goes to the clipboard right away:

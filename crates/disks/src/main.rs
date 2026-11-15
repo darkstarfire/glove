@@ -1198,6 +1198,13 @@ pub fn main() {
         };
         std::process::exit(write_cli(iso, dev));
     }
+    // A janela de senha do sistema (agente do polkit): sem ela, o udisks nega na hora
+    // tudo o que pede administrador (gravar o pendrive, formatar um disco interno).
+    // A sessão do Glove já a inicia; numa sessão antiga ou noutro desktop sem agente,
+    // o Discos a inicia. Com outro agente registrado, ela simplesmente sai.
+    if let Ok(mut c) = std::process::Command::new(sibling("glove-senha")).spawn() {
+        std::thread::spawn(move || c.wait());
+    }
     let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None, usage: Default::default(), img_save_fb: None, img_open_fb: None, restore_confirm: None };
     app.reload();
     // Começa no disco do sistema, com o volume do sistema escolhido.

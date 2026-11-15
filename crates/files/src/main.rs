@@ -1284,8 +1284,15 @@ impl Files {
         let mw = 220.0;
         let mh = items.iter().map(|i| if i.0.as_ref().is_empty() { 9.0 } else { 20.0 }).sum::<f32>() + 8.0;
         let x = x.min(ui.c.w - mw - 4.0).max(0.0);
-        let y0 = if y0 + mh > ui.c.h - 4.0 { (y0 - mh).max(0.0) } else { y0 };
+        // Sem espaço embaixo: sobe só o que falta (o submenu fica ao lado da opção).
+        let y0 = y0.min(ui.c.h - mh - 4.0).max(0.0);
         Rect::new(x, y0, mw, mh)
+    }
+
+    /// Onde abre o submenu: à direita do menu; sem espaço na janela, à esquerda dele
+    /// (como no sistema), em vez de por cima do próprio menu.
+    fn sub_x(ui: &Ui, mr: Rect) -> f32 {
+        sub_x_in(ui.c.w, mr)
     }
 
     /// Linha do menu sob `py`: (id, topo da linha).
@@ -1441,7 +1448,8 @@ impl Files {
         let mut chosen = ui.unreserved(|ui| Self::popup_menu(ui, x, y, &items));
         if let Some((key, top)) = self.ctx_sub.clone() {
             let sub = self.sub_items(&key);
-            if let Some(a) = ui.unreserved(|ui| Self::popup_menu(ui, mr.x + mr.w - 4.0, top - 4.0, &sub)) {
+            let sx = Self::sub_x(ui, mr);
+            if let Some(a) = ui.unreserved(|ui| Self::popup_menu(ui, sx, top - 4.0, &sub)) {
                 chosen = Some(a);
             }
         }
@@ -1476,7 +1484,7 @@ impl Files {
             ui.reserve(r);
             let sub = self.ctx_sub.clone().map(|(k, top)| {
                 let sub = self.sub_items(&k);
-                Self::menu_rect(ui, r.x + r.w - 4.0, top - 4.0, &sub)
+                Self::menu_rect(ui, Self::sub_x(ui, r), top - 4.0, &sub)
             });
             if let Some(sr) = sub {
                 ui.reserve(sr);
@@ -2821,6 +2829,30 @@ pub fn main() {
     let opts = WindowOptions { title: display_name(&start), app_id: "glove.Files".into(), size: (860, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, Files::new(start)) {
         eprintln!("glove-files: {e}");
+    }
+}
+
+/// Onde abre o submenu numa janela de largura `w`: à direita do menu, ou à esquerda
+/// dele quando à direita não cabe (e à esquerda cabe).
+fn sub_x_in(w: f32, mr: Rect) -> f32 {
+    let mw = 220.0;
+    if mr.x + mr.w - 4.0 + mw <= w - 4.0 || mr.x - mw + 4.0 < 0.0 { mr.x + mr.w - 4.0 } else { mr.x - mw + 4.0 }
+}
+
+#[cfg(test)]
+mod submenu_tests {
+    use glove_ui::Rect;
+
+    #[test]
+    fn submenu_vira_para_a_esquerda_na_borda() {
+        // Espaço à direita: abre à direita, encostado no menu.
+        assert_eq!(super::sub_x_in(1000.0, Rect::new(100.0, 50.0, 220.0, 300.0)), 316.0);
+        // Perto da borda direita: abre à esquerda do menu, sem cobri-lo.
+        let x = super::sub_x_in(700.0, Rect::new(450.0, 50.0, 220.0, 300.0));
+        assert_eq!(x, 234.0);
+        assert!(x + 220.0 <= 450.0 + 4.0);
+        // Janela estreita demais para os dois lados: fica à direita (e o menu_rect ajusta).
+        assert_eq!(super::sub_x_in(300.0, Rect::new(50.0, 50.0, 220.0, 300.0)), 266.0);
     }
 }
 

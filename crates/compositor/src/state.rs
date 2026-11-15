@@ -103,6 +103,10 @@ pub struct Glove {
     pub saver: Option<crate::saver::ScreenSaver>,
     /// Escolhendo a área de uma captura.
     pub region: Option<crate::region::RegionSel>,
+    /// Captura de área pedida: o próximo quadro congela a tela e começa a seleção.
+    pub region_pending: Option<(bool, bool)>,
+    /// A tela congelada durante a seleção.
+    pub freeze: Option<crate::region::Frozen>,
     /// Área (lógica) da próxima captura; None = a tela inteira.
     pub screenshot_crop: Option<smithay::utils::Rectangle<i32, smithay::utils::Logical>>,
     /// Textura e programa dos efeitos do Acesso Universal.
@@ -268,6 +272,8 @@ impl Glove {
             effects: Default::default(),
             saver: None,
             region: None,
+            region_pending: None,
+            freeze: None,
             screenshot_crop: None,
             ending: None,
             pinger: Default::default(),
@@ -368,6 +374,12 @@ impl Glove {
 
     /// Captura de tela para ~/Imagens (ou ~/Pictures).
     pub fn request_screenshot(&mut self) {
+        self.screenshot_request = Some(self.screenshot_path());
+        self.dirty = true;
+    }
+
+    /// Onde vai a captura: ~/Imagens (ou ~/Pictures), com a data e a hora.
+    pub fn screenshot_path(&self) -> std::path::PathBuf {
         let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
         let dir = ["Imagens", "Pictures"].iter().map(|d| home.join(d)).find(|d| d.is_dir()).unwrap_or(home);
         let name = unsafe {
@@ -376,8 +388,7 @@ impl Glove {
             libc::localtime_r(&t, &mut tm);
             tr!("Captura de tela {} às {}.png", format!("{}-{:02}-{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday), format!("{:02}.{:02}.{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec))
         };
-        self.screenshot_request = Some(dir.join(name));
-        self.dirty = true;
+        dir.join(name)
     }
 
     /// Relê a configuração (as Preferências mudaram algo) e aplica. Devolve se mudou.

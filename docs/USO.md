@@ -270,6 +270,13 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 
 ## Captura de tela com desenho
 
+- **Temporizador para todos os modos:** em Captura ▸ Quando ("Agora", "Em 5 segundos", "Em 10
+  segundos") vale também para "Uma área" e "Uma janela": dá tempo de abrir um menu ou deixar a tela
+  como quer.
+- **A tela congela:** quando a escolha da área (ou da janela) começa, o Glove fotografa a tela naquele
+  instante e a mostra parada por baixo da película; a captura sai dessa imagem, mesmo que algo mude
+  depois (um menu que fecha, um vídeo que anda).
+
 - O app **Captura** já abre com **Uma área** escolhida (depois vêm Uma janela e Tela
   inteira): Enter ou Capturar, e arraste a área.
 - Toda captura (pelo app ou pelos atalhos) já vai para a área de transferência: é só

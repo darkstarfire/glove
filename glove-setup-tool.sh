@@ -88,7 +88,7 @@ install_deps() {
     esac
     if ! has cargo; then
         echo
-        echo "$(t "Falta o Rust (1.85 ou mais novo). O jeito mais simples, em qualquer distribuição:" "Rust (1.85 or newer) is missing. The simplest way, on any distribution:")"
+        echo "$(t "Falta o Rust (1.89 ou mais novo). O jeito mais simples, em qualquer distribuição:" "Rust (1.89 or newer) is missing. The simplest way, on any distribution:")"
         echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
     fi
 }
@@ -118,6 +118,10 @@ update_submodule() {
 
 compile() {
     update_submodule
+    # Run with sudo: root does not see the Rust that rustup put in the user's home.
+    if ! has cargo && [ "$(id -u)" = 0 ] && [ -n "${SUDO_USER:-}" ]; then
+        die "$(t "rode sem o sudo: ./glove-setup-tool.sh install (o Rust é da sua conta, e o script pede a senha só nos passos que precisam)" "run it without sudo: ./glove-setup-tool.sh install (Rust belongs to your account, and the script asks for the password only where needed)")"
+    fi
     has cargo || die "$(t "falta o Rust (cargo). Rode: ./glove-setup-tool.sh dependencias" "Rust (cargo) is missing. Run: ./glove-setup-tool.sh deps")"
     # The Rust of some distributions (Debian 13 has 1.85) is older than the one the
     # dependencies need: say so plainly instead of letting the build fail.

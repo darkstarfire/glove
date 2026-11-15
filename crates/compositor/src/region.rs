@@ -9,6 +9,14 @@ use smithay::{
 
 use crate::{render::GloveElement, state::Glove};
 
+/// A tela congelada no começo da seleção: a imagem (para recortar) e a textura
+/// (mostrada por baixo do retângulo, para escolher o momento certo).
+pub struct Frozen {
+    pub pix: glove_paint::Pixmap,
+    pub tex: crate::shell::Tex,
+    pub scale: f64,
+}
+
 pub struct RegionSel {
     pub start: Option<Point<f64, Logical>>,
     pub cur: Point<f64, Logical>,
@@ -34,8 +42,57 @@ impl Glove {
             return;
         }
         self.close_menu();
+        // O próximo quadro fotografa a tela como está (sem a película) e só então a
+        // seleção começa, sobre a imagem parada.
+        self.region_pending = Some((open, window));
+        self.dirty = true;
+    }
+
+    /// Guarda a tela congelada e começa a seleção (chamado na hora de desenhar).
+    pub fn begin_region(&mut self, frozen: Option<Frozen>) {
+        let Some((open, window)) = self.region_pending.take() else { return };
+        self.freeze = frozen;
         self.region = Some(RegionSel { start: None, cur: self.pointer_pos, open, window });
         self.dirty = true;
+    }
+
+    /// Recorta a área da tela congelada e salva (como a captura normal). Devolve
+    /// false se não dá (área fora do monitor congelado): aí vale a captura ao vivo.
+    fn shot_from_freeze(&mut self, rect: smithay::utils::Rectangle<i32, smithay::utils::Logical>, open: bool) -> bool {
+        let Some(f) = self.freeze.take() else { return false };
+        let (lw, lh) = self.output_size();
+        if !smithay::utils::Rectangle::from_size((lw, lh).into()).contains_rect(rect) {
+            return false;
+        }
+        let sc = f.scale;
+        let (w, h) = (f.pix.width() as i32, f.pix.height() as i32);
+        let x0 = ((rect.loc.x as f64 * sc).round() as i32).clamp(0, w - 1);
+        let y0 = ((rect.loc.y as f64 * sc).round() as i32).clamp(0, h - 1);
+        let x1 = (((rect.loc.x + rect.size.w) as f64 * sc).round() as i32).clamp(x0 + 1, w);
+        let y1 = (((rect.loc.y + rect.size.h) as f64 * sc).round() as i32).clamp(y0 + 1, h);
+        let Some(mut out) = glove_paint::Pixmap::new((x1 - x0) as u32, (y1 - y0) as u32) else { return false };
+        let row = (x1 - x0) as usize * 4;
+        let src = f.pix.data();
+        let stride = w as usize * 4;
+        for (i, y) in (y0..y1).enumerate() {
+            let a = y as usize * stride + x0 as usize * 4;
+            out.data_mut()[i * row..(i + 1) * row].copy_from_slice(&src[a..a + row]);
+        }
+        let path = self.screenshot_path();
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        match out.save_png(&path) {
+            Ok(()) => {
+                tracing::info!("captura salva em {}", path.display());
+                self.copy_file_to_clipboard(&path);
+                if open {
+                    self.spawn(&format!("glove-view --desenhar '{}'", path.display().to_string().replace('\'', "'\\''")));
+                }
+            }
+            Err(e) => tracing::warn!("captura falhou: {e}"),
+        }
+        true
     }
 
     /// Janela (com a barra de título) sob o ponto, para a captura de janela.
@@ -72,12 +129,15 @@ impl Glove {
             self.region = None;
             self.dirty = true;
             if let Some((w, rect)) = self.window_frame_at(pos) {
-                // Na frente de tudo, para nada a cobrir na foto.
-                self.space.raise_element(&w, true);
-                self.screenshot_crop = Some(rect);
-                self.open_after_shot = open;
-                self.request_screenshot();
+                // Da tela congelada, se der; senão, ao vivo, com a janela na frente de tudo.
+                if !self.shot_from_freeze(rect, open) {
+                    self.space.raise_element(&w, true);
+                    self.screenshot_crop = Some(rect);
+                    self.open_after_shot = open;
+                    self.request_screenshot();
+                }
             }
+            self.freeze = None;
             return;
         }
         if pressed {
@@ -91,15 +151,20 @@ impl Glove {
         self.dirty = true;
         match rect.filter(|r| r.size.w >= 4 && r.size.h >= 4) {
             Some(rect) => {
-                self.screenshot_crop = Some(rect);
-                self.open_after_shot = open;
-                self.request_screenshot();
+                if !self.shot_from_freeze(rect, open) {
+                    self.screenshot_crop = Some(rect);
+                    self.open_after_shot = open;
+                    self.request_screenshot();
+                }
             }
             None => tracing::info!("captura de área cancelada"),
         }
+        self.freeze = None;
     }
 
     pub fn cancel_region(&mut self) {
+        self.freeze = None;
+        self.region_pending = None;
         if self.region.take().is_some() {
             self.dirty = true;
         }
