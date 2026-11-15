@@ -990,13 +990,6 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   conteúdo idêntico); a gravação inteira tem teste de unidade (precisa da senha para o real).
   wimtools, exfatprogs, ntfs-3g e btrfs-progs na ISO e nas recomendações do pacote.
 - [ ] 16.6.1 Imagem de disco (M): criar a imagem de um disco (backup) e gravar uma `.img` qualquer.
-- [ ] 16.6.2 (antigo texto da etapa, para referência) Imagens e disco inicializável (G): gravar uma ISO/IMG num pendrive ou disco e criar a
-  imagem de um disco, com progresso e conferência. **Criar disco inicializável (UEFI)**, como o Rufus:
-  as ISOs híbridas (Linux: Glove OS, Debian, Ubuntu…) são gravadas bloco a bloco e já iniciam em UEFI
-  e BIOS; as que não são híbridas (o instalador do Windows) viram um pendrive GPT com uma partição
-  FAT32 e os arquivos da ISO copiados (o `install.wim` maior que 4 GB é dividido, ou a partição de
-  dados vai em NTFS com uma partição UEFI pequena de inicialização). O Discos reconhece o tipo da ISO
-  e escolhe o caminho sozinho; avisa qual pendrive será apagado.
 - [ ] 16.7 Saúde e reparo (M): verificar e reparar, mudar o rótulo, saúde (SMART/NVMe) e temperatura.
 - [ ] 16.8 Instalador (M): "Preparar o disco com o Discos…" e instalar numa partição escolhida.
 - [ ] 16.9 ISO e pacote (P): udisks2, polkitd, exfatprogs, ntfs-3g, btrfs-progs e dosfstools.
