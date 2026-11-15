@@ -27,6 +27,10 @@ ca-certificates
 plymouth
 plymouth-label
 
+# Senha do sistema (o agente do Glove atende o polkit) e o serviço de discos (Discos)
+polkitd
+udisks2
+
 # Rede
 network-manager
 wpasupplicant

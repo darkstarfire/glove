@@ -318,6 +318,14 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   taller, long panes show without scrolling. Each pane's lists and tab boxes grow along,
   filling the whole window.
 
+## System password (administrator requests)
+
+When a program needs administrator permission (formatting a disk in Disks, installing with
+Flatpak, changing a system network, `pkexec` in the Terminal), the **Authentication** window opens
+with what was asked. Type your password and click **Authenticate**; **Cancel** (or Esc) denies the
+request. The password is checked by the system itself (polkit and PAM); Glove does not keep it.
+Accounts that are not administrators see an administrator's name and need that password.
+
 ## Password after sleep and hibernation
 
 With **Preferences ▸ Security ▸ Require password to wake from sleep or screen saver**

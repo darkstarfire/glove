@@ -66,6 +66,9 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
   tampa do notebook, teclas de volume e brilho; troca rápida de usuário
+- **Senha do sistema** (`glove-senha`, o agente do polkit): qualquer programa que pede permissão de
+  administrador pelo polkit (Discos, gnome-disks, Flatpak, NetworkManager, `pkexec`) mostra a janela
+  de senha do Glove
 - Acesso Universal: zoom, cores invertidas, cursor grande
 - Arrastar e soltar entre apps, área de transferência de texto e de arquivos
 - Janela Abrir/Salvar do Glove também para outros apps (portal FileChooser: Firefox, Chromium…)
@@ -376,6 +379,7 @@ crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-
 crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-arte icones <pasta>` e a amostra dele com `glove-arte previa <arquivo.png>`)
 crates/energia     bateria (biblioteca usada pelo compositor e pelas Preferências)
 crates/instalador  Instalar o Glove OS (`glove-instalador`)
+crates/senha       senha do sistema: o agente do polkit (`glove-senha`)
 crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
 crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
 crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)

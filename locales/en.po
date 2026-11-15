@@ -5412,3 +5412,21 @@ msgstr "Stretch to Fill Screen"
 
 msgid "Lado a lado"
 msgstr "Tile"
+
+msgid "Autenticar"
+msgstr "Authenticate"
+
+msgid "Autenticação"
+msgstr "Authentication"
+
+msgid "Autenticação necessária"
+msgstr "Authentication Required"
+
+msgid "Conferindo…"
+msgstr "Checking…"
+
+msgid "Digite a senha de {} para continuar."
+msgstr "Enter the password for {} to continue."
+
+msgid "O ajudante do polkit (polkit-agent-helper-1) não está instalado."
+msgstr "The polkit helper (polkit-agent-helper-1) is not installed."

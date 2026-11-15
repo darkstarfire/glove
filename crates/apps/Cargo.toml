@@ -33,6 +33,7 @@ glove-copias = { path = "../copias" }
 glove-correio = { path = "../correio" }
 glove-dicionario = { path = "../dicionario" }
 glove-disks = { path = "../disks" }
+glove-senha = { path = "../senha" }
 glove-edit = { path = "../editor" }
 glove-files = { path = "../files" }
 glove-find = { path = "../find" }

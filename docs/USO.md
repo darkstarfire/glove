@@ -341,6 +341,14 @@ Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
   vídeo largo atravessa os monitores).
 - A Pasta Imagens aceita PNG, JPEG e WebP.
 
+## Senha do sistema (pedidos de administrador)
+
+Quando um programa precisa de permissão de administrador (formatar um disco no Discos, instalar pelo
+Flatpak, mudar uma rede do sistema, `pkexec` no Terminal), abre a janela **Autenticação** com o que
+foi pedido. Digite a sua senha e clique em **Autenticar**; **Cancelar** (ou Esc) nega o pedido. A
+senha é conferida pelo próprio sistema (polkit e PAM); o Glove não a guarda. Contas que não são de
+administrador veem o nome de um administrador e precisam da senha dele.
+
 ## Senha ao voltar do repouso e da hibernação
 
 Com **Preferências ▸ Segurança ▸ Pedir a senha ao sair do repouso ou do protetor de tela**

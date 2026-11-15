@@ -75,6 +75,11 @@ impl Glove {
                     self.spawn(&c);
                 }
             }
+            // O agente do polkit (a janela de senha do sistema). Dentro de outro desktop,
+            // o agente de lá já atende.
+            if !self.greeter && !self.nested {
+                self.spawn("glove-senha");
+            }
             // Primeira vez: o assistente de boas-vindas.
             if !self.config.welcome_done {
                 self.spawn("glove-boasvindas");

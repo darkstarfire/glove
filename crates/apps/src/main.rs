@@ -1,7 +1,7 @@
 //! glove-apps: abre o app do Glove pelo nome com que foi chamado.
 
 /// Os apps (o nome do atalho de cada um). O build.rs cria os atalhos.
-pub const APPS: &[&str] = &["glove-about", "glove-agenda", "glove-ajuda", "glove-arquivo", "glove-boasvindas", "glove-calc", "glove-chars", "glove-chaves", "glove-chess", "glove-clock", "glove-contatos", "glove-instalador", "glove-mensagens", "glove-fotos", "glove-gravador", "glove-central", "glove-copias", "glove-correio", "glove-dicionario", "glove-disks", "glove-edit", "glove-files", "glove-find", "glove-fontes", "glove-info", "glove-login", "glove-monitor", "glove-musica", "glove-navegador", "glove-notes", "glove-prefs", "glove-registros", "glove-sair", "glove-shot", "glove-term", "glove-utilrede", "glove-video", "glove-view"];
+pub const APPS: &[&str] = &["glove-about", "glove-agenda", "glove-ajuda", "glove-arquivo", "glove-boasvindas", "glove-calc", "glove-chars", "glove-chaves", "glove-chess", "glove-clock", "glove-contatos", "glove-instalador", "glove-mensagens", "glove-fotos", "glove-gravador", "glove-central", "glove-copias", "glove-correio", "glove-dicionario", "glove-disks", "glove-edit", "glove-files", "glove-find", "glove-fontes", "glove-info", "glove-login", "glove-monitor", "glove-musica", "glove-navegador", "glove-notes", "glove-prefs", "glove-registros", "glove-sair", "glove-senha", "glove-shot", "glove-term", "glove-utilrede", "glove-video", "glove-view"];
 
 fn main() {
     let arg0 = std::env::args_os().next().unwrap_or_default();
@@ -40,6 +40,7 @@ fn main() {
         "glove-prefs" => glove_prefs::main(),
         "glove-registros" => glove_registros::main(),
         "glove-sair" => glove_sair::main(),
+        "glove-senha" => glove_senha::main(),
         "glove-shot" => glove_shot::main(),
         "glove-term" => glove_term::main(),
         "glove-utilrede" => glove_utilrede::main(),

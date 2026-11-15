@@ -933,3 +933,30 @@ panorâmica atravessando vários monitores e papel animado.
   v0.12.40: o menu de boot da ISO esperava o Enter para sempre (`timeout 0` do live-build); agora
   entra sozinho em 5 s (GRUB e isolinux).
 
+
+## Fase 16 — Discos completo e senha do sistema (pedido de 15/11/2026)
+
+O Glove OS tem que bastar: as ferramentas nativas dão o que se precisa, sem ir atrás de outras.
+O Discos chega ao nível do gnome-disks e serve para preparar o disco da instalação. Tudo pelo
+udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo polkit.
+
+- [x] 16.1 Agente do polkit (`glove-senha`) (M) — v0.12.41: a janela de senha do sistema. Sem ele,
+  nenhum programa que pede permissão pelo polkit funcionava no Glove (Discos, gnome-disks, Flatpak,
+  NetworkManager…). O serviço registra o objeto `/org/glove/PolkitAgent` para a sessão do logind
+  (`RegisterAuthenticationAgent`) e sobe com a sessão (startup.rs; não no login nem aninhado). Cada
+  pedido abre `glove-senha --pedir` (dados pelo ambiente, nunca na linha de comando), que confere a
+  senha pelo `polkit-agent-helper-1` (cookie e senha pela entrada dele) e permite tentar de novo.
+  Prefere a própria conta; senão, o primeiro administrador que o polkit aceita. `CancelAuthentication`
+  fecha a janela. polkitd e udisks2 na ISO e nas recomendações do pacote. Testado no Glove
+  aninhado com `pkexec`: janela, senha errada (aviso e nova tentativa) e Cancelar ("Not authorized").
+- [ ] 16.2 Discos sobre o udisks2 (G): discos, partições e espaço livre num mapa de barras (como o
+  gnome-disks), atualizado ao vivo; informações do disco e da partição.
+- [ ] 16.3 Formatar (M): o disco inteiro (GPT ou MBR, opção de apagar com zeros) e a partição
+  (ext4, FAT32, exFAT, NTFS, btrfs), com nome.
+- [ ] 16.4 Partições (M): criar no espaço livre, apagar, mudar o tipo, o nome e as marcas (EFI, boot).
+- [ ] 16.5 Redimensionar (M): aumentar e diminuir a partição junto com o sistema de arquivos.
+- [ ] 16.6 Imagens (M): gravar uma ISO/IMG num pendrive ou disco e criar a imagem de um disco, com
+  progresso e conferência.
+- [ ] 16.7 Saúde e reparo (M): verificar e reparar, mudar o rótulo, saúde (SMART/NVMe) e temperatura.
+- [ ] 16.8 Instalador (M): "Preparar o disco com o Discos…" e instalar numa partição escolhida.
+- [ ] 16.9 ISO e pacote (P): udisks2, polkitd, exfatprogs, ntfs-3g, btrfs-progs e dosfstools.

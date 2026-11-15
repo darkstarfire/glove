@@ -69,6 +69,9 @@ and the installer and ISO still need testing on real computers. How to use each 
 - **Screenshots** of the whole screen, an area or a window, on any display
 - Force Quit that detects unresponsive apps; screen lock (PAM), screen blanking, laptop lid,
   volume and brightness keys
+- **System password** (`glove-senha`, the polkit agent): any program that asks for administrator
+  permission through polkit (Disks, gnome-disks, Flatpak, NetworkManager, `pkexec`) shows Glove's
+  password window
 - Accessibility: zoom, inverted colors, large cursor
 - Drag and drop between apps, text and file clipboard
 - Glove's Open/Save sheet also for other apps (FileChooser portal: Firefox, Chromium…)
@@ -320,6 +323,7 @@ crates/login       login screen (`glove-login`, on greetd; `--fake` to try it)
 crates/arte        `glove-arte`: Plymouth theme, the "Glove" icon theme and its preview sheet
 crates/energia     battery (library used by the compositor and Preferences)
 crates/instalador  Install Glove OS (`glove-instalador`)
+crates/senha       system password: the polkit agent (`glove-senha`)
 crates/…           one folder per app (files, prefs, term, editor, viewer, correio, agenda…)
 data/              session, greetd, Plymouth, GRUB, wallpapers, the Glove OS identity and the ISO
 ci/iso.sh          builds the ISO in continuous integration (.github/workflows/iso.yml)
