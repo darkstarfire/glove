@@ -62,19 +62,52 @@ fn os_name() -> String {
     std::fs::read_to_string("/etc/os-release").ok().and_then(|t| t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=")).map(|v| v.trim_matches('"').to_string())).unwrap_or_else(|| "Linux".into())
 }
 
+/// O que o painel está fazendo como administrador.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Op {
+    /// `apt update` (o Verificar Agora).
+    Verificar,
+    /// Só o glove e o glove-os.
+    Glove,
+    /// O sistema inteiro (`apt full-upgrade`).
+    Tudo,
+    /// Acrescentar o repositório do Glove (fora do Glove OS).
+    Repositorio,
+}
+
+/// Andamento do apt pela linha do `APT::Status-Fd`: (fração 0 a 1, o que está fazendo).
+/// "dlstatus:2:40.5:Baixando x" (baixar, a primeira metade) e "pmstatus:x:30.0:Instalando x"
+/// (instalar, a segunda).
+pub fn apt_progress(line: &str) -> Option<(f32, String)> {
+    let mut it = line.splitn(4, ':');
+    let kind = it.next()?;
+    let _ = it.next()?;
+    let pct: f32 = it.next()?.trim().parse().ok()?;
+    let text = it.next().unwrap_or("").trim().to_string();
+    match kind {
+        "dlstatus" => Some((pct / 200.0, text)),
+        "pmstatus" => Some((0.5 + pct / 200.0, text)),
+        _ => None,
+    }
+}
+
 #[derive(Default)]
 pub struct Atualizacao {
     result: Arc<Mutex<Option<Vec<String>>>>,
     list: Option<Vec<String>>,
-    busy: bool,
+    lendo: bool,
     /// O Glove: a versão nova publicada (buscada ao abrir o painel).
     nova: Arc<Mutex<Option<Result<crate::atualizar::Nova, String>>>>,
     glove: Option<Result<crate::atualizar::Nova, String>>,
     buscando: bool,
-    /// O pedido de senha (o comando que vai rodar e a folha).
-    pub prompt: Option<(Vec<String>, crate::admin::Prompt)>,
-    job: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
+    /// O pedido de senha (a operação, o comando e a folha).
+    pub prompt: Option<(Op, Vec<String>, crate::admin::Prompt)>,
+    job: Option<(Op, std::sync::mpsc::Receiver<crate::admin::Step>)>,
+    /// Barra de progresso: fração e o que está fazendo.
+    progress: f32,
+    fase: String,
     msg: Option<String>,
+    /// O Glove mudou: oferece encerrar a sessão.
     atualizado: bool,
 }
 
@@ -85,60 +118,124 @@ impl Atualizacao {
         std::thread::spawn(move || *r.lock().unwrap() = Some(crate::atualizar::buscar()));
     }
 
-    /// Roda como administrador: direto se o sudo não pede senha, senão pela folha.
-    fn como_admin(&mut self, args: Vec<String>, what: String) {
-        self.msg = None;
-        match crate::admin::sudo_state() {
-            crate::admin::Sudo::Free => self.job = Some(crate::admin::run(args, None)),
-            crate::admin::Sudo::No => self.msg = Some(tr!("Só uma conta de administrador pode atualizar o sistema.").into()),
-            crate::admin::Sudo::Password => self.prompt = Some((args, crate::admin::Prompt::new(what))),
+    /// A lista do que o apt tem para atualizar (o que ele já sabe; sem senha).
+    fn ler_lista(&mut self) {
+        let Some((check, _)) = package_manager() else { return };
+        self.lendo = true;
+        let r = self.result.clone();
+        std::thread::spawn(move || {
+            let out = Command::new("sh").arg("-c").arg(check).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+            *r.lock().unwrap() = Some(parse_updates(&out));
+        });
+    }
+
+    fn comando(op: Op) -> Vec<String> {
+        let apt = "DEBIAN_FRONTEND=noninteractive apt-get -o APT::Status-Fd=1 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -y";
+        let sh = |c: String| vec!["sh".to_string(), "-c".to_string(), c];
+        match op {
+            Op::Verificar => sh("apt-get update".into()),
+            Op::Glove => sh(format!(
+                "apt-get update -o Dir::Etc::sourcelist={} -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 && {apt} install --only-upgrade glove glove-os",
+                crate::atualizar::SOURCES
+            )),
+            Op::Tudo => sh(format!("{apt} full-upgrade")),
+            Op::Repositorio => crate::atualizar::comando_repositorio(),
         }
     }
 
+    /// Roda como administrador: direto se o sudo não pede senha, senão pela folha.
+    fn como_admin(&mut self, op: Op) {
+        self.msg = None;
+        let args = Self::comando(op);
+        let what = match op {
+            Op::Verificar => tr!("Procurar atualizações."),
+            Op::Glove => tr!("Atualizar o Glove."),
+            Op::Tudo => tr!("Instalar as atualizações do sistema."),
+            Op::Repositorio => tr!("Adicionar o repositório do Glove ao apt."),
+        };
+        match crate::admin::sudo_state() {
+            crate::admin::Sudo::Free => self.start(op, args, None),
+            crate::admin::Sudo::No => self.msg = Some(tr!("Só uma conta de administrador pode atualizar o sistema.").into()),
+            crate::admin::Sudo::Password => self.prompt = Some((op, args, crate::admin::Prompt::new(what.into()))),
+        }
+    }
+
+    fn start(&mut self, op: Op, args: Vec<String>, password: Option<String>) {
+        self.progress = 0.0;
+        self.fase = match op {
+            Op::Verificar => tr!("Procurando atualizações…").into(),
+            Op::Repositorio => tr!("Adicionando o repositório…").into(),
+            _ => tr!("Preparando…").into(),
+        };
+        self.job = Some((op, crate::admin::run_stream(args, password)));
+    }
+
     pub fn prompt_sheet(&mut self, ui: &mut Ui) {
-        if let Some((args, mut p)) = self.prompt.take() {
+        if let Some((op, args, mut p)) = self.prompt.take() {
             match p.sheet(ui) {
-                crate::admin::Answer::Waiting => self.prompt = Some((args, p)),
+                crate::admin::Answer::Waiting => self.prompt = Some((op, args, p)),
                 crate::admin::Answer::Cancel => {}
-                crate::admin::Answer::Password(pw) => self.job = Some(crate::admin::run(args, Some(pw))),
+                crate::admin::Answer::Password(pw) => self.start(op, args, Some(pw)),
             }
         }
     }
 
-    /// A seção do Glove: versão instalada, a nova, o que há de novo e Atualizar.
+    /// O andamento do comando em curso; no fim, a mensagem e o que muda no painel.
+    fn acompanhar(&mut self, ui: &mut Ui) {
+        let Some((op, rx)) = self.job.take() else { return };
+        let mut done = None;
+        while let Ok(step) = rx.try_recv() {
+            match step {
+                crate::admin::Step::Line(l) => {
+                    if let Some((f, t)) = apt_progress(&l) {
+                        self.progress = self.progress.max(f.min(1.0));
+                        if !t.is_empty() {
+                            self.fase = t;
+                        }
+                    }
+                }
+                crate::admin::Step::Done(r) => done = Some(r),
+            }
+        }
+        let Some(r) = done else {
+            self.job = Some((op, rx));
+            ui.wake_after(Duration::from_millis(150));
+            return;
+        };
+        match (op, r) {
+            (_, Err(e)) if e.contains("lock") || e.contains("Could not get lock") || e.contains("bloque") => {
+                self.msg = Some(tr!("Outro programa está instalando agora (talvez a atualização automática do sistema). Tente de novo em alguns minutos.").into());
+            }
+            (_, Err(e)) => self.msg = Some(tr!("Não deu certo: {}", e)),
+            (Op::Verificar, Ok(())) => self.msg = None,
+            (Op::Repositorio, Ok(())) => self.msg = Some(tr!("Repositório do Glove adicionado.").into()),
+            (Op::Glove | Op::Tudo, Ok(())) => {
+                let glove_mudou = op == Op::Glove || self.list.as_ref().is_some_and(|l| l.iter().any(|p| p.starts_with("glove ") || p.starts_with("glove-os ")));
+                self.atualizado |= glove_mudou;
+                self.msg = Some(if glove_mudou {
+                    tr!("Atualizado. Encerre a sessão e entre de novo para usar o Glove novo.").into()
+                } else {
+                    tr!("Sistema atualizado.").into()
+                });
+            }
+        }
+        // Depois de qualquer coisa, relê o que há para atualizar.
+        self.glove = None;
+        self.buscar_glove();
+        self.ler_lista();
+    }
+
+    /// A seção do Glove: versão instalada, a nova e o que há de novo.
     fn glove(&mut self, ui: &mut Ui) {
         use crate::atualizar as a;
-        if self.glove.is_none() && !self.buscando {
-            self.buscar_glove();
-        }
         if let Some(r) = self.nova.lock().unwrap().take() {
             self.glove = Some(r);
             self.buscando = false;
         }
-        if let Some(rx) = &self.job {
-            match rx.try_recv() {
-                Ok(r) => {
-                    self.job = None;
-                    match r {
-                        Ok(()) if !a::configurado() => self.msg = Some(tr!("Repositório do Glove adicionado.").into()),
-                        Ok(()) => {
-                            self.atualizado = true;
-                            self.msg = Some(tr!("Glove atualizado. Encerre a sessão e entre de novo para usar a versão nova.").into());
-                        }
-                        Err(e) => self.msg = Some(tr!("Não deu certo: {}", e)),
-                    }
-                    self.glove = None;
-                }
-                Err(_) => ui.wake_after(Duration::from_millis(200)),
-            }
-        }
-        if self.buscando {
-            ui.wake_after(Duration::from_millis(300));
-        }
         let inst = a::instalada();
         ui.label_ex("Glove OS", 13.0, true, glove_ui::paint::draw::rgba(20, 20, 24, 255));
         ui.small(&tr!("Versão instalada: {}", inst));
-        let busy = self.job.is_some() || self.buscando;
+        let busy = self.job.is_some();
         match &self.glove {
             None => ui.small(tr!("Consultando o repositório do Glove…")),
             Some(Err(e)) => ui.small(e),
@@ -148,38 +245,24 @@ impl Atualizacao {
                 ui.small(tr!("O que há de novo:"));
                 let linhas: Vec<String> = n.notas.lines().map(str::to_string).filter(|l| !l.trim().is_empty()).collect();
                 let mut sel = None;
-                ui.list(&mut sel, &linhas, ui.available_width(), 120.0 + crate::grow() * 0.5);
+                ui.list(&mut sel, &linhas, ui.available_width(), 110.0 + crate::grow() * 0.5);
                 ui.space(4.0);
                 if !a::configurado() {
                     ui.small(tr!("Este sistema ainda não recebe as atualizações do Glove pelo apt."));
                     ui.set_active(!busy);
                     if ui.button(tr!("Adicionar o Repositório do Glove")) {
-                        self.como_admin(a::comando_repositorio(), tr!("Adicionar o repositório do Glove ao apt.").into());
+                        self.como_admin(Op::Repositorio);
                     }
                     ui.set_active(true);
                 } else {
-                    ui.horizontal(|ui| {
-                        ui.set_active(!busy && !self.atualizado);
-                        if ui.default_button(tr!("Atualizar o Glove")) {
-                            self.como_admin(a::comando_atualizar(), tr!("Atualizar o Glove.").into());
-                        }
-                        ui.set_active(true);
-                        if self.job.is_some() {
-                            ui.spinner(16.0);
-                            ui.small(tr!("Atualizando…"));
-                        }
-                    });
+                    ui.set_active(!busy && !self.atualizado);
+                    if ui.default_button(tr!("Atualizar o Glove")) {
+                        self.como_admin(Op::Glove);
+                    }
+                    ui.set_active(true);
                 }
             }
             Some(Ok(_)) => ui.small(tr!("O Glove está em dia.")),
-        }
-        if let Some(m) = &self.msg {
-            ui.paragraph(m);
-        }
-        if self.atualizado {
-            if ui.button(tr!("Encerrar Sessão…")) {
-                let _ = Command::new(sibling("glove-sair")).arg("encerrar").spawn();
-            }
         }
         ui.space(10.0);
         ui.separator();
@@ -187,55 +270,103 @@ impl Atualizacao {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
+        // Ao abrir: o que já se sabe (o Glove pelo repositório dele; o sistema pelo apt).
+        if self.glove.is_none() && !self.buscando {
+            self.buscar_glove();
+        }
+        if self.list.is_none() && !self.lendo {
+            self.ler_lista();
+        }
         if let Some(l) = self.result.lock().unwrap().take() {
             self.list = Some(l);
-            self.busy = false;
+            self.lendo = false;
         }
-        if self.busy {
+        if self.buscando || self.lendo {
             ui.wake_after(Duration::from_millis(300));
         }
+        self.acompanhar(ui);
         self.glove(ui);
         let t = tr!("Sistema: {}", os_name());
         ui.label(&t);
         ui.space(6.0);
-        let Some((check, install)) = package_manager() else {
+        let Some((_, install)) = package_manager() else {
             ui.small(tr!("Não achei o gerenciador de pacotes deste sistema (apt, pacman, dnf ou zypper)."));
             return;
         };
-        let mut go = false;
+        let apt = has("apt-get");
+        let busy = self.job.is_some();
+        let mut verificar = false;
         ui.horizontal(|ui| {
-            ui.set_active(!self.busy);
-            go = ui.default_button(tr!("Verificar Agora"));
+            ui.set_active(!busy);
+            verificar = ui.button(tr!("Verificar Agora"));
             ui.set_active(true);
-            if self.busy {
-                ui.spinner(16.0);
-                ui.small(tr!("Verificando…"));
-            }
         });
-        if go {
-            self.busy = true;
-            let r = self.result.clone();
-            std::thread::spawn(move || {
-                let out = Command::new("sh").arg("-c").arg(check).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
-                *r.lock().unwrap() = Some(parse_updates(&out));
-            });
+        if verificar {
+            if apt {
+                self.como_admin(Op::Verificar);
+            } else {
+                self.glove = None;
+                self.buscar_glove();
+                self.ler_lista();
+            }
+        }
+        // Em andamento: a barra e o que está sendo feito.
+        if busy {
+            ui.space(6.0);
+            if self.job.as_ref().is_some_and(|j| j.0 == Op::Verificar || j.0 == Op::Repositorio) {
+                ui.horizontal(|ui| {
+                    ui.spinner(16.0);
+                    ui.small(&self.fase);
+                });
+            } else {
+                ui.progress(Some(self.progress), ui.available_width().min(360.0));
+                let t = format!("{:.0}%  {}", self.progress * 100.0, self.fase);
+                ui.small(&t);
+            }
+        }
+        if let Some(m) = &self.msg {
+            ui.space(4.0);
+            ui.paragraph(m);
+        }
+        if self.atualizado && ui.button(tr!("Encerrar Sessão…")) {
+            let _ = Command::new(sibling("glove-sair")).arg("encerrar").spawn();
         }
         ui.space(8.0);
         match &self.list {
-            None => ui.small(tr!("Clique em Verificar Agora para ver as atualizações disponíveis.")),
-            Some(l) if l.is_empty() => ui.small(tr!("Nenhuma atualização encontrada. (A lista vem da última consulta do sistema.)")),
+            None => ui.small(tr!("Procurando atualizações…")),
+            Some(l) if l.is_empty() => ui.small(tr!("Nenhuma atualização do sistema. (Verificar Agora consulta os repositórios de novo.)")),
             Some(l) => {
                 let t = tr!("{} atualizações disponíveis:", l.len());
                 ui.label(&t);
                 let mut sel = None;
-                ui.list(&mut sel, l, ui.available_width(), 180.0 + crate::grow());
+                let l = l.clone();
+                ui.list(&mut sel, &l, ui.available_width(), 140.0 + crate::grow() * 0.5);
                 ui.space(6.0);
-                if ui.button(tr!("Instalar no Terminal…")) {
-                    in_terminal(install);
+                if apt {
+                    ui.set_active(!busy);
+                    if ui.default_button(tr!("Instalar Tudo")) {
+                        self.como_admin(Op::Tudo);
+                    }
+                    ui.set_active(true);
+                } else {
+                    if ui.button(tr!("Instalar no Terminal…")) {
+                        in_terminal(install);
+                    }
+                    ui.small(tr!("O Terminal pede a sua senha de administrador."));
                 }
-                ui.small(tr!("O Terminal pede a sua senha de administrador."));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod apt_tests {
+    #[test]
+    fn andamento_do_apt() {
+        assert_eq!(super::apt_progress("dlstatus:3:40:Baixando firefox"), Some((0.2, "Baixando firefox".into())));
+        let (f, t) = super::apt_progress("pmstatus:glove:50.0:Instalando glove").unwrap();
+        assert!((f - 0.75).abs() < 1e-6 && t == "Instalando glove");
+        assert_eq!(super::apt_progress("Lendo listas de pacotes..."), None);
     }
 }
 

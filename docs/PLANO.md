@@ -1125,3 +1125,10 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
 - [ ] 20.11 AppImage (M): abrir com duplo clique e instalar arrastando para Aplicativos (janela como as
   do Mac).
 - [ ] 20.12 Arduino IDE (Java) com blocos pretos e a versão em .zip com erro de segmentação.
+- [x] 20.13 Atualização de Software sem Terminal (M) — v0.12.56: a consulta ao `novidades.json` pede
+  a resposta fresca (`?t=` e `Cache-Control: no-cache`; o GitHub Pages guarda por 10 min, e logo depois
+  de uma versão o painel dizia "em dia"). Verificar Agora roda o `apt update` como administrador
+  (folha de senha do sudo) e relê o Glove e a lista do sistema. Atualizar o Glove e Instalar Tudo
+  (`apt full-upgrade`) rodam com `APT::Status-Fd` e `admin::run_stream`: a barra junta baixar (0 a
+  50%) e instalar (50 a 100%) com o texto do apt; aviso claro se outro programa segura o apt. Sem
+  apt, continua o Terminal.

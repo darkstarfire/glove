@@ -418,9 +418,11 @@ Glove moves at its own pace, without waiting for Debian: for every new version, 
   version. If there is one, a notice ("Glove OS 0.12.50 available") shows in the corner and in the
   menu bar's counter. **View** opens the pane. Each version notifies once.
 - **Preferences ▸ Software Update:** at the top, **Glove OS**: the installed version, the new one,
-  **what's new** and the **Update Glove** button (asks for the administrator password; updates only
-  Glove, from its repository). At the end, **Log Out…** to come back on the new version. Below, the
-  system (Debian) updates, as before.
+  **what's new** and the **Update Glove** button (updates only Glove, from its repository). Below,
+  the whole system's updates and **Install All**. **Check Now** asks the repositories again (`apt
+  update`). All without the Terminal: the administrator password is asked in a sheet of the window
+  itself, and installing shows a **progress bar** with what is being downloaded and installed. At
+  the end, **Log Out…** to come back on the new Glove.
 - **Glove on another Debian or Ubuntu:** the pane offers **Add the Glove Repository**, and from then
   on Glove updates through apt too (without the Glove OS identity, which only the `glove-os` package
   brings). The Terminal commands are at https://fabioaacarneiro.github.io/glove.

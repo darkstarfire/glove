@@ -28,7 +28,10 @@ pub struct Nova {
 pub fn buscar() -> Result<Nova, String> {
     // GLOVE_REPO troca o endereço (testes, ou um espelho).
     let repo = std::env::var("GLOVE_REPO").unwrap_or_else(|_| REPO.into());
-    let o = Command::new("curl").args(["-fsSL", "--max-time", "20", &format!("{repo}/novidades.json")]).output().map_err(|e| format!("curl: {e}"))?;
+    // O GitHub Pages guarda as páginas por até 10 minutos: um número que muda a cada
+    // consulta faz ele mandar a versão de agora (logo depois de sair uma versão nova).
+    let fresh = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let o = Command::new("curl").args(["-fsSL", "--max-time", "20", "-H", "Cache-Control: no-cache", &format!("{repo}/novidades.json?t={fresh}")]).output().map_err(|e| format!("curl: {e}"))?;
     if !o.status.success() {
         return Err(tr!("Não deu para consultar o repositório do Glove (sem internet, ou o repositório ainda não foi publicado).").into());
     }
@@ -63,16 +66,6 @@ pub fn mais_nova(a: &str, b: &str) -> bool {
 /// O repositório do Glove está configurado neste sistema?
 pub fn configurado() -> bool {
     std::path::Path::new(SOURCES).exists()
-}
-
-/// Atualiza só o Glove: lê só o índice do repositório dele (rápido, e um
-/// problema no Debian não atrapalha) e instala a versão nova.
-pub fn comando_atualizar() -> Vec<String> {
-    vec![
-        "sh".into(),
-        "-c".into(),
-        format!("apt-get update -o Dir::Etc::sourcelist={SOURCES} -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 && DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade glove glove-os"),
-    ]
 }
 
 /// Fora do Glove OS (Debian, Ubuntu…): acrescenta o repositório do Glove.

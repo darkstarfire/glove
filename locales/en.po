@@ -6001,3 +6001,30 @@ msgstr "Installed version: {}"
 
 msgid "Versão nova: {} ({})"
 msgstr "New version: {} ({})"
+
+msgid "Adicionando o repositório…"
+msgstr "Adding the repository…"
+
+msgid "Atualizado. Encerre a sessão e entre de novo para usar o Glove novo."
+msgstr "Updated. Log out and back in to use the new Glove."
+
+msgid "Instalar Tudo"
+msgstr "Install All"
+
+msgid "Instalar as atualizações do sistema."
+msgstr "Install the system updates."
+
+msgid "Nenhuma atualização do sistema. (Verificar Agora consulta os repositórios de novo.)"
+msgstr "No system updates. (Check Now asks the repositories again.)"
+
+msgid "Outro programa está instalando agora (talvez a atualização automática do sistema). Tente de novo em alguns minutos."
+msgstr "Another program is installing right now (maybe the automatic system update). Try again in a few minutes."
+
+msgid "Preparando…"
+msgstr "Preparing…"
+
+msgid "Procurar atualizações."
+msgstr "Check for updates."
+
+msgid "Sistema atualizado."
+msgstr "System updated."

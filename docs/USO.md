@@ -445,9 +445,11 @@ o `glove-os` num **repositório apt do Glove OS** (assinado), que o Glove OS já
   versão nova. Se houver, aparece um aviso ("Glove OS 0.12.50 disponível") no canto da tela e no
   contador da barra de menu. **Ver** abre o painel. Cada versão avisa uma vez só.
 - **Preferências ▸ Atualização de Software:** em cima, o **Glove OS**: a versão instalada, a nova, **o
-  que há de novo** e o botão **Atualizar o Glove** (pede a senha de administrador; atualiza só o
-  Glove, pelo repositório dele). No fim, **Encerrar Sessão…** para entrar já na versão nova. Embaixo,
-  as atualizações do sistema (Debian), como antes.
+  que há de novo** e o botão **Atualizar o Glove** (atualiza só o Glove, pelo repositório dele).
+  Embaixo, as atualizações do sistema inteiro e **Instalar Tudo**. **Verificar Agora** consulta os
+  repositórios de novo (o `apt update`). Tudo sem o Terminal: a senha de administrador é pedida numa
+  folha da própria janela, e a instalação mostra uma **barra de progresso** com o que está sendo
+  baixado e instalado. No fim, **Encerrar Sessão…** para entrar já no Glove novo.
 - **Glove noutro Debian ou Ubuntu:** o painel oferece **Adicionar o Repositório do Glove**, e daí em
   diante o Glove se atualiza pelo apt também (sem a identidade do Glove OS, que só o pacote
   `glove-os` traz). Pelo Terminal, os comandos estão em https://fabioaacarneiro.github.io/glove.

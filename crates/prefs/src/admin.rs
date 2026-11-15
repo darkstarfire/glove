@@ -127,3 +127,61 @@ fn run_now(args: &[String], password: Option<&str>) -> Result<(), String> {
         Err(String::from_utf8_lossy(&o.stderr).lines().rfind(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string())
     }
 }
+
+/// Andamento de um comando de administrador: cada linha que ele escreve, e o fim.
+pub enum Step {
+    Line(String),
+    Done(Result<(), String>),
+}
+
+/// Como `run`, mas manda cada linha da saída (padrão e de erro) enquanto o comando
+/// roda: para a barra de progresso das atualizações (o apt escreve o andamento).
+pub fn run_stream(args: Vec<String>, password: Option<String>) -> Receiver<Step> {
+    let (tx, rx) = channel();
+    std::thread::spawn(move || {
+        use std::io::{BufRead, BufReader};
+        let mut c = Command::new("sudo");
+        match password {
+            Some(_) => c.args(["-S", "-k", "-p", ""]),
+            None => c.arg("-n"),
+        };
+        let spawned = c.args(&args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+        let mut child = match spawned {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = tx.send(Step::Done(Err(format!("sudo: {e}"))));
+                return;
+            }
+        };
+        if let Some(mut i) = child.stdin.take() {
+            if let Some(p) = &password {
+                let _ = writeln!(i, "{p}");
+            }
+        }
+        // O erro numa linha à parte (guardando a última, para a mensagem).
+        let last_err = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+        let err_thread = child.stderr.take().map(|e| {
+            let (tx, last) = (tx.clone(), last_err.clone());
+            std::thread::spawn(move || {
+                for line in BufReader::new(e).lines().map_while(Result::ok) {
+                    if !line.trim().is_empty() {
+                        *last.lock().unwrap() = line.trim().to_string();
+                    }
+                    let _ = tx.send(Step::Line(line));
+                }
+            })
+        });
+        if let Some(out) = child.stdout.take() {
+            for line in BufReader::new(out).lines().map_while(Result::ok) {
+                let _ = tx.send(Step::Line(line));
+            }
+        }
+        if let Some(t) = err_thread {
+            let _ = t.join();
+        }
+        let ok = child.wait().is_ok_and(|s| s.success());
+        let msg = last_err.lock().unwrap().clone();
+        let _ = tx.send(Step::Done(if ok { Ok(()) } else { Err(msg) }));
+    });
+    rx
+}
