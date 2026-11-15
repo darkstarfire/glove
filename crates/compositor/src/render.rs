@@ -966,6 +966,11 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
     for w in state.space.elements() {
         w.send_frame(output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
     }
+    // Menus e dicas X11 (override-redirect) ficam fora do espaço: sem o callback de quadro,
+    // o Xwayland não manda o próximo quadro e o popup fica com o primeiro (vazio/preto).
+    for w in state.x11_overlays.iter() {
+        w.send_frame(output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+    }
     // Minimizadas (miniatura viva no Dock): quadros no máximo 2×/s. Se for cedo,
     // agenda um quadro para quando der (só acontece se algo foi redesenhado).
     if !state.minimized.is_empty() && state.min_commit_pending {
