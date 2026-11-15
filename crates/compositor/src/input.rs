@@ -892,6 +892,7 @@ impl Glove {
             let peek = if pos.y <= 1.0 { true } else if pos.y > (glove_paint::theme::MENUBAR_H + 6) as f64 && self.chrome.menu.is_none() { false } else { self.bar_peek };
             if peek != self.bar_peek {
                 self.bar_peek = peek;
+                self.fullscreen_peek(peek);
                 self.dirty = true;
             }
         } else if self.bar_peek {

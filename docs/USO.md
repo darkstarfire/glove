@@ -82,7 +82,10 @@ Para testar: `notify-send "Olá" "Um aviso de teste"` no Terminal.
 
 - **Ctrl+Super+F** ou **Janela ▸ Entrar em Tela Cheia** põe a janela da frente no monitor
   inteiro, sem barra de título. A barra de menu e o Dock somem.
-- Encoste o mouse no alto da tela para a barra de menu (e o Dock) aparecer.
+- Encoste o mouse no alto da tela: a barra de menu desce e o Dock sobe, deslizando, e a janela
+  **se ajusta** ao espaço entre os dois (nada fica coberto, nem o topo nem o rodapé do app). Tirando
+  o mouse de lá, eles saem e a janela volta a ocupar a tela inteira. A janela muda de tamanho uma
+  vez só em cada sentido, não a cada quadro, para apps pesados (navegador, vídeo) não engasgarem.
 - O mesmo atalho, ou Janela ▸ Sair da Tela Cheia, volta ao tamanho de antes.
 - Os apps que pedem tela cheia sozinhos (F11 do Firefox, vídeos) também funcionam.
 

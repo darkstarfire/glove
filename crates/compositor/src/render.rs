@@ -511,7 +511,9 @@ impl Glove {
         }
         let covered = self.fullscreen_cover();
         if let Some(b) = c.menubar.as_ref().filter(|_| !covered) {
-            out.extend(mem(renderer, (0, 0).into(), b, sc));
+            // Em tela cheia, a barra desce do alto (e sobe ao sair).
+            let y = if c.fs { -(((1.0 - c.peek) * glove_paint::theme::MENUBAR_H as f32).round() as i32) } else { 0 };
+            out.extend(mem(renderer, (0, y).into(), b, sc));
         }
         // Menus e dicas de apps X11: por cima das janelas, na posição que o app escolheu.
         for w in self.x11_overlays.iter().rev() {

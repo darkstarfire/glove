@@ -81,7 +81,10 @@ To try it: `notify-send "Hello" "A test notification"` in Terminal.
 
 - **Ctrl+Super+F** or **Window ▸ Enter Full Screen** puts the front window on the whole monitor,
   without a title bar. The menu bar and the Dock go away.
-- Move the pointer to the top edge to bring the menu bar (and the Dock) back.
+- Move the pointer to the top edge: the menu bar slides down and the Dock slides up, and the window
+  **adjusts** to the space between them (nothing is covered, neither the app's top nor its bottom).
+  Moving the pointer away, they leave and the window takes the whole screen again. The window
+  changes size once each way, not every frame, so heavy apps (browser, video) don't stutter.
 - The same shortcut, or Window ▸ Exit Full Screen, returns to the previous size.
 - Apps that ask for full screen themselves (Firefox's F11, videos) work too.
 

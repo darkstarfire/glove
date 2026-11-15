@@ -498,6 +498,11 @@ pub struct Chrome {
     /// Ocultar automaticamente: 0 = à vista, 1 = escondido; e a animação (de, para, início).
     pub dock_hide: f32,
     pub dock_hide_anim: Option<(f32, f32, std::time::Instant)>,
+    /// Tela cheia: a barra de menu e o Dock entram juntos (0 = fora, 1 = à vista) e
+    /// a animação; `fs` = a janela de cima está em tela cheia.
+    pub peek: f32,
+    pub peek_anim: Option<(f32, f32, std::time::Instant)>,
+    pub fs: bool,
     /// A Lixeira tem itens (e quando foi conferido).
     pub trash_full: (u8, Option<std::time::Instant>),
     pub dock_hover: Option<usize>,
@@ -530,19 +535,21 @@ impl Chrome {
     pub fn dock_pos(&self) -> Point<i32, Logical> {
         let (w, h) = self.out_size;
         let Some(l) = &self.dock_layout else { return (0, h).into() };
-        // Escondido: desliza para fora pela borda (sobra só a sombra da prateleira).
+        // Escondido: desliza para fora pela borda (sobra só a sombra da prateleira). Em
+        // tela cheia, entra e sai junto com a barra de menu.
+        let hide = if self.fs { self.dock_hide.max(1.0 - self.peek) } else { self.dock_hide };
         let (lw, lh) = (l.width as i32, l.height as i32);
         match self.dock_side {
             chrome::DockSide::Bottom => {
-                let out = (self.dock_hide * l.height as f32) as i32;
+                let out = (hide * l.height as f32) as i32;
                 ((w - lw) / 2, h - lh + out).into()
             }
             chrome::DockSide::Left => {
-                let out = (self.dock_hide * l.width as f32) as i32;
+                let out = (hide * l.width as f32) as i32;
                 (-out, (h - lh) / 2).into()
             }
             chrome::DockSide::Right => {
-                let out = (self.dock_hide * l.width as f32) as i32;
+                let out = (hide * l.width as f32) as i32;
                 (w - lw + out, (h - lh) / 2).into()
             }
         }
@@ -638,7 +645,7 @@ impl Glove {
             let t = self.chrome.title_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64);
             return Hit::MenuBar { target: t.map(BarTarget::Title) };
         }
-        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| self.chrome.dock_hide < 0.5 && !covered) {
+        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| self.chrome.dock_hide < 0.5 && !covered && !(self.chrome.fs && self.chrome.peek < 0.5)) {
             let d = self.chrome.dock_pos();
             let (lx, ly) = ((px - d.x as f64) as f32, (py - d.y as f64) as f32);
             if chrome::dock_contains(l, lx, ly) {
@@ -797,9 +804,64 @@ impl Glove {
         }
     }
 
-    /// A janela de cima está em tela cheia: a barra de menu e o Dock saem de cena.
+    /// A janela de cima está em tela cheia: a barra de menu e o Dock saem de cena
+    /// (e já terminaram de sair).
     pub fn fullscreen_cover(&self) -> bool {
-        self.fullscreen_top() && !self.bar_peek
+        self.fullscreen_top() && !self.bar_peek && self.chrome.peek <= 0.0
+    }
+
+    /// Tela cheia: a barra de menu e o Dock aparecem (encostar no alto) ou somem. A
+    /// janela não fica por baixo deles: ganha de uma vez o tamanho entre os dois
+    /// (sem mudar a cada quadro, o que faria apps pesados redesenharem sem parar) e
+    /// volta à tela inteira quando eles saem, enquanto eles deslizam.
+    pub fn fullscreen_peek(&mut self, show: bool) {
+        let to = if show { 1.0 } else { 0.0 };
+        if glove_config::reduce_effects() {
+            self.chrome.peek = to;
+            self.chrome.peek_anim = None;
+        } else {
+            let current_to = self.chrome.peek_anim.map(|a| a.1).unwrap_or(self.chrome.peek);
+            if current_to != to {
+                self.chrome.peek_anim = Some((self.chrome.peek, to, std::time::Instant::now()));
+            }
+        }
+        let Some(w) = self.space.elements().last().filter(|w| is_fullscreen(w)).cloned() else { return };
+        let Some(geo) = self.space.element_geometry(&w) else { return };
+        let center: Point<f64, Logical> = ((geo.loc.x + geo.size.w / 2) as f64, (geo.loc.y + geo.size.h / 2) as f64).into();
+        let Some(out) = self.output_rect_at(center) else { return };
+        // A barra e o Dock só existem no monitor principal; nos outros, nada muda.
+        if self.primary().and_then(|o| self.space.output_geometry(o)) != Some(out) {
+            return;
+        }
+        let rect = if show {
+            // Entre a barra de menu e o Dock (o Dock aparece mesmo com "ocultar sozinho").
+            let shelf = match &self.chrome.dock_layout {
+                Some(l) if l.side.vertical() => l.shelf.2,
+                Some(l) => l.shelf.3,
+                None => chrome::dock_shelf_thickness(self.config.dock.size.clamp(24, 128) as f32),
+            }
+            .ceil() as i32;
+            let (x, y, w, h) = (out.loc.x, out.loc.y + MENUBAR_H, out.size.w, out.size.h - MENUBAR_H);
+            match chrome::DockSide::from_config(&self.config.dock.position) {
+                chrome::DockSide::Bottom => Rectangle::new((x, y).into(), (w, (h - shelf).max(100)).into()),
+                chrome::DockSide::Left => Rectangle::new((x + shelf, y).into(), ((w - shelf).max(100), h).into()),
+                chrome::DockSide::Right => Rectangle::new((x, y).into(), ((w - shelf).max(100), h).into()),
+            }
+        } else {
+            out
+        };
+        if geo == rect {
+            return;
+        }
+        if let Some(x) = w.x11_surface() {
+            let _ = x.configure(rect);
+        } else if let Some(t) = w.toplevel() {
+            // Continua em tela cheia (sem moldura); só o tamanho muda.
+            t.with_pending_state(|s| s.size = Some(rect.size));
+            t.send_pending_configure();
+        }
+        self.space.map_element(w, rect.loc, false);
+        self.dirty = true;
     }
 
     /// A janela de cima está em tela cheia (com ou sem a barra espiando).
@@ -1969,6 +2031,21 @@ impl Glove {
             } else {
                 self.dirty = true;
             }
+        }
+        // Tela cheia: a barra e o Dock entram e saem juntos.
+        self.chrome.fs = self.fullscreen_top();
+        if let Some((from, to, start)) = self.chrome.peek_anim {
+            let t = (start.elapsed().as_secs_f32() / 0.2).min(1.0);
+            let e = t * t * (3.0 - 2.0 * t);
+            self.chrome.peek = from + (to - from) * e;
+            if t >= 1.0 {
+                self.chrome.peek_anim = None;
+            } else {
+                self.dirty = true;
+            }
+        }
+        if !self.chrome.fs && self.chrome.peek_anim.is_none() {
+            self.chrome.peek = 0.0;
         }
         // Ocultar automaticamente: desliza pelo relógio, como a ampliação.
         if let Some((from, to, start)) = self.chrome.dock_hide_anim {

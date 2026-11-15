@@ -1059,3 +1059,13 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
 - [ ] 17.3 Ligar no GitHub (usuário): o segredo `APT_SIGNING_KEY` e o Pages com origem "GitHub
   Actions" (feitos em 15/11/2026), e no ambiente `github-pages` a regra de tag `v*` (ele só
   aceitava publicar do ramo master). O token do gh desta máquina não tem permissão para isso.
+
+## Fase 18 — Tela cheia que empurra (pedido de 15/11/2026)
+
+- [x] 18.1 Barra e Dock empurram a janela (M) — v0.12.52: em tela cheia, encostar no alto fazia a
+  barra de menu e o Dock aparecerem por cima da janela. Agora `fullscreen_peek` dá à janela (que
+  continua em tela cheia, sem moldura) o retângulo entre a barra e a prateleira do Dock (o Dock
+  aparece mesmo com "ocultar sozinho"), de uma vez, e devolve a tela inteira quando eles saem;
+  `chrome.peek` (0 a 1, 0,2 s, nada com Reduzir efeitos) desliza a barra de cima para baixo e o
+  Dock (pelo `dock_pos`, junto com o `dock_hide`) de baixo para cima. Só no monitor principal (os
+  outros não têm barra nem Dock). Testado no Glove aninhado com o Editor.
