@@ -10,6 +10,22 @@ copied); the only ready-made images are the glove logo and the Glove OS wallpape
 The interface speaks **Portuguese and English** (it follows the system language) and new
 languages are added with a `.po` file — see [Languages](#languages).
 
+## Glove OS: a Brazilian distribution
+
+**Glove OS** is a Linux distribution **made in Brazil**. Inside, it is Debian 13: the same
+packages, repositories and updates, 100% compatible. Outside, it is Glove: a desktop written from
+scratch in Rust (a Wayland compositor, an interface library and 38 apps of its own), with the
+"gel" look of the 2000s and its own identity, from the boot menu to `fastfetch`. Portuguese is its
+native language: texts are born in Portuguese in the code, and English comes as a translation.
+
+It was created by a **Brazilian software engineer with more than 22 years on Linux** who was bored
+and wanted to practice AI in "different places": instead of one more website or one more app, a
+whole system, with a compositor, every pixel drawn in code, an installer and an ISO, built
+together with an AI (Claude).
+
+**Download:** each version's ISO is on the [Releases](https://github.com/fabioaacarneiro/glove/releases) page
+(see [Glove OS (the distribution, as an ISO)](#glove-os-the-distribution-as-an-iso)).
+
 ## Current state
 
 Look and behavior baseline: **Mac OS X 10.4 Tiger** (plus a Pinstripes theme for the
@@ -185,7 +201,7 @@ of `/etc/default/grub`) and puts the text colors in `/etc/grub.d/06_glove`. GRUB
 bootloader (systemd-boot…) the command says so and changes nothing. On the Glove OS ISO this is
 already done: in the boot menu of the USB stick and in the installed system's GRUB.
 
-**Boot screen (Plymouth).** The Glove theme (light grey background, the Glove glove and a spinner) shows while
+**Boot screen (Plymouth).** The Glove theme (light grey background, the glove logo and a spinner) shows while
 the system starts and shuts down. On another distribution, install it with
 `sudo ./data/install-plymouth.sh` (`--remove` goes back to the previous theme). On the Glove OS ISO
 it is already done, on the USB stick and in the installed system: Plymouth is in the package list,
@@ -210,8 +226,14 @@ logs into Glove by itself and opens **Install Glove OS**, which copies the syste
 ./glove-setup-tool.sh iso test   # starts the ISO in a virtual machine (QEMU) with a test disk
 ```
 
-The script downloads Debian's official live-build and debootstrap into `iso/ferramentas` (other
-distributions' live-build is usually too old). Everything heavy stays in `iso/`, outside Git.
+To build the ISO: a Debian-family system (Debian, Ubuntu…) on x86_64, with `dpkg-deb`, `sudo`,
+`debootstrap` installed (`sudo apt install debootstrap`; live-build requires the system's one) and
+Rust 1.89 or newer. The script downloads Debian's official live-build and debootstrap into
+`iso/ferramentas` (other distributions' live-build is usually too old). Everything heavy stays in
+`iso/`, outside Git.
+
+On the live system the user is `glove` and the password is **`live`** (for `sudo` and console
+logins); `root` has no password.
 
 **Ready-made ISO:** for every new version (tag `v…`), GitHub Actions builds the ISO on Debian 13 and
 publishes it, with the `.deb` packages and `SHA256SUMS`, on the [Releases](https://github.com/fabioaacarneiro/glove/releases) page
@@ -272,7 +294,19 @@ fails if any marked text has no English translation, and `tools/i18n.py` helps m
 ## Configuration
 
 `~/.config/glove/config.toml` (created on first run). Preferences edits this file and Glove
-reloads it when it changes.
+reloads it when it changes. Everything in the file can also be set in Preferences. Examples:
+
+```toml
+[energy]
+screen_off_minutes = 10   # blank the screen after N idle minutes (0 = never)
+require_password = true   # ask for the password when coming back (blank screen, sleep, hibernation, lid closed)
+
+[hot_corners]             # Exposé in the corners: "", "todas" (all), "app" or "mesa" (desktop)
+bottom_right = "mesa"
+```
+
+Unlocking checks the password through PAM. `data/install-session.sh` installs the
+`/etc/pam.d/glove` service; without it, Glove uses the `login` service.
 
 ## Layout
 
@@ -291,6 +325,39 @@ data/              session, greetd, Plymouth, GRUB, wallpapers, the Glove OS ide
 ci/iso.sh          builds the ISO in continuous integration (.github/workflows/iso.yml)
 tools/i18n.py      helper to mark texts for translation
 ```
+
+## Login screen in development mode
+
+With Glove installed, the login screen is the `glove-login` service (see "Installing"). Using the
+project's own programs instead:
+
+```sh
+cargo build --release
+sudo ./data/install-login.sh           # saves the current greetd configuration and installs
+sudo ./data/install-login.sh --remove  # restores the previous configuration
+```
+
+To see the screen in a window, without installing: `glove --greeter -c "glove-login --fake"` (test
+password: `glove`).
+
+## Next steps
+
+The full plan, in phases and steps (one commit each), is in [docs/PLANO.md](docs/PLANO.md) (in
+Portuguese), with detailed analyses of each area in [docs/analise/](docs/analise/).
+
+## Neovim with a Nerd Font
+
+The Terminal shows Nerd Font icons by itself if one is installed (it looks for a fallback font only
+when a character is missing from the main font). To install one:
+
+```sh
+mkdir -p ~/.local/share/fonts && cd ~/.local/share/fonts
+curl -LO https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip
+unzip JetBrainsMono.zip && fc-cache -f
+```
+
+Then, in Preferences → Terminal, type `JetBrainsMono Nerd Font` (or leave it empty to use the
+default font with icons coming from the Nerd Font).
 
 ## License
 

@@ -7,6 +7,22 @@ Ambiente gráfico leve para Linux, escrito em Rust, com visual inspirado na era
 suaves e um Dock com ampliação. Toda a arte é original e desenhada por código; as únicas imagens
 prontas são a logo da luva e o papel de parede do Glove OS.
 
+## Glove OS: uma distro brasileira
+
+O **Glove OS** é uma distribuição Linux **feita no Brasil**. Por dentro, é Debian 13: os mesmos
+pacotes, repositórios e atualizações, 100% compatível. Por fora, é o Glove: uma área de trabalho
+escrita do zero em Rust (compositor Wayland, biblioteca de interface e 38 apps próprios), com o
+visual "gel" dos anos 2000 e identidade própria, do menu de boot ao `fastfetch`. O português é a
+língua de origem: os textos nascem em português no código, e o inglês vem por tradução.
+
+Ela foi criada por um **engenheiro de software brasileiro com mais de 22 anos de estrada no Linux**
+que estava entediado e quis praticar IA em "lugares diferentes": em vez de mais um site ou mais um
+app, um sistema inteiro, com compositor, desenho de cada pixel, instalador e ISO, construído em
+parceria com uma IA (Claude).
+
+**Baixar:** a ISO de cada versão fica na página de [Releases](https://github.com/fabioaacarneiro/glove/releases)
+(veja [Glove OS (a distro, em ISO)](#glove-os-a-distro-em-iso)).
+
 ## Estado atual
 
 Base visual e de comportamento: **Mac OS X 10.4 Tiger** (com o tema Listras para o visual 10.0–10.2).
@@ -197,8 +213,14 @@ sistema para o disco (inteiro ou ao lado de outro sistema). Como usar o instalad
 ./glove-setup-tool.sh iso testar   # liga a ISO numa máquina virtual (QEMU) com um disco de teste
 ```
 
-O script baixa o live-build e o debootstrap oficiais do Debian para `iso/ferramentas` (o live-build
-de outras distribuições costuma ser velho demais). Tudo o que é pesado fica em `iso/`, fora do Git.
+Para montar a ISO: um sistema da família Debian (Debian, Ubuntu…) em x86_64, com `dpkg-deb`, `sudo`,
+o `debootstrap` instalado (`sudo apt install debootstrap`; o live-build exige o do sistema) e o Rust
+1.89 ou mais novo. O script baixa o live-build e o debootstrap oficiais do Debian para
+`iso/ferramentas` (o live-build de outras distribuições costuma ser velho demais). Tudo o que é
+pesado fica em `iso/`, fora do Git.
+
+No sistema ao vivo, o usuário é `glove` e a senha é **`live`** (para o `sudo` e para entrar pelo
+console); o `root` não tem senha.
 
 **ISO pronta:** a cada versão nova (tag `v…`), o GitHub Actions monta a ISO num Debian 13 e a publica,
 com os pacotes `.deb` e o `SHA256SUMS`, na página de [Releases](https://github.com/fabioaacarneiro/glove/releases)
@@ -393,3 +415,8 @@ unzip JetBrainsMono.zip && fc-cache -f
 
 Depois, em Preferências → Terminal, escreva `JetBrainsMono Nerd Font` (ou deixe vazio para
 usar a fonte padrão com os ícones vindos da Nerd Font).
+
+## Licença
+
+GPL-3.0-ou-posterior (veja [LICENSE](LICENSE)). O tema de ícones também é publicado à parte:
+[glove-icons](https://github.com/fabioaacarneiro/glove-icons).
