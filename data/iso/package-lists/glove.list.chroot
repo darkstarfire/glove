@@ -103,3 +103,5 @@ grub-pc-bin
 grub2-common
 os-prober
 fastfetch
+# AppImage (os programas em um arquivo só abrem com dois cliques)
+libfuse2t64

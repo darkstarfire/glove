@@ -352,7 +352,7 @@ uninstall_glove() {
 
 # Packages Glove needs to run and the ones that improve it (per distribution).
 deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core, greetd"
-rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin"
+rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2"
 deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts greetd"
 rec_rpm="xorg-x11-server-Xwayland mpv ffmpeg poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils"
 deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu greetd"
@@ -425,6 +425,35 @@ package_glove_os() {
     install -m 644 "$d/glove-os-repositorio.gpg" "$tmp/usr/share/keyrings/glove-os-repositorio.gpg"
     printf 'Types: deb\nURIs: https://fabioaacarneiro.github.io/glove\nSuites: glove\nComponents: main\nSigned-By: /usr/share/keyrings/glove-os-repositorio.gpg\n' > "$tmp/etc/apt/sources.list.d/glove-os.sources"
     chmod 644 "$tmp/etc/apt/sources.list.d/glove-os.sources"
+    # O tema do Glove para o Firefox (metal escovado, como o Safari clássico), instalado
+    # e ligado para todos pelas políticas; sem assinatura da Mozilla, por isso a pref.
+    if [ -x target/release/glove-arte ] && has zip; then
+        fx="$tmp/fx"
+        target/release/glove-arte firefox "$fx" >/dev/null
+        mkdir -p "$o/firefox" "$tmp/etc/firefox/policies" "$tmp/etc/firefox-esr"
+        (cd "$fx" && zip -qX9 "$o/firefox/glove-tema.xpi" manifest.json metal.png)
+        rm -rf "$fx"
+        chmod 644 "$o/firefox/glove-tema.xpi"
+        cat > "$tmp/etc/firefox/policies/policies.json" <<'FIM'
+{
+  "policies": {
+    "ExtensionSettings": {
+      "glove-tema@glove-os": {
+        "installation_mode": "normal_installed",
+        "install_url": "file:///usr/share/glove-os/firefox/glove-tema.xpi"
+      }
+    },
+    "Preferences": {
+      "extensions.activeThemeID": { "Value": "glove-tema@glove-os", "Status": "default" }
+    }
+  }
+}
+FIM
+        printf '// Glove OS: o tema do Glove não passa pela assinatura da Mozilla.\npref("xpinstall.signatures.required", false);\n' > "$tmp/etc/firefox-esr/glove-os.js"
+        chmod 644 "$tmp/etc/firefox/policies/policies.json" "$tmp/etc/firefox-esr/glove-os.js"
+    else
+        echo "$(t "aviso: sem o glove-arte compilado ou o zip, o pacote sai sem o tema do Firefox" "warning: no built glove-arte or zip, the package goes without the Firefox theme")" >&2
+    fi
     install -m 755 "$d/postinst" "$d/postrm" "$tmp/DEBIAN/"
     (cd "$tmp" && find etc -type f | sed 's|^|/|') > "$tmp/DEBIAN/conffiles"
     {
@@ -441,7 +470,8 @@ package_glove_os() {
         echo "Description: Glove OS: distro identity (Debian inside)"
         echo " Makes the system present itself as Glove OS: the name in os-release (ID=debian"
         echo " and the Debian version stay the same, for programs), logo, fastfetch,"
-        echo " neofetch, console screen, GRUB menu and the boot screen (Plymouth theme)."
+        echo " neofetch, console screen, GRUB menu, the boot screen (Plymouth theme) and"
+        echo " the Glove theme for Firefox."
         echo " Only for Glove OS."
     } > "$tmp/DEBIAN/control"
     mkdir -p "$out_dir"

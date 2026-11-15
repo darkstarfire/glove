@@ -1121,9 +1121,22 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   a tabela destaca as escolhidas a mais (`TableStyle::also`).
 - [x] 20.9 Pastas padrão na barra lateral (P) — v0.12.55: `xdg-user-dirs` na ISO e nas recomendações,
   e a sessão roda o `xdg-user-dirs-update` ao entrar.
-- [ ] 20.10 Tema do Glove para o Firefox (M): metal escovado no estilo do Safari clássico.
-- [ ] 20.11 AppImage (M): abrir com duplo clique e instalar arrastando para Aplicativos (janela como as
-  do Mac).
+- [x] 20.10 Tema do Glove para o Firefox (M) — v0.12.57: `glove-arte firefox` gera o tema (manifest e
+  o metal escovado do tema Metal, 3840 px); o pacote glove-os o leva em
+  `/usr/share/glove-os/firefox/glove-tema.xpi`, instala e liga para todos os perfis pelas políticas
+  (`/etc/firefox/policies/policies.json`: ExtensionSettings normal_installed e
+  `extensions.activeThemeID`) e libera o tema sem assinatura da Mozilla
+  (`/etc/firefox-esr/glove-os.js`). Testado no firefox-esr do trixie: perfil novo já abre com ele.
+  O usuário ainda pode trocar de tema no Firefox.
+- [x] 20.11 AppImage (M) — v0.12.57: o Arquivos (e a mesa) mandam o AppImage (extensão ou o ELF com
+  "AI\x02") para `glove-files --appimage`: uma janela como as do Mac, com o ícone do programa (tirado
+  do `--appimage-extract`) e a pasta Aplicativos; arrastar o ícone para a pasta (ou Instalar) copia
+  para `~/Aplicativos`, torna executável e cria o atalho em Todos os Apps; "Abrir sem Instalar" só
+  roda. Sem a libfuse2, roda com `APPIMAGE_EXTRACT_AND_RUN=1`; a libfuse2t64 vai na ISO e nas
+  recomendações.
+- [x] 20.5b Ícone da central de controle (P) — v0.12.57: dois botões como os do Mac (em cima a pílula
+  clara com contorno e a bolinha escura à direita; embaixo a pílula escura com a bolinha clara à
+  esquerda).
 - [ ] 20.12 Arduino IDE (Java) com blocos pretos e a versão em .zip com erro de segmentação.
 - [x] 20.13 Atualização de Software sem Terminal (M) — v0.12.56: a consulta ao `novidades.json` pede
   a resposta fresca (`?t=` e `Cache-Control: no-cache`; o GitHub Pages guarda por 10 min, e logo depois
@@ -1132,3 +1145,7 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   (`apt full-upgrade`) rodam com `APT::Status-Fd` e `admin::run_stream`: a barra junta baixar (0 a
   50%) e instalar (50 a 100%) com o texto do apt; aviso claro se outro programa segura o apt. Sem
   apt, continua o Terminal.
+- [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
+  apps (escolha em Aparência), sem perder o visual da época.
+- [ ] 20.15 Papéis de parede em gel, 4K (M): 20 com o logo e o nome do Glove OS em tamanhos e lugares
+  diferentes (5 para um monitor, 5 para dois lado a lado, 5 para dois empilhados e 5 ultrawide).

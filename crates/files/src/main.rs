@@ -1,6 +1,7 @@
 //! Arquivos: navegador de pastas do Glove (colunas, lista e ícones).
 
 use glove_config::tr;
+mod appimage;
 mod abas;
 mod apps;
 mod info;
@@ -502,6 +503,11 @@ fn open_file(e: &Entry) {
     let ext = e.path.extension().and_then(|x| x.to_str()).map(|x| x.to_ascii_lowercase()).unwrap_or_default();
     if e.kind == Kind::Archive && expandable(&e.path) {
         let _ = launch(Command::new(sibling("glove-arquivo")).arg("expandir").arg(&e.path));
+        return;
+    }
+    // AppImage: a janela de abrir ou instalar (arrastando para Aplicativos).
+    if appimage::is_appimage(&e.path) {
+        let _ = launch(Command::new(sibling("glove-files")).arg("--appimage").arg(&e.path));
         return;
     }
     // O app padrão do tipo deste arquivo (Obter Informações ▸ Abrir com ▸ Usar para todos).
@@ -2788,6 +2794,10 @@ impl App for Files {
 
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if let Some(p) = args.iter().position(|a| a == "--appimage").and_then(|i| args.get(i + 1)) {
+        appimage::main(PathBuf::from(p));
+        return;
+    }
     if let Some(i) = args.iter().position(|a| a == "--info") {
         let Some(p) = args.get(i + 1).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok()) else { return };
         let opts = WindowOptions { title: tr!("Informações").into(), app_id: "glove.Files".into(), size: (300, 360), fixed: true, min_size: None };

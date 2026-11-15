@@ -372,6 +372,20 @@ também funcionam.
 - **"Mostrar na pasta"** dos outros apps (o ícone de pasta nos downloads do Firefox, o do VS Code…)
   abre o Arquivos na pasta, com o arquivo escolhido.
 
+## AppImage
+
+Um **AppImage** (programa num arquivo só) abre com **dois cliques** no Arquivos ou na mesa: aparece
+uma janela com o ícone do programa e a pasta **Aplicativos**. **Arraste o ícone para a pasta** (ou
+clique em Instalar) para copiá-lo para `~/Aplicativos`; ele passa a aparecer em Todos os Apps.
+**Abrir sem Instalar** só roda o programa. Os AppImage antigos precisam da libfuse2, que já vem no
+Glove OS (sem ela, o Glove os roda do mesmo jeito, abrindo o arquivo antes).
+
+## Firefox com o visual do Glove
+
+No Glove OS o Firefox já vem com o **tema do Glove**: metal escovado atrás das abas e da barra, campo
+de endereço branco com o foco azul e os três botões da janela, como o navegador clássico do Mac. Para
+voltar ao tema padrão, use Configurações › Extensões e Temas › Temas no Firefox.
+
 ## Discos e disco inicializável
 
 O **Discos** (no Dock, em Utilitários) mostra à esquerda os discos (internos, pendrives, cartões e

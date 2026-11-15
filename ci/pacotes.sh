@@ -8,7 +8,7 @@ apt-get update
 apt-get install -y --no-install-recommends \
     build-essential pkg-config libudev-dev libinput-dev libseat-dev libgbm-dev libdrm-dev \
     libxkbcommon-dev libegl-dev libgles-dev fontconfig fonts-dejavu-core \
-    ca-certificates curl git dpkg-dev
+    ca-certificates curl git dpkg-dev zip
 # Rust pelo rustup (o do Debian é mais velho que o mínimo das dependências).
 if ! command -v cargo >/dev/null 2>&1; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal

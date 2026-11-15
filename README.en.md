@@ -75,6 +75,8 @@ and the installer and ISO still need testing on real computers. How to use each 
 - Accessibility: zoom, inverted colors, large cursor
 - Drag and drop between apps, text and file clipboard
 - Glove's Open/Save sheet also for other apps (FileChooser portal: Firefox, Chromium…)
+- **AppImage** with a double click: runs it, or installs it by dragging the icon onto Applications
+- On Glove OS, Firefox ships with the **Glove theme** (brushed metal, all three window buttons)
 - **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes; icons from the **Glove**
   PNG icon theme (the default, generated from Glove's drawings and published as glove-icons; lighter
   than drawing them at run time) or another system theme

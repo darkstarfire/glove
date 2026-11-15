@@ -348,6 +348,20 @@ laptops with a backlit keyboard), with the on-screen notice; dedicated keyboard 
 - Other apps' **"Show in folder"** (the folder icon in Firefox's downloads, VS Code's…) opens Files
   at the folder with the file chosen.
 
+## AppImage
+
+An **AppImage** (a program in one file) opens with a **double click** in Files or on the desktop: a
+window shows the program's icon and the **Applications** folder (`~/Aplicativos`). **Drag the icon
+onto the folder** (or click Install) to copy it there; it then shows in All Apps. **Open Without
+Installing** just runs it. Older AppImages need libfuse2, which Glove OS ships (without it, Glove
+still runs them by unpacking the file first).
+
+## Firefox with the Glove look
+
+On Glove OS, Firefox comes with the **Glove theme**: brushed metal behind the tabs and toolbar, a
+white address field with the blue focus ring and all three window buttons, like the classic Mac
+browser. To go back to the default theme, use Settings › Extensions & Themes › Themes in Firefox.
+
 ## Disks and startup disks
 
 **Disks** (in the Dock, in Utilities) lists the disks on the left (internal disks, USB sticks, cards

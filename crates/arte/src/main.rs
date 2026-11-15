@@ -4,6 +4,8 @@
 //!                                 logo (a luva), 12 quadros do giratório, glove.plymouth e glove.script
 //!   glove-arte icones <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
 //!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
+//!   glove-arte firefox <pasta>    tema do Glove para o Firefox (metal escovado, como o
+//!                                 Safari clássico): manifest.json e metal.png
 //!   glove-arte previa <arquivo>   folha de amostra do tema de ícones (PNG): todos os ícones
 //!                                 a 128 px com o nome freedesktop embaixo (preview do glove-icons)
 
@@ -239,6 +241,73 @@ fn previa(file: &Path) -> Result<usize, String> {
     Ok(entries.len())
 }
 
+/// Tema do Firefox no visual do Glove: o metal escovado (o mesmo do tema Metal) atrás
+/// das abas e da barra de ferramentas, campo de endereço branco com o foco azul e
+/// menus claros, como o Safari da era. O Glove OS o instala para todos os perfis.
+fn firefox(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let theme = Theme::new(Variant::Metal);
+    // Largo o bastante para monitores grandes (o Firefox o encosta à direita, sem repetir).
+    let (w, h) = (3840.0, 220.0);
+    let mut c = Canvas::new(w, h, 1.0).ok_or("canvas")?;
+    c.brushed_metal(0.0, 0.0, w, h, theme.metal_top, theme.metal_bottom);
+    c.metal_sheen(0.0, 0.0, w, h, w);
+    save_compact(&c, dir, "metal.png")?;
+    let manifest = format!(
+        r##"{{
+  "manifest_version": 2,
+  "name": "Glove",
+  "version": "{v}",
+  "description": "O visual do Glove OS no Firefox: metal escovado, como nos navegadores da época.",
+  "browser_specific_settings": {{ "gecko": {{ "id": "glove-tema@glove-os" }} }},
+  "theme": {{
+    "images": {{ "theme_frame": "metal.png" }},
+    "colors": {{
+      "frame": "#b9b9b9",
+      "frame_inactive": "#d2d2d2",
+      "tab_background_text": "#1b1b1b",
+      "tab_text": "#111111",
+      "tab_selected": "rgba(255, 255, 255, 0.45)",
+      "tab_line": "#6f6f6f",
+      "tab_loading": "#3875d7",
+      "toolbar": "rgba(255, 255, 255, 0)",
+      "toolbar_text": "#1b1b1b",
+      "icons": "#2c2c2c",
+      "icons_attention": "#3875d7",
+      "toolbar_top_separator": "rgba(0, 0, 0, 0)",
+      "toolbar_bottom_separator": "#7d7d7d",
+      "toolbar_vertical_separator": "rgba(0, 0, 0, 0.18)",
+      "toolbar_field": "#ffffff",
+      "toolbar_field_text": "#000000",
+      "toolbar_field_border": "#8c8c8c",
+      "toolbar_field_focus": "#ffffff",
+      "toolbar_field_border_focus": "#5b9ae8",
+      "toolbar_field_highlight": "#b5d5ff",
+      "toolbar_field_highlight_text": "#000000",
+      "button_background_hover": "rgba(0, 0, 0, 0.10)",
+      "button_background_active": "rgba(0, 0, 0, 0.20)",
+      "popup": "#f5f6f8",
+      "popup_text": "#141414",
+      "popup_border": "#9a9a9a",
+      "popup_highlight": "#3875d7",
+      "popup_highlight_text": "#ffffff",
+      "sidebar": "#e6ebf1",
+      "sidebar_text": "#141414",
+      "sidebar_border": "#a7a7a7",
+      "sidebar_highlight": "#3875d7",
+      "sidebar_highlight_text": "#ffffff",
+      "bookmark_text": "#1b1b1b",
+      "ntp_background": "#ececec",
+      "ntp_text": "#222222"
+    }}
+  }}
+}}
+"##,
+        v = env!("CARGO_PKG_VERSION")
+    );
+    std::fs::write(dir.join("manifest.json"), manifest).map_err(|e| e.to_string())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     // O tema de ícones e a amostra: calendários com uma data só (17 de julho), para os
@@ -249,6 +318,10 @@ fn main() {
         Some("icones") => match args.get(1) {
             Some(d) => icones(Path::new(d)).map(|n| println!("{n} imagens em {d}")),
             None => Err("uso: glove-arte icones <pasta>".into()),
+        },
+        Some("firefox") => match args.get(1) {
+            Some(d) => firefox(Path::new(d)).map(|_| println!("tema do Firefox em {d}")),
+            None => Err("uso: glove-arte firefox <pasta>".into()),
         },
         Some("previa") => match args.get(1) {
             Some(f) => previa(Path::new(f)).map(|n| println!("{n} ícones em {f}")),

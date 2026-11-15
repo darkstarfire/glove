@@ -6028,3 +6028,28 @@ msgstr "Check for updates."
 
 msgid "Sistema atualizado."
 msgstr "System updated."
+
+# Arquivos: instalar AppImage
+msgid "Não foi possível torná-lo executável: {}"
+msgstr "Couldn't make it executable: {}"
+
+msgid "Não foi possível copiar: {}"
+msgstr "Couldn't copy: {}"
+
+msgid "AppImage instalado pelo Glove"
+msgstr "AppImage installed by Glove"
+
+msgid "Instalar “{}”"
+msgstr "Install “{}”"
+
+msgid "Arraste o ícone para a pasta Aplicativos para instalar."
+msgstr "Drag the icon onto the Applications folder to install."
+
+msgid "Abrir sem Instalar"
+msgstr "Open Without Installing"
+
+msgid "Instalado em Aplicativos. Ele já aparece em Todos os Apps."
+msgstr "Installed in Applications. It already shows in All Apps."
+
+msgid "Instalar App"
+msgstr "Install App"
