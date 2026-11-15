@@ -929,4 +929,7 @@ panorâmica atravessando vários monitores e papel animado.
   (`live`) no USO/USAGE. Rust: `rust-version = "1.89"` no workspace (o mínimo das dependências;
   com um Rust mais velho o Cargo dá um erro claro) e o `glove-setup-tool.sh` confere a versão antes de
   compilar e indica o rustup. Conferido que o Rust 1.100.0 compila o Glove inteiro.
+  Testado no QEMU (UEFI, ISO da release): entra sozinho no Glove e abre o Instalar o Glove OS.
+  v0.12.40: o menu de boot da ISO esperava o Enter para sempre (`timeout 0` do live-build); agora
+  entra sozinho em 5 s (GRUB e isolinux).
 

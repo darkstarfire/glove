@@ -816,6 +816,10 @@ build_iso() {
     # The boot menu with the Glove OS name (instead of "Live system").
     sed -i 's/"Live system/"Glove OS/g' "$tools_dir/live-build/usr/lib/live/build/binary_grub_cfg"
     sed -i 's/Live system/Glove OS/g' "$tools_dir/live-build/usr/share/live/build/bootloaders/syslinux_common/live.cfg.in"
+    # The boot menu starts Glove OS by itself after 5 seconds (live-build waits forever).
+    bl="$tools_dir/live-build/usr/share/live/build/bootloaders"
+    grep -q '^set timeout=' "$bl/grub-pc/config.cfg" || sed -i 's/^set default=0$/set default=0\nset timeout=5/' "$bl/grub-pc/config.cfg"
+    sed -i 's/^timeout 0$/timeout 50/' "$bl/isolinux/isolinux.cfg" "$bl/syslinux/syslinux.cfg" "$bl/extlinux/extlinux.conf"
     export DEBOOTSTRAP_DIR="$tools_dir/debootstrap/usr/share/debootstrap"
     build_dir="$base/build"
     # A previous build: start clean (the downloaded packages stay in the cache).
