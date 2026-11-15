@@ -241,6 +241,9 @@ fn previa(file: &Path) -> Result<usize, String> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // O tema de ícones e a amostra: calendários com uma data só (17 de julho), para os
+    // arquivos não mudarem conforme o dia em que foram gerados.
+    glove_paint::icons::fix_calendar_date(7, 17);
     let r = match args.first().map(String::as_str) {
         Some("plymouth") => plymouth(Path::new(args.get(1).map(String::as_str).unwrap_or("data/plymouth/glove"))),
         Some("icones") => match args.get(1) {

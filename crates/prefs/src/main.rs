@@ -728,18 +728,25 @@ impl Prefs {
             });
         });
         ui.space(4.0);
-        // Ícones: os desenhados pelo Glove ou um tema do sistema (os apps de fora
-        // usam sempre o ícone deles).
+        // Ícones: um tema do sistema; o padrão é o "Glove" (em arquivos, gerado dos
+        // desenhos do Glove). Os apps de fora usam sempre o ícone deles.
         if self.icon_themes.is_none() {
-            self.icon_themes = Some(glove_ui::paint::sysicons::installed_themes());
+            let mut t = glove_ui::paint::sysicons::installed_themes();
+            // Sem o tema instalado (rodando do código-fonte): "Glove" são os desenhos.
+            if !t.iter().any(|(id, _)| id == glove_ui::paint::icons::DEFAULT_THEME) {
+                t.insert(0, (String::new(), "Glove".into()));
+            }
+            self.icon_themes = Some(t);
         }
         let themes = self.icon_themes.clone().unwrap_or_default();
-        let mut names: Vec<String> = vec![tr!("Glove (desenhados)").into()];
-        names.extend(themes.iter().map(|t| t.1.clone()));
-        let mut cur = themes.iter().position(|t| t.0 == self.config.appearance.icon_theme).map(|i| i + 1).unwrap_or(0);
+        let names: Vec<String> = themes.iter().map(|t| t.1.clone()).collect();
+        let chosen = if self.config.appearance.icon_theme.is_empty() { glove_ui::paint::icons::DEFAULT_THEME } else { self.config.appearance.icon_theme.as_str() };
+        let mut cur = themes.iter().position(|t| t.0 == chosen || (t.0.is_empty() && chosen == glove_ui::paint::icons::DEFAULT_THEME)).unwrap_or(0);
         ui.form_row(tr!("Ícones"), LW, |ui| {
             if ui.popup(&mut cur, &names, 200.0) {
-                self.config.appearance.icon_theme = if cur == 0 { String::new() } else { themes[cur - 1].0.clone() };
+                // O padrão fica gravado vazio (segue o tema padrão do Glove).
+                let id = themes[cur].0.clone();
+                self.config.appearance.icon_theme = if id == glove_ui::paint::icons::DEFAULT_THEME { String::new() } else { id };
                 glove_ui::paint::icons::set_theme(&self.config.appearance.icon_theme);
                 self.save();
             }

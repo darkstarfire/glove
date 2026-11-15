@@ -72,7 +72,9 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - Acesso Universal: zoom, cores invertidas, cursor grande
 - Arrastar e soltar entre apps, área de transferência de texto e de arquivos
 - Janela Abrir/Salvar do Glove também para outros apps (portal FileChooser: Firefox, Chromium…)
-- Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**; tema de ícones do sistema escolhível
+- Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**; ícones pelo tema **Glove** em
+  arquivos PNG (o padrão, gerado dos desenhos do Glove e publicado no glove-icons; mais leve que
+  desenhar na hora) ou outro tema do sistema
 - **Reduzir efeitos** (Preferências ▸ Aparência), para computadores mais simples
 - Redesenha só o que mudou: 0% de CPU parado
 

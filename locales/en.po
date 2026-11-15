@@ -1070,8 +1070,6 @@ msgstr "Highlight color"
 msgid "Para texto selecionado"
 msgstr "For selected text"
 
-msgid "Glove (desenhados)"
-msgstr "Glove (drawn)"
 
 msgid "Ícones"
 msgstr "Icons"

@@ -965,6 +965,12 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   formato, desliga na bateria com 4% (ou tensão baixa) e o gancho `system-sleep` acorda a cada hora
   suspenso para conferir (desliga com 15%, ou volta a suspender com a tampa fechada). Ajustes em
   `/etc/default/glove-bateria` (ou o do chromebook-linux-fixes). Ativado pelo postinst do pacote.
+- [x] 16.2.3 Ícones pelo tema em arquivos (P) — v0.12.43 (glove-ui 0.2.30): as Preferências tinham
+  "Glove (desenhados)" e "Glove" (o tema PNG gerado dos mesmos desenhos, que gasta 30 a 40 MB a
+  menos). O tema "Glove" passa a ser o padrão (`icons::DEFAULT_THEME`; `icon_theme` vazio = ele,
+  se instalado) e a opção dos desenhados saiu. Os desenhos ficam para o que o tema não tem, para
+  os ícones vivos (Agenda com o dia, Relógio, níveis do Lixo) e para gerar o tema. O `glove-arte`
+  gera calendários com data fixa (17/07, `fix_calendar_date`), e o glove-icons foi regenerado.
 - [x] 16.2.2 Instalador: o campo "Teste o teclado aqui" não guardava o texto (uma variável nova a
   cada quadro); agora guarda, e no Glove ao vivo o teclado escolhido já vale na sessão.
 - [ ] 16.3 Formatar (M): o disco inteiro (GPT ou MBR, opção de apagar com zeros) e a partição

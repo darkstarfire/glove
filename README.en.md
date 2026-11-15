@@ -75,7 +75,9 @@ and the installer and ISO still need testing on real computers. How to use each 
 - Accessibility: zoom, inverted colors, large cursor
 - Drag and drop between apps, text and file clipboard
 - Glove's Open/Save sheet also for other apps (FileChooser portal: Firefox, Chromium…)
-- **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes; selectable system icon theme
+- **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes; icons from the **Glove**
+  PNG icon theme (the default, generated from Glove's drawings and published as glove-icons; lighter
+  than drawing them at run time) or another system theme
 - **Reduce effects** (Preferences ▸ Appearance), for simpler computers
 - Redraws only what changed: 0% CPU when idle
 
