@@ -14,7 +14,7 @@ apt-get install -y --no-install-recommends \
     build-essential pkg-config libudev-dev libinput-dev libseat-dev libgbm-dev libdrm-dev \
     libxkbcommon-dev libegl-dev libgles-dev fontconfig fonts-dejavu-core \
     ca-certificates curl git sudo dpkg-dev debian-archive-keyring gpgv xz-utils zstd \
-    cpio file rsync xorriso squashfs-tools mtools dosfstools
+    debootstrap cpio file rsync xorriso squashfs-tools mtools dosfstools
 
 # Rust from rustup (the Debian one may be older than the crates need).
 if ! command -v cargo >/dev/null 2>&1; then

@@ -782,6 +782,8 @@ build_iso() {
     case $arch in x86_64) ;; *) die "$(t "a ISO é só para x86_64 (amd64)" "the ISO is x86_64 (amd64) only")" ;; esac
     has dpkg-deb || die "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
     has sudo || die "$(t "falta o sudo" "sudo is missing")"
+    # live-build checks for the system's debootstrap even when it uses the downloaded one.
+    [ -x /usr/sbin/debootstrap ] || die "$(t "falta o debootstrap (sudo apt install debootstrap)" "debootstrap is missing (sudo apt install debootstrap)")"
     package_deb
     package_glove_os
     base="$root_dir/iso"

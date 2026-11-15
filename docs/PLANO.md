@@ -914,4 +914,6 @@ panorâmica atravessando vários monitores e papel animado.
   a tag e publica a ISO, os `.deb` e o `SHA256SUMS` na release da versão (ISO acima de 2 GB vai em
   partes). Rodado à mão, deixa os arquivos como artefato por 7 dias. `glove-arte previa` gera a
   folha de amostra do tema de ícones (o preview do glove-icons, atualizado com os 89 ícones).
+  v0.12.38: o live-build exige o debootstrap do sistema (mesmo usando o baixado): instalado no
+  contêiner, e o `iso` avisa quando falta.
 
