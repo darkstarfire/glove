@@ -949,8 +949,24 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   Prefere a própria conta; senão, o primeiro administrador que o polkit aceita. `CancelAuthentication`
   fecha a janela. polkitd e udisks2 na ISO e nas recomendações do pacote. Testado no Glove
   aninhado com `pkexec`: janela, senha errada (aviso e nova tentativa) e Cancelar ("Not authorized").
-- [ ] 16.2 Discos sobre o udisks2 (G): discos, partições e espaço livre num mapa de barras (como o
-  gnome-disks), atualizado ao vivo; informações do disco e da partição.
+- [x] 16.2 Discos sobre o udisks2 (G) — v0.12.42: `udisks.rs` lê tudo do `GetManagedObjects`
+  (aparelhos, blocos, tabelas, partições, sistemas de arquivos, imagens loop); a lista mostra os
+  aparelhos e as imagens em uso (sem os snaps); o mapa desenha as partições proporcionais (com
+  largura mínima), os espaços livres (buracos de 1 MiB ou mais) e, no MBR, as lógicas numa segunda
+  fileira. Detalhes do volume (tamanho, conteúdo, dispositivo, tipo de partição pelo GUID/código,
+  UUID, montagem e uso). Montar, Desmontar, Abrir e Ejetar pelo D-Bus numa linha à parte (a janela
+  de senha não trava o app). Atualiza a cada 2 s.
+- [x] 16.2.1 Bateria do Chromebook no Glove OS (M) — v0.12.42: o `glove-energia` lia o arquivo do
+  serviço `cros-ec-battery` (chromebook-linux-fixes), que o Glove OS não instala, e o `/dev/cros_ec`
+  é só do root: no live de um Chromebook com firmware que não reconhece a bateria, ela não aparecia.
+  `glove-bateria` (binário pequeno do crate energia, em Rust, port do serviço em Python) roda como
+  root pelo `glove-bateria.service` (só onde existe `/sys/class/chromeos/cros_ec`, e não junto com o
+  cros-ec-battery): carrega o cros_ec_chardev, grava `/run/cros-ec-battery.json` a cada 5 s no mesmo
+  formato, desliga na bateria com 4% (ou tensão baixa) e o gancho `system-sleep` acorda a cada hora
+  suspenso para conferir (desliga com 15%, ou volta a suspender com a tampa fechada). Ajustes em
+  `/etc/default/glove-bateria` (ou o do chromebook-linux-fixes). Ativado pelo postinst do pacote.
+- [x] 16.2.2 Instalador: o campo "Teste o teclado aqui" não guardava o texto (uma variável nova a
+  cada quadro); agora guarda, e no Glove ao vivo o teclado escolhido já vale na sessão.
 - [ ] 16.3 Formatar (M): o disco inteiro (GPT ou MBR, opção de apagar com zeros) e a partição
   (ext4, FAT32, exFAT, NTFS, btrfs), com nome.
 - [ ] 16.4 Partições (M): criar no espaço livre, apagar, mudar o tipo, o nome e as marcas (EFI, boot).

@@ -145,7 +145,7 @@ stage() {
     [ "$(app_links | wc -l)" -ge 30 ] || die "$(t "não achei a lista de apps em crates/apps/src/main.rs" "could not find the app list in crates/apps/src/main.rs")"
     bin="$dest$prefix/bin"
     mkdir -p "$bin"
-    for b in glove glove-apps glove-portal glove-escolher; do
+    for b in glove glove-apps glove-portal glove-escolher glove-bateria; do
         install -m 755 "target/release/$b" "$bin/$b"
     done
     for a in $(app_links); do
@@ -158,6 +158,14 @@ stage() {
     install -m 755 data/glove-login-greetd "$dest$prefix/lib/glove/glove-login-greetd"
     sed "s|@PREFIXO@|$prefix|" data/glove-login.service > "$dest$prefix/lib/systemd/system/glove-login.service"
     chmod 644 "$dest$prefix/lib/systemd/system/glove-login.service"
+    # Chromebook battery the firmware does not recognise: glove-bateria reads it from
+    # the EC as root (the service only runs on Chromebooks) and a sleep hook checks it
+    # while suspended.
+    sed "s|@PREFIXO@|$prefix|" data/glove-bateria.service > "$dest$prefix/lib/systemd/system/glove-bateria.service"
+    chmod 644 "$dest$prefix/lib/systemd/system/glove-bateria.service"
+    mkdir -p "$dest$prefix/lib/systemd/system-sleep"
+    sed "s|@PREFIXO@|$prefix|" data/glove-bateria.sleep > "$dest$prefix/lib/systemd/system-sleep/glove-bateria"
+    chmod 755 "$dest$prefix/lib/systemd/system-sleep/glove-bateria"
     # Session entry (every login screen reads /usr/share/wayland-sessions).
     mkdir -p "$dest/usr/share/wayland-sessions"
     sed "s|^Exec=.*|Exec=$prefix/bin/glove-session|" data/glove.desktop > "$dest/usr/share/wayland-sessions/glove.desktop"
@@ -187,6 +195,11 @@ stage() {
 # After installing (packages and "install"): systemd sees the login screen service
 # and the icon theme gets indexed.
 post_install_sh='command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true
+# Chromebook battery (the service skips itself on other computers).
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl enable glove-bateria.service 2>/dev/null || true
+  systemctl start glove-bateria.service 2>/dev/null || true
+fi
 for t in /usr/share/icons/Glove /usr/local/share/icons/Glove; do
   [ -d "$t" ] && command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -f "$t" 2>/dev/null || true
 done
@@ -196,7 +209,8 @@ echo "To go back to the previous one (e.g. GDM): sudo systemctl enable --force g
 # Before removing: if the Glove login screen is the main one, go back to the previous
 # one (the one saved by "glove-setup-tool.sh login", or the first one installed), so
 # the computer is not left without a login screen.
-pre_remove_sh='if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled glove-login >/dev/null 2>&1; then
+pre_remove_sh='command -v systemctl >/dev/null 2>&1 && systemctl disable --now glove-bateria.service 2>/dev/null || true
+if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled glove-login >/dev/null 2>&1; then
   systemctl disable glove-login 2>/dev/null || true
   previous=$(cat /etc/glove/login/gerenciador-anterior 2>/dev/null || true)
   for d in $previous gdm gdm3 lightdm sddm lxdm greetd; do

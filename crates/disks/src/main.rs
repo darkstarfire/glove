@@ -1,74 +1,65 @@
-//! Discos (como o Utilitário de Disco da era): à esquerda os discos e as
-//! partições (lsblk), à direita as informações da escolhida, o espaço usado e
-//! os botões Abrir, Montar e Ejetar (udisksctl, sem precisar de root).
+//! Discos (como o Utilitário de Disco da era, com o que o gnome-disks faz): à
+//! esquerda os discos (aparelhos e imagens), à direita o disco escolhido com o
+//! mapa dos volumes (partições e espaço livre) e o volume escolhido.
+//!
+//! Tudo pelo udisks2 (`udisks.rs`); o que muda o disco pede a senha pelo polkit
+//! (a janela do `glove-senha`). As operações rodam numa linha à parte, para a
+//! janela não travar enquanto a senha é pedida.
+
+mod udisks;
 
 use glove_config::tr;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
 
 use glove_ui::{
     paint::{draw::*, icons::{self, Icon}, Color},
     run, App, Menu, MenuItem, Rect, Ui, WindowOptions,
 };
+use udisks::{Model, Slot};
 
-const LIST_W: f32 = 210.0;
+const LIST_W: f32 = 220.0;
+const MAP_H: f32 = 64.0;
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Dev {
-    pub name: String,
-    pub size: u64,
-    /// "disk" ou "part".
-    pub kind: String,
-    pub mount: String,
-    pub fstype: String,
-    pub label: String,
-    pub model: String,
-    pub removable: bool,
-    pub tran: String,
-    pub parent: String,
+/// O pedaço escolhido no mapa: uma partição (pelo caminho no udisks) ou um espaço livre.
+#[derive(Clone, Debug, PartialEq)]
+enum Pick {
+    Block(String),
+    Free(u64),
 }
 
-/// Linhas KEY="valor" do `lsblk -P`.
-pub fn parse_lsblk(text: &str) -> Vec<Dev> {
-    let mut out = Vec::new();
-    for line in text.lines() {
-        let mut d = Dev::default();
-        let mut rest = line.trim();
-        while let Some(eq) = rest.find("=\"") {
-            let key = rest[..eq].trim();
-            let after = &rest[eq + 2..];
-            let Some(end) = after.find('"') else { break };
-            let val = after[..end].replace("\\x20", " ");
-            match key {
-                "NAME" => d.name = val,
-                "SIZE" => d.size = val.parse().unwrap_or(0),
-                "TYPE" => d.kind = val,
-                "MOUNTPOINT" => d.mount = val,
-                "FSTYPE" => d.fstype = val,
-                "LABEL" => d.label = val,
-                "MODEL" => d.model = val.trim().to_string(),
-                "RM" => d.removable = val == "1",
-                "TRAN" => d.tran = val,
-                "PKNAME" => d.parent = val,
-                _ => {}
-            }
-            rest = &after[end + 1..];
-        }
-        // Só discos de verdade e as partições deles (sem loop, zram nem as áreas de boot do eMMC).
-        let skip = d.kind == "loop" || d.kind == "rom" && d.size == 0 || d.name.starts_with("zram") || d.name.contains("boot") && d.kind == "disk";
-        if !d.name.is_empty() && !skip && (d.kind == "disk" || d.kind == "part" || d.kind == "crypt" || d.kind == "lvm") {
-            out.push(d);
-        }
+/// Uma operação em andamento: o que aparece no rodapé e a resposta.
+struct Job {
+    what: String,
+    rx: Receiver<Result<String, String>>,
+}
+
+struct Disks {
+    conn: Option<zbus::blocking::Connection>,
+    model: Model,
+    /// O disco escolhido (caminho do bloco inteiro).
+    disk: Option<String>,
+    pick: Option<Pick>,
+    message: Option<String>,
+    job: Option<Job>,
+}
+
+fn gb(n: u64) -> String {
+    let g = n as f64 / 1e9;
+    if g >= 100.0 {
+        format!("{g:.0} GB")
+    } else if g >= 1.0 {
+        format!("{g:.1} GB").replace('.', glove_config::virgula())
+    } else if n >= 1_000_000 {
+        format!("{:.0} MB", n as f64 / 1e6)
+    } else {
+        format!("{:.0} KB", n as f64 / 1e3)
     }
-    out
 }
 
-fn read_devs() -> Vec<Dev> {
-    std::process::Command::new("lsblk")
-        .args(["-P", "-b", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,MODEL,RM,TRAN,PKNAME"])
-        .output()
-        .map(|o| parse_lsblk(&String::from_utf8_lossy(&o.stdout)))
-        .unwrap_or_default()
+fn sibling(name: &str) -> PathBuf {
+    std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(name))).filter(|p| p.is_file()).unwrap_or_else(|| name.into())
 }
 
 fn statvfs(p: &Path) -> Option<(u64, u64)> {
@@ -79,129 +70,316 @@ fn statvfs(p: &Path) -> Option<(u64, u64)> {
     }
 }
 
-fn gb(n: u64) -> String {
-    let g = n as f64 / 1e9;
-    if g >= 100.0 { format!("{g:.0} GB") } else if g >= 1.0 { format!("{g:.1} GB").replace('.', glove_config::virgula()) } else { format!("{:.0} MB", n as f64 / 1e6) }
-}
-
-fn sibling(name: &str) -> PathBuf {
-    std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(name))).filter(|p| p.is_file()).unwrap_or_else(|| name.into())
-}
-
-/// Nome para a lista: rótulo, modelo ou o "Sistema" do disco do /.
-fn display(d: &Dev) -> String {
-    if d.mount == "/" {
-        return tr!("Sistema").into();
-    }
-    if !d.label.is_empty() {
-        return d.label.clone();
-    }
-    if d.kind == "disk" {
-        let size = gb(d.size);
-        return if d.model.is_empty() { tr!("Disco de {}", size) } else { format!("{size} {}", d.model) };
-    }
-    if d.mount == "/boot/efi" {
-        return tr!("Partição EFI").into();
-    }
-    d.name.clone()
-}
-
-fn connection(t: &str) -> &str {
-    match t {
-        "usb" => "USB",
-        "sata" | "ata" => "SATA",
-        "nvme" => "NVMe",
-        "mmc" => tr!("Cartão / eMMC"),
-        "" => tr!("Interna"),
-        o => o,
-    }
-}
-
-struct Disks {
-    devs: Vec<Dev>,
-    selected: Option<usize>,
-    message: Option<String>,
-}
-
 impl Disks {
-    fn current(&self) -> Option<Dev> {
-        self.selected.and_then(|i| self.devs.get(i)).cloned()
+    fn reload(&mut self) {
+        if self.conn.is_none() {
+            self.conn = zbus::blocking::Connection::system().ok();
+        }
+        let Some(conn) = &self.conn else {
+            self.message = Some(tr!("Não foi possível falar com o serviço de discos (udisks2).").into());
+            return;
+        };
+        match Model::read(conn) {
+            Ok(m) => self.model = m,
+            Err(e) => self.message = Some(tr!("O serviço de discos (udisks2) não respondeu: {}", e)),
+        }
+        // O disco escolhido sumiu (pendrive tirado): volta ao primeiro.
+        let disks = self.model.disks();
+        if !self.disk.as_ref().is_some_and(|d| disks.iter().any(|x| &self.model.blocks[x.block].path == d)) {
+            self.disk = disks.first().map(|d| self.model.blocks[d.block].path.clone());
+            self.pick = None;
+        }
+        if let Some(Pick::Block(p)) = &self.pick {
+            if self.model.block(p).is_none() {
+                self.pick = None;
+            }
+        }
     }
 
-    fn udisks(&mut self, args: &[&str], ok: String) {
-        match std::process::Command::new("udisksctl").args(args).output() {
-            Ok(o) if o.status.success() => self.message = Some(ok),
-            Ok(o) => {
-                let e = String::from_utf8_lossy(&o.stderr);
-                let e = e.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string();
-                self.message = Some(if e.contains("NotAuthorized") { "O sistema pediu permissão de administrador e ela não foi dada.".into() } else { tr!("Não deu certo: {}", e) });
-            }
-            Err(e) => self.message = Some(tr!("Não foi possível usar o udisksctl: {}", e)),
+    fn disk_index(&self) -> Option<usize> {
+        self.model.block(self.disk.as_deref()?)
+    }
+
+    fn drive_of(&self, bi: usize) -> Option<&udisks::Drive> {
+        let d = &self.model.blocks[bi].drive;
+        self.model.drives.iter().find(|x| &x.path == d)
+    }
+
+    fn picked_block(&self) -> Option<usize> {
+        match self.pick.as_ref()? {
+            Pick::Block(p) => self.model.block(p),
+            Pick::Free(_) => None,
         }
-        self.devs = read_devs();
+    }
+
+    /// Nome do disco para a lista e o cabeçalho.
+    fn disk_name(&self, bi: usize) -> String {
+        let b = &self.model.blocks[bi];
+        if let Some(f) = &b.loop_file {
+            let f = Path::new(f).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            return tr!("Imagem {}", f);
+        }
+        match self.drive_of(bi) {
+            Some(d) => {
+                let name = format!("{} {}", d.vendor.trim(), d.model.trim()).trim().to_string();
+                if name.is_empty() { tr!("Disco de {}", gb(b.size)) } else { name }
+            }
+            None => b.device.clone(),
+        }
+    }
+
+    fn disk_icon(&self, bi: usize) -> Icon {
+        match self.drive_of(bi) {
+            Some(d) if d.optical => Icon::Optical,
+            Some(d) if d.removable || d.bus == "usb" => Icon::Removable,
+            _ => Icon::Disk,
+        }
+    }
+
+    /// Nome de um volume no mapa: rótulo, nome da partição, conteúdo.
+    fn volume_name(&self, bi: usize) -> String {
+        let b = &self.model.blocks[bi];
+        if b.mounted() == Some("/") {
+            return tr!("Sistema").into();
+        }
+        if !b.label.is_empty() {
+            return b.label.clone();
+        }
+        if let Some(p) = &b.part {
+            if p.container {
+                return tr!("Estendida").into();
+            }
+            if !p.name.is_empty() {
+                return p.name.clone();
+            }
+        }
+        if b.fstype.is_empty() {
+            return tr!("Partição {}", b.part.as_ref().map(|p| p.number).unwrap_or(0));
+        }
+        udisks::fs_name(&b.fstype)
+    }
+
+    /// Roda a operação numa linha à parte; a resposta chega no tique.
+    fn start(&mut self, what: String, f: impl FnOnce() -> Result<String, String> + Send + 'static) {
+        if self.job.is_some() {
+            return;
+        }
+        let (tx, rx) = channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(f());
+        });
+        self.message = Some(what.clone());
+        self.job = Some(Job { what, rx });
     }
 
     fn mount(&mut self) {
-        let Some(d) = self.current() else { return };
-        self.udisks(&["mount", "-b", &format!("/dev/{}", d.name)], format!("“{}” montado.", display(&d)));
+        let Some(bi) = self.picked_block() else { return };
+        let (path, name) = (self.model.blocks[bi].path.clone(), self.volume_name(bi));
+        self.start(tr!("Montando “{}”…", name), move || udisks::mount(&path).map(|at| tr!("“{}” montado em {}.", name, at)));
     }
 
-    fn eject(&mut self) {
-        let Some(d) = self.current() else { return };
-        // Ejetar desmonta as partições do disco e desliga o aparelho.
-        let disk = if d.kind == "part" { d.parent.clone() } else { d.name.clone() };
-        let parts: Vec<Dev> = self.devs.iter().filter(|x| x.parent == disk && !x.mount.is_empty()).cloned().collect();
-        // O aviso de "removido sem ejetar" não vale para este.
-        glove_config::discos::mark_ejected(&format!("/dev/{disk}"));
-        for p in parts {
-            let _ = std::process::Command::new("udisksctl").args(["unmount", "-b", &format!("/dev/{}", p.name)]).output();
-        }
-        if d.kind == "part" && !d.mount.is_empty() {
-            let _ = std::process::Command::new("udisksctl").args(["unmount", "-b", &format!("/dev/{}", d.name)]).output();
-        }
-        self.udisks(&["power-off", "-b", &format!("/dev/{disk}")], format!("“{}” pode ser removido com segurança.", display(&d)));
-        self.selected = None;
+    fn unmount(&mut self) {
+        let Some(bi) = self.picked_block() else { return };
+        let (path, name) = (self.model.blocks[bi].path.clone(), self.volume_name(bi));
+        self.start(tr!("Desmontando “{}”…", name), move || udisks::unmount(&path).map(|_| tr!("“{}” desmontado.", name)));
     }
 
     fn open(&self) {
-        if let Some(d) = self.current().filter(|d| !d.mount.is_empty()) {
-            if let Ok(mut c) = std::process::Command::new(sibling("glove-files")).arg(&d.mount).spawn() {
+        let Some(bi) = self.picked_block() else { return };
+        if let Some(at) = self.model.blocks[bi].mounted() {
+            if let Ok(mut c) = std::process::Command::new(sibling("glove-files")).arg(at).spawn() {
                 std::thread::spawn(move || c.wait());
             }
         }
     }
 
-    /// Painel da direita: informações, espaço e botões.
-    fn details(&mut self, ui: &mut Ui, r: Rect) {
-        let Some(d) = self.current() else {
-            ui.fonts.draw(ui.c, tr!("Escolha um disco ou uma partição à esquerda."), r.x + 20.0, r.y + 40.0, 13.0, false, rgba(110, 110, 116, 255));
-            return;
-        };
-        let icon = if d.removable { Icon::Disk } else { Icon::Disk };
-        icons::draw(ui.c, ui.fonts, icon, r.x + 16.0, r.y + 14.0, 56.0, None);
-        ui.fonts.draw(ui.c, &display(&d), r.x + 84.0, r.y + 38.0, 15.0, true, rgba(20, 20, 24, 255));
-        let sub = if d.kind == "disk" { tr!("Disco de {}", gb(d.size)) } else { tr!("Partição de {}", gb(d.size)) };
-        ui.fonts.draw(ui.c, &sub, r.x + 84.0, r.y + 56.0, 11.0, false, rgba(90, 90, 96, 255));
-        // Tabela "rótulo: valor".
-        let mut rows: Vec<(&str, String)> = vec![(tr!("Dispositivo"), format!("/dev/{}", d.name)), (tr!("Capacidade"), gb(d.size))];
-        if d.kind == "disk" {
-            rows.push((tr!("Conexão"), connection(&d.tran).to_string()));
-            if !d.model.is_empty() {
-                rows.push((tr!("Modelo"), d.model.clone()));
+    /// Ejetar: desmonta tudo do disco e ejeta a mídia ou desliga o aparelho.
+    /// Disco de imagem: desconecta a imagem.
+    fn eject(&mut self) {
+        let Some(di) = self.disk_index() else { return };
+        let name = self.disk_name(di);
+        let b = self.model.blocks[di].clone();
+        let mounted: Vec<String> = std::iter::once(di).chain(self.model.parts_of(di)).filter(|&i| self.model.blocks[i].mounted().is_some()).map(|i| self.model.blocks[i].path.clone()).collect();
+        let drive = self.drive_of(di).cloned();
+        glove_config::discos::mark_ejected(&b.device);
+        self.start(tr!("Ejetando “{}”…", name), move || {
+            for m in &mounted {
+                udisks::unmount(m)?;
             }
-            rows.push((tr!("Removível"), if d.removable { tr!("Sim").into() } else { tr!("Não").into() }));
-            let n = self.devs.iter().filter(|x| x.parent == d.name).count();
-            rows.push((tr!("Partições"), n.to_string()));
-        } else {
-            rows.push((tr!("Formato"), if d.fstype.is_empty() { "—".into() } else { d.fstype.clone() }));
-            rows.push((tr!("Montado em"), if d.mount.is_empty() { tr!("Não montado").into() } else { d.mount.clone() }));
+            if b.loop_file.is_some() {
+                udisks::loop_delete(&b.path)?;
+            } else if let Some(d) = drive {
+                if d.ejectable {
+                    udisks::eject(&d.path)?;
+                }
+                if d.can_power_off {
+                    udisks::power_off(&d.path)?;
+                }
+            }
+            Ok(tr!("“{}” pode ser removido com segurança.", name))
+        });
+    }
+
+    fn can_eject(&self) -> bool {
+        self.disk_index().is_some_and(|di| self.model.blocks[di].loop_file.is_some() || self.drive_of(di).is_some_and(|d| d.removable || d.ejectable || d.can_power_off))
+    }
+
+    // --- desenho -------------------------------------------------------------------
+
+    fn list(&mut self, ui: &mut Ui, r: Rect) {
+        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(rgba(232, 236, 242, 255)));
+        ui.c.vline(r.x + r.w - 0.5, r.y, r.h, rgba(150, 150, 156, 255));
+        let mut y = r.y + 8.0;
+        let mut clicked = None;
+        for d in self.model.disks() {
+            let bi = d.block;
+            let rr = Rect::new(r.x, y, r.w - 1.0, 44.0);
+            let on = self.disk.as_deref() == Some(self.model.blocks[bi].path.as_str());
+            if on {
+                ui.c.fill_rect(rr.x, rr.y, rr.w, rr.h, &vgrad(rr.y, rr.y + rr.h, &[(0.0, lighten(ui.theme.accent, 0.15)), (1.0, ui.theme.accent)]));
+            }
+            let ink = if on { Color::WHITE } else { rgba(20, 20, 24, 255) };
+            icons::draw(ui.c, ui.fonts, self.disk_icon(bi), r.x + 8.0, y + 6.0, 32.0, None);
+            let name = ui.fonts.ellipsize(&self.disk_name(bi), 12.0, true, r.w - 56.0);
+            ui.fonts.draw(ui.c, &name, r.x + 48.0, y + 19.0, 12.0, true, ink);
+            let b = &self.model.blocks[bi];
+            let sub = if b.size == 0 { tr!("Sem mídia").to_string() } else { format!("{} · {}", gb(b.size), b.device) };
+            let sub = ui.fonts.ellipsize(&sub, 10.0, false, r.w - 56.0);
+            ui.fonts.draw(ui.c, &sub, r.x + 48.0, y + 34.0, 10.0, false, if on { Color::WHITE } else { rgba(100, 100, 106, 255) });
+            if ui.hit(rr).pressed {
+                clicked = Some(self.model.blocks[bi].path.clone());
+            }
+            y += 46.0;
         }
-        let usage = (!d.mount.is_empty()).then(|| statvfs(Path::new(&d.mount))).flatten();
-        if let Some((total, free)) = usage {
-            rows.push((tr!("Disponível"), gb(free)));
-            rows.push((tr!("Usado"), gb(total.saturating_sub(free))));
+        if let Some(p) = clicked {
+            if self.disk.as_ref() != Some(&p) {
+                self.pick = None;
+            }
+            self.disk = Some(p);
+            self.message = None;
         }
-        let mut y = r.y + 92.0;
+    }
+
+    /// Cabeçalho do disco: ícone, nome e a linha de informações.
+    fn header(&mut self, ui: &mut Ui, r: Rect, di: usize) {
+        icons::draw(ui.c, ui.fonts, self.disk_icon(di), r.x + 16.0, r.y + 12.0, 48.0, None);
+        let name = ui.fonts.ellipsize(&self.disk_name(di), 15.0, true, r.w - 100.0);
+        ui.fonts.draw(ui.c, &name, r.x + 76.0, r.y + 32.0, 15.0, true, rgba(20, 20, 24, 255));
+        let b = &self.model.blocks[di];
+        let mut info = vec![gb(b.size)];
+        info.push(match b.table.as_deref() {
+            Some("gpt") => tr!("Tabela GPT").to_string(),
+            Some("dos") => tr!("Tabela MBR").to_string(),
+            Some(o) => o.to_string(),
+            None if b.fstype.is_empty() => tr!("Sem partições").to_string(),
+            None => udisks::fs_name(&b.fstype),
+        });
+        if let Some(d) = self.drive_of(di) {
+            info.push(match d.bus.as_str() {
+                "usb" => "USB".to_string(),
+                "sdio" => tr!("Cartão de memória").to_string(),
+                _ if d.rotation == 0 && !d.optical => tr!("SSD interno").to_string(),
+                _ if d.optical => tr!("Leitor de CD/DVD").to_string(),
+                _ => tr!("Disco interno").to_string(),
+            });
+            if !d.serial.is_empty() {
+                info.push(tr!("Série {}", d.serial));
+            }
+        }
+        if let Some(f) = &b.loop_file {
+            info.push(f.clone());
+        }
+        let info = ui.fonts.ellipsize(&info.join("  ·  "), 11.0, false, r.w - 100.0);
+        ui.fonts.draw(ui.c, &info, r.x + 76.0, r.y + 50.0, 11.0, false, rgba(80, 80, 86, 255));
+    }
+
+    /// Uma fileira do mapa: pedaços proporcionais ao tamanho (com largura mínima).
+    fn map_row(&mut self, ui: &mut Ui, r: Rect, slots: &[Slot], total: u64) -> Option<Pick> {
+        let mut clicked = None;
+        let min_w = 44.0;
+        let n = slots.len() as f32;
+        let free_w = (r.w - min_w * n).max(0.0);
+        let sizes: Vec<u64> = slots.iter().map(|s| match s { Slot::Part(i) => self.model.blocks[*i].size, Slot::Free { size, .. } => *size }).collect();
+        let sum: u64 = sizes.iter().sum::<u64>().max(1).max(total.min(sizes.iter().sum::<u64>().max(1)));
+        let mut x = r.x;
+        ui.c.fill(rrect(r.x, r.y, r.w, r.h, 6.0), &solid(rgba(200, 200, 206, 255)));
+        for (k, slot) in slots.iter().enumerate() {
+            let w = (min_w + free_w * sizes[k] as f32 / sum as f32).round();
+            let w = if k + 1 == slots.len() { r.x + r.w - x } else { w };
+            let seg = Rect::new(x, r.y, w, r.h);
+            let (pick, title, sub, color) = match slot {
+                Slot::Part(i) => {
+                    let b = &self.model.blocks[*i];
+                    let color = if b.part.as_ref().is_some_and(|p| p.container) {
+                        rgba(150, 150, 160, 255)
+                    } else if b.mounted().is_some() {
+                        ui.theme.accent
+                    } else {
+                        lighten(ui.theme.accent, 0.35)
+                    };
+                    (Pick::Block(b.path.clone()), self.volume_name(*i), gb(b.size), color)
+                }
+                Slot::Free { offset, size } => (Pick::Free(*offset), tr!("Livre").to_string(), gb(*size), rgba(236, 236, 240, 255)),
+            };
+            let free = matches!(slot, Slot::Free { .. });
+            if free {
+                ui.c.fill_rect(seg.x + 1.0, seg.y + 1.0, seg.w - 2.0, seg.h - 2.0, &solid(color));
+            } else {
+                gel_rect(ui.c, seg.x + 1.0, seg.y + 1.0, seg.w - 2.0, seg.h - 2.0, 4.0, color);
+            }
+            if self.pick.as_ref() == Some(&pick) {
+                ui.c.stroke(rrect(seg.x + 2.0, seg.y + 2.0, seg.w - 4.0, seg.h - 4.0, 4.0), &solid(rgba(20, 20, 30, 255)), 2.5);
+            }
+            let ink = if free { rgba(80, 80, 86, 255) } else { Color::WHITE };
+            let t = ui.fonts.ellipsize(&title, 11.0, true, seg.w - 10.0);
+            ui.fonts.draw(ui.c, &t, seg.x + 6.0, seg.y + seg.h / 2.0 - 2.0, 11.0, true, ink);
+            let s = ui.fonts.ellipsize(&sub, 10.0, false, seg.w - 10.0);
+            ui.fonts.draw(ui.c, &s, seg.x + 6.0, seg.y + seg.h / 2.0 + 13.0, 10.0, false, ink);
+            if ui.hit(seg).pressed {
+                clicked = Some(pick);
+            }
+            x += w;
+        }
+        clicked
+    }
+
+    /// Informações do volume escolhido (linhas "rótulo: valor") e a barra de uso.
+    fn volume_info(&mut self, ui: &mut Ui, r: Rect) {
+        let mut rows: Vec<(String, String)> = Vec::new();
+        let mut usage = None;
+        match self.pick.clone() {
+            None => {
+                ui.fonts.draw(ui.c, tr!("Escolha um volume no mapa."), r.x + 20.0, r.y + 20.0, 12.0, false, rgba(110, 110, 116, 255));
+                return;
+            }
+            Some(Pick::Free(off)) => {
+                let size = self.disk_index().and_then(|di| self.model.layout(di).into_iter().chain(self.ext_layout()).find_map(|s| match s { Slot::Free { offset, size } if offset == off => Some(size), _ => None }));
+                rows.push((tr!("Espaço livre").into(), gb(size.unwrap_or(0))));
+                rows.push((tr!("Começa em").into(), gb(off)));
+            }
+            Some(Pick::Block(_)) => {
+                let Some(bi) = self.picked_block() else { return };
+                let b = self.model.blocks[bi].clone();
+                rows.push((tr!("Tamanho").into(), format!("{} ({} bytes)", gb(b.size), b.size)));
+                let mut content = if b.usage == "filesystem" || !b.fstype.is_empty() { udisks::fs_name(&b.fstype) } else { tr!("Vazio ou desconhecido").into() };
+                if !b.label.is_empty() {
+                    content = format!("{content} — {}", b.label);
+                }
+                rows.push((tr!("Conteúdo").into(), content));
+                rows.push((tr!("Dispositivo").into(), b.device.clone()));
+                if let Some(p) = &b.part {
+                    rows.push((tr!("Partição").into(), format!("{} — {}", p.number, udisks::ptype_name(&p.ptype))));
+                }
+                if !b.uuid.is_empty() {
+                    rows.push(("UUID".into(), b.uuid.clone()));
+                }
+                if b.has_fs() {
+                    rows.push((tr!("Montado em").into(), b.mounted().map(str::to_string).unwrap_or_else(|| tr!("Não montado").into())));
+                    usage = b.mounted().and_then(|m| statvfs(Path::new(m)));
+                }
+            }
+        }
+        let mut y = r.y + 18.0;
         for (k, v) in &rows {
             let t = format!("{k}:");
             let tw = ui.text_width(&t, 12.0, false);
@@ -210,40 +388,81 @@ impl Disks {
             ui.fonts.draw(ui.c, &v, r.x + 140.0, y, 12.0, false, rgba(20, 20, 24, 255));
             y += 19.0;
         }
-        // Barra do espaço.
         if let Some((total, free)) = usage {
-            y += 6.0;
-            let bar = Rect::new(r.x + 20.0, y, r.w - 40.0, 16.0);
-            ui.c.fill(rrect(bar.x, bar.y, bar.w, bar.h, 8.0), &vgrad(bar.y, bar.y + bar.h, &[(0.0, rgba(160, 160, 166, 255)), (1.0, rgba(225, 225, 230, 255))]));
+            y += 4.0;
+            let bar = Rect::new(r.x + 140.0, y, (r.w - 330.0).clamp(80.0, 320.0), 12.0);
+            ui.c.fill(rrect(bar.x, bar.y, bar.w, bar.h, 6.0), &vgrad(bar.y, bar.y + bar.h, &[(0.0, rgba(160, 160, 166, 255)), (1.0, rgba(225, 225, 230, 255))]));
             let used = if total > 0 { 1.0 - free as f32 / total as f32 } else { 0.0 };
             if used > 0.02 {
-                gel_rect(ui.c, bar.x, bar.y, (bar.w * used).max(bar.h), bar.h, 8.0, if used > 0.9 { rgba(230, 70, 60, 255) } else { ui.theme.accent });
+                gel_rect(ui.c, bar.x, bar.y, (bar.w * used).max(bar.h), bar.h, 6.0, if used > 0.9 { rgba(230, 70, 60, 255) } else { ui.theme.accent });
             }
             let t = tr!("{} livres de {}", gb(free), gb(total));
-            ui.fonts.draw(ui.c, &t, bar.x, bar.y + 32.0, 11.0, false, rgba(60, 60, 66, 255));
+            ui.fonts.draw(ui.c, &t, bar.x + bar.w + 10.0, bar.y + 10.0, 11.0, false, rgba(60, 60, 66, 255));
         }
-        // Botões.
-        let by = r.y + r.h - 34.0;
-        let mounted = !d.mount.is_empty();
-        let can_mount = d.kind == "part" && !mounted && !d.fstype.is_empty() && d.fstype != "swap";
-        let can_eject = d.removable || self.devs.iter().any(|x| x.name == d.parent && x.removable);
-        let (mut open, mut mount, mut eject) = (false, false, false);
-        ui.area(Rect::new(r.x + 16.0, by, r.w - 32.0, 26.0), |ui| {
+    }
+
+    /// As lógicas da estendida escolhida (MBR), para a segunda fileira do mapa.
+    fn ext_layout(&self) -> Vec<Slot> {
+        let Some(di) = self.disk_index() else { return Vec::new() };
+        let ext = self.model.parts_of(di).into_iter().find(|&i| self.model.blocks[i].part.as_ref().is_some_and(|p| p.container));
+        ext.map(|e| self.model.logical_layout(e)).unwrap_or_default()
+    }
+
+    fn details(&mut self, ui: &mut Ui, r: Rect) {
+        let Some(di) = self.disk_index() else {
+            ui.fonts.draw(ui.c, tr!("Nenhum disco encontrado."), r.x + 20.0, r.y + 40.0, 13.0, false, rgba(110, 110, 116, 255));
+            return;
+        };
+        self.header(ui, Rect::new(r.x, r.y, r.w, 70.0), di);
+        ui.fonts.draw(ui.c, tr!("Volumes"), r.x + 20.0, r.y + 92.0, 12.0, true, rgba(40, 40, 46, 255));
+        let mut y = r.y + 100.0;
+        let layout = self.model.layout(di);
+        if let Some(p) = self.map_row(ui, Rect::new(r.x + 20.0, y, r.w - 40.0, MAP_H), &layout, self.model.blocks[di].size) {
+            self.pick = Some(p);
+            self.message = None;
+        }
+        y += MAP_H + 6.0;
+        let logical = self.ext_layout();
+        if !logical.is_empty() {
+            if let Some(p) = self.map_row(ui, Rect::new(r.x + 40.0, y, r.w - 60.0, MAP_H * 0.7), &logical, 0) {
+                self.pick = Some(p);
+                self.message = None;
+            }
+            y += MAP_H * 0.7 + 6.0;
+        }
+        // Ações do volume escolhido.
+        let picked = self.picked_block().map(|bi| self.model.blocks[bi].clone());
+        let mounted = picked.as_ref().is_some_and(|b| b.mounted().is_some());
+        let can_mount = picked.as_ref().is_some_and(|b| b.has_fs() && b.mounted().is_none());
+        let busy = self.job.is_some();
+        let (mut mount, mut unmount, mut open, mut eject) = (false, false, false, false);
+        ui.area(Rect::new(r.x + 18.0, y + 4.0, r.w - 36.0, 26.0), |ui| {
             ui.horizontal(|ui| {
+                ui.set_active(can_mount && !busy);
+                mount = ui.button(tr!("Montar"));
+                ui.set_active(mounted && !busy);
+                unmount = ui.button(tr!("Desmontar"));
                 ui.set_active(mounted);
                 open = ui.button(tr!("Abrir"));
-                ui.set_active(can_mount);
-                mount = ui.button("Montar");
-                ui.set_active(can_eject);
-                eject = ui.default_button(tr!("Ejetar"));
                 ui.set_active(true);
             });
         });
-        if open {
-            self.open();
-        }
+        ui.area(Rect::new(r.x + r.w - 120.0, r.y + 22.0, 104.0, 26.0), |ui| {
+            ui.set_active(self.can_eject() && !busy);
+            eject = ui.button(tr!("Ejetar"));
+            ui.set_active(true);
+        });
+        y += 40.0;
+        ui.c.hline(r.x + 20.0, y, r.w - 40.0, rgba(200, 200, 206, 255));
+        self.volume_info(ui, Rect::new(r.x, y + 4.0, r.w, r.h - (y - r.y) - 4.0));
         if mount {
             self.mount();
+        }
+        if unmount {
+            self.unmount();
+        }
+        if open {
+            self.open();
         }
         if eject {
             self.eject();
@@ -267,55 +486,17 @@ impl App for Disks {
             match a.as_str() {
                 "open" => self.open(),
                 "mount" => self.mount(),
+                "unmount" => self.unmount(),
                 "eject" => self.eject(),
                 "close" => ui.close = true,
                 _ => {}
             }
         }
         let foot = 24.0;
-        // Lista da esquerda: discos com as partições recuadas embaixo.
-        let list = Rect::new(0.0, 0.0, LIST_W, h - foot);
-        ui.c.fill_rect(list.x, list.y, list.w, list.h, &solid(rgba(232, 236, 242, 255)));
-        ui.c.vline(LIST_W - 0.5, 0.0, h - foot, rgba(150, 150, 156, 255));
-        let mut y = 8.0;
-        let disks: Vec<usize> = (0..self.devs.len()).filter(|&i| self.devs[i].kind == "disk").collect();
-        let mut order = Vec::new();
-        for &di in &disks {
-            order.push((di, 0.0));
-            let name = self.devs[di].name.clone();
-            order.extend((0..self.devs.len()).filter(|&i| self.devs[i].parent == name && self.devs[i].kind != "disk").map(|i| (i, 18.0)));
-        }
-        let mut clicked = None;
-        for (i, indent) in order {
-            let d = &self.devs[i];
-            let rr = Rect::new(0.0, y, LIST_W - 1.0, 36.0);
-            let on = self.selected == Some(i);
-            if on {
-                ui.c.fill_rect(rr.x, rr.y, rr.w, rr.h, &vgrad(rr.y, rr.y + rr.h, &[(0.0, lighten(ui.theme.accent, 0.15)), (1.0, ui.theme.accent)]));
-            }
-            let ink = if on { Color::WHITE } else { rgba(20, 20, 24, 255) };
-            icons::draw(ui.c, ui.fonts, Icon::Disk, 8.0 + indent, y + 4.0, 28.0, None);
-            let name = ui.fonts.ellipsize(&display(d), 12.0, indent == 0.0, LIST_W - 50.0 - indent);
-            ui.fonts.draw(ui.c, &name, 42.0 + indent, y + 16.0, 12.0, indent == 0.0, ink);
-            let sub = if d.kind == "disk" { gb(d.size) } else if d.mount.is_empty() { tr!("{} · não montado", gb(d.size)) } else { gb(d.size) };
-            ui.fonts.draw(ui.c, &sub, 42.0 + indent, y + 30.0, 10.0, false, if on { Color::WHITE } else { rgba(100, 100, 106, 255) });
-            let resp = ui.hit(rr);
-            if resp.pressed {
-                clicked = Some(i);
-            }
-            if resp.double {
-                clicked = Some(i);
-                self.selected = Some(i);
-                self.open();
-            }
-            y += 38.0;
-        }
-        if let Some(i) = clicked {
-            self.selected = Some(i);
-            self.message = None;
-        }
+        ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(244, 244, 246, 255)));
+        self.list(ui, Rect::new(0.0, 0.0, LIST_W, h - foot));
         self.details(ui, Rect::new(LIST_W, 0.0, w - LIST_W, h - foot));
-        // Rodapé com a mensagem do último pedido.
+        // Rodapé: a operação em andamento ou a resposta da última.
         let fy = h - foot;
         ui.c.fill_rect(0.0, fy, w, foot, &vgrad(fy, h, &[(0.0, rgba(236, 236, 238, 255)), (1.0, rgba(216, 216, 220, 255))]));
         ui.c.hline(0.0, fy, w, rgba(150, 150, 156, 255));
@@ -326,51 +507,56 @@ impl App for Disks {
     }
 
     fn tick(&self) -> Option<Duration> {
-        Some(Duration::from_secs(3))
+        Some(if self.job.is_some() { Duration::from_millis(200) } else { Duration::from_secs(2) })
     }
 
     fn on_tick(&mut self) {
-        let sel = self.current().map(|d| d.name);
-        self.devs = read_devs();
-        self.selected = sel.and_then(|n| self.devs.iter().position(|d| d.name == n));
+        if let Some(r) = self.job.as_ref().and_then(|j| j.rx.try_recv().ok()) {
+            let what = self.job.take().map(|j| j.what).unwrap_or_default();
+            self.message = Some(match r {
+                Ok(m) => m,
+                Err(e) => tr!("{} Não deu certo: {}", what.trim_end_matches('…'), e),
+            });
+        }
+        self.reload();
     }
 
     fn menus(&self) -> Vec<Menu> {
-        let d = self.current();
-        vec![Menu::new(
-            tr!("Disco"),
-            vec![
-                MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(d.as_ref().is_some_and(|d| !d.mount.is_empty())),
-                MenuItem::new("mount", "Montar", "").enabled(d.as_ref().is_some_and(|d| d.kind == "part" && d.mount.is_empty())),
-                MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(d.is_some()),
-                MenuItem::Separator,
-                MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
-            ],
-        )]
+        let b = self.picked_block().map(|bi| &self.model.blocks[bi]);
+        let busy = self.job.is_some();
+        vec![
+            Menu::new(
+                tr!("Disco"),
+                vec![
+                    MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(self.can_eject() && !busy),
+                    MenuItem::Separator,
+                    MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
+                ],
+            ),
+            Menu::new(
+                tr!("Volume"),
+                vec![
+                    MenuItem::new("open", tr!("Abrir"), "Ctrl+O").enabled(b.is_some_and(|b| b.mounted().is_some())),
+                    MenuItem::new("mount", tr!("Montar"), "").enabled(!busy && b.is_some_and(|b| b.has_fs() && b.mounted().is_none())),
+                    MenuItem::new("unmount", tr!("Desmontar"), "").enabled(!busy && b.is_some_and(|b| b.mounted().is_some())),
+                ],
+            ),
+        ]
     }
 }
 
 pub fn main() {
-    let devs = read_devs();
-    // Começa no disco do sistema.
-    let selected = devs.iter().position(|d| d.mount == "/");
-    let opts = WindowOptions { title: tr!("Discos").into(), app_id: "glove.Disks".into(), size: (640, 440), fixed: false, min_size: None };
-    if let Err(e) = run(opts, Disks { devs, selected, message: None }) {
-        eprintln!("glove-disks: {e}");
+    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None };
+    app.reload();
+    // Começa no disco do sistema, com o volume do sistema escolhido.
+    if let Some(sys) = app.model.blocks.iter().find(|b| b.mounted() == Some("/")).cloned() {
+        if let Some(t) = sys.part.as_ref().map(|p| p.table.clone()) {
+            app.disk = Some(t);
+            app.pick = Some(Pick::Block(sys.path.clone()));
+        }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn le_o_lsblk() {
-        let t = "NAME=\"loop0\" SIZE=\"1\" TYPE=\"loop\" MOUNTPOINT=\"/snap/x\" FSTYPE=\"squashfs\" LABEL=\"\" MODEL=\"\" RM=\"0\" TRAN=\"\" PKNAME=\"\"\nNAME=\"sda\" SIZE=\"536871960576\" TYPE=\"disk\" MOUNTPOINT=\"\" FSTYPE=\"\" LABEL=\"\" MODEL=\"STORAGE DEVICE\" RM=\"1\" TRAN=\"usb\" PKNAME=\"\"\nNAME=\"sda1\" SIZE=\"5\" TYPE=\"part\" MOUNTPOINT=\"\" FSTYPE=\"exfat\" LABEL=\"SD 512\" MODEL=\"\" RM=\"1\" TRAN=\"\" PKNAME=\"sda\"\nNAME=\"mmcblk0boot0\" SIZE=\"4\" TYPE=\"disk\" MOUNTPOINT=\"\" FSTYPE=\"\" LABEL=\"\" MODEL=\"\" RM=\"0\" TRAN=\"mmc\" PKNAME=\"\"\n";
-        let d = super::parse_lsblk(t);
-        assert_eq!(d.len(), 2);
-        assert_eq!(d[0].model, "STORAGE DEVICE");
-        assert!(d[0].removable && d[0].tran == "usb");
-        assert_eq!(d[1].label, "SD 512");
-        assert_eq!(d[1].parent, "sda");
-        assert_eq!(super::display(&d[0]), "537 GB STORAGE DEVICE");
+    let opts = WindowOptions { title: tr!("Discos").into(), app_id: "glove.Disks".into(), size: (760, 520), fixed: false, min_size: Some((620, 420)) };
+    if let Err(e) = run(opts, app) {
+        eprintln!("glove-disks: {e}");
     }
 }

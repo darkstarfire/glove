@@ -92,6 +92,8 @@ struct Instalador {
     pagina: usize,
     idioma: usize,
     teclado: usize,
+    /// O que foi digitado no campo de teste do teclado.
+    teste_teclado: String,
     fusos: Vec<String>,
     fuso: Option<usize>,
     busca_fuso: String,
@@ -137,6 +139,7 @@ impl Instalador {
             pagina: 0,
             idioma,
             teclado,
+            teste_teclado: String::new(),
             fusos,
             fuso,
             busca_fuso: String::new(),
@@ -262,13 +265,22 @@ impl Instalador {
                     });
                     ui.space(8.0);
                     let tecl: Vec<String> = TECLADOS.iter().map(|(_, _, n)| tr(n).to_string()).collect();
+                    let antes = self.teclado;
                     ui.form_row(tr!("Teclado:"), 90.0, |ui| {
                         ui.popup(&mut self.teclado, &tecl, 260.0);
                     });
+                    // No Glove ao vivo, o teclado escolhido já vale na sessão: o
+                    // campo de teste mostra o que ele digita de verdade.
+                    if self.teclado != antes && !self.simular {
+                        let (l, v, _) = TECLADOS[self.teclado];
+                        let mut c = glove_config::Config::load();
+                        c.keyboard.layout = l.into();
+                        c.keyboard.variant = v.into();
+                        let _ = c.save();
+                    }
                     ui.space(14.0);
                     ui.small(tr!("Teste o teclado aqui:"));
-                    let mut t = String::new();
-                    ui.text_field(&mut t, 360.0);
+                    ui.text_field(&mut self.teste_teclado, 360.0);
                 });
             }
             2 => {

@@ -43,7 +43,7 @@ and the installer and ISO still need testing on real computers. How to use each 
   HiDPI and fractional scaling
 - **X11 apps** through Xwayland, with Glove's title bar
 - Global menu bar: main menu (Recent Items, Force Quit, Sleep, Shut Down…), the app menu, **each
-  app's own menus**, submenus and keyboard navigation; Wi-Fi, volume, battery (time left, health and cycles, also for third-party batteries and Chromebooks whose firmware does not recognise the battery) and display extras,
+  app's own menus**, submenus and keyboard navigation; Wi-Fi, volume, battery (time left, health and cycles, also for third-party batteries and Chromebooks whose firmware does not recognise the battery: the `glove-bateria` service reads it straight from the EC and shuts the computer down before it runs out) and display extras,
   clock and user name (fast user switching)
 - Glass **Dock** with magnification, bouncing icons, context menus, auto-hide, bottom/left/right
   position, **Scale** and **Genie** minimize effects (deformation done on the GPU), live
@@ -103,7 +103,8 @@ and the installer and ISO still need testing on real computers. How to use each 
 | Font Viewer and Characters | View, install and disable fonts; character map |
 | Passwords | Passwords in the system keychain: view, copy, delete, lock and change the keychain password |
 | Network Tools | Interface info, Ping, Lookup, Traceroute, Whois, Finger and port scan |
-| System Monitor, Logs, System Information, Disks | Processes and graphs, journal logs, hardware, disks and USB drives |
+| System Monitor, Logs, System Information | Processes and graphs, journal logs, hardware |
+| Disks | Through udisks2 (like gnome-disks): disks, images and the volume map (partitions and free space), mount, unmount and eject; formatting, partitions, resizing and writing ISOs come in phase 16 |
 | Search, Screenshot, Archive Manager | Find files, capture the screen, compress/expand |
 | Calculator, Clock, Chess, Help, About Glove | Scientific calculator, clock in the Dock, chess with 3 levels, searchable help |
 | Backups | Hourly backups of the home folder to an external disk, timeline and Restore |

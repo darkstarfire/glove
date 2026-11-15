@@ -1,0 +1,30 @@
+#!/bin/sh
+# Gancho de suspensão do glove-bateria (systemd system-sleep). O Linux não enxerga a
+# bateria do Chromebook, então nada impede que ela zere com o computador suspenso.
+# Antes de suspender: o relógio (RTC) acorda o computador daqui a SUSPEND_CHECK_S.
+# Depois de acordar: glove-bateria --resume-check desliga (bateria baixa) ou volta
+# a suspender (tampa ainda fechada).
+SUSPEND_CHECK_S=3600
+for f in /etc/default/chromebook-linux-fixes /etc/default/glove-bateria; do
+    [ -r "$f" ] && . "$f"
+done
+# Só quando o serviço está em uso (ele grava o arquivo da bateria).
+[ -f /run/cros-ec-battery.json ] || exit 0
+systemctl is-active --quiet glove-bateria.service || exit 0
+[ "$SUSPEND_CHECK_S" -gt 0 ] 2>/dev/null || exit 0
+RTC=/sys/class/rtc/rtc0/wakealarm
+[ -w "$RTC" ] || exit 0
+case "$1/$2" in
+    pre/suspend)
+        cp /run/cros-ec-battery.json /run/cros-ec-battery.presuspend.json 2>/dev/null
+        echo 0 > "$RTC"
+        echo "+$SUSPEND_CHECK_S" > "$RTC"
+        ;;
+    post/suspend)
+        echo 0 > "$RTC"
+        # Espera o sistema terminar de acordar antes de decidir.
+        systemd-run --quiet --collect --on-active=30 --timer-property=AccuracySec=1s \
+            --unit="glove-bateria-resume-$(date +%s)" @PREFIXO@/bin/glove-bateria --resume-check
+        ;;
+esac
+exit 0

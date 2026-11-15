@@ -5430,3 +5430,138 @@ msgstr "Enter the password for {} to continue."
 
 msgid "O ajudante do polkit (polkit-agent-helper-1) não está instalado."
 msgstr "The polkit helper (polkit-agent-helper-1) is not installed."
+
+msgid "A permissão de administrador não foi dada."
+msgstr "Administrator permission was not given."
+
+msgid "Cartão de memória"
+msgstr "Memory card"
+
+msgid "Começa em"
+msgstr "Starts at"
+
+msgid "Conteúdo"
+msgstr "Contents"
+
+msgid "Criptografado (LUKS)"
+msgstr "Encrypted (LUKS)"
+
+msgid "Dados do Windows"
+msgstr "Windows data"
+
+msgid "Desconhecido"
+msgstr "Unknown"
+
+msgid "Desmontando “{}”…"
+msgstr "Unmounting “{}”…"
+
+msgid "Desmontar"
+msgstr "Unmount"
+
+msgid "Disco interno"
+msgstr "Internal disk"
+
+msgid "Ejetando “{}”…"
+msgstr "Ejecting “{}”…"
+
+msgid "Escolha um volume no mapa."
+msgstr "Choose a volume on the map."
+
+msgid "Espaço livre"
+msgstr "Free space"
+
+msgid "Estendida"
+msgstr "Extended"
+
+msgid "Imagem {}"
+msgstr "Image {}"
+
+msgid "Inicialização da BIOS"
+msgstr "BIOS boot"
+
+msgid "Leitor de CD/DVD"
+msgstr "CD/DVD drive"
+
+msgid "Linux (pessoal)"
+msgstr "Linux (home)"
+
+msgid "Linux (raiz)"
+msgstr "Linux (root)"
+
+msgid "Linux (troca)"
+msgstr "Linux (swap)"
+
+msgid "Montando “{}”…"
+msgstr "Mounting “{}”…"
+
+msgid "Montar"
+msgstr "Mount"
+
+msgid "Nenhum disco encontrado."
+msgstr "No disks found."
+
+msgid "Não foi possível falar com o serviço de discos (udisks2)."
+msgstr "Could not reach the disk service (udisks2)."
+
+msgid "O disco está em uso: feche os arquivos e programas que usam ele e tente de novo."
+msgstr "The disk is in use: close the files and programs using it and try again."
+
+msgid "O serviço de discos (udisks2) não respondeu: {}"
+msgstr "The disk service (udisks2) did not answer: {}"
+
+msgid "Partição"
+msgstr "Partition"
+
+msgid "Partição {}"
+msgstr "Partition {}"
+
+msgid "Recuperação do Windows"
+msgstr "Windows recovery"
+
+msgid "Reservada do Windows"
+msgstr "Windows reserved"
+
+msgid "SSD interno"
+msgstr "Internal SSD"
+
+msgid "Sem mídia"
+msgstr "No media"
+
+msgid "Sem partições"
+msgstr "No partitions"
+
+msgid "Sistema EFI"
+msgstr "EFI System"
+
+msgid "Série {}"
+msgstr "Serial {}"
+
+msgid "Tabela GPT"
+msgstr "GPT table"
+
+msgid "Tabela MBR"
+msgstr "MBR table"
+
+msgid "Troca (swap)"
+msgstr "Swap"
+
+msgid "Vazio ou desconhecido"
+msgstr "Empty or unknown"
+
+msgid "Volume"
+msgstr "Volume"
+
+msgid "Volumes"
+msgstr "Volumes"
+
+msgid "{} Não deu certo: {}"
+msgstr "{} Failed: {}"
+
+msgid "“{}” desmontado."
+msgstr "“{}” unmounted."
+
+msgid "“{}” montado em {}."
+msgstr "“{}” mounted at {}."
+
+msgid "“{}” pode ser removido com segurança."
+msgstr "“{}” can be safely removed."

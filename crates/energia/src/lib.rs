@@ -248,8 +248,13 @@ const IOC_RDMEM: u64 = (3 << 30) | ((READMEM_SIZE as u64) << 16) | (0xEC << 8) |
 
 /// O EC do Chromebook direto (precisa de permissão de leitura no `/dev/cros_ec`).
 fn from_ec(dev: &Path) -> Option<Battery> {
+    parse_ec(&read_ec_memory(dev).ok()?)
+}
+
+/// Os 64 bytes da bateria na memória do EC (`/dev/cros_ec`, módulo cros_ec_chardev).
+pub fn read_ec_memory(dev: &Path) -> std::io::Result<Vec<u8>> {
     use std::os::fd::AsRawFd;
-    let file = std::fs::File::open(dev).ok()?;
+    let file = std::fs::File::open(dev)?;
     let mut buf = [0u8; READMEM_SIZE];
     buf[0..4].copy_from_slice(&MEMMAP_BATT_BASE.to_le_bytes());
     buf[4..8].copy_from_slice(&MEMMAP_BATT_LEN.to_le_bytes());
@@ -257,9 +262,92 @@ fn from_ec(dev: &Path) -> Option<Battery> {
     // fim da chamada; o descritor é do arquivo aberto acima.
     let ret = unsafe { libc::ioctl(file.as_raw_fd(), IOC_RDMEM as _, buf.as_mut_ptr()) };
     if ret < 0 {
-        return None;
+        return Err(std::io::Error::last_os_error());
     }
-    parse_ec(&buf[8..8 + MEMMAP_BATT_LEN as usize])
+    Ok(buf[8..8 + MEMMAP_BATT_LEN as usize].to_vec())
+}
+
+/// O kernel já enxerga uma bateria (o caso normal): o serviço do EC não é preciso.
+pub fn kernel_has_battery() -> bool {
+    from_kernel(Path::new("/sys/class/power_supply")).is_some()
+}
+
+/// Algum carregador ("Mains") do kernel: Some(ligado) ou None se não houver nenhum.
+pub fn ac_online() -> Option<bool> {
+    let mut found = None;
+    for e in std::fs::read_dir("/sys/class/power_supply").ok()?.flatten() {
+        let p = e.path();
+        if read_str(&p.join("type")).as_deref() != Some("Mains") {
+            continue;
+        }
+        if read_str(&p.join("online")).as_deref() == Some("1") {
+            return Some(true);
+        }
+        found = Some(false);
+    }
+    found
+}
+
+/// O estado no formato de `/run/cros-ec-battery.json` (o mesmo do serviço
+/// `cros-ec-battery` do chromebook-linux-fixes), a partir da memória do EC.
+/// `rate_ma` suavizada vem de fora (o serviço guarda a média entre leituras).
+pub fn ec_json(d: &[u8], ac: Option<bool>, smooth_rate: Option<f64>, ts: f64) -> Option<serde_json::Value> {
+    let u32_at = |at: usize| -> Option<u32> {
+        let v = u32::from_le_bytes(d.get(at..at + 4)?.try_into().ok()?);
+        (v < 0x7FFF_FFFF).then_some(v)
+    };
+    let cstr = |a: usize, b: usize| -> String {
+        let s = d.get(a..b).unwrap_or(&[]);
+        String::from_utf8_lossy(s.split(|c| *c == 0).next().unwrap_or(&[])).trim().to_string()
+    };
+    let (volt, rate, cap) = (u32_at(0x00), u32_at(0x04), u32_at(0x08)?);
+    let flags = *d.get(0x0C)?;
+    let (design, design_mv, last_full, cycles) = (u32_at(0x10), u32_at(0x14), u32_at(0x18), u32_at(0x1C));
+    let full = last_full.filter(|v| *v > 0).or(design.filter(|v| *v > 0))?;
+    let pct = (cap as f64 * 100.0 / full as f64).clamp(0.0, 100.0);
+    let ac = ac.unwrap_or(flags & FLAG_AC != 0);
+    let state = if flags & FLAG_CHARGING != 0 {
+        "charging"
+    } else if ac && pct >= 95.0 {
+        "full"
+    } else if ac {
+        "not-charging"
+    } else {
+        "discharging"
+    };
+    let r = smooth_rate.or(rate.map(f64::from)).unwrap_or(0.0);
+    let (mut to_empty, mut to_full) = (None, None);
+    if r > 20.0 {
+        if state == "discharging" {
+            to_empty = Some((cap as f64 / r * 3600.0) as u64);
+        } else if state == "charging" {
+            to_full = Some((full.saturating_sub(cap) as f64 / r * 3600.0) as u64);
+        }
+    }
+    let health = last_full.zip(design).filter(|(_, d)| *d > 0).map(|(f, d)| (f as f64 * 1000.0 / d as f64).round() / 10.0);
+    let power = volt.zip(rate).map(|(v, r)| (v as f64 * r as f64 / 1e4).round() / 100.0);
+    Some(serde_json::json!({
+        "ok": true,
+        "ts": ts,
+        "percent": (pct * 10.0).round() / 10.0,
+        "state": state,
+        "ac": ac,
+        "critical": flags & 0x10 != 0,
+        "time_to_empty_s": to_empty,
+        "time_to_full_s": to_full,
+        "health_percent": health,
+        "power_w": power,
+        "voltage_mv": volt,
+        "design_mv": design_mv,
+        "rate_ma": rate,
+        "remaining_mah": cap,
+        "full_mah": last_full,
+        "design_mah": design,
+        "cycles": cycles,
+        "ec_present_flag": flags & 0x02 != 0,
+        "manufacturer": cstr(0x20, 0x28),
+        "model": cstr(0x28, 0x30),
+    }))
 }
 
 /// Lê a bateria da memória do EC: carga restante sobre a capacidade cheia (ou a de
@@ -493,6 +581,35 @@ mod tests {
         std::fs::write(&file, r#"{"ok": false, "error": "sem EC"}"#).unwrap();
         assert_eq!(from_service(&file, 1001.0), None);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn servico_grava_o_que_o_glove_le() {
+        // A memória do EC na bateria: 2400 de 3200 mAh, descarregando a 800 mA.
+        let mut d = [0u8; 0x40];
+        d[0x00..0x04].copy_from_slice(&11_400u32.to_le_bytes());
+        d[0x04..0x08].copy_from_slice(&800u32.to_le_bytes());
+        d[0x08..0x0C].copy_from_slice(&2_400u32.to_le_bytes());
+        d[0x0C] = FLAG_DISCHARGING | 0x02;
+        d[0x10..0x14].copy_from_slice(&4_000u32.to_le_bytes());
+        d[0x14..0x18].copy_from_slice(&11_400u32.to_le_bytes());
+        d[0x18..0x1C].copy_from_slice(&3_200u32.to_le_bytes());
+        d[0x1C..0x20].copy_from_slice(&42u32.to_le_bytes());
+        d[0x20..0x24].copy_from_slice(b"SMP\0");
+        let json = ec_json(&d, Some(false), None, 1000.0).unwrap();
+        assert_eq!(json["state"], "discharging");
+        assert_eq!(json["time_to_empty_s"], 10800);
+        assert_eq!(json["manufacturer"], "SMP");
+        let dir = tmp("servico_ec");
+        let f = dir.join("cros-ec-battery.json");
+        std::fs::write(&f, json.to_string()).unwrap();
+        let b = from_service(&f, 1010.0).unwrap();
+        assert_eq!((b.percent, b.state, b.on_ac, b.cycles, b.time_to_empty_s), (75, State::Discharging, false, Some(42), Some(10800)));
+        assert!(close(b.health_percent, 80.0));
+        // Na tomada, carregada: "full".
+        d[0x0C] = FLAG_AC;
+        d[0x08..0x0C].copy_from_slice(&3_100u32.to_le_bytes());
+        assert_eq!(ec_json(&d, None, None, 0.0).unwrap()["state"], "full");
     }
 
     #[test]
