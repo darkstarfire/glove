@@ -5797,3 +5797,135 @@ msgstr "Prepare the disk with Disks…"
 
 msgid "Quando fechar o Discos, a lista de discos se atualiza sozinha."
 msgstr "When you close Disks, the disk list updates by itself."
+
+msgid "Apagar e Restaurar"
+msgstr "Erase and Restore"
+
+msgid "Apagar o disco e restaurar a imagem?"
+msgstr "Erase the disk and restore the image?"
+
+msgid "Aviso"
+msgstr "Warning"
+
+msgid "Boa"
+msgstr "Good"
+
+msgid "Boa, com avisos"
+msgstr "Good, with warnings"
+
+msgid "Começando o teste rápido do disco…"
+msgstr "Starting the disk's short test…"
+
+msgid "Copiando o disco para a imagem…"
+msgstr "Copying the disk into the image…"
+
+msgid "Criando a imagem de {}…"
+msgstr "Creating the image of {}…"
+
+msgid "Criar Imagem do Disco…"
+msgstr "Create Disk Image…"
+
+msgid "Desgaste"
+msgstr "Wear"
+
+msgid "Detalhes…"
+msgstr "Details…"
+
+msgid "Do disco"
+msgstr "Of the disk"
+
+msgid "Falhando — copie os seus arquivos já"
+msgstr "Failing — copy your files now"
+
+msgid "Imagem criada: {} ({})."
+msgstr "Image created: {} ({})."
+
+msgid "Imagem restaurada em {}."
+msgstr "Image restored to {}."
+
+msgid "Medindo o espaço usado…"
+msgstr "Measuring the used space…"
+
+msgid "Medir o Uso"
+msgstr "Measure Usage"
+
+msgid "Não deu para medir."
+msgstr "Could not measure."
+
+msgid "Restaurando a imagem em {}…"
+msgstr "Restoring the image to {}…"
+
+msgid "Restaurar Imagem no Disco…"
+msgstr "Restore Disk Image…"
+
+msgid "Saúde de “{}”"
+msgstr "Health of “{}”"
+
+msgid "Saúde do Disco…"
+msgstr "Disk Health…"
+
+msgid "Saúde: {}"
+msgstr "Health: {}"
+
+msgid "Setores ruins"
+msgstr "Bad sectors"
+
+msgid "Temperatura"
+msgstr "Temperature"
+
+msgid "Tempo ligado"
+msgstr "Powered on"
+
+msgid "Teste Rápido"
+msgstr "Short Test"
+
+msgid "Teste rápido começou (uns 2 minutos); o resultado aparece em Saúde do Disco."
+msgstr "Short test started (about 2 minutes); the result shows in Disk Health."
+
+msgid "Tudo o que está em {} será trocado pelo conteúdo de “{}”, bloco a bloco."
+msgstr "Everything on {} will be replaced by the contents of “{}”, block by block."
+
+msgid "Verificando “{}”…"
+msgstr "Checking “{}”…"
+
+msgid "Verificar"
+msgstr "Check"
+
+msgid "Verificar e Consertar"
+msgstr "Check and Repair"
+
+msgid "em andamento ({}% faltando)"
+msgstr "in progress ({}% left)"
+
+msgid "nunca feito"
+msgstr "never run"
+
+msgid "passou"
+msgstr "passed"
+
+msgid "{} horas ({} dias)"
+msgstr "{} hours ({} days)"
+
+msgid "{} usados ({}%), {} livres"
+msgstr "{} used ({}%), {} free"
+
+msgid "{} usados de {}."
+msgstr "{} used of {}."
+
+msgid "{}% da vida útil usada (reserva {}%)"
+msgstr "{}% of its life used (spare {}%)"
+
+msgid "{}% do disco"
+msgstr "{}% of the disk"
+
+msgid "Último teste"
+msgstr "Last test"
+
+msgid "“{}” está sem problemas."
+msgstr "“{}” has no problems."
+
+msgid "“{}” tem erros que não puderam ser consertados. Copie os arquivos importantes."
+msgstr "“{}” has errors that could not be repaired. Copy your important files."
+
+msgid "“{}” tinha erros e foi consertado."
+msgstr "“{}” had errors and was repaired."

@@ -106,7 +106,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 | Passwords | Passwords in the system keychain: view, copy, delete, lock and change the keychain password |
 | Network Tools | Interface info, Ping, Lookup, Traceroute, Whois, Finger and port scan |
 | System Monitor, Logs, System Information | Processes and graphs, journal logs, hardware |
-| Disks | Through udisks2 (like gnome-disks): disks, images and the volume map (partitions and free space), mount, unmount and eject; **create startup disks** (UEFI) from Linux **or Windows** ISOs, without WoeUSB; formatting (disk and volume), creating, deleting and editing partitions, **resizing** (making room next to Windows) |
+| Disks | Through udisks2 (like gnome-disks): disks, images and the volume map (partitions and free space), mount, unmount and eject; **create startup disks** (UEFI) from Linux **or Windows** ISOs, without WoeUSB; formatting (disk and volume), creating, deleting and editing partitions, **resizing** (making room next to Windows), each volume's usage, check and repair, **disk health** (SMART/NVMe, short test) and disk images (create and restore) |
 | Search, Screenshot, Archive Manager | Find files, capture the screen, compress/expand |
 | Calculator, Clock, Chess, Help, About Glove | Scientific calculator, clock in the Dock, chess with 3 levels, searchable help |
 | Backups | Hourly backups of the home folder to an external disk, timeline and Restore |
@@ -236,7 +236,10 @@ compatible) with Glove as the desktop and its own identity: the name "Glove OS" 
 glove, the console and the GRUB menu. That identity comes in the `glove-os` package, which only
 ships in the ISO; the `glove` package installed on another distribution does not rename it.
 
-The ISO works on a USB stick or DVD, with Glove, Firefox and the installer. Booting from the stick
+The ISO works on a USB stick or DVD, with Glove, Firefox and the installer. It is a "sleeper"
+system: it ships what everyday use needs (Glove's tools, a browser, video, Wi-Fi, Bluetooth and
+sound firmware for desktops and laptops) and leaves out server things (datacenter network card
+firmware, Apache…), which anyone who needs them installs later from the App Center or apt. Booting from the stick
 logs into Glove by itself and opens **Install Glove OS**, which copies the system to the disk
 (whole disk or alongside another system). How to use the installer:
 [docs/USAGE.md](docs/USAGE.md#installing-glove-from-the-iso).

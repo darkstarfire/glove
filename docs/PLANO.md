@@ -1004,8 +1004,20 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   Testado com um "pendrive" loop de 3 GB e uma ISO UDF com a estrutura do Windows (GPT, FAT32 e
   conteúdo idêntico); a gravação inteira tem teste de unidade (precisa da senha para o real).
   wimtools, exfatprogs, ntfs-3g e btrfs-progs na ISO e nas recomendações do pacote.
-- [ ] 16.6.1 Imagem de disco (M): criar a imagem de um disco (backup) e gravar uma `.img` qualquer.
-- [ ] 16.7 Saúde e reparo (M): verificar e reparar, mudar o rótulo, saúde (SMART/NVMe) e temperatura.
+- [x] 16.6.1 Imagem de disco (M) — v0.12.47: Disco ▸ Criar Imagem do Disco… (`OpenForBackup`, cópia
+  com andamento para um `.img`; apaga o arquivo se der erro ou Cancelar) e Restaurar Imagem no
+  Disco… (bloco a bloco, sem olhar o tipo, com conferência).
+- [x] 16.7 Saúde, reparo e uso (M) — v0.12.47: saúde do `Drive.Ata` (SmartFailing, setores ruins,
+  atributos falhando, horas, temperatura, último teste) e do `NVMe.Controller` (avisos críticos,
+  horas, temperatura, desgaste pelo `SmartGetAttributes`), no cabeçalho e na folha Detalhes…, com o
+  Teste Rápido (`SmartSelftestStart short`). Verificar e Consertar (`Check`, e `Repair` se preciso).
+  Uso de cada volume: faixa no mapa e barra nos detalhes, e a porcentagem do disco; os montados pelo
+  statvfs, os desmontados por Medir o Uso (montagem só de leitura **silenciosa**: o Discos anota o
+  aparelho em `glove-silenciosos` e a mesa não mostra o ícone nem abre a janela; desmonta tentando
+  de novo enquanto o udisks está ocupado). O rótulo já era o Editar (16.4).
+- [x] 16.9.1 ISO "sleeper" (P) — v0.12.47: `--firmware-chroot false` e a lista de firmwares de uso
+  diário (vídeo AMD/NVIDIA/Intel, Wi-Fi, Bluetooth e som); os de servidor (Netronome, Cavium, QLogic,
+  Myricom, NetXtreme…) saem, uns 160 MB instalados a menos.
 - [x] 16.8 Instalador (P) — v0.12.46: botão "Preparar o disco com o Discos…" na página Disco; o
   instalador acompanha o Discos aberto por ele (tique de 1 s) e, quando ele fecha, relê os discos
   mantendo o escolhido. O caminho de instalar ao lado do Windows fica: Discos ▸ diminuir o NTFS ▸

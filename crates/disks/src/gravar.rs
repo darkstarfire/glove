@@ -145,6 +145,35 @@ fn verify(iso: &Path, size: u64, disk: &str, p: &Progress) -> Result<(), String>
     Ok(())
 }
 
+/// Restaura uma imagem (.img/.iso) no disco inteiro, bloco a bloco, sem olhar o tipo
+/// (a cópia exata de antes, um cartão de Raspberry Pi…).
+pub fn restore(img: PathBuf, t: Target, p: Arc<Progress>) -> Result<String, String> {
+    let size = std::fs::metadata(&img).map_err(|e| e.to_string())?.len();
+    if size > t.size {
+        return Err(tr!("A imagem ({}) não cabe no disco ({}).", crate::gb(size), crate::gb(t.size)));
+    }
+    p.set(0.0, tr!("Desmontando o disco…"));
+    for m in &t.mounted {
+        udisks::unmount(m)?;
+    }
+    raw(&img, size, &t, &p)?;
+    Ok(tr!("Imagem restaurada em {}.", t.device))
+}
+
+/// Cria a imagem do disco inteiro num arquivo (cópia exata, para guardar ou restaurar).
+pub fn backup(disk: String, size: u64, out: PathBuf, p: Arc<Progress>) -> Result<String, String> {
+    p.set(0.0, tr!("Copiando o disco para a imagem…"));
+    let mut src = udisks::open_for_backup(&disk)?;
+    let mut dst = std::fs::File::create(&out).map_err(|e| format!("{}: {e}", out.display()))?;
+    let r = copy_image(&mut src, &mut dst, size, &p).and_then(|_| dst.sync_all().map_err(|e| e.to_string()));
+    if r.is_err() {
+        let _ = std::fs::remove_file(&out);
+    }
+    r?;
+    p.set(1.0, "");
+    Ok(tr!("Imagem criada: {} ({}).", out.display(), crate::gb(size)))
+}
+
 /// O pendrive do Windows: GPT, FAT32, os arquivos e o install.wim dividido.
 fn windows(iso: &Path, t: &Target, p: &Progress) -> Result<String, String> {
     p.set(0.0, tr!("Abrindo a imagem…"));

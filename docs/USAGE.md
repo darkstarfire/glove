@@ -323,8 +323,21 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 **Disks** (in the Dock, in Utilities) lists the disks on the left (internal disks, USB sticks, cards
 and disk images in use) and shows the chosen disk on the right: model, size, table (GPT or MBR),
 connection and the **volume map**, with partitions sized to scale and the **free space**. Click a
-volume to see its contents (Ext4, FAT, NTFS…), device, partition type, UUID, where it is mounted and
-how full it is. Mount, Unmount, Open and Eject are under the map and in the Volume menu.
+volume to see its contents (Ext4, FAT, NTFS…), device, partition type, UUID, how much of the disk it
+takes (%) and where it is mounted. **How full each volume is** shows as a strip under it on the map
+and, in the details, as a bar ("X used (Y%), Z free"). Mounted volumes are measured by themselves;
+for unmounted ones, **Measure Usage** mounts read-only, quietly (no icon on the desktop), measures
+and unmounts. Mount, Unmount, Open, Eject and **Check** (checks the file system and repairs errors)
+are under the map and in the Volume menu.
+
+**Disk health:** under the disk's name, "Health: Good", "Good, with warnings" (bad sectors) or
+"Failing" (copy your files now), with the temperature. **Details…** (or Disk ▸ Disk Health…) shows
+the power-on time, bad sectors, NVMe SSD wear and the last test, and starts the disk's own **Short
+Test** (about 2 minutes; the disk stays usable).
+
+**Disk images** (Disk menu): **Create Disk Image…** copies the whole disk into an `.img` file (an
+exact copy, for safekeeping); **Restore Disk Image…** writes an image back, block by block (asks
+first; erases the disk). Both ask for the administrator password.
 
 **Partitions and formatting** (choose a piece of the map; the buttons below change with it):
 

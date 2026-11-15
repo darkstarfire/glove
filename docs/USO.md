@@ -347,8 +347,20 @@ O **Discos** (no Dock, em Utilitários) mostra à esquerda os discos (internos, 
 imagens de disco em uso) e, à direita, o disco escolhido: modelo, tamanho, tabela (GPT ou MBR),
 conexão e o **mapa dos volumes**, com as partições do tamanho proporcional e o **espaço livre**.
 Clique num volume para ver o conteúdo (Ext4, FAT, NTFS…), o dispositivo, o tipo de partição, o UUID,
-onde está montado e quanto está usado. Montar, Desmontar, Abrir e Ejetar ficam embaixo do mapa e no
-menu Volume.
+quanto do disco ele ocupa (%) e onde está montado. **Quanto cada volume tem ocupado** aparece numa
+faixa embaixo dele no mapa e, nos detalhes, numa barra ("X usados (Y%), Z livres"). Volumes
+montados são medidos sozinhos; nos desmontados, **Medir o Uso** monta só para leitura, em silêncio
+(sem ícone na mesa), mede e desmonta. Montar, Desmontar, Abrir, Ejetar e **Verificar** (confere o
+sistema de arquivos e, com erros, conserta) ficam embaixo do mapa e no menu Volume.
+
+**Saúde do disco:** embaixo do nome do disco, "Saúde: Boa", "Boa, com avisos" (setores ruins) ou
+"Falhando" (copie os arquivos já), com a temperatura. **Detalhes…** (ou Disco ▸ Saúde do Disco…)
+mostra o tempo ligado, os setores ruins, o desgaste dos SSD NVMe e o último teste, e começa o
+**Teste Rápido** do próprio disco (uns 2 minutos, o disco continua usável).
+
+**Imagem do disco** (menu Disco): **Criar Imagem do Disco…** copia o disco inteiro para um arquivo
+`.img` (cópia exata, para guardar); **Restaurar Imagem no Disco…** grava uma imagem de volta,
+bloco a bloco (pede confirmação; apaga o disco). Os dois pedem a senha de administrador.
 
 **Partições e formatação** (escolha o pedaço no mapa; os botões de baixo mudam conforme ele):
 

@@ -60,6 +60,8 @@ pub enum Dialog {
     Edit { block: String, gpt: bool, kind: usize, name: String },
     /// Novo tamanho, entre o mínimo e o máximo.
     Resize { block: String, fs: String, min: u64, max: u64, size: String },
+    /// A saúde do disco (SMART/NVMe), com o teste rápido.
+    Health { drive: String, nvme: bool, title: String, rows: Vec<(String, String)> },
 }
 
 /// O que fazer depois de confirmar.
@@ -69,6 +71,7 @@ pub enum Do {
     FormatDisk { block: String, scheme: String, zero: bool },
     Edit { block: String, ptype: String, name: String },
     Resize { block: String, fs: String, size: u64 },
+    SelfTest { drive: String, nvme: bool },
 }
 
 pub enum Answer {
@@ -162,6 +165,20 @@ pub fn sheet(ui: &mut Ui, d: &mut Dialog) -> Answer {
             // O tipo vai no formato da tabela (o udisks diz qual é pelo próprio tipo atual).
             go = Some(Do::Edit { block: block.clone(), ptype: format!("{}|{}", t.0, t.1), name: name.clone() });
         }
+        Dialog::Health { drive, nvme, title, rows } => {
+            ui.fonts.draw(ui.c, &tr!("Saúde de “{}”", title), x + 20.0, y + 30.0, 13.0, true, ink);
+            let mut ry = y + 58.0;
+            for (k, v) in rows.iter() {
+                let t = format!("{k}:");
+                let tw = ui.text_width(&t, 12.0, false);
+                ui.fonts.draw(ui.c, &t, x + 150.0 - tw, ry, 12.0, false, rgba(80, 80, 86, 255));
+                let v = ui.fonts.ellipsize(v, 12.0, false, sw - 190.0);
+                ui.fonts.draw(ui.c, &v, x + 160.0, ry, 12.0, false, ink);
+                ry += 19.0;
+            }
+            ok_label = tr!("Teste Rápido").into();
+            go = Some(Do::SelfTest { drive: drive.clone(), nvme: *nvme });
+        }
         Dialog::Resize { block, fs, min, max, size } => {
             ui.fonts.draw(ui.c, tr!("Redimensionar"), x + 20.0, y + 30.0, 13.0, true, ink);
             ui.space(28.0);
@@ -179,9 +196,10 @@ pub fn sheet(ui: &mut Ui, d: &mut Dialog) -> Answer {
         }
     });
     let (mut cancel, mut ok) = (false, false);
+    let close_label = if matches!(d, Dialog::Health { .. }) { tr!("Fechar") } else { tr!("Cancelar") };
     ui.area(Rect::new(x + sw - 250.0, y + sh - 40.0, 240.0, 30.0), |ui| {
         ui.horizontal(|ui| {
-            cancel = ui.button(tr!("Cancelar"));
+            cancel = ui.button(close_label);
             ui.set_active(valid);
             ok = ui.default_button(&ok_label);
             ui.set_active(true);

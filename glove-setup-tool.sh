@@ -850,7 +850,7 @@ build_iso() {
         --debian-installer none \
         --binary-images iso-hybrid \
         --apt-recommends false \
-        --firmware-chroot true \
+        --firmware-chroot false \
         --memtest none \
         --iso-application "Glove OS" --iso-publisher "Glove OS - $url" --iso-volume "Glove OS $version" \
         --bootappend-live "boot=live components quiet splash username=glove user-fullname=Glove hostname=glove-os locales=pt_BR.UTF-8 keyboard-layouts=br"

@@ -54,6 +54,12 @@ struct Disks {
     dialog: Option<dialogos::Dialog>,
     /// Apagar a partição: pedindo confirmação.
     delete_confirm: Option<String>,
+    /// Espaço usado de cada volume (caminho no udisks → usado, total), medido montado.
+    usage: Arc<std::sync::Mutex<std::collections::HashMap<String, (u64, u64)>>>,
+    /// Imagem do disco: onde salvar, qual restaurar e a confirmação.
+    img_save_fb: Option<FileBrowser>,
+    img_open_fb: Option<FileBrowser>,
+    restore_confirm: Option<PathBuf>,
 }
 
 /// Pontos de montagem do próprio sistema: um disco com algum deles não é apagado.
@@ -69,6 +75,17 @@ pub(crate) fn gb(n: u64) -> String {
         format!("{:.0} MB", n as f64 / 1e6)
     } else {
         format!("{:.0} KB", n as f64 / 1e3)
+    }
+}
+
+/// A saúde numa palavra.
+fn health_word(h: &udisks::Health) -> String {
+    if h.failing {
+        tr!("Falhando — copie os seus arquivos já").into()
+    } else if h.attrs_failing > 0 || h.bad_sectors.is_some_and(|n| n > 0) {
+        tr!("Boa, com avisos").into()
+    } else {
+        tr!("Boa").into()
     }
 }
 
@@ -101,6 +118,16 @@ impl Disks {
         match Model::read(conn) {
             Ok(m) => self.model = m,
             Err(e) => self.message = Some(tr!("O serviço de discos (udisks2) não respondeu: {}", e)),
+        }
+        // O uso dos volumes montados (os desmontados ficam com a última medida).
+        if let Ok(mut u) = self.usage.lock() {
+            for b in &self.model.blocks {
+                if let Some(at) = b.mounted() {
+                    if let Some((t, f)) = statvfs(Path::new(at)) {
+                        u.insert(b.path.clone(), (t - f, t));
+                    }
+                }
+            }
         }
         // O disco escolhido sumiu (pendrive tirado): volta ao primeiro.
         let disks = self.model.disks();
@@ -404,6 +431,13 @@ impl Disks {
                     Ok(tr!("Partição mudada.").to_string())
                 });
             }
+            Do::SelfTest { drive, nvme } => {
+                self.start(tr!("Começando o teste rápido do disco…").into(), move || {
+                    udisks::selftest(&drive, nvme)?;
+                    udisks::smart_update(&drive, nvme);
+                    Ok(tr!("Teste rápido começou (uns 2 minutos); o resultado aparece em Saúde do Disco.").to_string())
+                });
+            }
             Do::Resize { block, fs, size } => {
                 let Some(bi) = self.model.block(&block) else { return };
                 let old = self.model.blocks[bi].size;
@@ -436,6 +470,116 @@ impl Disks {
                 });
             }
         }
+    }
+
+    /// Mede o espaço usado de um volume desmontado: monta só para leitura, em
+    /// silêncio (sem ícone na mesa), mede e desmonta.
+    fn measure(&mut self) {
+        let Some(bi) = self.picked_block() else { return };
+        let b = self.model.blocks[bi].clone();
+        let usage = self.usage.clone();
+        self.start(tr!("Medindo o espaço usado…").into(), move || {
+            let at = udisks::mount_quiet(&b.path, &b.device)?;
+            let r = statvfs(Path::new(&at));
+            // Logo depois de montar, o udisks ainda pode estar ocupado: tenta de novo.
+            let mut un = udisks::unmount(&b.path);
+            for _ in 0..10 {
+                if un.is_ok() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(300));
+                un = udisks::unmount(&b.path);
+            }
+            un?;
+            let (t, f) = r.ok_or_else(|| tr!("Não deu para medir.").to_string())?;
+            usage.lock().map_err(|e| e.to_string())?.insert(b.path.clone(), (t - f, t));
+            Ok(tr!("{} usados de {}.", gb(t - f), gb(t)))
+        });
+    }
+
+    /// Verificar o sistema de arquivos e, com erros, consertar.
+    fn check(&mut self) {
+        let Some(bi) = self.can_change_volume() else { return };
+        let b = self.model.blocks[bi].clone();
+        let name = self.volume_name(bi);
+        self.start(tr!("Verificando “{}”…", name), move || {
+            if b.mounted().is_some() {
+                udisks::unmount(&b.path)?;
+            }
+            if udisks::check(&b.path, false)? {
+                return Ok(tr!("“{}” está sem problemas.", name));
+            }
+            if udisks::check(&b.path, true)? {
+                Ok(tr!("“{}” tinha erros e foi consertado.", name))
+            } else {
+                Err(tr!("“{}” tem erros que não puderam ser consertados. Copie os arquivos importantes.", name))
+            }
+        });
+    }
+
+    fn open_health(&mut self) {
+        let Some(di) = self.disk_index() else { return };
+        let Some(d) = self.drive_of(di).cloned() else { return };
+        let Some(h) = d.health.clone() else { return };
+        let mut rows: Vec<(String, String)> = vec![(tr!("Estado").into(), health_word(&h))];
+        if let Some(t) = h.temp_c {
+            rows.push((tr!("Temperatura").into(), format!("{t:.0} °C")));
+        }
+        if let Some(hrs) = h.power_on_hours {
+            rows.push((tr!("Tempo ligado").into(), tr!("{} horas ({} dias)", hrs, hrs / 24)));
+        }
+        if let Some(n) = h.bad_sectors {
+            rows.push((tr!("Setores ruins").into(), n.to_string()));
+        }
+        if h.nvme {
+            if let Some((used, spare)) = udisks::nvme_wear(&d.path) {
+                rows.push((tr!("Desgaste").into(), tr!("{}% da vida útil usada (reserva {}%)", used, spare)));
+            }
+        }
+        for w in &h.warnings {
+            rows.push((tr!("Aviso").into(), w.clone()));
+        }
+        let test = match (h.selftest.as_str(), h.selftest_remaining) {
+            ("inprogress", r) if r >= 0 => tr!("em andamento ({}% faltando)", r),
+            ("success", _) => tr!("passou").into(),
+            ("", _) => tr!("nunca feito").into(),
+            (o, _) => o.to_string(),
+        };
+        rows.push((tr!("Último teste").into(), test));
+        self.dialog = Some(dialogos::Dialog::Health { drive: d.path.clone(), nvme: h.nvme, title: self.disk_name(di), rows });
+    }
+
+    fn ask_backup(&mut self) {
+        let Some(di) = self.disk_index() else { return };
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| "/".into());
+        let name = format!("{}.img", self.disk_name(di).replace(['/', ' '], "-"));
+        self.img_save_fb = Some(FileBrowser::save(Some(home), &name));
+    }
+
+    fn start_backup(&mut self, out: PathBuf) {
+        let Some(di) = self.disk_index() else { return };
+        let b = self.model.blocks[di].clone();
+        let p = Arc::new(gravar::Progress::default());
+        self.progress = Some(p.clone());
+        self.start(tr!("Criando a imagem de {}…", b.device), move || gravar::backup(b.path, b.size, out, p));
+    }
+
+    fn ask_restore(&mut self) {
+        if !self.can_overwrite() {
+            return;
+        }
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| "/".into());
+        self.img_open_fb = Some(FileBrowser::open(Some(home), &["img", "iso", "raw", "bin"]));
+    }
+
+    fn start_restore(&mut self, img: PathBuf) {
+        let Some(di) = self.disk_index() else { return };
+        let b = self.model.blocks[di].clone();
+        let mounted: Vec<String> = std::iter::once(di).chain(self.model.parts_of(di)).filter(|&i| self.model.blocks[i].mounted().is_some()).map(|i| self.model.blocks[i].path.clone()).collect();
+        let t = gravar::Target { disk: b.path.clone(), device: b.device.clone(), size: b.size, mounted };
+        let p = Arc::new(gravar::Progress::default());
+        self.progress = Some(p.clone());
+        self.start(tr!("Restaurando a imagem em {}…", b.device), move || gravar::restore(img, t, p));
     }
 
     fn delete_part(&mut self, block: String) {
@@ -522,6 +666,21 @@ impl Disks {
         }
         let info = ui.fonts.ellipsize(&info.join("  ·  "), 11.0, false, r.w - 100.0);
         ui.fonts.draw(ui.c, &info, r.x + 76.0, r.y + 50.0, 11.0, false, rgba(80, 80, 86, 255));
+        // Saúde do disco (SMART/NVMe), com o detalhe na folha "Saúde…".
+        if let Some(h) = self.drive_of(di).and_then(|d| d.health.clone()) {
+            let mut t = tr!("Saúde: {}", health_word(&h));
+            if let Some(c) = h.temp_c {
+                t += &format!("  ·  {c:.0} °C");
+            }
+            let color = if h.failing { rgba(190, 30, 30, 255) } else if h.attrs_failing > 0 || h.bad_sectors.is_some_and(|n| n > 0) { rgba(170, 110, 0, 255) } else { rgba(40, 120, 50, 255) };
+            ui.fonts.draw(ui.c, &t, r.x + 76.0, r.y + 66.0, 11.0, true, color);
+            let tw = ui.text_width(&t, 11.0, true);
+            let mut open = false;
+            ui.area(Rect::new(r.x + 84.0 + tw, r.y + 54.0, 90.0, 20.0), |ui| open = ui.small_button(tr!("Detalhes…")));
+            if open {
+                self.open_health();
+            }
+        }
     }
 
     /// Uma fileira do mapa: pedaços proporcionais ao tamanho (com largura mínima).
@@ -561,6 +720,15 @@ impl Disks {
             if self.pick.as_ref() == Some(&pick) {
                 ui.c.stroke(rrect(seg.x + 2.0, seg.y + 2.0, seg.w - 4.0, seg.h - 4.0, 4.0), &solid(rgba(20, 20, 30, 255)), 2.5);
             }
+            // Faixa embaixo do pedaço: quanto do volume está ocupado (quando se sabe).
+            if let Slot::Part(i) = slot {
+                let used = self.usage.lock().ok().and_then(|u| u.get(&self.model.blocks[*i].path).copied());
+                if let Some((u, t)) = used.filter(|(_, t)| *t > 0) {
+                    let f = (u as f32 / t as f32).clamp(0.0, 1.0);
+                    ui.c.fill_rect(seg.x + 4.0, seg.y + seg.h - 8.0, seg.w - 8.0, 4.0, &solid(rgba(255, 255, 255, 110)));
+                    ui.c.fill_rect(seg.x + 4.0, seg.y + seg.h - 8.0, (seg.w - 8.0) * f, 4.0, &solid(if f > 0.9 { rgba(230, 70, 60, 255) } else { rgba(30, 40, 80, 200) }));
+                }
+            }
             let ink = if free { rgba(80, 80, 86, 255) } else { Color::WHITE };
             let t = ui.fonts.ellipsize(&title, 11.0, true, seg.w - 10.0);
             ui.fonts.draw(ui.c, &t, seg.x + 6.0, seg.y + seg.h / 2.0 - 2.0, 11.0, true, ink);
@@ -578,6 +746,7 @@ impl Disks {
     fn volume_info(&mut self, ui: &mut Ui, r: Rect) {
         let mut rows: Vec<(String, String)> = Vec::new();
         let mut usage = None;
+        let mut measure_btn = false;
         match self.pick.clone() {
             None => {
                 ui.fonts.draw(ui.c, tr!("Escolha um volume no mapa."), r.x + 20.0, r.y + 20.0, 12.0, false, rgba(110, 110, 116, 255));
@@ -592,6 +761,10 @@ impl Disks {
                 let Some(bi) = self.picked_block() else { return };
                 let b = self.model.blocks[bi].clone();
                 rows.push((tr!("Tamanho").into(), format!("{} ({} bytes)", gb(b.size), b.size)));
+                if let (Some(_), Some(di)) = (&b.part, self.disk_index()) {
+                    let total = self.model.blocks[di].size.max(1);
+                    rows.push((tr!("Do disco").into(), tr!("{}% do disco", format!("{:.1}", b.size as f64 * 100.0 / total as f64).replace('.', glove_config::virgula()))));
+                }
                 let mut content = if b.usage == "filesystem" || !b.fstype.is_empty() { udisks::fs_name(&b.fstype) } else { tr!("Vazio ou desconhecido").into() };
                 if !b.label.is_empty() {
                     content = format!("{content} — {}", b.label);
@@ -606,7 +779,10 @@ impl Disks {
                 }
                 if b.has_fs() {
                     rows.push((tr!("Montado em").into(), b.mounted().map(str::to_string).unwrap_or_else(|| tr!("Não montado").into())));
-                    usage = b.mounted().and_then(|m| statvfs(Path::new(m)));
+                    usage = self.usage.lock().ok().and_then(|u| u.get(&b.path).copied()).map(|(u, t)| (t, t - u));
+                    if usage.is_none() {
+                        measure_btn = !b.part.as_ref().is_some_and(|p| p.container);
+                    }
                 }
             }
         }
@@ -621,14 +797,25 @@ impl Disks {
         }
         if let Some((total, free)) = usage {
             y += 4.0;
-            let bar = Rect::new(r.x + 140.0, y, (r.w - 330.0).clamp(80.0, 320.0), 12.0);
+            let bar = Rect::new(r.x + 140.0, y, (r.w - 180.0).clamp(80.0, 320.0), 12.0);
             ui.c.fill(rrect(bar.x, bar.y, bar.w, bar.h, 6.0), &vgrad(bar.y, bar.y + bar.h, &[(0.0, rgba(160, 160, 166, 255)), (1.0, rgba(225, 225, 230, 255))]));
             let used = if total > 0 { 1.0 - free as f32 / total as f32 } else { 0.0 };
             if used > 0.02 {
                 gel_rect(ui.c, bar.x, bar.y, (bar.w * used).max(bar.h), bar.h, 6.0, if used > 0.9 { rgba(230, 70, 60, 255) } else { ui.theme.accent });
             }
-            let t = tr!("{} livres de {}", gb(free), gb(total));
-            ui.fonts.draw(ui.c, &t, bar.x + bar.w + 10.0, bar.y + 10.0, 11.0, false, rgba(60, 60, 66, 255));
+            let pct = if total > 0 { (total - free) as f64 * 100.0 / total as f64 } else { 0.0 };
+            let t = tr!("{} usados ({}%), {} livres", gb(total - free), format!("{pct:.0}"), gb(free));
+            ui.fonts.draw(ui.c, &t, bar.x, bar.y + 28.0, 11.0, false, rgba(60, 60, 66, 255));
+        } else if measure_btn {
+            let mut m = false;
+            ui.area(Rect::new(r.x + 140.0, y, 160.0, 22.0), |ui| {
+                ui.set_active(self.job.is_none());
+                m = ui.small_button(tr!("Medir o Uso"));
+                ui.set_active(true);
+            });
+            if m {
+                self.measure();
+            }
         }
     }
 
@@ -666,7 +853,7 @@ impl Disks {
         let mounted = picked.as_ref().is_some_and(|b| b.mounted().is_some());
         let can_mount = picked.as_ref().is_some_and(|b| b.has_fs() && b.mounted().is_none());
         let busy = self.job.is_some();
-        let (mut mount, mut unmount, mut open, mut eject) = (false, false, false, false);
+        let (mut mount, mut unmount, mut open, mut eject, mut chk) = (false, false, false, false, false);
         ui.area(Rect::new(r.x + 18.0, y + 4.0, r.w - 36.0, 26.0), |ui| {
             ui.horizontal(|ui| {
                 ui.set_active(can_mount && !busy);
@@ -675,6 +862,8 @@ impl Disks {
                 unmount = ui.button(tr!("Desmontar"));
                 ui.set_active(mounted);
                 open = ui.button(tr!("Abrir"));
+                ui.set_active(self.can_change_volume().is_some() && !busy && picked.as_ref().is_some_and(|b| b.has_fs()));
+                chk = ui.button(tr!("Verificar"));
                 ui.set_active(true);
             });
         });
@@ -714,6 +903,7 @@ impl Disks {
                     edit = ui.button(tr!("Editar…"));
                     ui.set_active(is_part && changeable && !busy);
                     del = ui.button(tr!("Apagar"));
+
                 }
                 ui.set_active(true);
             });
@@ -732,6 +922,9 @@ impl Disks {
         }
         if del {
             self.delete_confirm = self.picked_block().map(|i| self.model.blocks[i].path.clone());
+        }
+        if chk {
+            self.check();
         }
         y += 74.0;
         ui.c.hline(r.x + 20.0, y, r.w - 40.0, rgba(200, 200, 206, 255));
@@ -756,7 +949,7 @@ impl App for Disks {
         let (w, h) = (ui.c.w, ui.c.h);
         // Folha ou aviso aberto: a janela de baixo não recebe cliques nem atalhos
         // (um clique no campo da folha não pode cair num botão atrás dela).
-        let modal = self.dialog.is_some() || self.confirm.is_some() || self.delete_confirm.is_some() || self.iso_fb.is_some();
+        let modal = self.dialog.is_some() || self.confirm.is_some() || self.delete_confirm.is_some() || self.iso_fb.is_some() || self.img_save_fb.is_some() || self.img_open_fb.is_some() || self.restore_confirm.is_some();
         let mut acts: Vec<String> = if modal { Vec::new() } else { ui.menu_actions().to_vec() };
         for k in ui.keys().iter().filter(|_| !modal) {
             match k.combo.as_str() {
@@ -774,6 +967,10 @@ impl App for Disks {
                 "eject" => self.eject(),
                 "bootable" => self.ask_image(),
                 "format-disk" => self.open_format_disk(),
+                "check" => self.check(),
+                "health" => self.open_health(),
+                "backup" => self.ask_backup(),
+                "restore" => self.ask_restore(),
                 "format" => self.open_format(),
                 "new-part" => self.open_new_part(),
                 "edit-part" => self.open_edit(),
@@ -847,6 +1044,36 @@ impl App for Disks {
                 None => {}
             }
         }
+        if let Some(fb) = &mut self.img_save_fb {
+            if let Some(c) = ui.file_sheet(fb) {
+                self.img_save_fb = None;
+                if let Choice::Picked(p) = c {
+                    self.start_backup(p);
+                }
+                ui.redraw = true;
+            }
+        }
+        if let Some(fb) = &mut self.img_open_fb {
+            if let Some(c) = ui.file_sheet(fb) {
+                self.img_open_fb = None;
+                if let Choice::Picked(p) = c {
+                    self.restore_confirm = Some(p);
+                }
+                ui.redraw = true;
+            }
+        }
+        if let Some(img) = self.restore_confirm.clone() {
+            let disk = self.disk_index().map(|d| format!("{} ({}, {})", self.disk_name(d), self.model.blocks[d].device, gb(self.model.blocks[d].size))).unwrap_or_default();
+            let name = img.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            match ui.alert(AlertKind::Caution, tr!("Apagar o disco e restaurar a imagem?"), &tr!("Tudo o que está em {} será trocado pelo conteúdo de “{}”, bloco a bloco.", disk, name), &[tr!("Cancelar"), tr!("Apagar e Restaurar")]) {
+                Some(1) => {
+                    self.restore_confirm = None;
+                    self.start_restore(img);
+                }
+                Some(_) => self.restore_confirm = None,
+                None => {}
+            }
+        }
         if let Some(iso) = self.confirm.clone() {
             let di = self.disk_index();
             let disk = di.map(|d| format!("{} ({}, {})", self.disk_name(d), self.model.blocks[d].device, gb(self.model.blocks[d].size))).unwrap_or_default();
@@ -887,6 +1114,10 @@ impl App for Disks {
                 vec![
                     MenuItem::new("format-disk", tr!("Formatar Disco…"), "").enabled(self.can_overwrite() && !busy),
                     MenuItem::new("bootable", tr!("Criar Disco Inicializável…"), "").enabled(self.can_overwrite() && !busy),
+                    MenuItem::Separator,
+                    MenuItem::new("backup", tr!("Criar Imagem do Disco…"), "").enabled(self.disk_index().is_some() && !busy),
+                    MenuItem::new("restore", tr!("Restaurar Imagem no Disco…"), "").enabled(self.can_overwrite() && !busy),
+                    MenuItem::new("health", tr!("Saúde do Disco…"), "").enabled(self.disk_index().and_then(|d| self.drive_of(d)).is_some_and(|d| d.health.is_some())),
                     MenuItem::new("eject", tr!("Ejetar"), "Ctrl+E").enabled(self.can_eject() && !busy),
                     MenuItem::Separator,
                     MenuItem::new("close", tr!("Fechar"), "Ctrl+W"),
@@ -903,6 +1134,7 @@ impl App for Disks {
                     MenuItem::new("format", tr!("Formatar…"), "").enabled(!busy && self.can_change_volume().is_some()),
                     MenuItem::new("edit-part", tr!("Editar…"), "").enabled(!busy && b.is_some_and(|b| b.part.is_some())),
                     MenuItem::new("resize", tr!("Redimensionar…"), "").enabled(!busy && self.can_change_volume().is_some_and(|i| self.model.blocks[i].part.is_some())),
+                    MenuItem::new("check", tr!("Verificar e Consertar"), "").enabled(!busy && self.can_change_volume().is_some_and(|i| self.model.blocks[i].has_fs())),
                     MenuItem::new("delete-part", tr!("Apagar Partição"), "").enabled(!busy && self.can_change_volume().is_some_and(|i| self.model.blocks[i].part.is_some())),
                 ],
             ),
@@ -925,7 +1157,7 @@ fn write_cli(iso: &str, device: &str) -> i32 {
         eprintln!("glove-disks: {device} não é um disco inteiro");
         return 1;
     };
-    let mut app = Disks { conn: None, model, disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None };
+    let mut app = Disks { conn: None, model, disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None, usage: Default::default(), img_save_fb: None, img_open_fb: None, restore_confirm: None };
     app.disk = Some(app.model.blocks[di].path.clone());
     if !app.can_overwrite() {
         eprintln!("glove-disks: {device} é o disco do sistema (ou só de leitura): não será apagado");
@@ -966,7 +1198,7 @@ pub fn main() {
         };
         std::process::exit(write_cli(iso, dev));
     }
-    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None };
+    let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None, usage: Default::default(), img_save_fb: None, img_open_fb: None, restore_confirm: None };
     app.reload();
     // Começa no disco do sistema, com o volume do sistema escolhido.
     if let Some(sys) = app.model.blocks.iter().find(|b| b.mounted() == Some("/")).cloned() {

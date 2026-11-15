@@ -38,6 +38,23 @@ pub struct Drive {
     /// 0 = SSD; > 0 = disco que gira (RPM); -1 = gira, velocidade desconhecida.
     pub rotation: i32,
     pub optical: bool,
+    pub health: Option<Health>,
+}
+
+/// Saúde do disco (SMART dos SATA, ou o do NVMe).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Health {
+    pub supported: bool,
+    /// O próprio disco diz que vai falhar (SATA), ou há aviso crítico (NVMe).
+    pub failing: bool,
+    pub warnings: Vec<String>,
+    pub temp_c: Option<f64>,
+    pub power_on_hours: Option<u64>,
+    pub bad_sectors: Option<i64>,
+    pub attrs_failing: i32,
+    pub selftest: String,
+    pub selftest_remaining: i32,
+    pub nvme: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -130,6 +147,7 @@ impl Model {
                     bus: get(d, "ConnectionBus").unwrap_or_default(),
                     rotation: get(d, "RotationRate").unwrap_or(0),
                     optical: get::<Vec<String>>(d, "MediaCompatibility").unwrap_or_default().iter().any(|c| c.starts_with("optical")),
+                    health: health(ifaces),
                 });
             }
             let Some(b) = ifaces.get("org.freedesktop.UDisks2.Block") else { continue };
@@ -266,6 +284,72 @@ fn free_between(spans: &[(u64, u64)], total: u64) -> Vec<(Option<usize>, (u64, u
         out.push((None, (at, end - at)));
     }
     out
+}
+
+/// Saúde pelo SMART (SATA) ou pelo controlador NVMe.
+fn health(ifaces: &HashMap<String, Props>) -> Option<Health> {
+    if let Some(a) = ifaces.get("org.freedesktop.UDisks2.Drive.Ata") {
+        if !get::<bool>(a, "SmartSupported").unwrap_or(false) {
+            return None;
+        }
+        let temp: f64 = get(a, "SmartTemperature").unwrap_or(0.0);
+        let secs: u64 = get(a, "SmartPowerOnSeconds").unwrap_or(0);
+        return Some(Health {
+            supported: true,
+            failing: get(a, "SmartFailing").unwrap_or(false),
+            warnings: Vec::new(),
+            temp_c: (temp > 200.0).then(|| temp - 273.15),
+            power_on_hours: (secs > 0).then_some(secs / 3600),
+            bad_sectors: get::<i64>(a, "SmartNumBadSectors").filter(|n| *n >= 0),
+            attrs_failing: get(a, "SmartNumAttributesFailing").unwrap_or(0),
+            selftest: get(a, "SmartSelftestStatus").unwrap_or_default(),
+            selftest_remaining: get(a, "SmartSelftestPercentRemaining").unwrap_or(-1),
+            nvme: false,
+        });
+    }
+    let n = ifaces.get("org.freedesktop.UDisks2.NVMe.Controller")?;
+    let warnings: Vec<String> = get(n, "SmartCriticalWarning").unwrap_or_default();
+    let temp: u16 = get(n, "SmartTemperature").unwrap_or(0);
+    Some(Health {
+        supported: true,
+        failing: !warnings.is_empty(),
+        warnings,
+        temp_c: (temp > 200).then(|| temp as f64 - 273.15),
+        power_on_hours: get(n, "SmartPowerOnHours"),
+        bad_sectors: None,
+        attrs_failing: 0,
+        selftest: get(n, "SmartSelftestStatus").unwrap_or_default(),
+        selftest_remaining: get(n, "SmartSelftestPercentRemaining").unwrap_or(-1),
+        nvme: true,
+    })
+}
+
+/// Desgaste do SSD NVMe (% da vida útil já usada) e a reserva disponível (%).
+pub fn nvme_wear(drive: &str) -> Option<(u8, u8)> {
+    let m = call(drive, "org.freedesktop.UDisks2.NVMe.Controller", "SmartGetAttributes", &(no_options(),)).ok()?;
+    let a: Props = m.body().deserialize().ok()?;
+    Some((get::<u8>(&a, "percent_used")?, get::<u8>(&a, "avail_spare").unwrap_or(0)))
+}
+
+/// Começa o teste curto do próprio disco (uns 2 minutos; o disco continua usável).
+pub fn selftest(drive: &str, nvme: bool) -> Result<(), String> {
+    let iface = if nvme { "org.freedesktop.UDisks2.NVMe.Controller" } else { "org.freedesktop.UDisks2.Drive.Ata" };
+    call(drive, iface, "SmartSelftestStart", &("short", no_options())).map(|_| ())
+}
+
+/// Lê de novo o SMART (os valores do udisks são de até meia hora atrás).
+pub fn smart_update(drive: &str, nvme: bool) {
+    let iface = if nvme { "org.freedesktop.UDisks2.NVMe.Controller" } else { "org.freedesktop.UDisks2.Drive.Ata" };
+    let _ = call(drive, iface, "SmartUpdate", &(no_options(),));
+}
+
+/// Monta só para leitura, sem a mesa mostrar o volume (para medir o espaço usado).
+pub fn mount_quiet(block: &str, device: &str) -> Result<String, String> {
+    glove_config::discos::mark_quiet(device);
+    let mut o: HashMap<&str, Value> = HashMap::new();
+    o.insert("options", Value::from("ro"));
+    let m = call(block, "org.freedesktop.UDisks2.Filesystem", "Mount", &(o,))?;
+    m.body().deserialize::<String>().map_err(|e| e.to_string())
 }
 
 /// "sda10" depois de "sda9".

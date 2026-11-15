@@ -103,7 +103,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 | Acesso às Chaves | Senhas guardadas no chaveiro do sistema: ver, copiar, apagar, trancar e mudar a senha do chaveiro |
 | Utilitário de Rede | Informações das interfaces, Ping, Lookup, Traceroute, Whois, Finger e varredura de portas |
 | Monitor, Registros, Informações do Sistema | Processos e gráficos, logs do journal, hardware |
-| Discos | Pelo udisks2 (como o gnome-disks): discos, imagens e o mapa dos volumes (partições e espaço livre), montar, desmontar e ejetar; **criar disco inicializável** (UEFI) com ISO de Linux ou **do Windows**, sem o WoeUSB; formatar (disco e volume), criar, apagar e editar partições, **redimensionar** (abrir espaço ao lado do Windows) |
+| Discos | Pelo udisks2 (como o gnome-disks): discos, imagens e o mapa dos volumes (partições e espaço livre), montar, desmontar e ejetar; **criar disco inicializável** (UEFI) com ISO de Linux ou **do Windows**, sem o WoeUSB; formatar (disco e volume), criar, apagar e editar partições, **redimensionar** (abrir espaço ao lado do Windows), o uso de cada volume, verificar e consertar, **saúde do disco** (SMART/NVMe, teste rápido) e imagem do disco (criar e restaurar) |
 | Busca, Captura, Utilitário de Arquivo | Achar arquivos, capturar a tela, compactar/expandir |
 | Calculadora, Relógio, Xadrez, Ajuda, Sobre o Glove | Calculadora científica, relógio no Dock, xadrez com 3 níveis, ajuda com busca |
 | Cópias de Segurança | Cópias de hora em hora da pasta pessoal num disco externo, linha do tempo e Restaurar |
@@ -223,7 +223,10 @@ compatível) com o Glove como área de trabalho e identidade própria: o nome "G
 o neofetch com a luva, o console e o menu do GRUB. Essa identidade vem no pacote `glove-os`, que só
 vai na ISO; o pacote `glove` instalado em outra distro não muda o nome dela.
 
-A ISO serve para pendrive ou DVD, com o Glove, o Firefox e o instalador. Ao ligar pelo pendrive, ele
+A ISO serve para pendrive ou DVD, com o Glove, o Firefox e o instalador. É um sistema "sleeper":
+traz pronto o que o uso diário pede (as ferramentas do Glove, navegador, firmwares de vídeo, Wi-Fi,
+Bluetooth e som de desktops e notebooks) e deixa de fora o que é de servidor (firmwares de placas de
+datacenter, Apache…), que quem precisar instala depois pela Central de Apps ou pelo apt. Ao ligar pelo pendrive, ele
 entra sozinho no Glove (em português, teclado ABNT2) e abre o **Instalar o Glove OS**, que copia o
 sistema para o disco (inteiro ou ao lado de outro sistema). Como usar o instalador:
 [docs/USO.md](docs/USO.md#instalar-o-glove-pela-iso).

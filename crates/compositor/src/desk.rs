@@ -418,7 +418,8 @@ impl Glove {
         if d.show_disks {
             mounts.push((tr!("Disco").to_string(), PathBuf::from("/")));
         }
-        let removable_now = glove_config::discos::removable_mounts();
+        // As montagens silenciosas (o Discos medindo o espaço usado) não contam.
+        let removable_now: Vec<_> = glove_config::discos::removable_mounts().into_iter().filter(|m| !glove_config::discos::is_quiet(&m.dev)).collect();
         // Sumiu um pendrive e o aparelho não existe mais, sem o Glove ter ejetado: arrancado.
         for m in &self.desk.removable_prev {
             if !removable_now.iter().any(|n| n.path == m.path) && !Path::new(&m.dev).exists() && !glove_config::discos::take_ejected(&m.dev) {
