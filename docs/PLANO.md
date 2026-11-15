@@ -919,4 +919,14 @@ panorâmica atravessando vários monitores e papel animado.
   folha de amostra do tema de ícones (o preview do glove-icons, atualizado com os 89 ícones).
   v0.12.38: o live-build exige o debootstrap do sistema (mesmo usando o baixado): instalado no
   contêiner, e o `iso` avisa quando falta.
+  v0.12.39 (primeira ISO da CI testada no QEMU): caía no login de texto do tty7. (1) O pacote
+  greetd ativa o greetd.service dele (agreety) como display-manager e o `enable` do glove-login,
+  sem `--force`, falhava calado; o gancho agora desliga o greetd, ativa com `--force` e para a
+  montagem se o display-manager não for o glove-login. (2) Faltavam os atalhos dos apps (glove-files,
+  glove-instalador…): o Cargo novo da CI põe o OUT_DIR mais fundo e o `build.rs` do glove-apps os
+  criava na pasta errada. O pacote agora tira os nomes de `crates/apps/src/main.rs`, e o `build.rs`
+  procura a pasta `build`. O gancho confere `/usr/bin/glove-instalador`. Senha do usuário ao vivo
+  (`live`) no USO/USAGE. Rust: `rust-version = "1.89"` no workspace (o mínimo das dependências;
+  com um Rust mais velho o Cargo dá um erro claro) e o `glove-setup-tool.sh` confere a versão antes de
+  compilar e indica o rustup. Conferido que o Rust 1.100.0 compila o Glove inteiro.
 

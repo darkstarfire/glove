@@ -6,8 +6,9 @@ const APPS: &[&str] = &["glove-about", "glove-agenda", "glove-ajuda", "glove-arq
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     let Some(out) = std::env::var_os("OUT_DIR") else { return };
-    // OUT_DIR = target/<perfil>/build/glove-apps-*/out
-    let Some(dir) = std::path::Path::new(&out).ancestors().nth(3) else { return };
+    // OUT_DIR = target/<perfil>/build/glove-apps-*/out (ou build/glove-apps/*/out nos
+    // Cargos mais novos): a pasta do perfil é a que contém a "build".
+    let Some(dir) = std::path::Path::new(&out).ancestors().find(|a| a.file_name().is_some_and(|n| n == "build")).and_then(|b| b.parent()) else { return };
     for app in APPS {
         let link = dir.join(app);
         let is_link = std::fs::symlink_metadata(&link).map(|m| m.file_type().is_symlink()).unwrap_or(false);

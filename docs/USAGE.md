@@ -385,7 +385,8 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
    of=/dev/sdX bs=4M status=progress oflag=sync`, replacing `sdX` with the stick (check with `lsblk`).
 4. **Start the computer from the stick** (the computer's boot menu). The Glove live system logs in
    by itself and opens **Install Glove OS**. You can use the live system before installing; the
-   installer is also in Quick Search.
+   installer is also in Quick Search. On the live system the user is `glove` and the password is
+   **`live`** (for `sudo` and console logins); `root` has no password.
 
 The ISO looks like Glove OS from start to finish, with nothing to set up: the boot menu with the
 wallpaper, the system's boot and shutdown screen (Plymouth, with the Glove theme) and the login

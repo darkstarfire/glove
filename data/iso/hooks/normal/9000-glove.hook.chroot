@@ -4,8 +4,16 @@
 set -e
 
 # Tela de login do Glove como a principal, entrando sozinha com o usuário ao vivo.
-systemctl enable glove-login.service || true
-for dm in gdm3 lightdm sddm; do systemctl disable "$dm.service" 2>/dev/null || true; done
+# O pacote greetd ativa o greetd.service dele (o login de texto "agreety") como
+# display-manager; sem o --force, o enable do glove-login falha nesse apelido.
+for dm in greetd gdm3 lightdm sddm; do systemctl disable "$dm.service" 2>/dev/null || true; done
+systemctl enable --force glove-login.service
+[ "$(readlink -f /etc/systemd/system/display-manager.service)" = /usr/lib/systemd/system/glove-login.service ] || {
+    echo "glove: a tela de login do Glove não ficou como display-manager" >&2
+    exit 1
+}
+# Sem os atalhos dos apps, nada abre (nem o instalador).
+[ -x /usr/bin/glove-instalador ] || { echo "glove: falta /usr/bin/glove-instalador no pacote" >&2; exit 1; }
 mkdir -p /etc/glove
 echo glove > /etc/glove/autologin
 

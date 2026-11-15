@@ -121,6 +121,10 @@ em `ui/`: clone com `git clone --recursive` (ou rode `git submodule update --ini
 cada `git pull`**, atualize também a glove-ui com `git submodule update --init` (o
 `./glove-setup-tool.sh` já faz isso sozinho); com a glove-ui velha, a compilação falha.
 
+Precisa do **Rust 1.89 ou mais novo** (o mínimo das dependências). O Rust de algumas distros é mais
+velho (o Debian 13 traz o 1.85): instale pelo [rustup](https://rustup.rs) ou rode `rustup update`. As
+versões novas do Rust compilam o Glove; a CI de cada versão usa sempre a estável mais recente.
+
 ```sh
 cargo build --release
 ./target/release/glove            # abre o Glove numa janela

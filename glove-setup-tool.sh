@@ -119,13 +119,22 @@ update_submodule() {
 compile() {
     update_submodule
     has cargo || die "$(t "falta o Rust (cargo). Rode: ./glove-setup-tool.sh dependencias" "Rust (cargo) is missing. Run: ./glove-setup-tool.sh deps")"
+    # The Rust of some distributions (Debian 13 has 1.85) is older than the one the
+    # dependencies need: say so plainly instead of letting the build fail.
+    need=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+    have=$(rustc --version 2>/dev/null | awk '{print $2}')
+    if [ -n "$need" ] && [ -n "$have" ] && [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+        die "$(t "o Glove precisa do Rust $need ou mais novo (este é o $have). Instale pelo rustup: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh  (ou: rustup update)" "Glove needs Rust $need or newer (this is $have). Install it with rustup: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh  (or: rustup update)")"
+    fi
     msg "$(t "Compilando o Glove $version (alguns minutos)" "Building Glove $version (a few minutes)")"
     cargo build --release --locked
 }
 
-# The app shortcuts (glove-files, glove-prefs…) are links to glove-apps.
+# The app shortcuts (glove-files, glove-prefs…) are links to glove-apps: the names
+# come from glove-apps itself (crates/apps/src/main.rs), not from the links that its
+# build.rs leaves in target/ (where they land depends on the Cargo version).
 app_links() {
-    find target/release -maxdepth 1 -type l -lname glove-apps -printf '%f\n' | sort
+    sed -n 's/^ *"\(glove-[a-z]*\)" => .*/\1/p' crates/apps/src/main.rs | sort
 }
 
 # Stages the installation in $1 (a temporary folder) with the prefix $2.
@@ -133,7 +142,7 @@ app_links() {
 stage() {
     dest=$1; prefix=$2; pam=$3
     [ -x target/release/glove ] && [ -x target/release/glove-apps ] || compile
-    [ -n "$(app_links)" ] || compile
+    [ "$(app_links | wc -l)" -ge 30 ] || die "$(t "não achei a lista de apps em crates/apps/src/main.rs" "could not find the app list in crates/apps/src/main.rs")"
     bin="$dest$prefix/bin"
     mkdir -p "$bin"
     for b in glove glove-apps glove-portal glove-escolher; do

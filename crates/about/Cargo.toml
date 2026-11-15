@@ -3,6 +3,7 @@ name = "glove-about"
 # Vira biblioteca: o executável é o glove-apps (um só para todos os apps).
 autobins = false
 version.workspace = true
+rust-version.workspace = true
 edition.workspace = true
 license.workspace = true
 
