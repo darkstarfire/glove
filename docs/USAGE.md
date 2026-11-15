@@ -378,6 +378,24 @@ Disks recognises the image by itself:
 The system disk in use (with `/`, `/boot`, `/home`…) is never offered for erasing. For scripts:
 `glove-disks --gravar image.iso /dev/sdX` does the same in the terminal.
 
+## Glove OS updates
+
+Glove moves at its own pace, without waiting for Debian: for every new version, GitHub publishes
+`glove` and `glove-os` in a **Glove OS apt repository** (signed), which Glove OS already has set up
+(`/etc/apt/sources.list.d/glove-os.sources`). Debian 13 keeps coming from Debian.
+
+- **Notice:** every now and then (2 minutes after login and every 6 hours) Glove checks for a new
+  version. If there is one, a notice ("Glove OS 0.12.50 available") shows in the corner and in the
+  menu bar's counter. **View** opens the pane. Each version notifies once.
+- **Preferences ▸ Software Update:** at the top, **Glove OS**: the installed version, the new one,
+  **what's new** and the **Update Glove** button (asks for the administrator password; updates only
+  Glove, from its repository). At the end, **Log Out…** to come back on the new version. Below, the
+  system (Debian) updates, as before.
+- **Glove on another Debian or Ubuntu:** the pane offers **Add the Glove Repository**, and from then
+  on Glove updates through apt too (without the Glove OS identity, which only the `glove-os` package
+  brings). The Terminal commands are at https://fabioaacarneiro.github.io/glove.
+- From the Terminal the usual also works: `sudo apt update && sudo apt upgrade`.
+
 ## System password (administrator requests)
 
 When a program needs administrator permission (formatting a disk in Disks, installing with

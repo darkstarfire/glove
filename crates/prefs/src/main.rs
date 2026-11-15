@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use glove_config::KEYBOARD_LAYOUTS as LAYOUTS;
 
 mod admin;
+mod atualizar;
 mod bluetooth;
 mod compart;
 mod contas;
@@ -2377,7 +2378,8 @@ impl App for Prefs {
         let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some())
             || (matches!(self.pane, Pane::Inicio | Pane::Contas) && self.inicio.sheet_open())
             || (self.pane == Pane::Contas && self.contas.sheet_open())
-            || (self.pane == Pane::Seguranca && self.fw_ask.is_some());
+            || (self.pane == Pane::Seguranca && self.fw_ask.is_some())
+            || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -2474,6 +2476,8 @@ impl App for Prefs {
                     admin::Answer::Cancel => {}
                     admin::Answer::Password(pw) => self.fw_job = Some(admin::run(args, Some(pw))),
                 }
+            } else if self.pane == Pane::Atualizacao {
+                self.atualizacao.prompt_sheet(ui);
             } else if self.pane == Pane::Rede {
                 self.rede.prompt_sheet(ui);
             } else if self.contas.sheet_open() {
@@ -2599,6 +2603,11 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
 }
 
 pub fn main() {
+    // O verificador de atualizações do Glove (a sessão o inicia; sem janela).
+    if std::env::args().any(|a| a == "--verificar-atualizacao") {
+        atualizar::verificar_em_segundo_plano();
+        return;
+    }
     let opts = WindowOptions { title: tr!("Preferências").into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: false, min_size: Some((W, 240)) };
     if let Err(e) = run(opts, Prefs::new()) {
         eprintln!("glove-prefs: {e}");

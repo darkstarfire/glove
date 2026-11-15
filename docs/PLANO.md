@@ -1030,3 +1030,26 @@ udisks2 (o serviço de discos do sistema, pelo D-Bus), com a senha pedida pelo p
   na página Disco, a terceira opção com a lista das partições possíveis (UEFI, GPT com EFI, 20 GB
   ou mais, não a EFI) e o aviso de que só ela é apagada; Resumo diz qual. Teste de unidade do plano.
 - [ ] 16.9 ISO e pacote (P): udisks2, polkitd, exfatprogs, ntfs-3g, btrfs-progs e dosfstools.
+
+## Fase 17 — Atualizações do Glove OS (pedido de 15/11/2026)
+
+O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, sem depender do Debian 13.
+
+- [x] 17.1 Repositório apt (M) — v0.12.50: o trabalho `repositorio` da CI (depois da ISO, só em tag)
+  monta com `apt-ftparchive` a suíte `glove` (componente `main`, amd64 e all) com os `.deb` da versão,
+  assina o `Release` (InRelease e Release.gpg) com a chave do segredo `APT_SIGNING_KEY` (Ed25519,
+  "Glove OS (repositorio apt)", gerada em 15/11/2026; cópia de segurança com o usuário) e publica no
+  GitHub Pages com a chave pública, o `novidades.json` (versão, data e o texto do commit) e uma
+  página com os comandos. Sem o segredo ou sem o Pages, não publica e a ISO sai do mesmo jeito.
+  O pacote `glove-os` traz o `glove-os.sources` (deb822, `Signed-By`) e a chave em
+  `/usr/share/keyrings/glove-os-repositorio.gpg`. Testado localmente: assinatura conferida pelo gpgv
+  e o apt lendo o repositório (candidato `glove 0.12.49`).
+- [x] 17.2 Aviso e painel (M) — v0.12.50: `glove-prefs --verificar-atualizacao` (a sessão inicia; 2 min
+  depois de entrar e a cada 6 h) lê o `novidades.json`, compara com a versão instalada
+  (`dpkg-query`) e, se for nova e ainda não avisada, manda o aviso pelo `notify-send` com a ação
+  "Ver", que abre o painel. Preferências ▸ Atualização de Software ganhou a seção Glove OS: versão
+  instalada e nova, o que há de novo, Atualizar o Glove (só o índice do repositório do Glove e
+  `apt-get install --only-upgrade glove glove-os`, com a senha pela folha do sudo) e Encerrar
+  Sessão. Fora do Glove OS, Adicionar o Repositório do Glove. `GLOVE_REPO` troca o endereço.
+- [ ] 17.3 Ligar no GitHub (usuário): o segredo `APT_SIGNING_KEY` e o Pages com origem "GitHub
+  Actions" (o token do gh desta máquina não tem permissão para os dois).

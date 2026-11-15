@@ -62,6 +62,14 @@ jobs:
           sha256sum * | grep -v '\.sha256$' > SHA256SUMS
           ls -lh
 
+      # Os .deb para o trabalho do repositório apt (abaixo).
+      - name: Guardar os pacotes para o repositório
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacotes
+          path: saida/*.deb
+          retention-days: 3
+
       - name: Guardar como artefato (execução manual)
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
@@ -90,3 +98,91 @@ jobs:
             gh release create "$tag" --title "Glove $tag" --notes-file notas.md --verify-tag
           fi
           gh release upload "$tag" saida/* --clobber
+
+  # O repositório apt do Glove OS (atualizações do glove e do glove-os sem esperar o
+  # Debian): GitHub Pages, assinado com a chave do segredo APT_SIGNING_KEY. Sem o
+  # segredo (ou sem o Pages ligado), este trabalho não publica e a ISO sai do mesmo jeito.
+  repositorio:
+    needs: iso
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Conferir a chave
+        id: chave
+        env:
+          KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::Sem o segredo APT_SIGNING_KEY: o repositório apt não é publicado."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.chave.outputs.ok == 'true'
+        with:
+          name: pacotes
+          path: pacotes
+
+      - name: Montar o repositório
+        if: steps.chave.outputs.ok == 'true'
+        env:
+          KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          set -e
+          sudo apt-get install -y --no-install-recommends apt-utils gnupg >/dev/null
+          export GNUPGHOME="$(mktemp -d)"
+          echo "$KEY" | gpg --batch --import
+          r=site
+          mkdir -p $r/pool/main $r/dists/glove/main/binary-amd64
+          cp pacotes/*.deb $r/pool/main/
+          (cd $r && apt-ftparchive packages pool > dists/glove/main/binary-amd64/Packages)
+          gzip -9kn $r/dists/glove/main/binary-amd64/Packages
+          (cd $r/dists/glove && apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin="Glove OS" \
+            -o APT::FTPArchive::Release::Label="Glove OS" \
+            -o APT::FTPArchive::Release::Suite=glove \
+            -o APT::FTPArchive::Release::Codename=glove \
+            -o APT::FTPArchive::Release::Architectures="amd64 all" \
+            -o APT::FTPArchive::Release::Components=main \
+            -o APT::FTPArchive::Release::Description="Glove OS: o Glove e a identidade do Glove OS (o Debian vem do Debian)" \
+            release . > Release)
+          gpg --batch --yes --clearsign -o $r/dists/glove/InRelease $r/dists/glove/Release
+          gpg --batch --yes -abs -o $r/dists/glove/Release.gpg $r/dists/glove/Release
+          cp data/glove-os/glove-os-repositorio.asc data/glove-os/glove-os-repositorio.gpg $r/
+          # O que há de novo (lido pelo painel Atualização de Software do Glove).
+          v=${GITHUB_REF_NAME#v}
+          notas=$(git log -1 --format=%B | grep -v '^Co-Authored-By:' || true)
+          jq -n --arg v "$v" --arg d "$(date -u +%Y-%m-%d)" --arg n "$notas" '{versao:$v, data:$d, notas:$n}' > $r/novidades.json
+          cat > $r/index.html <<EOF
+          <!doctype html><meta charset="utf-8"><title>Glove OS — repositório apt</title>
+          <h1>Glove OS — repositório apt</h1>
+          <p>Versão $v. O Glove OS já vem com este repositório; para usar o Glove noutro Debian ou Ubuntu:</p>
+          <pre>sudo curl -fsSL https://fabioaacarneiro.github.io/glove/glove-os-repositorio.gpg -o /usr/share/keyrings/glove-os-repositorio.gpg
+          printf 'Types: deb\\nURIs: https://fabioaacarneiro.github.io/glove\\nSuites: glove\\nComponents: main\\nSigned-By: /usr/share/keyrings/glove-os-repositorio.gpg\\n' | sudo tee /etc/apt/sources.list.d/glove-os.sources
+          sudo apt update && sudo apt install glove</pre>
+          EOF
+          find $r -type f | sort
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.chave.outputs.ok == 'true'
+        with:
+          path: site
+
+      - name: Publicar no GitHub Pages
+        id: deploy
+        if: steps.chave.outputs.ok == 'true'
+        uses: actions/deploy-pages@v4

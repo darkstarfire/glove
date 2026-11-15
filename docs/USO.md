@@ -404,6 +404,24 @@ O Discos reconhece a imagem sozinho:
 O disco do sistema em uso (com `/`, `/boot`, `/home`…) nunca aparece como opção para apagar. Para
 scripts: `glove-disks --gravar imagem.iso /dev/sdX` faz o mesmo no terminal.
 
+## Atualizações do Glove OS
+
+O Glove anda no próprio ritmo, sem esperar o Debian: a cada versão nova, o GitHub publica o `glove` e
+o `glove-os` num **repositório apt do Glove OS** (assinado), que o Glove OS já traz configurado
+(`/etc/apt/sources.list.d/glove-os.sources`). O Debian 13 continua vindo do Debian.
+
+- **Aviso:** de tempos em tempos (2 minutos depois de entrar e a cada 6 horas) o Glove confere se há
+  versão nova. Se houver, aparece um aviso ("Glove OS 0.12.50 disponível") no canto da tela e no
+  contador da barra de menu. **Ver** abre o painel. Cada versão avisa uma vez só.
+- **Preferências ▸ Atualização de Software:** em cima, o **Glove OS**: a versão instalada, a nova, **o
+  que há de novo** e o botão **Atualizar o Glove** (pede a senha de administrador; atualiza só o
+  Glove, pelo repositório dele). No fim, **Encerrar Sessão…** para entrar já na versão nova. Embaixo,
+  as atualizações do sistema (Debian), como antes.
+- **Glove noutro Debian ou Ubuntu:** o painel oferece **Adicionar o Repositório do Glove**, e daí em
+  diante o Glove se atualiza pelo apt também (sem a identidade do Glove OS, que só o pacote
+  `glove-os` traz). Pelo Terminal, os comandos estão em https://fabioaacarneiro.github.io/glove.
+- Pelo Terminal, também vale o de sempre: `sudo apt update && sudo apt upgrade`.
+
 ## Senha do sistema (pedidos de administrador)
 
 Quando um programa precisa de permissão de administrador (formatar um disco no Discos, instalar pelo

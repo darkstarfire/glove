@@ -258,6 +258,11 @@ Rust 1.89 or newer. The script downloads Debian's official live-build and deboot
 On the live system the user is `glove` and the password is **`live`** (for `sudo` and console
 logins); `root` has no password.
 
+**Updates:** Glove OS gets Glove from its own apt repository, signed and built by CI for every
+version (https://fabioaacarneiro.github.io/glove), without waiting for Debian; Debian 13 keeps coming
+from Debian. It notifies when a new version is out, and Preferences ▸ Software Update shows what's
+new and updates. Other Debian and Ubuntu systems can use the same repository for Glove.
+
 **Ready-made ISO:** for every new version (tag `v…`), GitHub Actions builds the ISO on Debian 13 and
 publishes it, with the `.deb` packages and `SHA256SUMS`, on the [Releases](https://github.com/fabioaacarneiro/glove/releases) page
 ([.github/workflows/iso.yml](.github/workflows/iso.yml); the build takes about 15 minutes).

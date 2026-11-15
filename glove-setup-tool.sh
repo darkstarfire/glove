@@ -415,6 +415,12 @@ package_glove_os() {
         install -m 644 "$f" "$tmp/usr/share/icons/hicolor/${s}x${s}/apps/glove-os.png"
     done
     install -m 644 "$d/icones/glove-os-256.png" "$tmp/usr/share/pixmaps/glove-os.png"
+    # Updates of Glove itself: the Glove OS apt repository (built by CI for every
+    # version, on GitHub Pages) and its public key. Debian keeps coming from Debian.
+    mkdir -p "$tmp/usr/share/keyrings" "$tmp/etc/apt/sources.list.d"
+    install -m 644 "$d/glove-os-repositorio.gpg" "$tmp/usr/share/keyrings/glove-os-repositorio.gpg"
+    printf 'Types: deb\nURIs: https://fabioaacarneiro.github.io/glove\nSuites: glove\nComponents: main\nSigned-By: /usr/share/keyrings/glove-os-repositorio.gpg\n' > "$tmp/etc/apt/sources.list.d/glove-os.sources"
+    chmod 644 "$tmp/etc/apt/sources.list.d/glove-os.sources"
     install -m 755 "$d/postinst" "$d/postrm" "$tmp/DEBIAN/"
     (cd "$tmp" && find etc -type f | sed 's|^|/|') > "$tmp/DEBIAN/conffiles"
     {

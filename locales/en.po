@@ -5944,3 +5944,60 @@ msgstr "Everything on {} will be erased; the rest of the disk stays."
 
 msgid "na partição {} (só ela é apagada)"
 msgstr "on partition {} (only it is erased)"
+
+msgid "A resposta do repositório veio num formato inesperado."
+msgstr "The repository's answer came in an unexpected format."
+
+msgid "Adicionar o Repositório do Glove"
+msgstr "Add the Glove Repository"
+
+msgid "Adicionar o repositório do Glove ao apt."
+msgstr "Add the Glove repository to apt."
+
+msgid "Atualizando…"
+msgstr "Updating…"
+
+msgid "Atualizar o Glove"
+msgstr "Update Glove"
+
+msgid "Atualizar o Glove."
+msgstr "Update Glove."
+
+msgid "Consultando o repositório do Glove…"
+msgstr "Checking the Glove repository…"
+
+msgid "Encerrar Sessão…"
+msgstr "Log Out…"
+
+msgid "Este sistema ainda não recebe as atualizações do Glove pelo apt."
+msgstr "This system does not get Glove updates through apt yet."
+
+msgid "Glove OS {} disponível"
+msgstr "Glove OS {} available"
+
+msgid "Glove atualizado. Encerre a sessão e entre de novo para usar a versão nova."
+msgstr "Glove updated. Log out and back in to use the new version."
+
+msgid "Não deu para consultar o repositório do Glove (sem internet, ou o repositório ainda não foi publicado)."
+msgstr "Could not reach the Glove repository (no internet, or the repository is not published yet)."
+
+msgid "O Glove está em dia."
+msgstr "Glove is up to date."
+
+msgid "O que há de novo:"
+msgstr "What's new:"
+
+msgid "Repositório do Glove adicionado."
+msgstr "Glove repository added."
+
+msgid "Só uma conta de administrador pode atualizar o sistema."
+msgstr "Only an administrator account can update the system."
+
+msgid "Ver"
+msgstr "View"
+
+msgid "Versão instalada: {}"
+msgstr "Installed version: {}"
+
+msgid "Versão nova: {} ({})"
+msgstr "New version: {} ({})"

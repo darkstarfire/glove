@@ -11,6 +11,7 @@ license.workspace = true
 path = "src/main.rs"
 
 [dependencies]
+serde_json = "1"
 glove-ui = { path = "../../ui/crates/ui" }
 glove-paint = { path = "../../ui/crates/paint" }
 glove-config = { path = "../../ui/crates/config" }

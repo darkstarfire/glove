@@ -245,6 +245,11 @@ pesado fica em `iso/`, fora do Git.
 No sistema ao vivo, o usuário é `glove` e a senha é **`live`** (para o `sudo` e para entrar pelo
 console); o `root` não tem senha.
 
+**Atualizações:** o Glove OS recebe o Glove por um repositório apt próprio, assinado e montado pela CI
+a cada versão (https://fabioaacarneiro.github.io/glove), sem esperar o Debian; o Debian 13 continua
+vindo do Debian. Avisa quando sai versão nova, e Preferências ▸ Atualização de Software mostra o que
+há de novo e atualiza. Outros Debian e Ubuntu podem usar o mesmo repositório para o Glove.
+
 **ISO pronta:** a cada versão nova (tag `v…`), o GitHub Actions monta a ISO num Debian 13 e a publica,
 com os pacotes `.deb` e o `SHA256SUMS`, na página de [Releases](https://github.com/fabioaacarneiro/glove/releases)
 ([.github/workflows/iso.yml](.github/workflows/iso.yml); a montagem leva uns 15 minutos).
