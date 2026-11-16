@@ -282,6 +282,10 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   **stroke width** in the strip at the top and draw on the image. Undo (Ctrl+Z), Clear
   and **Save** (Ctrl+S), which overwrites the screenshot and copies the image with the
   drawings. Ctrl+C copies it as shown, even without saving.
+- **Shapes** (in the toolbar, next to Draw): freehand, **line**, **dashed line**, **arrow**,
+  **rectangle** and **ellipse**, from where you press to where you let go. With **Shift**, the
+  rectangle becomes a square, the ellipse a circle and lines snap straight (horizontal, vertical or
+  45°).
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 

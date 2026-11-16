@@ -285,6 +285,9 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   **espessura do traço** na faixa de cima e desenhe por cima da imagem. Desfazer
   (Ctrl+Z), Limpar e **Salvar** (Ctrl+S), que grava por cima da captura e já copia a
   imagem com os desenhos. Ctrl+C copia como está na tela, mesmo sem salvar.
+- **Formas** (na barra, ao lado de Desenhar): à mão livre, **linha**, **tracejado**, **seta**,
+  **retângulo** e **elipse**, do ponto em que aperta até onde solta. Com **Shift**, o retângulo vira
+  quadrado, a elipse vira círculo e as linhas ficam retas (na horizontal, na vertical ou a 45°).
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 

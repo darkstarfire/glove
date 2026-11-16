@@ -32,26 +32,102 @@ const PEN_COLORS: [(u8, u8, u8); 8] = [(230, 40, 40), (245, 140, 20), (250, 210,
 /// Espessuras da caneta, em pixels da imagem.
 const PEN_WIDTHS: [f32; 4] = [2.0, 4.0, 8.0, 14.0];
 
-/// Um traço da caneta, em pixels da imagem.
+/// O que a caneta desenha: à mão livre ou uma forma pronta (do ponto em que apertou
+/// até onde soltou).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Shape {
+    Free,
+    Line,
+    Dashed,
+    Arrow,
+    Rect,
+    Ellipse,
+}
+
+const SHAPES: [(Shape, Glyph); 6] = [
+    (Shape::Free, Glyph::ShapeFree),
+    (Shape::Line, Glyph::ShapeLine),
+    (Shape::Dashed, Glyph::ShapeDashed),
+    (Shape::Arrow, Glyph::ShapeArrow),
+    (Shape::Rect, Glyph::ShapeRect),
+    (Shape::Ellipse, Glyph::ShapeEllipse),
+];
+
+/// Um traço da caneta, em pixels da imagem. Nas formas, `pts` tem o começo e o fim.
 #[derive(Clone)]
 struct PenStroke {
     pts: Vec<(f32, f32)>,
     color: Color,
     width: f32,
+    shape: Shape,
 }
 
 impl PenStroke {
     /// O caminho do traço com cada ponto passado por `map` (um ponto só vira uma bolinha).
+    /// Tudo vira linhas (o tracejado em pedaços, a seta com a ponta), para a tela e a
+    /// imagem salva desenharem igual.
     fn path(&self, map: impl Fn((f32, f32)) -> (f32, f32)) -> Option<SkPath> {
         let mut pb = PathBuilder::new();
-        let (x0, y0) = map(*self.pts.first()?);
-        pb.move_to(x0, y0);
-        if self.pts.len() == 1 {
-            pb.line_to(x0 + 0.01, y0);
-        }
-        for p in &self.pts[1..] {
-            let (x, y) = map(*p);
-            pb.line_to(x, y);
+        let a = *self.pts.first()?;
+        let b = *self.pts.last()?;
+        let line = |pb: &mut PathBuilder, p: (f32, f32), q: (f32, f32)| {
+            let (p, q) = (map(p), map(q));
+            pb.move_to(p.0, p.1);
+            pb.line_to(q.0, q.1);
+        };
+        match self.shape {
+            Shape::Free => {
+                let (x0, y0) = map(a);
+                pb.move_to(x0, y0);
+                if self.pts.len() == 1 {
+                    pb.line_to(x0 + 0.01, y0);
+                }
+                for p in &self.pts[1..] {
+                    let (x, y) = map(*p);
+                    pb.line_to(x, y);
+                }
+            }
+            Shape::Line => line(&mut pb, a, (b.0 + 0.01, b.1)),
+            Shape::Dashed => {
+                let len = ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt();
+                let (dash, gap) = (self.width * 3.0 + 4.0, self.width * 2.0 + 4.0);
+                if len < 0.5 {
+                    line(&mut pb, a, (a.0 + 0.01, a.1));
+                }
+                let mut d = 0.0;
+                while d < len {
+                    let e = (d + dash).min(len);
+                    let at = |t: f32| (a.0 + (b.0 - a.0) * t / len, a.1 + (b.1 - a.1) * t / len);
+                    line(&mut pb, at(d), at(e));
+                    d = e + gap;
+                }
+            }
+            Shape::Arrow => {
+                line(&mut pb, a, (b.0 + 0.01, b.1));
+                let len = ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt();
+                if len > 0.5 {
+                    let head = (self.width * 4.0 + 10.0).min(len * 0.6);
+                    let ang = (b.1 - a.1).atan2(b.0 - a.0);
+                    for s in [0.45f32, -0.45] {
+                        let t = ang + std::f32::consts::PI - s;
+                        line(&mut pb, b, (b.0 + head * t.cos(), b.1 + head * t.sin()));
+                    }
+                }
+            }
+            Shape::Rect => {
+                let pts = [(a.0, a.1), (b.0, a.1), (b.0, b.1), (a.0, b.1)].map(&map);
+                pb.move_to(pts[0].0, pts[0].1);
+                for p in &pts[1..] {
+                    pb.line_to(p.0, p.1);
+                }
+                pb.close();
+            }
+            Shape::Ellipse => {
+                let (p, q) = (map(a), map(b));
+                let (x, y, w, h) = (p.0.min(q.0), p.1.min(q.1), (q.0 - p.0).abs().max(0.5), (q.1 - p.1).abs().max(0.5));
+                let r = glove_ui::paint::tiny_skia::Rect::from_xywh(x, y, w, h)?;
+                pb.push_oval(r);
+            }
         }
         pb.finish()
     }
@@ -250,6 +326,8 @@ struct Viewer {
     cur: Option<PenStroke>,
     pen_color: usize,
     pen_width: usize,
+    /// A forma escolhida (à mão livre, linha, tracejado, seta, retângulo, elipse).
+    shape: Shape,
     /// A imagem na memória já tem desenhos que o arquivo não tem (girou depois de desenhar).
     image_dirty: bool,
     /// A imagem foi reduzida ao abrir: salvar vai para um arquivo novo.
@@ -305,6 +383,7 @@ impl Viewer {
             cur: None,
             pen_color: 0,
             pen_width: 1,
+            shape: Shape::Free,
             image_dirty: false,
             reduced: false,
             ask_close: false,
@@ -734,6 +813,17 @@ impl Viewer {
             act = Some("draw");
         }
         label(ui, tr!("Desenhar"), x + SEGMENT_W / 2.0);
+        // Desenhando: as formas prontas, no espaço que sobra na barra.
+        if self.draw {
+            x += SEGMENT_W + 30.0;
+            let glyphs: Vec<Glyph> = SHAPES.iter().map(|s| s.1).collect();
+            let cur = SHAPES.iter().position(|s| s.0 == self.shape);
+            let on = [true; SHAPES.len()];
+            if let Some(i) = ui.segmented_in(Rect::new(x, y, SHAPES.len() as f32 * SEGMENT_W, SEGMENT_H), &glyphs, cur, &on) {
+                self.shape = SHAPES[i].0;
+            }
+            label(ui, tr!("Forma"), x + SHAPES.len() as f32 * SEGMENT_W / 2.0);
+        }
         act
     }
 
@@ -1033,12 +1123,36 @@ impl App for Viewer {
                 let at = ((pos.0 - x) / k, (pos.1 - y) / k);
                 if resp.pressed {
                     let (r, g, b) = PEN_COLORS[self.pen_color];
-                    self.cur = Some(PenStroke { pts: vec![at], color: rgba(r, g, b, 255), width: PEN_WIDTHS[self.pen_width] });
+                    self.cur = Some(PenStroke { pts: vec![at], color: rgba(r, g, b, 255), width: PEN_WIDTHS[self.pen_width], shape: self.shape });
                 } else if resp.down {
+                    let shift = ui.mods().shift;
                     if let Some(c) = &mut self.cur {
-                        // Pontos a menos de meio pixel da tela não mudam o traço.
-                        if c.pts.last().is_none_or(|l| ((l.0 - at.0).powi(2) + (l.1 - at.1).powi(2)).sqrt() * k >= 0.5) {
-                            c.pts.push(at);
+                        if c.shape == Shape::Free {
+                            // Pontos a menos de meio pixel da tela não mudam o traço.
+                            if c.pts.last().is_none_or(|l| ((l.0 - at.0).powi(2) + (l.1 - at.1).powi(2)).sqrt() * k >= 0.5) {
+                                c.pts.push(at);
+                            }
+                        } else {
+                            // Forma: do começo até aqui. Shift: quadrado, círculo ou linha
+                            // reta (na horizontal, vertical ou 45°).
+                            let a = c.pts[0];
+                            let mut e = at;
+                            if shift {
+                                let (dx, dy) = (e.0 - a.0, e.1 - a.1);
+                                match c.shape {
+                                    Shape::Rect | Shape::Ellipse => {
+                                        let m = dx.abs().max(dy.abs());
+                                        e = (a.0 + m * dx.signum(), a.1 + m * dy.signum());
+                                    }
+                                    _ => {
+                                        let ang = (dy.atan2(dx) / std::f32::consts::FRAC_PI_4).round() * std::f32::consts::FRAC_PI_4;
+                                        let len = (dx * dx + dy * dy).sqrt();
+                                        e = (a.0 + len * ang.cos(), a.1 + len * ang.sin());
+                                    }
+                                }
+                            }
+                            c.pts.truncate(1);
+                            c.pts.push(e);
                         }
                     }
                 } else if let Some(c) = self.cur.take() {

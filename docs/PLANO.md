@@ -1168,6 +1168,10 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   Sem arrastar, editar, renomear ou buscar; nesses casos continua o desenho de antes.
 - [x] 20.17 Painel de Fontes (P) — v0.12.64 (glove-ui 0.2.37): a linha cortada no alto da lista
   rolada passava por cima do campo de busca; a lista agora é recortada na área dela.
+- [x] 20.18 Formas no desenho (M) — v0.12.65 (glove-ui 0.2.38): no Visualizador, ao desenhar, a barra
+  ganha **Forma** (livre, linha, tracejado, seta, retângulo, elipse; glifos novos no glove-paint).
+  Cada `PenStroke` guarda a forma; tudo vira linhas no `path` (o tracejado em pedaços, a seta com a
+  ponta), então a tela e a imagem salva desenham igual. Shift: quadrado, círculo, linha a 45°.
 - [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
   apps (escolha em Aparência), sem perder o visual da época.
 - [~] 20.15 Papéis de parede em gel, 4K — feitos na v0.12.58 (gerados pelo `glove-arte`, pacote

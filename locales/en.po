@@ -6063,3 +6063,7 @@ msgstr "{} system updates available"
 
 msgid " e mais {}"
 msgstr " and {} more"
+
+# Visualizador: formas de desenho
+msgid "Forma"
+msgstr "Shape"
