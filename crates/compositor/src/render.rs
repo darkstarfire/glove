@@ -160,6 +160,20 @@ fn mem_alpha(renderer: &mut GlesRenderer, loc: Point<i32, Logical>, tex: &Tex, s
     )))
 }
 
+/// Um pedaço (faixa horizontal) de uma textura, em `loc` com o tamanho lógico `size`:
+/// `crop` = (começo, altura) da faixa em pontos lógicos da textura; None = inteira.
+fn mem_part(renderer: &mut GlesRenderer, loc: (f32, f32), tex: &Tex, scale: f64, alpha: f32, crop: Option<(f32, f32)>, size: (f32, f32)) -> Option<GloveElement> {
+    let buf = tex.upload(renderer)?;
+    let k = tex.px.1 as f64 / tex.size.h.max(1) as f64;
+    let src = match crop {
+        Some((y0, h)) => Rectangle::new((0.0, y0 as f64 * k).into(), (tex.px.0 as f64, (h as f64 * k).max(1.0)).into()),
+        None => Rectangle::from_size((tex.px.0 as f64, tex.px.1 as f64).into()),
+    };
+    let p = Point::<f64, Logical>::from((loc.0 as f64, loc.1 as f64)).to_physical(scale);
+    let size = smithay::utils::Size::<i32, Logical>::from((size.0.round().max(1.0) as i32, size.1.round().max(1.0) as i32));
+    Some(GloveElement::Texture(TextureRenderElement::from_texture_buffer((p.x.round(), p.y.round()), &buf, Some(alpha), Some(src), Some(size), Kind::Unspecified)))
+}
+
 /// Textura esticada para um retângulo lógico (os ícones do Dock na ampliação).
 fn mem_scaled(renderer: &mut GlesRenderer, loc: (f64, f64), size: (f64, f64), tex: &Tex, scale: f64) -> Option<GloveElement> {
     let buf = tex.upload(renderer)?;
@@ -349,7 +363,23 @@ impl Glove {
             }
             let pos = self.grade_grid_pos();
             let (dx_new, dx_old) = self.grade_slide_offsets().unwrap_or((0, 0));
-            if let Some((_, t)) = &g.grid_tex {
+            if let Some(fg) = g.fold_gpu.as_ref().filter(|_| g.fold_gpu_on) {
+                // Pasta abrindo ou fechando: as camadas prontas, movidas e recortadas.
+                use crate::grade::FoldPart;
+                for (part, at, crop, size, alpha) in self.fold_gpu_parts() {
+                    let t = match part {
+                        FoldPart::Rest => &fg.rest,
+                        FoldPart::Tile => match &fg.tile {
+                            Some((t, _)) => t,
+                            None => continue,
+                        },
+                        FoldPart::Body => &fg.body,
+                        FoldPart::Bottom => &fg.bottom,
+                        FoldPart::Glow => &fg.glow,
+                    };
+                    out.extend(mem_part(renderer, at, t, sc, alpha * g.alpha, crop, size));
+                }
+            } else if let Some((_, t)) = &g.grid_tex {
                 out.extend(mem_alpha(renderer, pos + Point::from((dx_new, 0)), t, sc, a));
             }
             if let Some((t, _, _)) = g.slide.as_ref().filter(|_| dx_old != 0 || dx_new != 0) {

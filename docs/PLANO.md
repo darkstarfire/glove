@@ -1161,6 +1161,13 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   ficam com o aviso deles) e avisa quando aparece pacote ainda não avisado. Na central de avisos, um
   aviso com ações continua valendo depois que o balão some (o balão não manda mais
   NotificationClosed; só ao sair da central): clicar nele lá abre o painel.
+- [x] 20.16 Pasta do Launchpad fluida (M) — v0.12.64: abrir ou fechar uma pasta redesenhava a grade
+  inteira na CPU (todos os ícones, o tecido, os brilhos) e mandava a imagem para a GPU a cada quadro.
+  Agora `build_fold_gpu` desenha uma vez a página (sem a pasta), a pasta, a faixa aberta de todo e a
+  borda de baixo, e `fold_gpu_parts` só move, recorta e esmaece as camadas a cada quadro (`mem_part`).
+  Sem arrastar, editar, renomear ou buscar; nesses casos continua o desenho de antes.
+- [x] 20.17 Painel de Fontes (P) — v0.12.64 (glove-ui 0.2.37): a linha cortada no alto da lista
+  rolada passava por cima do campo de busca; a lista agora é recortada na área dela.
 - [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
   apps (escolha em Aparência), sem perder o visual da época.
 - [~] 20.15 Papéis de parede em gel, 4K — feitos na v0.12.58 (gerados pelo `glove-arte`, pacote

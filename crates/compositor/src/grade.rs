@@ -215,7 +215,40 @@ pub struct Grade {
     pub dots_tex: Option<(u64, Tex)>,
     /// Página saindo: a imagem dela, o lado (1 = foi para a próxima) e o início.
     pub slide: Option<(Tex, f32, Instant)>,
+    /// Pasta abrindo ou fechando: as camadas prontas, que a GPU só move, recorta e
+    /// esmaece a cada quadro (sem redesenhar a grade inteira).
+    pub fold_gpu: Option<FoldGpu>,
+    /// O quadro de agora usa as camadas (e não a `grid_tex`).
+    pub fold_gpu_on: bool,
 }
+
+/// As camadas da animação da pasta (posições na tela, em pontos lógicos).
+pub struct FoldGpu {
+    key: u64,
+    /// A página sem a pasta aberta, no lugar de sempre (cobre `Layout::tex`).
+    pub rest: Tex,
+    /// A pasta aberta (fica acesa) e onde ela está, antes de subir.
+    pub tile: Option<(Tex, (f32, f32))>,
+    /// A faixa aberta de todo: o tecido com o bico (11 pontos acima do topo), o nome e os
+    /// apps. Aparece de cima para baixo, recortada na altura do quadro.
+    pub body: Tex,
+    /// A sombra e a linha da borda de baixo da faixa (acompanham a borda).
+    pub bottom: Tex,
+    /// O brilho (o mesmo da faixa), esticado a cada quadro.
+    pub glow: Tex,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FoldPart {
+    Rest,
+    Tile,
+    Body,
+    Bottom,
+    Glow,
+}
+
+/// Altura do bico da faixa (acima do topo dela).
+pub const NOTCH: f32 = 11.0;
 
 /// Tamanhos e posições, a partir da área livre (sem o Dock), em pontos lógicos.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -801,8 +834,16 @@ impl Glove {
     // -------------------------------------------------------------------
 
     fn grade_band(&self, l: &Layout) -> Option<Band> {
+        if self.grade.fold <= 0.0 {
+            return None;
+        }
+        self.grade_band_at(l, smooth(self.grade.fold))
+    }
+
+    /// A faixa da pasta aberta com `t` (0 a 1) do caminho já andado.
+    fn grade_band_at(&self, l: &Layout, t: f32) -> Option<Band> {
         let id = self.grade.folder?;
-        if self.grade.fold <= 0.0 || self.searching() {
+        if self.searching() {
             return None;
         }
         let per = l.per_page();
@@ -818,7 +859,6 @@ impl Glove {
         let full_h = BAND_TITLE + rows as f32 * l.tile_h + BAND_PAD;
         let limit = l.tex.1 + l.tex.3 - 6.0;
         let up = (split + full_h - limit).max(0.0).min((split - l.tex.1).max(0.0));
-        let t = smooth(self.grade.fold);
         Some(Band { top: split - up * t, h: full_h * t, full_h, up: up * t, split, notch_x: sx + l.tile_w / 2.0 })
     }
 
@@ -1286,13 +1326,29 @@ impl Glove {
             self.grade.easing = false;
         }
 
+        // Pasta abrindo ou fechando (sem arrastar, editar ou renomear): camadas prontas, que a
+        // GPU move a cada quadro. Antes a grade inteira era redesenhada a cada quadro.
+        let g = &self.grade;
+        let fold_gpu = g.fold_anim.is_some() && !g.edit && g.drag.is_none() && g.rename.is_none() && !self.searching() && self.grade_band_at(&l, 1.0).is_some();
+        self.grade.fold_gpu_on = fold_gpu;
+        if fold_gpu {
+            let mut k = std::collections::hash_map::DefaultHasher::new();
+            (base, self.grade.folder, self.grade.page, self.grade.ver, sw, sh).hash(&mut k);
+            let key = k.finish();
+            if self.grade.fold_gpu.as_ref().map(|f| f.key) != Some(key) {
+                self.grade.fold_gpu = self.build_fold_gpu(&l, key);
+            }
+            self.grade_tick();
+        } else {
+            self.grade.fold_gpu = None;
+        }
         // A grade: a cada quadro quando há movimento; senão, só quando algo muda.
-        let animating = self.grade.edit || self.grade.drag.is_some() || self.grade.fold_anim.is_some() || self.grade.easing;
+        let animating = !fold_gpu && (self.grade.edit || self.grade.drag.is_some() || self.grade.fold_anim.is_some() || self.grade.easing);
         let mut k = std::collections::hash_map::DefaultHasher::new();
         (base, &self.grade.query, self.grade.folder, self.grade.page, self.grade.selected, sw, sh, self.grade.ver, self.grade.fold.to_bits()).hash(&mut k);
         (&self.grade.rename, caret && self.grade.rename.is_some()).hash(&mut k);
         let key = k.finish();
-        if animating || self.grade.grid_tex.as_ref().map(|t| t.0) != Some(key) {
+        if !fold_gpu && (animating || self.grade.grid_tex.as_ref().map(|t| t.0) != Some(key)) {
             self.grade.grid_tex = self.draw_grade_grid(&l, &slots, caret).map(|c| (key, to_tex(c)));
         }
         if animating {
@@ -1369,6 +1425,106 @@ impl Glove {
         }
     }
 
+    /// Desenha uma vez as camadas da animação da pasta (ver `FoldGpu`).
+    fn build_fold_gpu(&self, l: &Layout, key: u64) -> Option<FoldGpu> {
+        let b = self.grade_band_at(l, 1.0)?;
+        let id = self.grade.folder?;
+        let sc = self.scale() as f32;
+        let f = &self.fonts;
+        let (ox, oy, w, h) = l.tex;
+        let per = l.per_page();
+        let open = Item::Folder(id);
+        // A página, sem a pasta aberta.
+        let mut rest = Canvas::new(w, h, sc)?;
+        let mut tile_at = None;
+        for (k, it) in self.main_list().into_iter().enumerate().skip(self.grade.page * per).take(per) {
+            let (x, y) = l.slot_pos(k % per);
+            if it == open {
+                tile_at = Some((x, y));
+                continue;
+            }
+            if let Some((_, t)) = self.grade.tiles.get(&it) {
+                blit(&mut rest, t, l, x - ox, y - oy, 0.0, 1.0, 1.0);
+            }
+        }
+        let folder = self.folder_ref();
+        let tile = tile_at.and_then(|p| draw_tile(f, l, &self.grade.apps, open, folder, sc).map(|c| (to_tex(c), p)));
+        // A faixa aberta de todo, com o bico acima.
+        let mut body = Canvas::new(w, b.full_h + NOTCH, sc)?;
+        let label = folder.map(|f| f.label()).unwrap_or_default();
+        let at = Band { top: NOTCH, h: b.full_h, full_h: b.full_h, up: 0.0, split: NOTCH, notch_x: b.notch_x - ox };
+        let title = self.grade_title_rect(l, &b);
+        let title = (title.0 - ox, title.1 - b.top + NOTCH, title.2, title.3);
+        draw_band(&mut body, f, l, &at, (0.0, 0.0), &label, None, false, title, true);
+        let apps: Vec<usize> = folder.map(|f| f.apps.clone()).unwrap_or_default();
+        for (j, a) in apps.iter().enumerate() {
+            if let Some((_, t)) = self.grade.tiles.get(&Item::App(*a)) {
+                let (x, y) = (l.x + (j % l.cols) as f32 * l.tile_w - ox, NOTCH + BAND_TITLE + (j / l.cols) as f32 * l.tile_h);
+                blit(&mut body, t, l, x, y, 0.0, 1.0, 1.0);
+            }
+        }
+        let mut bottom = Canvas::new(w, 10.0, sc)?;
+        draw_band_bottom(&mut bottom, w, 10.0, 10.0);
+        let gl = glow();
+        let mut glow_c = Canvas::new(gl.w, gl.h, gl.scale)?;
+        glow_c.draw_canvas(gl, 0.0, 0.0);
+        Some(FoldGpu { key, rest: to_tex(rest), tile, body: to_tex(body), bottom: to_tex(bottom), glow: to_tex(glow_c) })
+    }
+
+    /// Onde vai cada camada da animação da pasta neste quadro: (camada, posição, recorte
+    /// da altura em pontos (None = inteira), começo do recorte, tamanho, opacidade).
+    pub fn fold_gpu_parts(&self) -> Vec<(FoldPart, (f32, f32), Option<(f32, f32)>, (f32, f32), f32)> {
+        let mut out = Vec::new();
+        let g = &self.grade;
+        let Some(fg) = g.fold_gpu.as_ref().filter(|_| g.fold_gpu_on) else { return out };
+        let l = self.grade_layout();
+        let Some(b) = self.grade_band(&l) else {
+            // Fechada de todo (o último quadro): só a página.
+            out.push((FoldPart::Rest, (l.tex.0, l.tex.1), None, (l.tex.2, l.tex.3), 1.0));
+            if let Some((_, p)) = &fg.tile {
+                out.push((FoldPart::Tile, *p, None, (l.tile_w, l.tile_h), 1.0));
+            }
+            return out;
+        };
+        let (ox, oy, w, h) = l.tex;
+        let open = (b.h / b.full_h).clamp(0.0, 1.0);
+        let dim = 1.0 - 0.78 * smooth(g.fold);
+        // Da frente para o fundo: brilhos, borda de baixo, faixa, pasta, página.
+        let (gw, gh) = ((w * 0.6).min(820.0), 120.0 * open);
+        if gh >= 1.0 {
+            for (gx, gy) in [(b.notch_x, b.top), (ox + w / 2.0, b.top + b.h)] {
+                out.push((FoldPart::Glow, (gx - gw / 2.0, gy - gh / 2.0), None, (gw, gh), open));
+            }
+        }
+        let sh = 10.0_f32.min(b.h / 2.0);
+        if sh >= 1.0 {
+            out.push((FoldPart::Bottom, (ox, b.top + b.h - sh), Some((10.0 - sh, sh)), (w, sh), 1.0));
+        }
+        let vis = (NOTCH.min(b.h) + b.h).min(fg.body.size.h as f32);
+        if vis >= 1.0 {
+            out.push((FoldPart::Body, (ox, b.top - NOTCH.min(b.h)), Some((NOTCH - NOTCH.min(b.h), vis)), (w, vis), 1.0));
+        }
+        // Tudo cortado na área da grade, como no desenho de sempre (o que sobe não passa
+        // por cima do campo de busca; o que desce não passa da borda de baixo).
+        if let Some((_, (x, y))) = &fg.tile {
+            let y = *y - b.up;
+            let skip = (oy - y).clamp(0.0, l.tile_h);
+            if l.tile_h - skip >= 1.0 {
+                out.push((FoldPart::Tile, (*x, y + skip), Some((skip, l.tile_h - skip)), (l.tile_w, l.tile_h - skip), 1.0));
+            }
+        }
+        let cut = (b.split - oy).clamp(0.0, h);
+        if cut - b.up >= 1.0 {
+            out.push((FoldPart::Rest, (ox, oy), Some((b.up, cut - b.up)), (w, cut - b.up), dim));
+        }
+        let low_y = b.split + b.h - b.up;
+        let low_h = (h - cut).min(oy + h - low_y);
+        if low_h >= 1.0 {
+            out.push((FoldPart::Rest, (ox, low_y), Some((cut, low_h)), (w, low_h), dim));
+        }
+        out
+    }
+
     fn draw_grade_grid(&self, l: &Layout, slots: &Slots, caret: bool) -> Option<Canvas> {
         let g = &self.grade;
         let f = &self.fonts;
@@ -1422,7 +1578,7 @@ impl Glove {
         if let Some(b) = slots.band_geo {
             let label = self.folder_ref().map(|f| f.label()).unwrap_or_default();
             let title = self.grade_title_rect(l, &b);
-            draw_band(&mut c, f, l, &b, (ox, oy), &label, g.rename.as_ref(), caret, title);
+            draw_band(&mut c, f, l, &b, (ox, oy), &label, g.rename.as_ref(), caret, title, false);
             let s = c.scale;
             let (top, bot) = (b.top - oy, b.top - oy + b.h);
             c.set_clip(Some([0, (top * s).floor() as i32, (w * s).ceil() as i32, (bot * s).ceil() as i32]));
@@ -1577,7 +1733,9 @@ unsafe impl Send for GlowCanvas {}
 /// A faixa da pasta aberta: tecido escuro com o bico apontando para a pasta, os
 /// brilhos azuis nas bordas e o nome (ou o campo de renomear) no canto.
 #[allow(clippy::too_many_arguments)]
-fn draw_band(c: &mut Canvas, f: &Fonts, l: &Layout, b: &Band, (ox, oy): (f32, f32), label: &str, rename: Option<&(String, bool)>, caret: bool, title: (f32, f32, f32, f32)) {
+/// `gpu`: só o que se move junto com o topo (os brilhos e a borda de baixo vão à parte).
+#[allow(clippy::too_many_arguments)]
+fn draw_band(c: &mut Canvas, f: &Fonts, l: &Layout, b: &Band, (ox, oy): (f32, f32), label: &str, rename: Option<&(String, bool)>, caret: bool, title: (f32, f32, f32, f32), gpu: bool) {
     let s = c.scale;
     let w = c.w;
     let (top, bot) = (b.top - oy, b.top - oy + b.h);
@@ -1587,7 +1745,7 @@ fn draw_band(c: &mut Canvas, f: &Fonts, l: &Layout, b: &Band, (ox, oy): (f32, f3
     let g = glow();
     let (gw, gh) = ((w * 0.6).min(820.0), 120.0 * open);
     for (gx, gy) in [(nx, top), (w / 2.0, bot)] {
-        if gh < 1.0 {
+        if gh < 1.0 || gpu {
             break;
         }
         let t = Transform::from_translate(((gx - gw / 2.0) * s).round(), ((gy - gh / 2.0) * s).round()).pre_scale(gw * s / 64.0, gh * s / 64.0);
@@ -1611,7 +1769,9 @@ fn draw_band(c: &mut Canvas, f: &Fonts, l: &Layout, b: &Band, (ox, oy): (f32, f3
     // Sombra de dentro, em cima e embaixo, e as linhas claras das bordas.
     let sh = 10.0_f32.min(b.h / 2.0);
     c.fill_rect(0.0, top, w, sh, &vgrad(top, top + sh, &[(0.0, rgba(0, 0, 0, 110)), (1.0, rgba(0, 0, 0, 0))]));
-    c.fill_rect(0.0, bot - sh, w, sh, &vgrad(bot - sh, bot, &[(0.0, rgba(0, 0, 0, 0)), (1.0, rgba(0, 0, 0, 90))]));
+    if !gpu {
+        draw_band_bottom(c, w, bot, sh);
+    }
     let mut pb = PathBuilder::new();
     pb.move_to(0.0, top + 0.5);
     pb.line_to(nx - notch, top + 0.5);
@@ -1619,7 +1779,6 @@ fn draw_band(c: &mut Canvas, f: &Fonts, l: &Layout, b: &Band, (ox, oy): (f32, f3
     pb.line_to(nx + notch, top + 0.5);
     pb.line_to(w, top + 0.5);
     c.stroke(pb.finish(), &solid(rgba(255, 255, 255, 60)), 1.0);
-    c.hline(0.0, bot - 1.0, w, rgba(255, 255, 255, 40));
     if b.h < BAND_TITLE {
         return;
     }
@@ -1646,6 +1805,12 @@ fn draw_band(c: &mut Canvas, f: &Fonts, l: &Layout, b: &Band, (ox, oy): (f32, f3
         }
     }
     let _ = l;
+}
+
+/// A borda de baixo da faixa: sombra de dentro e a linha clara, terminando em `bot`.
+fn draw_band_bottom(c: &mut Canvas, w: f32, bot: f32, sh: f32) {
+    c.fill_rect(0.0, bot - sh, w, sh, &vgrad(bot - sh, bot, &[(0.0, rgba(0, 0, 0, 0)), (1.0, rgba(0, 0, 0, 90))]));
+    c.hline(0.0, bot - 1.0, w, rgba(255, 255, 255, 40));
 }
 
 fn draw_field(f: &Fonts, query: &str, caret: bool, sc: f32) -> Option<Canvas> {

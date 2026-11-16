@@ -364,6 +364,17 @@ impl Glove {
                     self.on_key(code + 8, st, t);
                 }
             }
+            Some("scroll") => {
+                // ex.: "scroll 30" (para baixo) ou "scroll -30"
+                let v: f64 = it.next().and_then(|n| n.parse().ok()).unwrap_or(15.0);
+                if self.grade_active() {
+                    self.grade_scroll(v);
+                } else {
+                    let pointer = self.seat.get_pointer().unwrap();
+                    pointer.axis(self, AxisFrame::new(t).source(AxisSource::Wheel).value(Axis::Vertical, v));
+                    pointer.frame(self);
+                }
+            }
             Some("rclick") => {
                 self.on_button(BTN_RIGHT, ButtonState::Pressed, t);
                 self.on_button(BTN_RIGHT, ButtonState::Released, t + 1);
