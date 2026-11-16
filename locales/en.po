@@ -6182,3 +6182,6 @@ msgstr "beyond the margins"
 
 msgid "Capa sem cabeçalho e rodapé"
 msgstr "Cover page without header and footer"
+
+msgid "Estilo:"
+msgstr "Style:"
