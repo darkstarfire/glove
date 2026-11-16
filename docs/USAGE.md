@@ -294,6 +294,9 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   **rectangle** and **ellipse**, from where you press to where you let go. With **Shift**, the
   rectangle becomes a square, the ellipse a circle and lines snap straight (horizontal, vertical or
   45°).
+- **Zoom** (also while drawing): the − and + toolbar buttons, or **Ctrl + mouse wheel**, which zooms
+  in and out around the pointer without distorting the picture. Bigger than the window, scroll bars
+  appear; the wheel scrolls (Shift for sideways) and dragging outside draw mode moves the picture.
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 

@@ -6170,3 +6170,15 @@ msgstr "Table of Contents…"
 
 msgid "Página {}"
 msgstr "Page {}"
+
+msgid "Da borda (cm):"
+msgstr "From edge (cm):"
+
+msgid "Recuo (cm):"
+msgstr "Inset (cm):"
+
+msgid "além das margens"
+msgstr "beyond the margins"
+
+msgid "Capa sem cabeçalho e rodapé"
+msgstr "Cover page without header and footer"

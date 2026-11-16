@@ -297,6 +297,9 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - **Formas** (na barra, ao lado de Desenhar): à mão livre, **linha**, **tracejado**, **seta**,
   **retângulo** e **elipse**, do ponto em que aperta até onde solta. Com **Shift**, o retângulo vira
   quadrado, a elipse vira círculo e as linhas ficam retas (na horizontal, na vertical ou a 45°).
+- **Zoom** (também desenhando): os botões − e + da barra, ou **Ctrl + roda do mouse**, que aumenta e
+  diminui em volta do ponteiro, sem deformar a imagem. Maior que a janela, aparecem as barras de
+  rolagem; a roda rola (com Shift, para os lados) e arrastar fora do modo desenho move a imagem.
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 

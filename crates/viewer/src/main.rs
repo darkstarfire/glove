@@ -1092,9 +1092,41 @@ impl App for Viewer {
             self.last_title = title;
         }
 
+        // Roda do mouse: Ctrl + roda é zoom em volta do ponteiro (a imagem cresce por igual,
+        // sem deformar); sem o Ctrl, rola (com Shift, para os lados).
+        let wheel = ui.scroll_in(area);
+        let mut k = k;
+        let mut zoomed: Option<(f32, f32)> = None;
+        if wheel != 0.0 && ui.mods().ctrl && self.image.is_some() {
+            let zcur = match self.pdf_fit(area) {
+                Some(fit) => self.zoom.unwrap_or(fit),
+                None => self.scale(area),
+            };
+            let znew = (zcur * (-wheel * 0.01).exp().clamp(0.5, 2.0)).clamp(0.02, 16.0);
+            self.zoom = Some(znew);
+            let ratio = znew / zcur;
+            zoomed = Some((k, k * ratio));
+            k *= ratio;
+        }
         if let Some(img) = &self.image {
             let (iw, ih) = img.size();
             let (dw, dh) = (iw * k, ih * k);
+            // Maior que a área: as barras de rolagem em gel (embaixo e à direita).
+            let sbw = glove_ui::SCROLLBAR_W;
+            let need_v = dh + 24.0 > area.h;
+            let need_h = dw + 24.0 > area.w - if need_v { sbw } else { 0.0 };
+            let need_v = need_v || (need_h && dh + 24.0 > area.h - sbw);
+            let full = area;
+            let area = Rect::new(area.x, area.y, area.w - if need_v { sbw } else { 0.0 }, area.h - if need_h { sbw } else { 0.0 });
+            // O ponto embaixo do ponteiro fica no lugar ao mudar o zoom com a roda.
+            if let Some((k0, k1)) = zoomed {
+                let p = ui.pointer();
+                let x0 = area.x + (area.w - iw * k0) / 2.0 + self.pan.0;
+                let y0 = area.y + (area.h - ih * k0) / 2.0 + self.pan.1;
+                let (ix, iy) = ((p.0 - x0) / k0, (p.1 - y0) / k0);
+                self.pan.0 = p.0 - ix * k1 - area.x - (area.w - iw * k1) / 2.0;
+                self.pan.1 = p.1 - iy * k1 - area.y - (area.h - ih * k1) / 2.0;
+            }
             // Arrastar move a imagem quando ela é maior que a janela (desenhando, o
             // arrasto é da caneta; a roda continua rolando).
             let resp = ui.hit(area);
@@ -1112,10 +1144,34 @@ impl App for Viewer {
             } else {
                 self.drag_from = None;
             }
-            self.pan.1 -= ui.scroll_in(area);
+            if zoomed.is_none() && !ui.mods().ctrl {
+                if ui.mods().shift {
+                    self.pan.0 -= wheel;
+                } else {
+                    self.pan.1 -= wheel;
+                }
+            }
             let lim = |d: f32, a: f32| ((d - a) / 2.0 + 12.0).max(0.0);
             self.pan.0 = self.pan.0.clamp(-lim(dw, area.w), lim(dw, area.w));
             self.pan.1 = self.pan.1.clamp(-lim(dh, area.h), lim(dh, area.h));
+            // As barras: o deslocamento delas é o mesmo `pan`, visto da borda.
+            let lw = |d: f32, a: f32| (d + 24.0 - a).max(0.0);
+            if need_v {
+                let max = lw(dh, area.h);
+                let mut off = max / 2.0 - self.pan.1;
+                ui.vscrollbar_in(Rect::new(area.x + area.w, area.y, sbw, area.h), &mut off, dh + 24.0, area.h, 40.0);
+                self.pan.1 = max / 2.0 - off.clamp(0.0, max);
+            }
+            if need_h {
+                let max = lw(dw, area.w);
+                let mut off = max / 2.0 - self.pan.0;
+                ui.hscrollbar(Rect::new(area.x, area.y + area.h, area.w, sbw), &mut off, dw + 24.0, area.w, 40.0);
+                self.pan.0 = max / 2.0 - off.clamp(0.0, max);
+            }
+            if need_v && need_h {
+                ui.c.fill_rect(area.x + area.w, area.y + area.h, sbw, sbw, &solid(rgba(232, 232, 236, 255)));
+            }
+            let _ = full;
             let x = area.x + (area.w - dw) / 2.0 + self.pan.0;
             let y = area.y + (area.h - dh) / 2.0 + self.pan.1;
             // Caneta: apertar começa um traço, arrastar o continua, soltar o guarda.

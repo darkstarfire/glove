@@ -136,10 +136,11 @@ impl HfSheet {
     }
 }
 
-/// A folha do cabeçalho ou do rodapé.
+/// A folha do cabeçalho ou do rodapé. Cabe em qualquer largura: os rótulos são curtos,
+/// os controles encolhem com a folha e as explicações vão embaixo.
 pub fn hf_sheet(ui: &mut Ui, f: &mut HfSheet) -> Option<Done> {
-    let sw = 580.0f32.min(ui.c.w - 20.0);
-    let sh = 316.0;
+    let sw = 560.0f32.min(ui.c.w - 20.0);
+    let sh = 356.0;
     let title = if f.footer { tr!("Rodapé") } else { tr!("Cabeçalho") };
     let sx = sheet_frame(ui, sw, sh, title);
     let grey = rgba(90, 90, 96, 255);
@@ -152,41 +153,53 @@ pub fn hf_sheet(ui: &mut Ui, f: &mut HfSheet) -> Option<Done> {
     for (i, v) in [&mut f.hf.left, &mut f.hf.center, &mut f.hf.right].into_iter().enumerate() {
         ui.text_field_in(Rect::new(x0 + i as f32 * (fw + 8.0), 56.0, fw, 22.0), v, false);
     }
-    ui.fonts.draw(ui.c, tr!("Campos: {página}, {páginas}, {título} e {data}."), x0, 96.0, 11.0, false, grey);
-    // A aparência.
-    let lx = sx + 18.0 + ui.text_width(tr!("Distância da borda (cm):"), 12.0, false).max(ui.text_width(tr!("Recuo nas laterais (cm):"), 12.0, false)) + 10.0;
-    rlabel(ui, tr!("Letra:"), lx - 8.0, 110.0);
+    let hint = ui.fonts.ellipsize(tr!("Campos: {página}, {páginas}, {título} e {data}."), 11.0, false, sw - 36.0);
+    ui.fonts.draw(ui.c, &hint, x0, 96.0, 11.0, false, grey);
+    // A aparência: rótulos à direita de uma coluna estreita.
+    let labels = [tr!("Letra:"), tr!("Estilo:"), tr!("Cor:"), tr!("Da borda (cm):"), tr!("Recuo (cm):")];
+    let lw = labels.iter().map(|l| ui.text_width(l, 12.0, false)).fold(0.0, f32::max);
+    let lx = x0 + lw + 10.0;
+    let rw = (sx + sw - 18.0 - lx).max(120.0);
+    for (i, l) in labels.iter().enumerate() {
+        rlabel(ui, l, lx - 8.0, 110.0 + i as f32 * 30.0);
+    }
     let names: Vec<String> = f.families.iter().map(|n| if n.is_empty() { tr!("A mesma do texto").to_string() } else { n.clone() }).collect();
     let sizes: Vec<String> = SIZES.iter().map(|s| format!("{} pt", *s as u32)).collect();
     let colors: Vec<String> = [tr!("Cinza"), tr!("Preto"), tr!("Azul-escuro"), tr!("Vinho"), tr!("Verde-escuro")].iter().map(|s| s.to_string()).collect();
     let (mut fam, mut size, mut color) = (f.family, f.size, f.color);
     let (mut bold, mut italic, mut line, mut tp) = (f.hf.bold, f.hf.italic, f.hf.line, f.title_page);
-    let rw = sx + sw - 18.0 - lx;
+    let size_w = 74.0;
+    let fam_w = (rw - size_w - 8.0).clamp(90.0, 220.0);
     ui.area(Rect::new(lx, 108.0, rw, 24.0), |ui| {
         ui.horizontal(|ui| {
-            ui.popup(&mut fam, &names, 200.0);
+            ui.popup(&mut fam, &names, fam_w);
             ui.spacing(8.0);
-            ui.popup(&mut size, &sizes, 74.0);
+            ui.popup(&mut size, &sizes, size_w);
         });
     });
-    rlabel(ui, tr!("Cor:"), lx - 8.0, 142.0);
-    ui.area(Rect::new(lx, 140.0, rw, 24.0), |ui| {
+    ui.area(Rect::new(lx, 140.0, rw, 22.0), |ui| {
         ui.horizontal(|ui| {
-            ui.popup(&mut color, &colors, 130.0);
-            ui.spacing(14.0);
             ui.checkbox(&mut bold, tr!("Negrito"));
-            ui.spacing(6.0);
+            ui.spacing(10.0);
             ui.checkbox(&mut italic, tr!("Itálico"));
         });
     });
-    rlabel(ui, tr!("Distância da borda (cm):"), lx - 8.0, 174.0);
-    ui.text_field_in(Rect::new(lx, 172.0, 60.0, 22.0), &mut f.offset, false);
-    ui.fonts.draw(ui.c, tr!("vazio: no meio da margem"), lx + 68.0, 188.0, 11.0, false, grey);
-    rlabel(ui, tr!("Recuo nas laterais (cm):"), lx - 8.0, 204.0);
-    ui.text_field_in(Rect::new(lx, 202.0, 60.0, 22.0), &mut f.indent, false);
-    ui.area(Rect::new(lx, 232.0, rw, 44.0), |ui| {
+    ui.area(Rect::new(lx, 168.0, rw, 24.0), |ui| {
+        ui.popup(&mut color, &colors, rw.min(150.0));
+    });
+    ui.text_field_in(Rect::new(lx, 198.0, 60.0, 22.0), &mut f.offset, false);
+    ui.text_field_in(Rect::new(lx, 228.0, 60.0, 22.0), &mut f.indent, false);
+    // O que cada distância quer dizer, ao lado (se couber) ou cortado.
+    let side = rw - 70.0;
+    for (y, t) in [(214.0, tr!("vazio: no meio da margem")), (244.0, tr!("além das margens"))] {
+        if side > 40.0 {
+            let t = ui.fonts.ellipsize(t, 11.0, false, side);
+            ui.fonts.draw(ui.c, &t, lx + 68.0, y, 11.0, false, grey);
+        }
+    }
+    ui.area(Rect::new(x0, 262.0, sw - 36.0, 44.0), |ui| {
         ui.checkbox(&mut line, tr!("Fio separando do texto"));
-        ui.checkbox(&mut tp, tr!("Primeira página diferente (capa sem cabeçalho e rodapé)"));
+        ui.checkbox(&mut tp, tr!("Capa sem cabeçalho e rodapé"));
     });
     f.family = fam;
     f.size = size;

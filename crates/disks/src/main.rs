@@ -729,7 +729,8 @@ impl Disks {
                     ui.c.fill_rect(seg.x + 4.0, seg.y + seg.h - 8.0, (seg.w - 8.0) * f, 4.0, &solid(if f > 0.9 { rgba(230, 70, 60, 255) } else { rgba(30, 40, 80, 200) }));
                 }
             }
-            let ink = if free { rgba(80, 80, 86, 255) } else { Color::WHITE };
+            // Texto escuro sobre o gel (o branco no azul claro era ruim de ler).
+            let ink = if free { rgba(80, 80, 86, 255) } else { rgba(16, 18, 28, 255) };
             let t = ui.fonts.ellipsize(&title, 11.0, true, seg.w - 10.0);
             ui.fonts.draw(ui.c, &t, seg.x + 6.0, seg.y + seg.h / 2.0 - 2.0, 11.0, true, ink);
             let s = ui.fonts.ellipsize(&sub, 10.0, false, seg.w - 10.0);

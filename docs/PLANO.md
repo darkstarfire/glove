@@ -1204,10 +1204,13 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   sem reflexo), o Arquivos (barra lateral translúcida), menus (cantos arredondados, realce
   arredondado), botões, listas, campos, abas, barras de rolagem finas e a central de controle; o
   Escuro em cinza-grafite com o texto claro. Escolha em Preferências › Aparência.
-- [ ] 21.3 Janela do cabeçalho do Editor de Texto (P): em janelas estreitas os rótulos e os textos
-  passam das bordas da folha; refazer o layout para caber em qualquer largura.
-- [ ] 21.4 Zoom no Visualizador e na captura (M): Ctrl + roda do mouse aumenta e diminui; controle de
-  zoom visível; com a imagem maior que a área, as barras de rolagem em gel; o zoom nunca distorce a
-  imagem (mantém a proporção), também desenhando por cima.
-- [ ] 21.5 Discos: no volume escolhido do mapa (gel azul), o texto em preto (o branco é ruim de ler).
-- [ ] 21.6 Ícone do Xadrez (P): era uma torre com defeitos; desenhar um peão e atualizar o glove-icons.
+- [x] 21.3 Janela do cabeçalho do Editor de Texto (P) — v0.12.68: rótulos curtos numa coluna medida,
+  os controles encolhem com a folha e as explicações vão ao lado só se couberem (cortadas com "…");
+  testado com a janela no tamanho mínimo.
+- [x] 21.4 Zoom no Visualizador e na captura (M) — v0.12.68 (glove-ui 0.2.40): Ctrl + roda aumenta e
+  diminui em volta do ponteiro (o ponto embaixo dele fica no lugar), sempre com a mesma escala nos
+  dois eixos; Shift + roda vai para os lados; maior que a área, aparecem as barras de rolagem em gel
+  (`Ui::vscrollbar_in` e `hscrollbar`, ligadas ao mesmo deslocamento do arrasto). Vale desenhando.
+- [x] 21.5 Discos (P) — v0.12.68: o nome e o tamanho dos volumes no mapa (gel azul) em texto escuro.
+- [x] 21.6 Ícone do Xadrez (P) — v0.12.68: o peão torneado (pé, base, anel, corpo, colarinho e a
+  cabeça redonda) no lugar da torre com defeitos; o glove-icons foi regenerado.
