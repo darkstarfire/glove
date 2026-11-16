@@ -79,7 +79,8 @@ and the installer and ISO still need testing on real computers. How to use each 
 - On Glove OS, Firefox ships with the **Glove theme** (brushed metal, all three window buttons)
 - **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes; icons from the **Glove**
   PNG icon theme (the default, generated from Glove's drawings and published as glove-icons; lighter
-  than drawing them at run time) or another system theme
+  than drawing them at run time), **Mide** (modern icons from the Mide project, light and dark,
+  included) or another system theme
 - **Reduce effects** (Preferences ▸ Appearance), for simpler computers
 - Redraws only what changed: 0% CPU when idle
 

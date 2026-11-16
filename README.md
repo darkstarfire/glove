@@ -76,7 +76,8 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - No Glove OS, o Firefox vem com o **tema do Glove** (metal escovado, os três botões da janela)
 - Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**; ícones pelo tema **Glove** em
   arquivos PNG (o padrão, gerado dos desenhos do Glove e publicado no glove-icons; mais leve que
-  desenhar na hora) ou outro tema do sistema
+  desenhar na hora), o **Mide** (ícones modernos do projeto Mide, em claro e escuro, que já vêm
+  junto) ou outro tema do sistema
 - **Reduzir efeitos** (Preferências ▸ Aparência), para computadores mais simples
 - Redesenha só o que mudou: 0% de CPU parado
 

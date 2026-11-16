@@ -582,3 +582,12 @@ Notes:
 | Space (Files) | Quick Look |
 | Ctrl+T / Ctrl+Shift+T | New tab (Files / Text Editor and Terminal) |
 | Ctrl+Page Up / Page Down | Previous / next tab |
+
+## Modern icons (Mide)
+
+In **Preferences › Appearance › Icons**, besides Glove's own theme (the default, period look), there
+are the **Mide** icons: **Mide**, **Mide Claro** (light) and **Mide Escuro** (dark), more modern,
+drawn by the Mide project (based on WhiteSur, with no Apple artwork). They come with Glove OS and
+arrive with updates (the `glove-icones-mide` package). Glove's apps use Mide's own drawings when it
+has one (Files, Terminal, Text Editor, Preferences…).
+

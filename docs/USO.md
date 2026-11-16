@@ -588,3 +588,12 @@ Observações:
 | Espaço (Arquivos) | Olhada Rápida |
 | Ctrl+T / Ctrl+Shift+T | Nova aba (Arquivos / Editor e Terminal) |
 | Ctrl+Page Up / Page Down | Aba anterior / próxima |
+
+## Ícones modernos (Mide)
+
+Em **Preferências › Aparência › Ícones**, além do tema do Glove (o padrão, da época), há os ícones do
+**Mide**: **Mide**, **Mide Claro** e **Mide Escuro**, mais modernos, desenhados pelo projeto Mide (a
+partir do WhiteSur, sem arte da Apple). Eles já vêm no Glove OS e chegam pelas atualizações (pacote
+`glove-icones-mide`). Os apps do Glove usam os desenhos do Mide quando ele tem um próprio (Arquivos,
+Terminal, Editor de Texto, Preferências…).
+

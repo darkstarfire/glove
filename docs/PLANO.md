@@ -1180,9 +1180,34 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   `PageNumber` (no alto/embaixo, alinhamento, 5 formatos, início, primeira folha) e `TocOptions`
   (título, nível, páginas) são novos. No RTF: `\*\glovestyle`, `\*\glovepagenum`, `\*\glovetoc`
   (exatos para o Editor) e, para o Word, o número entra como campo PAGE no cabeçalho ou rodapé.
-- [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
-  apps (escolha em Aparência), sem perder o visual da época.
+- [→] 20.14 Variante escura (G): passou para a Fase 21 (Moderno Escuro).
 - [~] 20.15 Papéis de parede em gel, 4K — feitos na v0.12.58 (gerados pelo `glove-arte`, pacote
   glove-papeis) e retirados na v0.12.61: não ficaram bons; fica só o papel original do Glove OS. O
   glove-os tem `Conflicts: glove-papeis` (a atualização remove o pacote) e quem estava com um deles
   volta para o original (glove-ui 0.2.36).
+
+## Fase 21 — Aparência Moderna e ícones do Mide (pedido de 15/11/2026)
+
+O visual da época (Tiger) continua o padrão. Para quem quiser algo mais atual, uma aparência
+**Moderno**, em **Moderno Claro** e **Moderno Escuro**, inspirada na geração de 2021 do sistema da
+maçã (leve e moderna perto dos originais, mas sem chegar ao visual mais novo, que é o do Mide: o
+Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na interface.
+
+- [x] 21.1 Ícones do Mide nativos (M) — v0.12.67: o pacote `glove-icones-mide` (o mide-icons, fork do
+  WhiteSur sem arte da Apple, num commit fixo; temas Mide, Mide Claro e Mide Escuro, em SVG) é gerado
+  na CI, vai na ISO e é recomendado pelo glove e pelo glove-os (vem junto nas atualizações). Em
+  Preferências › Aparência, como alternativa moderna aos ícones do Glove; nos apps do Glove, o tema
+  usa os desenhos próprios do Mide (`mide-files`, `mide-terminal`…) antes dos nomes freedesktop.
+- [ ] 21.2 Aparência Moderno Claro e Moderno Escuro (G): restiliza tudo o que o Glove desenha —
+  janelas (barra de título lisa e mais alta, cantos mais arredondados, botões de semáforo planos,
+  sombra maior e suave), a barra de menu (translúcida, sem gel), o Dock (prateleira de vidro fosco,
+  sem reflexo), o Arquivos (barra lateral translúcida), menus (cantos arredondados, realce
+  arredondado), botões, listas, campos, abas, barras de rolagem finas e a central de controle; o
+  Escuro em cinza-grafite com o texto claro. Escolha em Preferências › Aparência.
+- [ ] 21.3 Janela do cabeçalho do Editor de Texto (P): em janelas estreitas os rótulos e os textos
+  passam das bordas da folha; refazer o layout para caber em qualquer largura.
+- [ ] 21.4 Zoom no Visualizador e na captura (M): Ctrl + roda do mouse aumenta e diminui; controle de
+  zoom visível; com a imagem maior que a área, as barras de rolagem em gel; o zoom nunca distorce a
+  imagem (mantém a proporção), também desenhando por cima.
+- [ ] 21.5 Discos: no volume escolhido do mapa (gel azul), o texto em preto (o branco é ruim de ler).
+- [ ] 21.6 Ícone do Xadrez (P): era uma torre com defeitos; desenhar um peão e atualizar o glove-icons.
