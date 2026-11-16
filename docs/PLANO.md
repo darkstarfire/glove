@@ -1198,12 +1198,22 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   na CI, vai na ISO e é recomendado pelo glove e pelo glove-os (vem junto nas atualizações). Em
   Preferências › Aparência, como alternativa moderna aos ícones do Glove; nos apps do Glove, o tema
   usa os desenhos próprios do Mide (`mide-files`, `mide-terminal`…) antes dos nomes freedesktop.
-- [ ] 21.2 Aparência Moderno Claro e Moderno Escuro (G): restiliza tudo o que o Glove desenha —
-  janelas (barra de título lisa e mais alta, cantos mais arredondados, botões de semáforo planos,
-  sombra maior e suave), a barra de menu (translúcida, sem gel), o Dock (prateleira de vidro fosco,
-  sem reflexo), o Arquivos (barra lateral translúcida), menus (cantos arredondados, realce
-  arredondado), botões, listas, campos, abas, barras de rolagem finas e a central de controle; o
-  Escuro em cinza-grafite com o texto claro. Escolha em Preferências › Aparência.
+- [x] 21.2 Aparência Moderno Claro e Moderno Escuro (G) — v0.12.69 (glove-ui 0.2.41): duas variantes
+  novas (`Variant::Moderno`/`ModernoEscuro`) com a paleta delas (`Theme::modernize`: texto, listas,
+  controles, separadores) e um estilo global do processo (`theme::set_style`, ligado onde o tema
+  principal é montado, para os desenhos que não recebem o tema). Restilizados: barra de título lisa
+  (cantos de 10, semáforo plano, título sem relevo), sombras maiores e macias, barra de menu
+  translúcida com realce arredondado, menus arredondados com o realce por dentro, Dock em vidro fosco
+  arredondado com o pontinho, o Arquivos sem metal, e no kit: `gel_rect`/`gel_circle` lisos (todos os
+  botões, caixas, rádios, teclas e pílulas de uma vez), barra de progresso fina, barras de rolagem
+  finas sem setas, segmentados lisos, texto branco no botão principal. Nas janelas dos apps (só
+  nelas, nunca nos ícones nem nas imagens), os degradês cinza-claros fixos viram lisos e, no Escuro,
+  o texto escuro clareia e os fundos e degradês cinza-claros escurecem (`Canvas::dark_remap`,
+  `draw::set_grad_remap`), o que vale para os apps sem mexer em cada um.
+  - [ ] 21.2.1 Revisar app por app no Escuro (cores vivas e cinzas médios fixos que o remapeamento
+    não pega: a mesa do Discos, a grade das Preferências, os painéis do Painel de Widgets).
+  - [ ] 21.2.2 Campos de texto e listas suspensas com o anel de foco do moderno; abas lisas.
+  - [ ] 21.2.3 Central de controle, Busca Rápida, avisos e a grade de apps nas cores modernas.
 - [x] 21.3 Janela do cabeçalho do Editor de Texto (P) — v0.12.68: rótulos curtos numa coluna medida,
   os controles encolhem com a folha e as explicações vão ao lado só se couberem (cortadas com "…");
   testado com a janela no tamanho mínimo.

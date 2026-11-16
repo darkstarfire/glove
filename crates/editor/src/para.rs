@@ -101,7 +101,7 @@ impl Editor {
         let col = self.view.column_width();
         let right_edge = w - glove_ui::SCROLLBAR_W;
         // Faixa da coluna de texto (branca), como no TextEdit.
-        ui.c.fill_rect(x0, y + 3.0, (col * z).min(right_edge - x0), h - 8.0, &solid(rgba(255, 255, 255, 170)));
+        ui.c.fill_rect(x0, y + 3.0, (col * z).min(right_edge - x0), h - 8.0, &solid(if ui.theme.dark { rgba(74, 74, 78, 255) } else { rgba(255, 255, 255, 170) }));
         // Centímetros, com o meio centímetro mais curto.
         let cm = CM * z;
         let ink = rgba(90, 90, 96, 255);

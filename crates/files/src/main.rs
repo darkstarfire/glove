@@ -1215,9 +1215,16 @@ impl Files {
     fn toolbar(&mut self, ui: &mut Ui) {
         let w = ui.c.w;
         // Continua o degradê do título em metal (o Glove desenha o título deste app em metal).
-        let metal = Theme::new(Variant::Metal);
-        ui.c.brushed_metal(0.0, 0.0, w, TOOLBAR_H, metal.metal_bottom, darken(metal.metal_bottom, 0.03));
-        ui.c.metal_sheen(0.0, 0.0, w, TOOLBAR_H, w);
+        if ui.theme.modern {
+            // Moderno: a barra continua lisa, da cor do título (uma peça só com ele).
+            let fill = if ui.theme.dark { rgba(54, 54, 58, 255) } else { rgba(232, 232, 235, 255) };
+            ui.c.fill_rect(0.0, 0.0, w, TOOLBAR_H, &solid(fill));
+            ui.c.hline(0.0, TOOLBAR_H - 1.0, w, ui.theme.separator);
+        } else {
+            let metal = Theme::new(Variant::Metal);
+            ui.c.brushed_metal(0.0, 0.0, w, TOOLBAR_H, metal.metal_bottom, darken(metal.metal_bottom, 0.03));
+            ui.c.metal_sheen(0.0, 0.0, w, TOOLBAR_H, w);
+        }
         let cy = (TOOLBAR_H - SEGMENT_H) / 2.0;
         // Voltar / Avançar: segmentado momentâneo, apagado quando não há para onde ir.
         let nav = [!self.back.is_empty(), !self.forward.is_empty()];
@@ -1699,9 +1706,14 @@ impl Files {
 
     fn status(&mut self, ui: &mut Ui, y: f32) {
         let w = ui.c.w;
-        let metal = Theme::new(Variant::Metal);
-        ui.c.brushed_metal(0.0, y, w, BOTTOM_H, darken(metal.metal_bottom, 0.04), darken(metal.metal_bottom, 0.07));
-        ui.c.metal_sheen(0.0, y, w, BOTTOM_H, w);
+        if ui.theme.modern {
+            ui.c.fill_rect(0.0, y, w, BOTTOM_H, &solid(ui.theme.body_a));
+            ui.c.hline(0.0, y, w, ui.theme.separator);
+        } else {
+            let metal = Theme::new(Variant::Metal);
+            ui.c.brushed_metal(0.0, y, w, BOTTOM_H, darken(metal.metal_bottom, 0.04), darken(metal.metal_bottom, 0.07));
+            ui.c.metal_sheen(0.0, y, w, BOTTOM_H, w);
+        }
         let cur = self.current();
         let n = self.list(&cur).map(|v| v.len()).unwrap_or(0);
         let chosen = self.all_selected().iter().filter(|s| s.parent() == Some(cur.as_path())).count();
@@ -2638,10 +2650,16 @@ impl App for Files {
         let x0 = if self.bare { PANE_M } else { SIDEBAR_W + PANE_GAP / 2.0 };
         let strips: Vec<(f32, f32)> = if self.bare { vec![(0.0, PANE_M), (w - PANE_M, PANE_M)] } else { vec![(0.0, PANE_M), (SIDEBAR_W - PANE_GAP / 2.0, PANE_GAP), (w - PANE_M, PANE_M)] };
         for (sx, sw) in strips {
-            ui.c.brushed_metal(sx, top, sw, body_h, mt, mb);
-            ui.c.metal_sheen(sx, top, sw, body_h, w);
+            if ui.theme.modern {
+                ui.c.fill_rect(sx, top, sw, body_h, &solid(ui.theme.body_a));
+            } else {
+                ui.c.brushed_metal(sx, top, sw, body_h, mt, mb);
+                ui.c.metal_sheen(sx, top, sw, body_h, w);
+            }
         }
-        ui.c.brushed_metal(0.0, top + body_h - 1.0, w, 1.0, mb, mb);
+        if !ui.theme.modern {
+            ui.c.brushed_metal(0.0, top + body_h - 1.0, w, 1.0, mb, mb);
+        }
         let side_r = Rect::new(PANE_M, top, (side_w - PANE_M - PANE_GAP / 2.0).max(0.0), body_h - 1.0);
         if !self.bare {
             self.sidebar(ui, side_r);

@@ -709,7 +709,7 @@ impl Prefs {
         let mut v = Variant::ALL.iter().position(|v| v.id() == self.config.theme).unwrap_or(0);
         ui.form_row(tr!("Aparência"), LW, |ui| {
             ui.horizontal(|ui| {
-                if ui.popup(&mut v, &names, 130.0) {
+                if ui.popup(&mut v, &names, 160.0) {
                     self.config.theme = Variant::ALL[v].id().into();
                     self.save();
                 }

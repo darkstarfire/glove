@@ -226,6 +226,7 @@ impl Glove {
         let config = Config::load();
         glove_paint::icons::set_theme(&config.appearance.icon_theme);
         let theme = Theme::new(Variant::from_config(&config.theme));
+        glove_paint::theme::set_style(&theme);
         let fonts = Fonts::load_system().expect("nenhuma fonte encontrada (instale fonts-dejavu)");
 
         Self {
@@ -404,6 +405,7 @@ impl Glove {
         glove_paint::icons::set_theme(&self.config.appearance.icon_theme);
         if old.theme != self.config.theme || old.wallpaper != self.config.wallpaper || old.appearance.icon_theme != self.config.appearance.icon_theme {
             self.theme = Theme::new(Variant::from_config(&self.config.theme));
+            glove_paint::theme::set_style(&self.theme);
             self.theme_gen += 1;
         }
         if old.keyboard != self.config.keyboard {

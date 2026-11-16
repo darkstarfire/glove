@@ -77,7 +77,8 @@ and the installer and ISO still need testing on real computers. How to use each 
 - Glove's Open/Save sheet also for other apps (FileChooser portal: Firefox, Chromium…)
 - **AppImage** with a double click: runs it, or installs it by dragging the icon onto Applications
 - On Glove OS, Firefox ships with the **Glove theme** (brushed metal, all three window buttons)
-- **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes; icons from the **Glove**
+- **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes, plus the **Modern
+  Light** and **Modern Dark** appearance (flat, rounded, with dark mode); icons from the **Glove**
   PNG icon theme (the default, generated from Glove's drawings and published as glove-icons; lighter
   than drawing them at run time), **Mide** (modern icons from the Mide project, light and dark,
   included) or another system theme

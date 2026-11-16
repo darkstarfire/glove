@@ -600,3 +600,11 @@ partir do WhiteSur, sem arte da Apple). Eles já vêm no Glove OS e chegam pelas
 `glove-icones-mide`). Os apps do Glove usam os desenhos do Mide quando ele tem um próprio (Arquivos,
 Terminal, Editor de Texto, Preferências…).
 
+## Aparência Moderna (Claro e Escuro)
+
+Em **Preferências › Aparência › Aparência**, além dos temas da época (Claro, Listras, Metal e Grafite,
+o padrão continua o Claro), há o **Moderno Claro** e o **Moderno Escuro**: janelas lisas de cantos
+arredondados, botões de fechar, minimizar e ampliar planos, barra de menu translúcida, menus
+arredondados, Dock de vidro fosco, botões e caixas lisos e barras de rolagem finas. O Escuro deixa as
+janelas em grafite com o texto claro. Combina com os ícones do Mide (Mide Claro e Mide Escuro).
+

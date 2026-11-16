@@ -74,7 +74,8 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - Janela Abrir/Salvar do Glove também para outros apps (portal FileChooser: Firefox, Chromium…)
 - **AppImage** com dois cliques: abre ou instala arrastando o ícone para Aplicativos
 - No Glove OS, o Firefox vem com o **tema do Glove** (metal escovado, os três botões da janela)
-- Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**; ícones pelo tema **Glove** em
+- Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**, e a aparência **Moderno Claro**
+  e **Moderno Escuro** (lisa, arredondada, com o modo escuro); ícones pelo tema **Glove** em
   arquivos PNG (o padrão, gerado dos desenhos do Glove e publicado no glove-icons; mais leve que
   desenhar na hora), o **Mide** (ícones modernos do projeto Mide, em claro e escuro, que já vêm
   junto) ou outro tema do sistema

@@ -1178,7 +1178,8 @@ impl DocView {
         let sel_color = if active { rgba(181, 213, 255, 255) } else { rgba(212, 212, 216, 255) };
         if self.page_mode {
             // Mesa cinza e as folhas brancas com sombra.
-            c.fill_rect(0.0, 0.0, view_w, view_h, &solid(rgba(150, 152, 158, 255)));
+            let desk = if glove_ui::paint::theme::dark() { rgba(24, 24, 26, 255) } else { rgba(150, 152, 158, 255) };
+            c.fill_rect(0.0, 0.0, view_w, view_h, &solid(desk));
             let (pw, ph) = (self.page.width * z, self.page.height * z);
             let px = self.page_x * z - hscroll;
             for k in 0..self.pages {

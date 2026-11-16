@@ -2240,7 +2240,8 @@ impl Glove {
                 // Janelas "unificadas" do Tiger (o Arquivos): título em metal escovado,
                 // emendado na barra de ferramentas do app, em qualquer tema.
                 let metal;
-                let theme = if UNIFIED_APPS.contains(&app_id.as_str()) {
+                // No moderno, todas as janelas são lisas (sem o metal).
+                let theme = if UNIFIED_APPS.contains(&app_id.as_str()) && !self.theme.modern {
                     metal = Theme::new(Variant::Metal);
                     &metal
                 } else {

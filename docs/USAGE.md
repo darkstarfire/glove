@@ -594,3 +594,11 @@ drawn by the Mide project (based on WhiteSur, with no Apple artwork). They come 
 arrive with updates (the `glove-icones-mide` package). Glove's apps use Mide's own drawings when it
 has one (Files, Terminal, Text Editor, Preferences…).
 
+## Modern appearance (Light and Dark)
+
+In **Preferences › Appearance › Appearance**, besides the period themes (Light, Pinstripes, Metal and
+Graphite; Light is still the default), there are **Modern Light** and **Modern Dark**: flat windows
+with rounded corners, flat close, minimize and zoom buttons, a translucent menu bar, rounded menus, a
+frosted-glass Dock, flat buttons and checkboxes and thin scroll bars. Dark turns windows graphite with
+light text. It goes well with the Mide icons (Mide Claro and Mide Escuro).
+
