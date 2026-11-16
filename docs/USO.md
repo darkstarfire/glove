@@ -251,9 +251,18 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   aparece a barra de rolagem de baixo. A barra também mostra a página e as palavras.
 - **Páginas**: Visualizar > Modo Página (Ctrl+Shift+W) e Zoom; Arquivo > Configurar
   Página (Ctrl+Shift+P: papel, orientação, margens); Inserir > Quebra de Página (Ctrl+Enter).
-- **Cabeçalho, rodapé e notas**: Formatar > Cabeçalho e Rodapé… (campos {página},
-  {páginas}, {título}, {data}; primeira página diferente); Inserir > Número de Página;
-  Inserir > Nota de Rodapé… (Ctrl+Alt+N; clique duplo na marca edita a nota).
+- **Cabeçalho, rodapé, número de página e sumário** são elementos da folha, que você põe ou tira
+  pelo menu **Inserir** (ficam marcados quando existem) e configura com **duplo clique** em cima
+  deles:
+  - **Cabeçalho…** e **Rodapé…**: texto à esquerda, no centro e à direita (campos {página},
+    {páginas}, {título} e {data}), a letra, o tamanho, negrito e itálico, a cor, a distância da borda
+    da folha, o recuo nas laterais, um fio separando do texto e a primeira página diferente (capa).
+    **Remover** tira o elemento.
+  - **Número de Página…**: no alto ou embaixo, à esquerda, no centro ou à direita, o formato ("1",
+    "Página 1", "Página 1 de 3"…), o número da primeira folha e se aparece nela.
+  - **Sumário…**: o título, até que nível entra (capítulos, seções, subseções) e se mostra as
+    páginas; com ele no documento, a mesma janela atualiza ou remove.
+- **Notas**: Inserir > Nota de Rodapé… (Ctrl+Alt+N; clique duplo na marca edita a nota).
 - **Tabelas**: Inserir > Tabela…; Tab vai de célula em célula (na última cria uma linha);
   arraste a borda entre colunas; Formatar > Tabela para linhas, colunas, juntar/separar
   células, bordas e larguras iguais.
@@ -261,7 +270,7 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   documento. Ela fica na linha do texto (centralize o parágrafo para centralizar a imagem);
   clique nela para selecionar e puxe o canto para mudar o tamanho. Vai junto no RTF, no
   PDF e na impressão.
-- **Sumário**: Inserir > Sumário (dos capítulos e seções, com as páginas) e Atualizar Sumário.
+- **Sumário**: Inserir > Sumário… (dos capítulos e seções, com as páginas) e Atualizar Sumário.
 - **ABNT**: Arquivo > Novo com Modelo ABNT, ou Formatar > Aplicar Formatação ABNT (A4,
   margens 3/2 cm, Times 12, 1,5, recuo de 1,25 cm, número da página em cima à direita,
   capa sem número).

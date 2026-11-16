@@ -248,9 +248,17 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   Enter on an empty item ends the list.
 - **Pages**: View > Page Mode (Ctrl+Shift+W) and Zoom; File > Page Setup (Ctrl+Shift+P);
   Insert > Page Break (Ctrl+Enter).
-- **Header, footer and notes**: Format > Header and Footer… ({página}, {páginas},
-  {título}, {data}; different first page); Insert > Page Number; Insert > Footnote…
-  (Ctrl+Alt+N; double-click the mark to edit).
+- **Header, footer, page number and table of contents** are page elements you add or remove from
+  the **Insert** menu (checked when present) and set up with a **double-click** on them:
+  - **Header…** and **Footer…**: text on the left, center and right ({página}, {páginas}, {título}
+    and {data} fields), the font, size, bold and italic, color, distance from the page edge, side
+    inset, a rule separating it from the text and a different first page (cover). **Remove** takes
+    it out.
+  - **Page Number…**: top or bottom, left, center or right, the format ("1", "Page 1", "Page 1 of
+    3"…), the first page's number and whether it shows on it.
+  - **Table of Contents…**: the title, how deep it goes (chapters, sections, subsections) and whether
+    it shows page numbers; with one in the document, the same window updates or removes it.
+- **Notes**: Insert > Footnote… (Ctrl+Alt+N; double-click the mark to edit).
 - **Tables**: Insert > Table…; Tab moves between cells (adds a row at the end); drag column
   borders; Format > Table for rows, columns, merge/split, borders and equal widths.
 - **Zoom**: in the bar at the bottom of the window, − and + and the percentage menu (in page
@@ -260,7 +268,7 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - **Images**: Insert > Image… (PNG, JPEG or WebP) or drag the image into the document. It
   sits on the text line (center the paragraph to center it); click it to select and drag the
   corner to resize. It goes along in the RTF, the PDF and printing.
-- **Table of contents**: Insert > Table of Contents and Update.
+- **Table of contents**: Insert > Table of Contents… and Update Table of Contents.
 - **ABNT** (Brazilian academic standard): File > New with ABNT Template, or Format > Apply
   ABNT Formatting.
 - **Print and export**: Print (Ctrl+P) uses the laid-out pages; File > Export as PDF (vector,

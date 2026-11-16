@@ -3,6 +3,7 @@
 //! cores, estilos de caractere e de parágrafo, papel e margens) e pula com
 //! segurança o resto (imagens, campos, informações…).
 
+use glove_config::tr;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::rc::Rc;
@@ -358,13 +359,29 @@ pub fn write(doc: &Doc) -> String {
         out.push_str("\\titlepg\n");
     }
     let col = pg.width - pg.margin_left - pg.margin_right;
+    let pn = &doc.page_num;
     for (word, hf) in [("header", &doc.header), ("footer", &doc.footer)] {
-        if hf.is_empty() {
+        let pn_here = pn.on && pn.top == (word == "header");
+        if hf.is_empty() && !pn_here {
             continue;
         }
-        // O do Word: esquerda, centro e direita separados por tabulações.
-        let _ = write!(out, "{{\\{word}\\pard\\plain\\tqc\\tx{}\\tqr\\tx{}\\f0\\fs20 ", tw(col / 2.0), tw(col));
-        for (k, part) in [&hf.left, &hf.center, &hf.right].iter().enumerate() {
+        // O do Word: esquerda, centro e direita separados por tabulações (o número de
+        // página entra como campo no lugar dele).
+        let mut parts = [hf.left.clone(), hf.center.clone(), hf.right.clone()];
+        if pn_here {
+            let num = match pn.format {
+                1 => tr!("Página {}", "{página}"),
+                2 => tr!("Página {} de {}", "{página}", "{páginas}"),
+                3 => "{página} / {páginas}".to_string(),
+                4 => "– {página} –".to_string(),
+                _ => "{página}".to_string(),
+            };
+            let slot = &mut parts[pn.align.min(2) as usize];
+            *slot = if slot.trim().is_empty() { num } else { format!("{slot}  {num}") };
+        }
+        let fs = (hf.size * 2.0).round() as i32;
+        let _ = write!(out, "{{\\{word}\\pard\\plain\\tqc\\tx{}\\tqr\\tx{}\\f0\\fs{fs}{}{} ", tw(col / 2.0), tw(col), if hf.bold { "\\b" } else { "" }, if hf.italic { "\\i" } else { "" });
+        for (k, part) in parts.iter().enumerate() {
             if k > 0 {
                 out.push_str("\\tab ");
             }
@@ -378,6 +395,16 @@ pub fn write(doc: &Doc) -> String {
             escape(&mut out, part);
             out.push('}');
         }
+        let _ = write!(out, "{{\\*\\glovestyle ");
+        escape(&mut out, &hf.encode_style());
+        out.push_str("}}\n");
+    }
+    if pn.on {
+        let _ = write!(out, "{{\\*\\glovepagenum {}}}\n", pn.encode());
+    }
+    if doc.toc != crate::rich::TocOptions::default() {
+        out.push_str("{\\*\\glovetoc ");
+        escape(&mut out, &doc.toc.encode());
         out.push_str("}\n");
     }
     out.push_str(&body);
@@ -476,7 +503,9 @@ struct Reader {
     listtext: String,
     list_numbered: Option<bool>,
     ilvl: u8,
-    hf: [[String; 3]; 2],
+    /// O do Editor: cabeçalho e rodapé (esquerda, centro, direita, aparência), o número
+    /// de página e as opções do sumário.
+    hf: [[String; 4]; 4],
     title_page: bool,
     /// Tabelas: o parágrafo atual está numa célula; a tabela, linha e coluna atuais;
     /// os limites das células da linha (\\cellx) e os de cada linha lida.
@@ -601,6 +630,8 @@ pub struct Read {
     pub footer: HeaderFooter,
     pub title_page: bool,
     pub tables: HashMap<u32, TableProps>,
+    pub page_num: crate::rich::PageNumber,
+    pub toc: crate::rich::TocOptions,
 }
 
 pub fn read(src: &[u8]) -> Result<Read, String> {
@@ -839,8 +870,16 @@ pub fn read(src: &[u8]) -> Result<Read, String> {
         }
         tables.insert(t, TableProps { widths, borders: r.table_borders.contains(&t) });
     }
-    let hf = |a: &[String; 3]| HeaderFooter { left: a[0].clone(), center: a[1].clone(), right: a[2].clone() };
-    Ok(Read { header: hf(&r.hf[0]), footer: hf(&r.hf[1]), paras: r.paras, page: r.page, notes: r.notes, title_page: r.title_page, tables })
+    let hf = |a: &[String; 4]| {
+        let mut h = HeaderFooter { left: a[0].clone(), center: a[1].clone(), right: a[2].clone(), ..HeaderFooter::default() };
+        if !a[3].trim().is_empty() {
+            h.decode_style(&a[3]);
+        }
+        h
+    };
+    let page_num = if r.hf[2][0].trim().is_empty() { crate::rich::PageNumber::default() } else { crate::rich::PageNumber::decode(&r.hf[2][0]) };
+    let toc = if r.hf[3][0].trim().is_empty() { crate::rich::TocOptions::default() } else { crate::rich::TocOptions::decode(&r.hf[3][0]) };
+    Ok(Read { header: hf(&r.hf[0]), footer: hf(&r.hf[1]), paras: r.paras, page: r.page, notes: r.notes, title_page: r.title_page, tables, page_num, toc })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -881,14 +920,19 @@ fn control(r: &mut Reader, st: &mut State, word: &str, param: Option<i32>, first
                 st.dest = Dest::Hf(u8::from(word == "glovefooter"));
                 return;
             }
-            "gloveleft" | "glovecenter" | "gloveright" => {
+            "gloveleft" | "glovecenter" | "gloveright" | "glovestyle" => {
                 if let Dest::Hf(w) = st.dest {
                     st.dest = Dest::HfPart(w, match word {
                         "gloveleft" => 0,
                         "glovecenter" => 1,
-                        _ => 2,
+                        "gloveright" => 2,
+                        _ => 3,
                     });
                 }
+                return;
+            }
+            "glovepagenum" | "glovetoc" => {
+                st.dest = Dest::HfPart(if word == "glovepagenum" { 2 } else { 3 }, 0);
                 return;
             }
             "info" | "nonshppict" | "object" | "header" | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "listtable" | "listoverridetable" | "revtbl" | "pntext" | "pn" | "xmlnstbl" | "rsidtbl" | "generator" | "fldinst" | "themedata" | "colorschememapping" | "latentstyles" | "datastore" | "bkmkstart" | "bkmkend" => {
@@ -1131,6 +1175,8 @@ pub fn read_doc(src: &[u8]) -> Result<Doc, String> {
     d.footer = r.footer;
     d.title_page = r.title_page;
     d.tables = r.tables;
+    d.page_num = r.page_num;
+    d.toc = r.toc;
     Ok(d)
 }
 
@@ -1295,6 +1341,30 @@ mod tests {
         assert_eq!(back.header.right, "Meu TCC");
         assert_eq!(back.footer.center, "Página {página} de {páginas}");
         assert!(back.title_page);
+    }
+
+    #[test]
+    fn cabecalho_com_aparencia_numero_e_sumario() {
+        let mut d = Doc::from_plain("Texto.", Rc::new(CharStyle::default()), ParaStyle::default());
+        d.header.left = "Relatório".into();
+        d.header.family = "Times New Roman".into();
+        d.header.size = 12.0;
+        d.header.bold = true;
+        d.header.color = [30, 60, 140];
+        d.header.offset = 28.0;
+        d.header.indent = 14.5;
+        d.header.line = true;
+        d.page_num = crate::rich::PageNumber { on: true, top: false, align: 2, format: 2, start: 3, first: false };
+        d.toc = crate::rich::TocOptions { title: "Índice".into(), depth: 2, pages: false };
+        let rtf = write(&d);
+        // O Word vê o número como campo, no rodapé.
+        assert!(rtf.contains("{\\footer") && rtf.contains("PAGE"));
+        let back = read_doc(rtf.as_bytes()).unwrap();
+        assert_eq!(back.header, d.header);
+        assert_eq!(back.page_num, d.page_num);
+        assert_eq!(back.toc, d.toc);
+        assert!(back.footer.is_empty());
+        assert_eq!(d.page_num.text(0, 5), "Página 3 de 7");
     }
 
     #[test]

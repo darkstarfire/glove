@@ -87,8 +87,12 @@ enum Sheet {
     Page(pages::PageSheet),
     /// Inserir > Nota de Rodapé (ou editar uma).
     Note(notes::NoteSheet),
-    /// Formatar > Cabeçalho e Rodapé.
+    /// Inserir > Cabeçalho ou Rodapé (ou duplo clique no alto ou embaixo da folha).
     HeaderFooter(notes::HfSheet),
+    /// Inserir > Número de Página (ou duplo clique no número).
+    PageNum(notes::PageNumSheet),
+    /// Inserir > Sumário (ou duplo clique nele).
+    Toc(notes::TocSheet),
     /// Inserir > Tabela.
     Table(notes::TableSheet),
     /// Arquivo > Exportar como PDF / Word / OpenDocument.
@@ -149,6 +153,21 @@ fn save_file(path: &Path, text: &str) -> std::io::Result<()> {
 }
 
 impl Editor {
+    /// A janela do cabeçalho (ou do rodapé), com as famílias de letra do documento.
+    fn open_hf(&mut self, footer: bool) {
+        let mut fams: Vec<String> = Vec::new();
+        for p in self.doc.paras.iter().take(400) {
+            for r in &p.runs {
+                if !fams.contains(&r.style.family) && fams.len() < 8 {
+                    fams.push(r.style.family.clone());
+                }
+            }
+        }
+        let hf = if footer { &self.doc.footer } else { &self.doc.header };
+        self.view.page_mode = true;
+        self.sheet = Sheet::HeaderFooter(notes::HfSheet::new(footer, hf, self.doc.title_page, !hf.is_empty(), &fams));
+    }
+
     fn new(path: Option<PathBuf>, fb: Rc<FontBook>) -> Self {
         let mut ed = Self { doc: Doc::new(), view: DocView::new(), fb, path: None, sheet: Sheet::None, last_title: String::new(), ruler: true, find: None, fonts: FontPanel::new(rich::DEFAULT_FAMILY, rich::DEFAULT_SIZE), colors: ColorPanel::new((0, 0, 0)), color_target: ColorTarget::Text, panel_sync: None, bar_end: 0.0, words: (u64::MAX, 0), ruler_drag: None, plain: false, pending_toc: None, tab_top: 0.0, open_in_tab: None };
         if let Some(p) = path {
@@ -411,15 +430,13 @@ impl Editor {
             Some("abnt") => abnt::apply(&mut self.doc),
             Some("new-abnt") => spawn_abnt(),
             Some("footnote") => self.sheet = Sheet::Note(notes::NoteSheet { buf: glove_ui::TextBuffer::new(""), id: None }),
-            Some("header-footer") => self.sheet = Sheet::HeaderFooter(notes::HfSheet::from(&self.doc.header, &self.doc.footer, self.doc.title_page)),
+            Some("header-footer") | Some("header") => self.open_hf(false),
+            Some("footer") => self.open_hf(true),
             Some("page-number") => {
-                if self.doc.footer.center.trim().is_empty() {
-                    self.doc.footer.center = "{página}".into();
-                    self.doc.modified = true;
-                    self.doc.version = self.doc.version.wrapping_add(1);
-                }
                 self.view.page_mode = true;
+                self.sheet = Sheet::PageNum(notes::PageNumSheet::new(&self.doc.page_num));
             }
+            Some("toc-options") => self.sheet = Sheet::Toc(notes::TocSheet { toc: self.doc.toc.clone(), existed: abnt::has_toc(&self.doc) }),
             Some("page-setup") => self.sheet = Sheet::Page(pages::PageSheet::from(&self.doc.page)),
             Some("page-mode") => {
                 self.view.page_mode = !self.view.page_mode;
@@ -668,16 +685,60 @@ impl Editor {
             return;
         }
         if let Sheet::HeaderFooter(f) = &mut self.sheet {
-            if let Some(ok) = notes::hf_sheet(ui, f) {
-                if ok {
-                    let (h, ft) = f.parts();
-                    if h != self.doc.header || ft != self.doc.footer || f.title_page != self.doc.title_page {
-                        self.doc.header = h;
-                        self.doc.footer = ft;
-                        self.doc.title_page = f.title_page;
+            if let Some(done) = notes::hf_sheet(ui, f) {
+                let new = match done {
+                    notes::Done::Ok => Some(f.hf.clone()),
+                    notes::Done::Remove => Some(rich::HeaderFooter::default()),
+                    notes::Done::Cancel => None,
+                };
+                if let Some(h) = new {
+                    let (footer, tp) = (f.footer, f.title_page);
+                    let slot = if footer { &mut self.doc.footer } else { &mut self.doc.header };
+                    if *slot != h || tp != self.doc.title_page {
+                        *slot = h;
+                        self.doc.title_page = tp;
                         self.doc.modified = true;
                         self.doc.version = self.doc.version.wrapping_add(1);
                     }
+                }
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
+        }
+        if let Sheet::PageNum(f) = &mut self.sheet {
+            if let Some(done) = notes::page_num_sheet(ui, f) {
+                let new = match done {
+                    notes::Done::Ok => Some(f.pn.clone()),
+                    notes::Done::Remove => Some(rich::PageNumber { on: false, ..f.pn.clone() }),
+                    notes::Done::Cancel => None,
+                };
+                if let Some(pn) = new.filter(|pn| *pn != self.doc.page_num) {
+                    self.doc.page_num = pn;
+                    self.doc.modified = true;
+                    self.doc.version = self.doc.version.wrapping_add(1);
+                }
+                self.sheet = Sheet::None;
+                ui.redraw = true;
+            }
+            return;
+        }
+        if let Sheet::Toc(f) = &mut self.sheet {
+            if let Some(done) = notes::toc_sheet(ui, f) {
+                match done {
+                    notes::Done::Ok => {
+                        if f.toc != self.doc.toc {
+                            self.doc.toc = f.toc.clone();
+                            self.doc.modified = true;
+                        }
+                        // Monta (ou refaz) com as páginas: no próximo quadro, em modo página.
+                        self.view.page_mode = true;
+                        self.pending_toc = Some(f.existed);
+                    }
+                    notes::Done::Remove => {
+                        abnt::remove_toc(&mut self.doc);
+                    }
+                    notes::Done::Cancel => {}
                 }
                 self.sheet = Sheet::None;
                 ui.redraw = true;
@@ -911,6 +972,9 @@ impl Editor {
                     "list-bullet" => menu_action = Some("list-bullet"),
                     "list-number" => menu_action = Some("list-number"),
                     "toc" => menu_action = Some("toc"),
+                    "toc-options" => menu_action = Some("toc-options"),
+                    "header" => menu_action = Some("header"),
+                    "footer" => menu_action = Some("footer"),
                     "toc-update" => menu_action = Some("toc-update"),
                     "abnt" => menu_action = Some("abnt"),
                     "new-abnt" => menu_action = Some("new-abnt"),
@@ -1007,6 +1071,19 @@ impl Editor {
         if let Some(update) = self.pending_toc.take() {
             abnt::toc(&mut self.doc, &self.view, update);
             self.view.reveal = true;
+        }
+        // Clique duplo no alto ou embaixo de uma folha: o número de página (se está ali, na
+        // terça parte clicada), senão o cabeçalho ou o rodapé.
+        if let Some((top, slot)) = self.view.edit_hf.take() {
+            let pn = &self.doc.page_num;
+            if pn.on && pn.top == top && pn.align as usize == slot {
+                self.sheet = Sheet::PageNum(notes::PageNumSheet::new(pn));
+            } else {
+                self.open_hf(!top);
+            }
+        }
+        if std::mem::take(&mut self.view.edit_toc) {
+            self.sheet = Sheet::Toc(notes::TocSheet { toc: self.doc.toc.clone(), existed: true });
         }
         // Clique duplo numa marca de nota: abre a nota para editar.
         if let Some(id) = self.view.edit_note.take() {
@@ -1195,7 +1272,6 @@ impl Editor {
                             MenuItem::new("table-equal", tr!("Colunas da Mesma Largura"), "").enabled(in_table),
                         ],
                     ),
-                    MenuItem::new("header-footer", tr!("Cabeçalho e Rodapé…"), "").enabled(!self.plain),
                     MenuItem::new("abnt", tr!("Aplicar Formatação ABNT"), "").enabled(!self.plain),
                     MenuItem::Separator,
                     if self.plain { MenuItem::new("to-rich", tr!("Converter em Texto Rico"), "") } else { MenuItem::new("to-plain", tr!("Converter em Texto Simples"), "") },
@@ -1207,13 +1283,18 @@ impl Editor {
                 vec![
                     MenuItem::new("page-break", tr!("Quebra de Página"), "Ctrl+Return").enabled(!self.plain),
                     MenuItem::Separator,
+                    // Elementos da folha: marcados quando existem; escolher abre a janela
+                    // deles (de pôr, configurar ou tirar). Duplo clique neles também.
+                    MenuItem::new("header", tr!("Cabeçalho…"), "").enabled(!self.plain).checked(!self.doc.header.is_empty()),
+                    MenuItem::new("footer", tr!("Rodapé…"), "").enabled(!self.plain).checked(!self.doc.footer.is_empty()),
+                    MenuItem::new("page-number", tr!("Número de Página…"), "").enabled(!self.plain).checked(self.doc.page_num.on),
+                    MenuItem::new("toc-options", tr!("Sumário…"), "").enabled(!self.plain).checked(abnt::has_toc(&self.doc)),
+                    MenuItem::Separator,
                     MenuItem::new("footnote", tr!("Nota de Rodapé…"), "Ctrl+Alt+N").enabled(!self.plain),
-                    MenuItem::new("page-number", tr!("Número de Página"), "").enabled(!self.plain),
                     MenuItem::new("table", tr!("Tabela…"), "").enabled(!self.plain),
                     MenuItem::new("image", tr!("Imagem…"), "").enabled(!self.plain),
                     MenuItem::Separator,
-                    MenuItem::new("toc", tr!("Sumário"), "").enabled(!self.plain),
-                    MenuItem::new("toc-update", tr!("Atualizar Sumário"), "").enabled(!self.plain && self.doc.paras.iter().any(|p| p.style.role == rich::Role::Toc)),
+                    MenuItem::new("toc-update", tr!("Atualizar Sumário"), "").enabled(!self.plain && abnt::has_toc(&self.doc)),
                 ],
             ),
             Menu::new(

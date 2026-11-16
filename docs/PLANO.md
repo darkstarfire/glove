@@ -1172,6 +1172,14 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   ganha **Forma** (livre, linha, tracejado, seta, retângulo, elipse; glifos novos no glove-paint).
   Cada `PenStroke` guarda a forma; tudo vira linhas no `path` (o tracejado em pedaços, a seta com a
   ponta), então a tela e a imagem salva desenham igual. Shift: quadrado, círculo, linha a 45°.
+- [x] 20.19 Cabeçalho, rodapé, número de página e sumário como elementos (G) — v0.12.66: o menu Inserir
+  não repete mais o que estava no Formatar (Cabeçalho e Rodapé saiu de lá); Cabeçalho…, Rodapé…,
+  Número de Página… e Sumário… ficam marcados quando existem e abrem a janela de cada um (pôr,
+  configurar, remover), também com duplo clique na área deles (`DocView::hf_zone`) ou no sumário.
+  `HeaderFooter` ganhou letra, tamanho, negrito, itálico, cor, distância da borda, recuo e fio;
+  `PageNumber` (no alto/embaixo, alinhamento, 5 formatos, início, primeira folha) e `TocOptions`
+  (título, nível, páginas) são novos. No RTF: `\*\glovestyle`, `\*\glovepagenum`, `\*\glovetoc`
+  (exatos para o Editor) e, para o Word, o número entra como campo PAGE no cabeçalho ou rodapé.
 - [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
   apps (escolha em Aparência), sem perder o visual da época.
 - [~] 20.15 Papéis de parede em gel, 4K — feitos na v0.12.58 (gerados pelo `glove-arte`, pacote

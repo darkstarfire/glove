@@ -6067,3 +6067,106 @@ msgstr " and {} more"
 # Visualizador: formas de desenho
 msgid "Forma"
 msgstr "Shape"
+
+# Editor de Texto: cabeçalho, rodapé, número de página e sumário
+msgid "Rodapé"
+msgstr "Footer"
+
+msgid "Cabeçalho"
+msgstr "Header"
+
+msgid "Distância da borda (cm):"
+msgstr "Distance from edge (cm):"
+
+msgid "Recuo nas laterais (cm):"
+msgstr "Side inset (cm):"
+
+msgid "Letra:"
+msgstr "Font:"
+
+msgid "A mesma do texto"
+msgstr "Same as the text"
+
+msgid "Preto"
+msgstr "Black"
+
+msgid "Azul-escuro"
+msgstr "Dark blue"
+
+msgid "Vinho"
+msgstr "Wine"
+
+msgid "Verde-escuro"
+msgstr "Dark green"
+
+msgid "vazio: no meio da margem"
+msgstr "empty: middle of the margin"
+
+msgid "Fio separando do texto"
+msgstr "Rule separating it from the text"
+
+msgid "Remover Rodapé"
+msgstr "Remove Footer"
+
+msgid "Remover Cabeçalho"
+msgstr "Remove Header"
+
+msgid "No alto da folha"
+msgstr "Top of the page"
+
+msgid "Embaixo da folha"
+msgstr "Bottom of the page"
+
+msgid "À esquerda"
+msgstr "Left"
+
+msgid "No centro"
+msgstr "Center"
+
+msgid "Posição:"
+msgstr "Position:"
+
+msgid "Começar em:"
+msgstr "Start at:"
+
+msgid "Mostrar na primeira folha"
+msgstr "Show on the first page"
+
+msgid "Usa a letra do cabeçalho ou do rodapé. Duplo clique no número abre esta janela."
+msgstr "Uses the header or footer font. Double-click the number to open this window."
+
+msgid "Remover Número"
+msgstr "Remove Number"
+
+msgid "Capítulos"
+msgstr "Chapters"
+
+msgid "Capítulos e seções"
+msgstr "Chapters and sections"
+
+msgid "Capítulos, seções e subseções"
+msgstr "Chapters, sections and subsections"
+
+msgid "Incluir:"
+msgstr "Include:"
+
+msgid "Mostrar o número das páginas"
+msgstr "Show page numbers"
+
+msgid "Remover Sumário"
+msgstr "Remove Table of Contents"
+
+msgid "Cabeçalho…"
+msgstr "Header…"
+
+msgid "Rodapé…"
+msgstr "Footer…"
+
+msgid "Número de Página…"
+msgstr "Page Number…"
+
+msgid "Sumário…"
+msgstr "Table of Contents…"
+
+msgid "Página {}"
+msgstr "Page {}"

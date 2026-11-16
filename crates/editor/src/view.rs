@@ -81,12 +81,18 @@ pub struct DocView {
     header: HeaderFooter,
     footer: HeaderFooter,
     title_page: bool,
+    page_num: crate::rich::PageNumber,
     base_family: String,
     /// Nome do documento e a data de hoje (campos do cabeçalho e rodapé).
     pub title: String,
     date: String,
     /// Clique duplo numa marca de nota: o editor abre a nota.
     pub edit_note: Option<u32>,
+    /// Clique duplo no alto (true) ou embaixo de uma folha, na terça parte `usize` (0
+    /// esquerda, 1 centro, 2 direita): o editor abre o cabeçalho, o rodapé ou o número.
+    pub edit_hf: Option<(bool, usize)>,
+    /// Clique duplo no sumário: o editor abre as opções dele.
+    pub edit_toc: bool,
     /// Marcador ou número de cada item de lista.
     labels: Vec<Option<String>>,
     /// Folha em que cada parágrafo começa (modo página).
@@ -155,7 +161,7 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, base_family: String::new(), title: String::new(), date: today(), edit_note: None, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false, pics: Default::default(), img_drag: None, origin: (0.0, 0.0) }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, page_num: Default::default(), base_family: String::new(), title: String::new(), date: today(), edit_note: None, edit_hf: None, edit_toc: false, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false, pics: Default::default(), img_drag: None, origin: (0.0, 0.0) }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
@@ -174,6 +180,7 @@ impl DocView {
         self.header = doc.header.clone();
         self.footer = doc.footer.clone();
         self.title_page = doc.title_page;
+        self.page_num = doc.page_num.clone();
         self.base_family = doc.paras[0].runs[0].style.family.clone();
         let pg = &self.page;
         let width = if self.page_mode { pg.width - pg.margin_left - pg.margin_right } else { area_w - 2.0 * MARGIN_X }.max(60.0);
@@ -719,6 +726,14 @@ impl DocView {
                         self.edit_note = at_note;
                         doc.select_word(pos);
                     }
+                    // Clique duplo no alto ou embaixo da folha: cabeçalho, rodapé ou número.
+                    2 if self.hf_zone(dx, dy).is_some() => {
+                        self.edit_hf = self.hf_zone(dx, dy);
+                    }
+                    2 if doc.paras[pos.p].style.role == crate::rich::Role::Toc => {
+                        self.edit_toc = true;
+                        doc.select_word(pos);
+                    }
                     2 => doc.select_word(pos),
                     3 => doc.select_para(pos.p),
                     _ => doc.set_cursor(pos, ui.mods().shift),
@@ -1083,28 +1098,73 @@ impl DocView {
         }
     }
 
-    /// Cabeçalho e rodapé de uma folha (topo da folha em `py`, pixels).
+    /// No modo página, o ponto (do documento) cai na faixa do cabeçalho (true) ou do
+    /// rodapé de alguma folha? E em que terça parte (0 esquerda, 1 centro, 2 direita).
+    pub fn hf_zone(&self, x: f32, y: f32) -> Option<(bool, usize)> {
+        if !self.page_mode {
+            return None;
+        }
+        let pg = &self.page;
+        let k = ((y - GAP) / (pg.height + GAP)).floor();
+        if k < 0.0 || k as usize >= self.pages {
+            return None;
+        }
+        let yin = y - self.page_top(k as usize);
+        let xin = x - self.page_x - pg.margin_left;
+        if xin < -pg.margin_left || xin > self.width + pg.margin_right {
+            return None;
+        }
+        let slot = ((xin / self.width.max(1.0)) * 3.0).floor().clamp(0.0, 2.0) as usize;
+        if (0.0..pg.margin_top).contains(&yin) {
+            Some((true, slot))
+        } else if yin > pg.height - pg.margin_bottom && yin <= pg.height {
+            Some((false, slot))
+        } else {
+            None
+        }
+    }
+
+    /// Cabeçalho, rodapé e número de página de uma folha (topo da folha em `py`, pixels).
     fn draw_header_footer(&self, c: &mut Canvas, k: usize, px: f32, py: f32, fb: &FontBook) {
         if k == 0 && self.title_page {
             return;
         }
         let z = self.zoom;
-        let st = CharStyle { size: 10.0, color: [80, 80, 86, 255], family: self.base_family.clone(), ..CharStyle::default() };
-        let face = fb.face(&st);
-        let (asc, _) = fb.metrics(&st);
-        let x0 = px + self.page.margin_left * z;
-        let w = self.width * z;
-        let parts = [(&self.header, py + (self.page.margin_top / 2.0 + asc / 2.0) * z), (&self.footer, py + (self.page.height - self.page.margin_bottom / 2.0 + asc / 2.0) * z)];
-        for (hf, base) in parts {
-            if hf.is_empty() {
+        let pn = &self.page_num;
+        for (top, hf) in [(true, &self.header), (false, &self.footer)] {
+            let pn_here = pn.on && pn.top == top && (k > 0 || pn.first);
+            if hf.is_empty() && !pn_here {
                 continue;
             }
-            let [l, m, r] = hf.fill(k + 1, self.pages, &self.title, &self.date);
+            let family = if hf.family.is_empty() { self.base_family.clone() } else { hf.family.clone() };
+            let [r, g, b] = hf.color;
+            let st = CharStyle { size: hf.size, color: [r, g, b, 255], family, bold: hf.bold, italic: hf.italic, ..CharStyle::default() };
+            let face = fb.face(&st);
+            let (asc, desc) = fb.metrics(&st);
+            let x0 = px + (self.page.margin_left + hf.indent) * z;
+            let w = (self.width - 2.0 * hf.indent).max(20.0) * z;
+            let base = if top {
+                py + (if hf.offset > 0.0 { hf.offset } else { self.page.margin_top / 2.0 + asc / 2.0 }) * z
+            } else {
+                py + (self.page.height - if hf.offset > 0.0 { hf.offset } else { self.page.margin_bottom / 2.0 - asc / 2.0 }) * z
+            };
+            let mut parts = hf.fill(k + 1, self.pages, &self.title, &self.date);
+            if pn_here {
+                let num = pn.text(k, self.pages);
+                let slot = &mut parts[pn.align.min(2) as usize];
+                *slot = if slot.trim().is_empty() { num } else { format!("{slot}  {num}") };
+            }
+            let [l, m, rt] = parts;
             let tw = |t: &str| fb.measure(&st, t) * z;
-            let color = rgba(80, 80, 86, 255);
-            face.draw(c, &l, x0, base, 10.0 * z, false, color);
-            face.draw(c, &m, x0 + (w - tw(&m)) / 2.0, base, 10.0 * z, false, color);
-            face.draw(c, &r, x0 + w - tw(&r), base, 10.0 * z, false, color);
+            let color = rgba(r, g, b, 255);
+            let px_size = hf.size * z;
+            face.draw(c, &l, x0, base, px_size, false, color);
+            face.draw(c, &m, x0 + (w - tw(&m)) / 2.0, base, px_size, false, color);
+            face.draw(c, &rt, x0 + w - tw(&rt), base, px_size, false, color);
+            if hf.line {
+                let ly = if top { base + (desc + 3.0) * z } else { base - (asc + 4.0) * z };
+                c.fill_rect(x0, ly.round(), w, z.max(1.0).min(1.5), &solid(rgba(r, g, b, 160)));
+            }
         }
     }
 

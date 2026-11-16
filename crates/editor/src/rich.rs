@@ -315,18 +315,152 @@ impl Default for PageSetup {
     }
 }
 
-/// Cabeçalho ou rodapé: texto à esquerda, no centro e à direita. Campos:
-/// {página}, {páginas}, {título} e {data}.
-#[derive(Clone, Debug, Default, PartialEq)]
+/// Cabeçalho ou rodapé: texto à esquerda, no centro e à direita, e a aparência. Campos:
+/// {página}, {páginas}, {título} e {data}. Existe quando tem algum texto (ou o número
+/// de página mora nele).
+#[derive(Clone, Debug, PartialEq)]
 pub struct HeaderFooter {
     pub left: String,
     pub center: String,
     pub right: String,
+    /// Família da letra ("" = a do texto).
+    pub family: String,
+    pub size: f32,
+    pub bold: bool,
+    pub italic: bool,
+    pub color: [u8; 3],
+    /// Distância da borda da folha (de cima ou de baixo) até a linha do texto, em
+    /// pontos (0 = no meio da margem).
+    pub offset: f32,
+    /// Recuo nas laterais, além das margens, em pontos.
+    pub indent: f32,
+    /// Fio separando do corpo do texto.
+    pub line: bool,
+}
+
+impl Default for HeaderFooter {
+    fn default() -> Self {
+        Self { left: String::new(), center: String::new(), right: String::new(), family: String::new(), size: 10.0, bold: false, italic: false, color: [80, 80, 86], offset: 0.0, indent: 0.0, line: false }
+    }
+}
+
+/// O número de página: um elemento à parte, que se põe ou se tira, no alto ou embaixo.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PageNumber {
+    pub on: bool,
+    /// No alto (junto do cabeçalho) ou embaixo (junto do rodapé).
+    pub top: bool,
+    /// 0 esquerda, 1 centro, 2 direita.
+    pub align: u8,
+    /// 0 "1", 1 "Página 1", 2 "Página 1 de 3", 3 "1 / 3", 4 "- 1 -".
+    pub format: u8,
+    /// O número da primeira folha.
+    pub start: u32,
+    /// Aparece também na primeira folha.
+    pub first: bool,
+}
+
+impl Default for PageNumber {
+    fn default() -> Self {
+        Self { on: false, top: false, align: 1, format: 0, start: 1, first: true }
+    }
+}
+
+impl PageNumber {
+    /// O texto da folha `k` (0 = primeira) de `pages`.
+    pub fn text(&self, k: usize, pages: usize) -> String {
+        let n = k as u32 + self.start;
+        let total = pages as u32 + self.start - 1;
+        match self.format {
+            1 => glove_config::tr!("Página {}", n),
+            2 => glove_config::tr!("Página {} de {}", n, total),
+            3 => format!("{n} / {total}"),
+            4 => format!("– {n} –"),
+            _ => n.to_string(),
+        }
+    }
+
+    /// Para guardar no arquivo: "on|top|align|format|start|first".
+    pub fn encode(&self) -> String {
+        format!("{}|{}|{}|{}|{}|{}", u8::from(self.on), u8::from(self.top), self.align, self.format, self.start, u8::from(self.first))
+    }
+
+    pub fn decode(s: &str) -> Self {
+        let v: Vec<&str> = s.trim().split('|').collect();
+        let n = |i: usize, d: u32| v.get(i).and_then(|x| x.trim().parse::<u32>().ok()).unwrap_or(d);
+        Self { on: n(0, 0) == 1, top: n(1, 0) == 1, align: n(2, 1).min(2) as u8, format: n(3, 0).min(4) as u8, start: n(4, 1).max(1), first: n(5, 1) == 1 }
+    }
+}
+
+/// O sumário: o título, até que nível de título entra e se mostra as páginas.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TocOptions {
+    pub title: String,
+    /// 1 = só capítulos, 2 = e seções, 3 = e subseções.
+    pub depth: u8,
+    pub pages: bool,
+}
+
+impl Default for TocOptions {
+    fn default() -> Self {
+        Self { title: glove_config::tr!("Sumário").into(), depth: 3, pages: true }
+    }
+}
+
+impl TocOptions {
+    pub fn encode(&self) -> String {
+        format!("{}|{}|{}", self.depth, u8::from(self.pages), self.title.replace('|', "/"))
+    }
+
+    pub fn decode(s: &str) -> Self {
+        let mut it = s.trim().splitn(3, '|');
+        let depth = it.next().and_then(|x| x.parse::<u8>().ok()).unwrap_or(3).clamp(1, 3);
+        let pages = it.next().is_none_or(|x| x != "0");
+        let title = it.next().map(str::to_string).filter(|t| !t.trim().is_empty()).unwrap_or_else(|| glove_config::tr!("Sumário").into());
+        Self { title, depth, pages }
+    }
 }
 
 impl HeaderFooter {
     pub fn is_empty(&self) -> bool {
         self.left.trim().is_empty() && self.center.trim().is_empty() && self.right.trim().is_empty()
+    }
+
+    /// A aparência, para guardar no arquivo: "família|tamanho|n|i|r,g,b|distância|recuo|fio".
+    pub fn encode_style(&self) -> String {
+        format!(
+            "{}|{}|{}|{}|{},{},{}|{}|{}|{}",
+            self.family.replace('|', " "),
+            self.size,
+            u8::from(self.bold),
+            u8::from(self.italic),
+            self.color[0],
+            self.color[1],
+            self.color[2],
+            self.offset,
+            self.indent,
+            u8::from(self.line)
+        )
+    }
+
+    pub fn decode_style(&mut self, s: &str) {
+        let v: Vec<&str> = s.trim().split('|').collect();
+        let f = |i: usize| v.get(i).and_then(|x| x.trim().parse::<f32>().ok());
+        if let Some(fam) = v.first() {
+            self.family = fam.trim().to_string();
+        }
+        self.size = f(1).filter(|x| *x >= 4.0 && *x <= 72.0).unwrap_or(10.0);
+        self.bold = f(2) == Some(1.0);
+        self.italic = f(3) == Some(1.0);
+        if let Some(c) = v.get(4) {
+            let p: Vec<u8> = c.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            if p.len() == 3 {
+                self.color = [p[0], p[1], p[2]];
+            }
+        }
+        self.offset = f(5).unwrap_or(0.0).max(0.0);
+        self.indent = f(6).unwrap_or(0.0).max(0.0);
+        self.line = f(7) == Some(1.0);
     }
 
     /// As três partes com os campos trocados.
@@ -571,6 +705,10 @@ pub struct Doc {
     pub footer: HeaderFooter,
     /// Primeira página sem cabeçalho e rodapé (capa).
     pub title_page: bool,
+    /// O número de página (um elemento à parte).
+    pub page_num: PageNumber,
+    /// Como o sumário é montado.
+    pub toc: TocOptions,
     pub notes: Vec<Note>,
     /// Propriedades de cada tabela (larguras, bordas).
     pub tables: std::collections::HashMap<u32, TableProps>,
@@ -602,7 +740,7 @@ impl Doc {
     }
 
     pub fn with_style(style: Rc<CharStyle>, pstyle: ParaStyle) -> Self {
-        Self { paras: vec![Para::new("", style.clone(), pstyle.clone())], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, notes: Vec::new(), tables: std::collections::HashMap::new(), body: (style.clone(), pstyle.clone()), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
+        Self { paras: vec![Para::new("", style.clone(), pstyle.clone())], page: PageSetup::default(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, page_num: PageNumber::default(), toc: TocOptions::default(), notes: Vec::new(), tables: std::collections::HashMap::new(), body: (style.clone(), pstyle.clone()), cursor: Pos::default(), anchor: Pos::default(), typing: None, modified: false, undo: Vec::new(), redo: Vec::new(), coalesce: false, version: next() }
     }
 
     /// Documento de texto simples, todo num estilo.

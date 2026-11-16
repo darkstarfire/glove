@@ -90,6 +90,23 @@ pub fn apply(doc: &mut Doc) {
     doc.modified = true;
 }
 
+/// Tira o sumário (o bloco de linhas dele).
+pub fn remove_toc(doc: &mut Doc) {
+    let Some(first) = doc.paras.iter().position(|p| p.style.role == Role::Toc) else { return };
+    let last = (first..doc.paras.len()).take_while(|&i| doc.paras[i].style.role == Role::Toc).last().unwrap_or(first);
+    doc.group(|d| {
+        d.anchor = Pos::new(first, 0);
+        // Leva junto a quebra depois da última linha (se houver texto depois).
+        d.cursor = if last + 1 < d.paras.len() { Pos::new(last + 1, 0) } else { Pos::new(last, d.paras[last].text.len()) };
+        d.delete_selection();
+    });
+}
+
+/// O documento tem sumário?
+pub fn has_toc(doc: &Doc) -> bool {
+    doc.paras.iter().any(|p| p.style.role == Role::Toc)
+}
+
 /// Insere o sumário no cursor (ou refaz o que existe) com as páginas da paginação atual.
 pub fn toc(doc: &mut Doc, view: &DocView, update: bool) {
     let family = doc.paras[0].runs[0].style.family.clone();
@@ -98,13 +115,16 @@ pub fn toc(doc: &mut Doc, view: &DocView, update: bool) {
         .iter()
         .enumerate()
         .filter_map(|(i, p)| p.style.role.outline().map(|l| (l, p.text.replace(NOTE_CHAR, ""), view.page_of(i))))
+        .filter(|(l, _, _)| *l < doc.toc.depth as usize)
         .collect();
+    let opts = doc.toc.clone();
     let title_cs = Rc::new(CharStyle { family: family.clone(), size: 14.0, bold: true, ..CharStyle::default() });
-    let mut frag = vec![Para::new(glove_config::tr!("Sumário"), title_cs, ParaStyle { role: Role::Toc, align: Align::Center, space_after: 12.0, ..ParaStyle::default() })];
+    let mut frag = vec![Para::new(&opts.title, title_cs, ParaStyle { role: Role::Toc, align: Align::Center, space_after: 12.0, ..ParaStyle::default() })];
     for (level, text, page) in heads {
         let cs = Rc::new(CharStyle { family: family.clone(), size: 12.0, bold: level == 0, ..CharStyle::default() });
         let ps = ParaStyle { role: Role::Toc, left_indent: level as f32 * 18.0, space_after: 3.0, ..ParaStyle::default() };
-        frag.push(Para::new(&format!("{}\t{}", text.trim(), page), cs, ps));
+        let line = if opts.pages { format!("{}\t{}", text.trim(), page) } else { text.trim().to_string() };
+        frag.push(Para::new(&line, cs, ps));
     }
     let styles: Vec<ParaStyle> = frag.iter().map(|p| p.style.clone()).collect();
     let n = frag.len();
