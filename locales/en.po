@@ -6053,25 +6053,3 @@ msgstr "Installed in Applications. It already shows in All Apps."
 
 msgid "Instalar App"
 msgstr "Install App"
-
-# Preferências: papéis de parede em gel
-msgid "Gel {} (dois monitores lado a lado)"
-msgstr "Gel {} (two side-by-side displays)"
-
-msgid "Gel {} (dois monitores empilhados)"
-msgstr "Gel {} (two stacked displays)"
-
-msgid "Gel {} (ultrawide)"
-msgstr "Gel {} (ultrawide)"
-
-msgid "Gel {}"
-msgstr "Gel {}"
-
-msgid "Água"
-msgstr "Aqua"
-
-msgid "Noite"
-msgstr "Night"
-
-msgid "Menta"
-msgstr "Mint"

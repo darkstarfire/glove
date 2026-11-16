@@ -1151,17 +1151,7 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   apt, continua o Terminal.
 - [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
   apps (escolha em Aparência), sem perder o visual da época.
-- [x] 20.15 Papéis de parede em gel, 4K (M) — v0.12.58: `glove-arte papeis` desenha os 20 (fundo em
-  degradê, faixas de gel com o fio de luz e o halo desfocado, gotas, pontos de luz, cantos escuros
-  por monitor, a luva com sombra e o nome em Lato com o reflexo) em cinco cores e quatro formatos
-  (4K 3840×2160, ultrawide 5120×2160, dupla 7680×2160 e empilhada 3840×4320), JPEG 90 com um ruído
-  leve contra faixas, e miniaturas de 480 px em `mini/`. Nos panoramas a luva fica num monitor só.
-  Pacote à parte, `glove-papeis` (versão própria, 1.0: as atualizações do Glove não baixam as
-  imagens de novo), recomendado pelo glove-os e na ISO. Preferências: a coleção Imagens do Glove
-  rola, abre as miniaturas prontas, mostra o nome ("Gel Azul (dois monitores lado a lado)") e um
-  papel de dois monitores liga o panorama.
-  v0.12.59 (glove-papeis 1.1): a luva não fica mais cortada. Cada formato diz as telas em que tem de
-  ficar bom (4:3 a 16:9; o ultrawide, 16:9 a 24:9) e `safe_area` calcula o que sobra no "Preencher
-  a tela" em todas, menos a barra de menu, o Dock e a coluna dos ícones da mesa. O grupo (luva,
-  nome e reflexo) é posto dentro dessa área (a posição do layout vai de 0 a 1 nela) e diminui se não
-  couber; o teste `grupo_na_area_segura` confere os 20.
+- [~] 20.15 Papéis de parede em gel, 4K — feitos na v0.12.58 (gerados pelo `glove-arte`, pacote
+  glove-papeis) e retirados na v0.12.61: não ficaram bons; fica só o papel original do Glove OS. O
+  glove-os tem `Conflicts: glove-papeis` (a atualização remove o pacote) e quem estava com um deles
+  volta para o original (glove-ui 0.2.36).

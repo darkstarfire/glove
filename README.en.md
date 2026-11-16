@@ -60,8 +60,6 @@ and the installer and ISO still need testing on real computers. How to use each 
 - **Wallpaper** the same on every display, one per display or as a **panorama** (one picture across
   the displays, side by side or stacked), and **animated** (a video, played from a light cached
   copy and paused when the screen is locked, on battery or with a full-screen app)
-- **20 4K gel wallpapers** for Glove OS (`glove-papeis`): five colors, for one display, ultrawide
-  and two-display panoramas (side by side or stacked), drawn in code by `glove-arte`
 - **Desktops** (Ctrl+Super+arrows; with Shift the window comes along), also in a strip in Exposé,
   where windows can be dragged from one desktop to another
 - **Notification center**: bubbles for app notifications (the standard Linux service, the one

@@ -189,78 +189,10 @@ const SOLID_COLORS: [(u8, u8, u8); 10] = [
     (170, 172, 178),
 ];
 
-/// Os formatos dos papéis em gel do Glove OS (o fim do nome do arquivo), na ordem da coleção.
-const GEL_FORMATS: [&str; 4] = ["4k", "ultrawide", "dupla", "empilhada"];
-const GEL_COLORS: [(&str, &str); 5] = [("azul", "Azul"), ("agua", "Água"), ("grafite", "Grafite"), ("noite", "Noite"), ("menta", "Menta")];
-
-/// Os papéis em gel do Glove OS (pacote glove-papeis, em `share/glove/papeis/gel`): um
-/// monitor e ultrawide primeiro, depois os panoramas.
-fn gel_wallpapers() -> Vec<String> {
-    static L: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
-    L.get_or_init(|| {
-        let mut dirs: Vec<std::path::PathBuf> = Vec::new();
-        if let Some(p) = glove_config::glove_os_wallpaper() {
-            if let Some(d) = std::path::Path::new(&p).parent() {
-                dirs.push(d.join("gel"));
-            }
-        }
-        dirs.push("/usr/share/glove/papeis/gel".into());
-        let mut v: Vec<(usize, usize, String)> = Vec::new();
-        for d in dirs {
-            let Ok(rd) = std::fs::read_dir(&d) else { continue };
-            for e in rd.flatten() {
-                let s = e.path().to_string_lossy().into_owned();
-                let Some((color, fmt)) = gel_parts(&s) else { continue };
-                let key = (GEL_FORMATS.iter().position(|f| *f == fmt).unwrap_or(9), GEL_COLORS.iter().position(|c| c.0 == color).unwrap_or(9));
-                // O mesmo papel em duas pastas: fica o primeiro.
-                if !v.iter().any(|x| (x.0, x.1) == key) {
-                    v.push((key.0, key.1, s));
-                }
-            }
-        }
-        v.sort();
-        v.into_iter().map(|x| x.2).collect()
-    })
-    .clone()
-}
-
-/// "…/gel-azul-dupla.jpg" → ("azul", "dupla").
-fn gel_parts(path: &str) -> Option<(&str, &str)> {
-    let name = std::path::Path::new(path).file_name()?.to_str()?;
-    let rest = name.strip_prefix("gel-")?.strip_suffix(".jpg")?;
-    rest.split_once('-')
-}
-
-/// O papel em gel feito para dois monitores (panorama).
-fn gel_is_panorama(style: &str) -> bool {
-    gel_parts(style).is_some_and(|(_, f)| f == "dupla" || f == "empilhada")
-}
-
-/// A miniatura pronta ao lado do papel (`mini/`), para não abrir a imagem 4K inteira.
-fn thumb_source(style: &str) -> String {
-    let p = std::path::Path::new(style);
-    if let (Some(d), Some(n)) = (p.parent(), p.file_name()) {
-        let mini = d.join("mini").join(n);
-        if mini.exists() {
-            return mini.to_string_lossy().into_owned();
-        }
-    }
-    style.to_string()
-}
-
 /// Nome do papel de parede para mostrar ("Ondas", "Cor sólida", "foto.png").
 fn wallpaper_name(style: &str) -> String {
     if glove_config::glove_os_wallpaper().is_some_and(|p| p == style) {
         return "Glove OS".into();
-    }
-    if let Some((color, fmt)) = gel_parts(style) {
-        let c = GEL_COLORS.iter().find(|c| c.0 == color).map(|c| tr(c.1)).unwrap_or(color);
-        return match fmt {
-            "dupla" => tr!("Gel {} (dois monitores lado a lado)", c),
-            "empilhada" => tr!("Gel {} (dois monitores empilhados)", c),
-            "ultrawide" => tr!("Gel {} (ultrawide)", c),
-            _ => tr!("Gel {}", c),
-        };
     }
     if let Some((_, n)) = WALLPAPERS.iter().find(|(i, _)| *i == style || (style.is_empty() && *i == "ondas")) {
         return tr(n).to_string();
@@ -366,10 +298,6 @@ struct Prefs {
     started: Instant,
     /// Coleção escolhida no painel Mesa.
     desk_source: usize,
-    /// Rolagem das miniaturas da coleção (e a altura delas no quadro anterior).
-    desk_scroll: f32,
-    desk_grid_h: f32,
-    desk_source_seen: usize,
     /// Miniaturas de papel de parede já desenhadas.
     thumbs: std::collections::HashMap<String, Option<glove_ui::paint::draw::Canvas>>,
     /// Histórico das setas da barra.
@@ -475,9 +403,6 @@ impl Prefs {
             kbd_tab,
             open_groups: [true, false, false, false],
             desk_source: 0,
-            desk_scroll: 0.0,
-            desk_grid_h: 0.0,
-            desk_source_seen: 0,
             desk_tab: 0,
             started: Instant::now(),
             access_tab: 0,
@@ -1059,7 +984,6 @@ impl Prefs {
         let items: Vec<String> = match self.desk_source {
             0 => glove_config::glove_os_wallpaper()
                 .into_iter()
-                .chain(gel_wallpapers())
                 .chain(WALLPAPERS.iter().map(|(i, _)| i.to_string()))
                 .collect(),
             1 => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
@@ -1078,36 +1002,22 @@ impl Prefs {
             ui.fonts.draw(ui.c, tr!("Para papel animado, instale o ffmpeg (sudo apt install ffmpeg)."), gx + 14.0, ly + list_h - 12.0, 11.0, false, rgba(180, 60, 40, 255));
         }
         let (tw, th, gap) = (88.0, 62.0, 10.0);
-        // Com a barra de rolagem (quando não cabe), sobra menos largura.
-        let grid_w = if self.desk_grid_h > list_h - 2.0 + 0.5 { gw - 2.0 - glove_ui::SCROLLBAR_W } else { gw - 2.0 };
-        let per_row = ((grid_w - gap) / (tw + gap)).floor().max(1.0) as usize;
+        let per_row = ((gw - gap) / (tw + gap)).floor().max(1.0) as usize;
         let mut chosen = None;
-        if self.desk_source != self.desk_source_seen {
-            self.desk_source_seen = self.desk_source;
-            self.desk_scroll = 0.0;
-        }
-        let mut off = self.desk_scroll;
-        let content = self.desk_grid_h;
-        self.desk_grid_h = ui.scroll_view(Rect::new(gx + 1.0, ly + 1.0, gw - 2.0, list_h - 2.0), &mut off, content, |ui| {
-            let (ox, oy) = ui.cursor();
-            for (i, it) in items.iter().enumerate() {
-                let (col, row) = ((i % per_row) as f32, (i / per_row) as f32);
-                let r = Rect::new(ox + gap - 1.0 + col * (tw + gap), oy + gap - 1.0 + row * (th + gap), tw, th);
-                // Só desenha (e abre) as miniaturas à vista.
-                if ui.c.visible(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0) {
-                    if *it == cur {
-                        ui.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, 3.0), &solid(ui.theme.accent));
-                    }
-                    self.draw_thumb(ui, it, r);
-                    if ui.hit(r).clicked {
-                        chosen = Some(it.clone());
-                    }
-                }
+        for (i, it) in items.iter().enumerate() {
+            let (col, row) = ((i % per_row) as f32, (i / per_row) as f32);
+            let r = Rect::new(gx + gap + col * (tw + gap), ly + gap + row * (th + gap), tw, th);
+            if r.y + r.h > ly + list_h {
+                break;
             }
-            let rows = items.len().div_ceil(per_row) as f32;
-            ui.alloc(grid_w, gap + rows * (th + gap));
-        });
-        self.desk_scroll = off;
+            if *it == cur {
+                ui.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, 3.0), &solid(ui.theme.accent));
+            }
+            self.draw_thumb(ui, it, r);
+            if ui.hit(r).clicked {
+                chosen = Some(it.clone());
+            }
+        }
         if let Some(c) = chosen {
             self.set_desk_wallpaper(c);
             self.save();
@@ -1139,13 +1049,9 @@ impl Prefs {
         self.config.wallpaper.clone()
     }
 
-    /// Escolheu um papel: o do monitor escolhido (um por monitor) ou o de todos. Os papéis
-    /// em gel feitos para dois monitores passam a mesa para o panorama (com dois ou mais).
+    /// Escolheu um papel: o do monitor escolhido (um por monitor) ou o de todos.
     fn set_desk_wallpaper(&mut self, style: String) {
         let mons = self.desk_monitors();
-        if gel_is_panorama(&style) && mons.len() > 1 {
-            self.config.wallpaper_mode = "panorama".into();
-        }
         if self.config.wallpaper_mode == "por_tela" && mons.len() > 1 {
             if let Some(m) = mons.get(self.desk_monitor.min(mons.len() - 1)) {
                 self.config.wallpapers.insert(m.0.clone(), style);
@@ -1219,7 +1125,7 @@ impl Prefs {
     fn draw_thumb(&mut self, ui: &mut Ui, style: &str, r: Rect) {
         let key = format!("{style}@{}x{}", r.w, r.h);
         if !self.thumbs.contains_key(&key) {
-            let c = glove_ui::paint::wallpaper::render_style(ui.theme, &thumb_source(style), r.w, r.h, ui.c.scale);
+            let c = glove_ui::paint::wallpaper::render_style(ui.theme, style, r.w, r.h, ui.c.scale);
             self.thumbs.insert(key.clone(), c);
         }
         if let Some(Some(c)) = self.thumbs.get(&key) {
