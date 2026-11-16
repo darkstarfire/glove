@@ -966,6 +966,12 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
     for w in state.space.elements() {
         w.send_frame(output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
     }
+    // Menus, dicas e listas de apps X11 (override-redirect): o Xwayland só manda o
+    // próximo quadro depois deste aviso; sem ele, o menu ficava no primeiro (um
+    // retângulo vazio, como nos menus do Arduino IDE e de outros apps Java).
+    for w in &state.x11_overlays {
+        w.send_frame(output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+    }
     // Minimizadas (miniatura viva no Dock): quadros no máximo 2×/s. Se for cedo,
     // agenda um quadro para quando der (só acontece se algo foi redesenhado).
     if !state.minimized.is_empty() && state.min_commit_pending {

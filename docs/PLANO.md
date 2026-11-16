@@ -1137,7 +1137,11 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
 - [x] 20.5b Ícone da central de controle (P) — v0.12.57: dois botões como os do Mac (em cima a pílula
   clara com contorno e a bolinha escura à direita; embaixo a pílula escura com a bolinha clara à
   esquerda).
-- [ ] 20.12 Arduino IDE (Java) com blocos pretos e a versão em .zip com erro de segmentação.
+- [x] 20.12 Menus vazios em apps X11 (Arduino IDE 1.8 e outros apps Java) — v0.12.60: os menus,
+  dicas e listas override-redirect (`x11_overlays`) não recebiam o frame callback, e o Xwayland
+  só manda o próximo quadro depois dele: o menu ficava no primeiro, um retângulo vazio (cinza ou
+  preto). Agora recebem junto com as janelas. Testado no Arduino 1.8.19: menus, submenus e dicas.
+  O erro de segmentação da versão em .zip fica para quando houver o relato com a versão.
 - [x] 20.13 Atualização de Software sem Terminal (M) — v0.12.56: a consulta ao `novidades.json` pede
   a resposta fresca (`?t=` e `Cache-Control: no-cache`; o GitHub Pages guarda por 10 min, e logo depois
   de uma versão o painel dizia "em dia"). Verificar Agora roda o `apt update` como administrador
