@@ -3,8 +3,9 @@
 //! Debian. O Debian continua vindo do Debian; aqui só o `glove` e o `glove-os`.
 //!
 //!   glove-prefs --verificar-atualizacao   fica de fundo na sessão: confere de tempos
-//!                                         em tempos e avisa (balão e contador da
-//!                                         barra de menu); "Ver" abre o painel
+//!                                         em tempos o Glove e o resto do sistema e
+//!                                         avisa (balão e central de avisos da barra
+//!                                         de menu); "Ver" abre o painel
 
 use glove_config::tr;
 use std::process::Command;
@@ -82,31 +83,84 @@ fn avisada_path() -> std::path::PathBuf {
     home.join(".cache/glove/atualizacao-avisada")
 }
 
-/// O verificador de fundo: 2 minutos depois de entrar e a cada 6 horas. Avisa uma
-/// vez por versão; "Ver" abre o painel Atualização de Software.
+fn sistema_avisado_path() -> std::path::PathBuf {
+    avisada_path().with_file_name("sistema-avisado")
+}
+
+/// Os pacotes do sistema com versão nova, pela lista que o apt já tem (sem rede e sem
+/// senha: o próprio sistema a renova, pelo apt-daily do Debian, que o glove-os liga).
+/// O Glove e o glove-os ficam de fora: eles têm o aviso deles, com as novidades.
+pub fn sistema_pendentes() -> Vec<String> {
+    let Ok(o) = Command::new("apt").args(["list", "--upgradable"]).env("LC_ALL", "C").output() else { return Vec::new() };
+    pendentes_de(&String::from_utf8_lossy(&o.stdout))
+}
+
+/// Os nomes na saída do `apt list --upgradable` ("nome/suite versão arq [upgradable from: …]").
+fn pendentes_de(out: &str) -> Vec<String> {
+    let mut v: Vec<String> = out
+        .lines()
+        .filter(|l| l.contains("[upgradable from"))
+        .filter_map(|l| l.split('/').next())
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty() && n != "glove" && n != "glove-os")
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+/// Um aviso com "Ver", que abre o painel Atualização de Software. O aviso continua na
+/// central de avisos (o balãozinho da barra de menu) depois que o balão some, e clicar
+/// nele lá também abre o painel; por isso a espera fica numa linha à parte.
+fn avisar(titulo: String, texto: String) {
+    std::thread::spawn(move || {
+        let out = Command::new("notify-send")
+            .args(["-a", tr!("Atualização de Software"), "-i", "system-software-update", "-A", &format!("default={}", tr!("Ver")), "-A", &format!("ver={}", tr!("Ver")), &titulo, &texto])
+            .output();
+        let escolha = out.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+        if escolha == "ver" || escolha == "default" {
+            let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-prefs"))).filter(|p| p.exists()).unwrap_or_else(|| "glove-prefs".into());
+            let _ = Command::new(exe).arg("atualizacao").spawn();
+        }
+    });
+}
+
+/// O verificador de fundo: 2 minutos depois de entrar e depois de hora em hora. O
+/// Glove vem do repositório dele (a cada 6 horas, avisa uma vez por versão); o resto do
+/// sistema, da lista do apt (avisa quando aparece algo que ainda não foi avisado).
 pub fn verificar_em_segundo_plano() {
     std::thread::sleep(Duration::from_secs(120));
+    let mut volta = 0u32;
     loop {
-        if let Ok(n) = buscar() {
-            let avisada = std::fs::read_to_string(avisada_path()).unwrap_or_default();
-            if mais_nova(&n.versao, &instalada()) && avisada.trim() != n.versao {
-                if let Some(d) = avisada_path().parent() {
-                    let _ = std::fs::create_dir_all(d);
-                }
-                let _ = std::fs::write(avisada_path(), &n.versao);
-                let resumo = n.notas.lines().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
-                let titulo = tr!("Glove OS {} disponível", n.versao);
-                // O notify-send espera o clique e diz qual ação foi escolhida.
-                let out = Command::new("notify-send")
-                    .args(["-a", tr!("Atualização de Software"), "-i", "system-software-update", "-A", &format!("ver={}", tr!("Ver")), &titulo, &resumo])
-                    .output();
-                if out.is_ok_and(|o| String::from_utf8_lossy(&o.stdout).trim() == "ver") {
-                    let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-prefs"))).filter(|p| p.exists()).unwrap_or_else(|| "glove-prefs".into());
-                    let _ = Command::new(exe).arg("atualizacao").spawn();
+        if volta % 6 == 0 {
+            if let Ok(n) = buscar() {
+                let avisada = std::fs::read_to_string(avisada_path()).unwrap_or_default();
+                if mais_nova(&n.versao, &instalada()) && avisada.trim() != n.versao {
+                    if let Some(d) = avisada_path().parent() {
+                        let _ = std::fs::create_dir_all(d);
+                    }
+                    let _ = std::fs::write(avisada_path(), &n.versao);
+                    let resumo = n.notas.lines().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
+                    avisar(tr!("Glove OS {} disponível", n.versao), resumo);
                 }
             }
         }
-        std::thread::sleep(Duration::from_secs(6 * 3600));
+        let pend = sistema_pendentes();
+        let ja: Vec<String> = std::fs::read_to_string(sistema_avisado_path()).unwrap_or_default().lines().map(String::from).collect();
+        if pend.iter().any(|p| !ja.contains(p)) {
+            if let Some(d) = sistema_avisado_path().parent() {
+                let _ = std::fs::create_dir_all(d);
+            }
+            let _ = std::fs::write(sistema_avisado_path(), pend.join("\n"));
+            let titulo = if pend.len() == 1 { tr!("1 atualização do sistema disponível").to_string() } else { tr!("{} atualizações do sistema disponíveis", pend.len()) };
+            let mut texto = pend.iter().take(4).cloned().collect::<Vec<_>>().join(", ");
+            if pend.len() > 4 {
+                texto.push_str(&tr!(" e mais {}", pend.len() - 4));
+            }
+            avisar(titulo, texto);
+        }
+        volta += 1;
+        std::thread::sleep(Duration::from_secs(3600));
     }
 }
 
@@ -123,5 +177,12 @@ mod tests {
         let n = parse(r#"{"versao":"0.12.50","data":"2026-11-15","notas":"Discos novo\n- formatar"}"#).unwrap();
         assert_eq!((n.versao.as_str(), n.notas.lines().count()), ("0.12.50", 2));
         assert_eq!(parse("{}"), None);
+    }
+
+    #[test]
+    fn pendentes_do_apt() {
+        let out = "Listing... Done\nlibc6/stable-security 2.41-12+deb13u1 amd64 [upgradable from: 2.41-12]\nglove/glove 0.12.62 amd64 [upgradable from: 0.12.61]\nfirefox-esr/stable-security 140.5 amd64 [upgradable from: 140.4]\n";
+        assert_eq!(pendentes_de(out), vec!["firefox-esr".to_string(), "libc6".to_string()]);
+        assert!(pendentes_de("Listing... Done\n").is_empty());
     }
 }

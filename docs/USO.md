@@ -458,6 +458,11 @@ o `glove-os` num **repositório apt do Glove OS** (assinado), que o Glove OS já
 - **Aviso:** de tempos em tempos (2 minutos depois de entrar e a cada 6 horas) o Glove confere se há
   versão nova. Se houver, aparece um aviso ("Glove OS 0.12.50 disponível") no canto da tela e no
   contador da barra de menu. **Ver** abre o painel. Cada versão avisa uma vez só.
+- **Atualizações do sistema:** o Glove OS deixa o próprio sistema renovar a lista de pacotes todo dia
+  (o `apt-daily` do Debian, sem instalar nada), e o Glove confere essa lista de hora em hora. Quando
+  aparece algo novo, vem o aviso "3 atualizações do sistema disponíveis", com os nomes.
+- O aviso fica na **central de avisos** (o balãozinho da barra de menu) mesmo depois que o balão some:
+  clicar nele lá também abre a Atualização de Software.
 - **Preferências ▸ Atualização de Software:** em cima, o **Glove OS**: a versão instalada, a nova, **o
   que há de novo** e o botão **Atualizar o Glove** (atualiza só o Glove, pelo repositório dele).
   Embaixo, as atualizações do sistema inteiro e **Instalar Tudo**. **Verificar Agora** consulta os

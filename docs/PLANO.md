@@ -1149,6 +1149,12 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   (`apt full-upgrade`) rodam com `APT::Status-Fd` e `admin::run_stream`: a barra junta baixar (0 a
   50%) e instalar (50 a 100%) com o texto do apt; aviso claro se outro programa segura o apt. Sem
   apt, continua o Terminal.
+  v0.12.62: aviso também das atualizações do sistema. O glove-os liga o
+  `APT::Periodic::Update-Package-Lists "1"` (o apt-daily renova a lista como root, sem instalar), e o
+  verificador lê `apt list --upgradable` de hora em hora (sem rede e sem senha; o Glove e o glove-os
+  ficam com o aviso deles) e avisa quando aparece pacote ainda não avisado. Na central de avisos, um
+  aviso com ações continua valendo depois que o balão some (o balão não manda mais
+  NotificationClosed; só ao sair da central): clicar nele lá abre o painel.
 - [ ] 20.14 Variante escura (G): a aparência escura para a barra de menu, as janelas, os menus e os
   apps (escolha em Aparência), sem perder o visual da época.
 - [~] 20.15 Papéis de parede em gel, 4K — feitos na v0.12.58 (gerados pelo `glove-arte`, pacote

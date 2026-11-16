@@ -431,6 +431,11 @@ Glove moves at its own pace, without waiting for Debian: for every new version, 
 - **Notice:** every now and then (2 minutes after login and every 6 hours) Glove checks for a new
   version. If there is one, a notice ("Glove OS 0.12.50 available") shows in the corner and in the
   menu bar's counter. **View** opens the pane. Each version notifies once.
+- **System updates:** Glove OS lets the system refresh its package list every day (Debian's
+  `apt-daily`, which installs nothing), and Glove checks that list every hour. When something new
+  shows up, a notice says "3 system updates available", with the names.
+- The notice stays in the **notification center** (the balloon in the menu bar) after the bubble goes
+  away: clicking it there also opens Software Update.
 - **Preferences ▸ Software Update:** at the top, **Glove OS**: the installed version, the new one,
   **what's new** and the **Update Glove** button (updates only Glove, from its repository). Below,
   the whole system's updates and **Install All**. **Check Now** asks the repositories again (`apt

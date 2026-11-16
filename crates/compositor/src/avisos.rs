@@ -200,7 +200,8 @@ impl Glove {
         }
         if self.avisos.list.len() > KEEP {
             let extra = self.avisos.list.len() - KEEP;
-            self.avisos.list.drain(..extra);
+            let old: Vec<Aviso> = self.avisos.list.drain(..extra).collect();
+            self.forget(&old);
         }
         if let Some(c) = &mut self.avisos.center {
             c.tex = None;
@@ -248,6 +249,27 @@ impl Glove {
                     TimeoutAction::Drop
                 }
             });
+        }
+    }
+
+    /// Avisos que saíram da central: quem ainda esperava a resposta (os com ações, que
+    /// continuam valendo na central depois que o balão some) fica sabendo que acabou.
+    fn forget(&self, gone: &[Aviso]) {
+        for a in gone.iter().filter(|a| a.live && !a.actions.is_empty()) {
+            self.signal("NotificationClosed", (a.id, 2u32));
+        }
+    }
+
+    /// O balão sumiu sozinho. Um aviso com ações continua valendo na central (clicar
+    /// nele lá ainda responde ao app: o "Ver" das atualizações abre a janela delas);
+    /// os outros avisam o app que expiraram.
+    fn expire_bubble(&mut self, id: u32) {
+        let keeps = self.avisos.list.iter().any(|a| a.id == id && a.live && !a.actions.is_empty());
+        if keeps {
+            self.avisos.bubbles.retain(|b| b.id != id);
+            self.dirty = true;
+        } else {
+            self.dismiss_bubble(id, 1);
         }
     }
 
@@ -345,7 +367,8 @@ impl Glove {
             if y < HEAD_H {
                 // Cabeçalho: Não perturbe (à esquerda do Limpar) e Limpar.
                 if x > CENTER_W - 70.0 {
-                    self.avisos.list.clear();
+                    let all = std::mem::take(&mut self.avisos.list);
+                    self.forget(&all);
                 } else if x > CENTER_W - 200.0 {
                     self.avisos.quiet = !self.avisos.quiet;
                 }
@@ -356,7 +379,9 @@ impl Glove {
                     // × no canto da linha: só tira da lista.
                     let in_row_y = (y - HEAD_H) % ROW_H;
                     if x > CENTER_W - 30.0 && in_row_y < 26.0 {
+                        let gone: Vec<Aviso> = self.avisos.list.iter().filter(|a| a.id == id).cloned().collect();
                         self.avisos.list.retain(|a| a.id != id);
+                        self.forget(&gone);
                     } else {
                         self.activate_aviso(id);
                     }
@@ -406,7 +431,7 @@ impl Glove {
         // Balões que acabaram de sumir.
         let gone: Vec<u32> = self.avisos.bubbles.iter().filter(|b| b.fading.is_some_and(|t| t.elapsed() >= FADE)).map(|b| b.id).collect();
         for id in gone {
-            self.dismiss_bubble(id, 1);
+            self.expire_bubble(id);
         }
         for b in &mut self.avisos.bubbles {
             if b.tex.is_none() {

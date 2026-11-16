@@ -6053,3 +6053,13 @@ msgstr "Installed in Applications. It already shows in All Apps."
 
 msgid "Instalar App"
 msgstr "Install App"
+
+# Atualização de Software: aviso das atualizações do sistema
+msgid "1 atualização do sistema disponível"
+msgstr "1 system update available"
+
+msgid "{} atualizações do sistema disponíveis"
+msgstr "{} system updates available"
+
+msgid " e mais {}"
+msgstr " and {} more"
