@@ -51,7 +51,7 @@ impl Acao {
             Acao::AtualizarTudo => {
                 let mut v = Vec::new();
                 if fontes::has("apt-get") {
-                    v.push(passo(&["apt-get", "upgrade", "-y"], true));
+                    v.push(passo(&["apt-get", "upgrade", "--with-new-pkgs", "-y"], true));
                 }
                 if fontes::has("flatpak") {
                     v.push(passo(&["flatpak", "update", "-y", "--noninteractive"], false));

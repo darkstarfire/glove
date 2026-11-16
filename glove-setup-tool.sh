@@ -10,7 +10,7 @@ version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 arch=$(uname -m)
 out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
-# glove-icones-mide from this fixed commit. Its own version: bump both when updating.
+# glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 mide_icons_repo="https://github.com/fabioaacarneiro/mide-icons"
 mide_icons_commit=11f848417aba8abbb2889439d374803a6c6f0cbf
 mide_icons_version=1.0
@@ -357,7 +357,7 @@ uninstall_glove() {
 
 # Packages Glove needs to run and the ones that improve it (per distribution).
 deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core, greetd"
-rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2, glove-icones-mide"
+rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2, glove-mide-icons"
 deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts greetd"
 rec_rpm="xorg-x11-server-Xwayland mpv ffmpeg poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils"
 deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu greetd"
@@ -396,7 +396,7 @@ EOF
     msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
-# The glove-icones-mide package: the mide-icons theme (light and modern, SVG) as an
+# The glove-mide-icons package: the mide-icons theme (light and modern, SVG) as an
 # alternative to the Glove icons, in Preferences > Appearance. Three themes: Mide,
 # Mide Claro and Mide Escuro (the folders mide, mide-light and mide-dark).
 package_mide_icons() {
@@ -417,20 +417,23 @@ package_mide_icons() {
         name=${v#*:}
         sed -i "s/^Name=.*/Name=$name/; s/^Comment=.*/Comment=Modern icons from the Mide project (a WhiteSur fork)/" "$icons/$dir/index.theme"
     done
-    mkdir -p "$tmp/usr/share/doc/glove-icones-mide"
-    cp "$src/COPYING" "$src/AUTHORS" "$tmp/usr/share/doc/glove-icones-mide/"
-    printf 'mide-icons %s\nfrom %s (a fork of WhiteSur by Vince Liuice, GPL-3.0)\n' "$mide_icons_commit" "$mide_icons_repo" > "$tmp/usr/share/doc/glove-icones-mide/SOURCE"
+    mkdir -p "$tmp/usr/share/doc/glove-mide-icons"
+    cp "$src/COPYING" "$src/AUTHORS" "$tmp/usr/share/doc/glove-mide-icons/"
+    printf 'mide-icons %s\nfrom %s (a fork of WhiteSur by Vince Liuice, GPL-3.0)\n' "$mide_icons_commit" "$mide_icons_repo" > "$tmp/usr/share/doc/glove-mide-icons/SOURCE"
     rm -rf "$src"
     find "$tmp" -type d -exec chmod 755 {} +
     find "$tmp" -type f -exec chmod 644 {} +
     mkdir -p "$tmp/DEBIAN"
     {
-        echo "Package: glove-icones-mide"
+        echo "Package: glove-mide-icons"
         echo "Version: $mide_icons_version"
         echo "Architecture: all"
         echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
         echo "Installed-Size: $(size_kb "$tmp")"
         echo "Enhances: glove"
+        # Its first name (0.12.67 to 0.12.70) was in Portuguese: this replaces it.
+        echo "Conflicts: glove-icones-mide"
+        echo "Replaces: glove-icones-mide"
         echo "Section: x11"
         echo "Priority: optional"
         echo "Homepage: $mide_icons_repo"
@@ -441,7 +444,7 @@ package_mide_icons() {
         echo " to its own icons."
     } > "$tmp/DEBIAN/control"
     mkdir -p "$out_dir"
-    f="$out_dir/glove-icones-mide_${mide_icons_version}_all.deb"
+    f="$out_dir/glove-mide-icons_${mide_icons_version}_all.deb"
     dpkg-deb --root-owner-group -Zxz --build "$tmp" "$f" >/dev/null
     rm -rf "$tmp"
     msg "$(t "Pacote dos ícones do Mide: $f" "Mide icons package: $f")"
@@ -518,8 +521,9 @@ FIM
         echo "Architecture: all"
         echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
         echo "Installed-Size: $(size_kb "$tmp")"
-        echo "Depends: glove (>= $version), base-files"
-        echo "Recommends: plymouth, plymouth-label, glove-icones-mide"
+        # glove-mide-icons is a Depends (not a Recommends) so that updates install it.
+        echo "Depends: glove (>= $version), base-files, glove-mide-icons"
+        echo "Recommends: plymouth, plymouth-label"
         # The gel wallpapers (glove-papeis, 0.12.58 and 0.12.59) were withdrawn: this
         # removes them on the next update.
         echo "Conflicts: glove-papeis"
@@ -908,7 +912,7 @@ build_iso() {
     # live-build checks for the system's debootstrap even when it uses the downloaded one.
     [ -x /usr/sbin/debootstrap ] || die "$(t "falta o debootstrap (sudo apt install debootstrap)" "debootstrap is missing (sudo apt install debootstrap)")"
     # GLOVE_USAR_PACOTES: the .deb files of this version are already in pacotes/ (CI).
-    if [ -n "${GLOVE_USAR_PACOTES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ] && [ -f "$out_dir/glove-icones-mide_${mide_icons_version}_all.deb" ]; then
+    if [ -n "${GLOVE_USAR_PACOTES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ] && [ -f "$out_dir/glove-mide-icons_${mide_icons_version}_all.deb" ]; then
         msg "$(t "Usando os pacotes prontos em $out_dir" "Using the ready packages in $out_dir")"
     else
         package_deb
@@ -969,8 +973,8 @@ build_iso() {
         printf '#!/bin/sh\n# The Glove repository was offline when this ISO was built.\nrm -f /etc/apt/sources.list.d/glove-os.sources\n' > config/hooks/normal/0050-sem-repositorio.hook.chroot
         chmod +x config/hooks/normal/0050-sem-repositorio.hook.chroot
     fi
-    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb config/packages.chroot/glove-icones-mide_*.deb
-    cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" "$out_dir/glove-icones-mide_${mide_icons_version}_all.deb" config/packages.chroot/
+    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb config/packages.chroot/glove-mide-icons_*.deb
+    cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" "$out_dir/glove-mide-icons_${mide_icons_version}_all.deb" config/packages.chroot/
     # Boot menu (BIOS and UEFI): the Glove OS wallpaper as the background image, and
     # the menu placed below the glove (live-build copies config/bootloaders over its own).
     mkdir -p config/includes.binary config/bootloaders
@@ -1096,7 +1100,7 @@ case "${1:-}" in
     uninstall|remove|desinstalar|remover) uninstall_glove "$2" ;;
     deb) package_deb ;;
     glove-os) package_glove_os ;;
-    mide-icons|icones-mide) package_mide_icons ;;
+    mide-icons) package_mide_icons ;;
     slackware|slack|tgz) package_slackware ;;
     rpm|fedora) package_rpm ;;
     arch|pacman) package_arch ;;

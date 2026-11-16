@@ -1195,7 +1195,9 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 
 - [x] 21.1 Ícones do Mide nativos (M) — v0.12.67: o pacote `glove-icones-mide` (o mide-icons, fork do
   WhiteSur sem arte da Apple, num commit fixo; temas Mide, Mide Claro e Mide Escuro, em SVG) é gerado
-  na CI, vai na ISO e é recomendado pelo glove e pelo glove-os (vem junto nas atualizações). Em
+  na CI, vai na ISO e é recomendado pelo glove e pelo glove-os (vem junto nas atualizações). v0.12.71:
+  renomeado para `glove-mide-icons` (substitui o antigo) e virou dependência do glove-os, porque só
+  como recomendação as atualizações não o instalavam. Em
   Preferências › Aparência, como alternativa moderna aos ícones do Glove; nos apps do Glove, o tema
   usa os desenhos próprios do Mide (`mide-files`, `mide-terminal`…) antes dos nomes freedesktop.
 - [x] 21.2 Aparência Moderno Claro e Moderno Escuro (G) — v0.12.69 (glove-ui 0.2.41): duas variantes
