@@ -55,6 +55,7 @@ impl PointerGrab<Glove> for MoveSurfaceGrab {
         let delta = event.location - self.start_data.location;
         if !self.started && (delta.x.abs() > 3.0 || delta.y.abs() > 3.0) {
             self.started = true;
+            data.dismiss_menus_for_move(&self.window);
             let cur = data.space.element_geometry(&self.window).map(|g| g.size).unwrap_or_default();
             self.size = Some(cur);
             self.checked = data.space.output_under(self.start_data.location).next().map(|o| o.name());

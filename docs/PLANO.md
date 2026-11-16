@@ -1142,6 +1142,12 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   só manda o próximo quadro depois dele: o menu ficava no primeiro, um retângulo vazio (cinza ou
   preto). Agora recebem junto com as janelas. Testado no Arduino 1.8.19: menus, submenus e dicas.
   O erro de segmentação da versão em .zip fica para quando houver o relato com a versão.
+  v0.12.63: menus que ficavam parados no meio da tela ao arrastar ou redimensionar a janela (ideia
+  do PR #4 de darkstarfire). No começo do arraste (`dismiss_menus_for_move`), os popups xdg da
+  janela recebem `popup_done`; os menus X11 do mesmo app (mesmo pid) saem de `x11_overlays` (o
+  compositor não pode fechar nem mover um override-redirect, e o Java não fecha o menu ao perder o
+  foco: testado), e o app os fecha no próximo clique; se ele os mapear de novo, voltam. Os de outros
+  apps ficam.
 - [x] 20.13 Atualização de Software sem Terminal (M) — v0.12.56: a consulta ao `novidades.json` pede
   a resposta fresca (`?t=` e `Cache-Control: no-cache`; o GitHub Pages guarda por 10 min, e logo depois
   de uma versão o painel dizia "em dia"). Verificar Agora roda o `apt update` como administrador

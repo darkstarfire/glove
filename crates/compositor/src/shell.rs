@@ -795,6 +795,31 @@ impl Glove {
         self.dirty = true;
     }
 
+    /// A janela começou a ser arrastada ou redimensionada: os menus abertos dela fecham
+    /// (senão ficam parados no meio da tela, longe da janela). Os popups Wayland
+    /// recebem `popup_done`. Os menus X11 (override-redirect) não podem ser fechados
+    /// nem movidos pelo compositor (e o Java não os fecha ao perder o foco): os do mesmo
+    /// app saem de cena (nem desenho nem mouse), e o app os fecha no próximo clique na
+    /// janela; se ele os mostrar de novo, voltam. Os de outros apps ficam como estão.
+    pub fn dismiss_menus_for_move(&mut self, window: &Window) {
+        if let Some(surface) = window.toplevel().map(|t| t.wl_surface().clone()) {
+            let popups: Vec<smithay::desktop::PopupKind> = smithay::desktop::PopupManager::popups_for_surface(&surface).map(|(p, _)| p).collect();
+            for popup in popups {
+                if let smithay::desktop::PopupKind::Xdg(ref xdg) = popup {
+                    xdg.send_popup_done();
+                }
+                let _ = smithay::desktop::PopupManager::dismiss_popup(&surface, &popup);
+            }
+        }
+        let Some(x) = window.x11_surface().cloned() else { return };
+        let pid = x.pid();
+        let mine = pid.is_some() && self.x11_overlays.iter().any(|o| o.x11_surface().and_then(|s| s.pid()) == pid);
+        if mine {
+            self.x11_overlays.retain(|o| o.x11_surface().and_then(|s| s.pid()) != pid);
+            self.dirty = true;
+        }
+    }
+
     /// Dá foco à janela mais alta que sobrou (depois de fechar/minimizar).
     pub fn focus_topmost(&mut self, except: Option<&WlSurface>) {
         let next = self.space.elements().rev().find(|w| except.is_none() || window_surface(w) != except).cloned();

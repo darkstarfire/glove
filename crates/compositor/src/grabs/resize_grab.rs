@@ -46,6 +46,8 @@ pub struct ResizeSurfaceGrab {
 
     initial_rect: Rectangle<i32, Logical>,
     last_window_size: Size<i32, Logical>,
+    /// Os menus da janela já foram fechados (no primeiro movimento).
+    menus_closed: bool,
 }
 
 impl ResizeSurfaceGrab {
@@ -69,6 +71,7 @@ impl ResizeSurfaceGrab {
             edges,
             initial_rect,
             last_window_size: initial_rect.size,
+            menus_closed: false,
         }
     }
 }
@@ -83,6 +86,10 @@ impl PointerGrab<Glove> for ResizeSurfaceGrab {
     ) {
         // While the grab is active, no client has pointer focus
         handle.motion(data, None, event);
+        if !self.menus_closed {
+            self.menus_closed = true;
+            data.dismiss_menus_for_move(&self.window);
+        }
 
         let mut delta = event.location - self.start_data.location;
 
