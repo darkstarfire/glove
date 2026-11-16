@@ -1,7 +1,8 @@
 # A cada tag de versão (v0.12.37…): os pacotes .deb, o repositório apt do Glove OS
 # (GitHub Pages, assinado) e a ISO, publicados na release da versão. Nessa ordem: a
 # ISO já traz o repositório configurado (pacote glove-os), e o apt da montagem lê o
-# repositório, que então precisa estar no ar.
+# repositório, que então precisa estar no ar. Em paralelo, os pacotes para Fedora, Arch
+# e Slackware (pacotes-distros.yml), que vão para a mesma release.
 # Também pode ser rodado à mão (Actions → ISO do Glove OS → Run workflow): os arquivos
 # ficam como artefatos da execução, sem release nem repositório.
 name: ISO do Glove OS
@@ -203,18 +204,46 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$GITHUB_REF_NAME
-          if ! gh release view "$tag" >/dev/null 2>&1; then
-            # The notes: the version's commit message (without the co-author line).
-            msg=$(git log -1 --format=%B | grep -v '^Co-Authored-By:' || true)
-            cat > notas.md <<EOF
-          $msg
+          sh ci/release.sh "$GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" saida/* --clobber
 
-          **Glove OS (ISO ao vivo, amd64):** grave num pendrive com
-          \`sudo dd if=glove-os-${tag#v}-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync\`
-          (apaga o pendrive), ou com o Discos do Glove (Disco Inicializável…). Os pacotes \`.deb\`
-          servem para instalar o Glove num Debian/Ubuntu. Confira os arquivos com \`sha256sum -c SHA256SUMS\`.
-          EOF
-            gh release create "$tag" --title "Glove $tag" --notes-file notas.md --verify-tag
+  # 4. Os pacotes das outras distribuições (Fedora, Arch e Slackware), cada um compilado
+  # na própria distribuição, em paralelo com o resto.
+  distros:
+    uses: ./.github/workflows/pacotes-distros.yml
+
+  # 5. Esses pacotes na release da versão, somados ao SHA256SUMS. Uma distribuição que
+  # falhou fica de fora (a execução aparece como falha), e as outras saem assim mesmo.
+  publicar-distros:
+    needs: [iso, distros]
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: pacote-*
+          path: distros
+          merge-multiple: true
+
+      - name: Publicar na release da versão
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! ls distros/* >/dev/null 2>&1; then
+            echo "::warning::Nenhum pacote das outras distribuições foi gerado."
+            exit 0
           fi
-          gh release upload "$tag" saida/* --clobber
+          tag=$GITHUB_REF_NAME
+          sh ci/release.sh "$tag"
+          # Soma as somas destes arquivos às que a ISO publicou.
+          gh release download "$tag" -p SHA256SUMS -O SHA256SUMS 2>/dev/null || : > SHA256SUMS
+          (cd distros && sha256sum *) >> SHA256SUMS
+          # Um arquivo só uma vez (a última soma vale, se a execução foi repetida).
+          tac SHA256SUMS | awk '!visto[$2]++' | tac > somas && mv somas SHA256SUMS
+          gh release upload "$tag" distros/* SHA256SUMS --clobber
+          cat SHA256SUMS

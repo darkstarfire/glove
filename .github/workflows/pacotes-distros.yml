@@ -1,0 +1,53 @@
+# Os pacotes do Glove para as outras distribuições: Fedora (.rpm), Arch (.pkg.tar.zst) e
+# Slackware (.tgz). Cada um é compilado num contêiner da própria distribuição e conferido
+# ali mesmo: o pacote é instalado e os programas têm de achar todas as bibliotecas.
+#
+# O iso.yml chama este fluxo a cada tag de versão e põe os pacotes na release. Também
+# pode ser rodado à mão (Actions → Pacotes das outras distribuições → Run workflow): os
+# pacotes ficam como artefatos da execução.
+name: Pacotes das outras distribuições
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pacote:
+    name: ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      # Uma distribuição que falha não derruba as outras.
+      fail-fast: false
+      matrix:
+        include:
+          # O Fedora mais antigo ainda mantido: o .rpm serve para ele e para os mais
+          # novos. Trocar pelo seguinte quando este sair de linha (a cada seis meses).
+          - distro: fedora
+            imagem: fedora:44
+            arquivos: pacotes/*.rpm
+          - distro: arch
+            imagem: archlinux:latest
+            arquivos: pacotes/*.pkg.tar.zst
+          # Compilado no 15.0 (estável), serve também para o -current.
+          - distro: slackware
+            imagem: aclemons/slackware:15.0
+            arquivos: pacotes/*.tgz
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Compilar, empacotar e conferir (${{ matrix.imagem }})
+        run: docker run --rm -v "$PWD:/src" -w /src ${{ matrix.imagem }} sh ci/${{ matrix.distro }}.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacote-${{ matrix.distro }}
+          path: ${{ matrix.arquivos }}
+          if-no-files-found: error
+          retention-days: 7

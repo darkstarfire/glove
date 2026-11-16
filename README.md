@@ -176,7 +176,21 @@ a própria barra de título; apps X11 usam a do Glove.
 
 ## Instalar no sistema
 
-O `glove-setup-tool.sh` gera os pacotes e também instala direto, em qualquer Linux. O pacote traz
+**Pacotes prontos.** Cada versão sai com os pacotes já compilados (amd64) na página de
+[releases](https://github.com/fabioaacarneiro/glove/releases/latest), cada um feito e conferido na
+própria distribuição:
+
+| Distribuição | Arquivo | Instalar (ou atualizar) |
+|---|---|---|
+| Debian, Ubuntu, Mint, Zorin | `glove_VERSÃO_amd64.deb` | `sudo apt install ./glove_VERSÃO_amd64.deb` |
+| Fedora 44 ou mais novo | `glove-VERSÃO-1.x86_64.rpm` | `sudo dnf install ./glove-VERSÃO-1.x86_64.rpm` |
+| Arch | `glove-VERSÃO-1-x86_64.pkg.tar.zst` | `sudo pacman -U glove-VERSÃO-1-x86_64.pkg.tar.zst` |
+| Slackware 15.0 ou -current | `glove-VERSÃO-x86_64-1.tgz` | `upgradepkg --install-new glove-VERSÃO-x86_64-1.tgz` |
+
+No Slackware, o Glove precisa do `seatd` e do `greetd`, do SlackBuilds.org. No Debian e derivados
+também dá para receber as atualizações pelo [repositório apt](https://fabioaacarneiro.github.io/glove/).
+
+**Do código.** O `glove-setup-tool.sh` gera os pacotes e também instala direto, em qualquer Linux. O pacote traz
 tudo: os programas, a sessão "Glove" na tela de login, a tela de login do Glove (serviço
 `glove-login`, sobre o greetd, que vem como dependência), o tema de ícones e a documentação.
 

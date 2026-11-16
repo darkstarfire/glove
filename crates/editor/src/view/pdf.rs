@@ -168,7 +168,18 @@ fn fallback_file(st: &CharStyle) -> Option<(PathBuf, u32)> {
         _ => "Regular",
     };
     let p = PathBuf::from(format!("/usr/share/fonts/truetype/liberation/{base}-{style}.ttf"));
-    p.is_file().then_some((p, 0))
+    if p.is_file() {
+        return Some((p, 0));
+    }
+    // Noutras distribuições a pasta é outra: o fontconfig diz onde está.
+    let family = match base {
+        "LiberationSerif" => "Liberation Serif,serif",
+        "LiberationMono" => "Liberation Mono,monospace",
+        _ => "Liberation Sans,sans-serif",
+    };
+    let pattern = format!("{family}{}{}", if st.bold { ":bold" } else { "" }, if st.italic { ":italic" } else { "" });
+    // Só arquivo de uma fonte só (o PDF não aceita coleção .ttc).
+    glove_ui::paint::font::font_file(&pattern).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("ttf") || e.eq_ignore_ascii_case("otf"))).map(|p| (p, 0))
 }
 
 fn stream(dict: &str, data: &[u8]) -> Vec<u8> {

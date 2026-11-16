@@ -358,7 +358,7 @@ uninstall_glove() {
 # Packages Glove needs to run and the ones that improve it (per distribution).
 deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core, greetd"
 rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2, glove-mide-icons"
-deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts greetd"
+deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts dejavu-sans-mono-fonts greetd"
 rec_rpm="xorg-x11-server-Xwayland mpv ffmpeg poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils"
 deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu greetd"
 opt_arch="xorg-xwayland:X11_apps mpv:Video ffmpeg:animated_wallpaper poppler:PDF_in_the_Viewer pipewire:sound wireplumber:volume xdg-utils:Open_With desktop-file-utils:Open_With"
@@ -671,7 +671,9 @@ package() {
   ./glove-setup-tool.sh _stage "\$pkgdir" /usr other
 }
 EOF
-    if has makepkg; then
+    # GLOVE_SEM_MAKEPKG (the CI): build the package directly from this tree even on Arch
+    # (makepkg does not run as root, and the recipe would fetch the code again by tag).
+    if has makepkg && [ -z "${GLOVE_SEM_MAKEPKG:-}" ]; then
         (cd "$out_dir" && makepkg -f)
         msg "$(t "Pacote Arch: $(ls "$out_dir"/glove-*.pkg.tar.zst | tail -1)" "Arch package: $(ls "$out_dir"/glove-*.pkg.tar.zst | tail -1)")"
         return

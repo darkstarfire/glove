@@ -1056,6 +1056,24 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   `pacotes` (compila e gera os .deb no trixie, `ci/pacotes.sh`), `repositorio` (publica) e `iso`
   (usa os mesmos .deb com `GLOVE_USAR_PACOTES`, sem compilar de novo). Com o repositório fora do ar
   (fork sem a chave), `GLOVE_SEM_REPOSITORIO` tira o glove-os.sources da imagem em vez de falhar.
+- [x] 17.4 Pacotes para Fedora, Arch e Slackware na release (M) — v0.12.73 (glove-ui 0.2.44; pedido
+  de 16/11/2026): o fluxo `pacotes-distros.yml` (chamado pelo `iso.yml` a cada tag; também roda à
+  mão) compila o Glove num contêiner de cada distribuição (`ci/fedora.sh` no Fedora 44, `ci/arch.sh`
+  no Arch, `ci/slackware.sh` no Slackware 15.0, que serve também para o -current), gera o pacote com
+  o `glove-setup-tool.sh` e o confere ali mesmo: instala com o gerenciador da distribuição (que
+  resolve as dependências declaradas) e vê com o `ldd` se os programas acham as bibliotecas. O
+  trabalho `publicar-distros` põe os pacotes na release e soma ao `SHA256SUMS`; uma distribuição que
+  falha fica de fora sem derrubar a ISO nem as outras. `ci/release.sh` cria a release (notas com a
+  tabela de instalação) para quem publicar primeiro.
+  - Slackware: o contêiner é a instalação mínima e não há resolução de dependências; a lista de
+    pacotes do `ci/slackware.sh` foi fechada com o `ldd`, e a `libseat` (que o 15.0 não traz) é
+    compilada do código do seatd só para ligar.
+  - Arch: no CI o pacote é montado direto do código da versão (`GLOVE_SEM_MAKEPKG`); o makepkg não
+    roda como root e a receita baixaria o código de novo pela tag.
+  - Achado do teste: o Glove não abria no Fedora. As fontes eram procuradas só nas pastas do Debian
+    e do Arch/Slackware; agora há as do Fedora e, se nenhuma existir, o fontconfig responde
+    (`font::load`, `font::font_file`; o PDF do Editor usa o mesmo para a Liberation). O `.rpm`
+    passou a pedir também a `dejavu-sans-mono-fonts` (a fonte do Terminal).
 - [ ] 17.3 Ligar no GitHub (usuário): o segredo `APT_SIGNING_KEY` e o Pages com origem "GitHub
   Actions" (feitos em 15/11/2026), e no ambiente `github-pages` a regra de tag `v*` (ele só
   aceitava publicar do ramo master). O token do gh desta máquina não tem permissão para isso.

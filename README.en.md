@@ -173,7 +173,21 @@ cargo build --release
 
 ## Installing
 
-`glove-setup-tool.sh` builds the packages and also installs directly, on any Linux. It speaks
+**Ready-made packages.** Every version comes with prebuilt packages (amd64) on the
+[releases](https://github.com/fabioaacarneiro/glove/releases/latest) page, each one built and checked
+on its own distribution:
+
+| Distribution | File | Install (or upgrade) |
+|---|---|---|
+| Debian, Ubuntu, Mint, Zorin | `glove_VERSION_amd64.deb` | `sudo apt install ./glove_VERSION_amd64.deb` |
+| Fedora 44 or newer | `glove-VERSION-1.x86_64.rpm` | `sudo dnf install ./glove-VERSION-1.x86_64.rpm` |
+| Arch | `glove-VERSION-1-x86_64.pkg.tar.zst` | `sudo pacman -U glove-VERSION-1-x86_64.pkg.tar.zst` |
+| Slackware 15.0 or -current | `glove-VERSION-x86_64-1.tgz` | `upgradepkg --install-new glove-VERSION-x86_64-1.tgz` |
+
+On Slackware, Glove needs `seatd` and `greetd`, from SlackBuilds.org. On Debian and derivatives you
+can also get updates from the [apt repository](https://fabioaacarneiro.github.io/glove/).
+
+**From source.** `glove-setup-tool.sh` builds the packages and also installs directly, on any Linux. It speaks
 Portuguese when the system is in Portuguese and English otherwise. The package brings
 everything: the programs, the "Glove" session on the login screen, the Glove login screen
 (the `glove-login` service, on top of greetd, which comes as a dependency), the icon theme
