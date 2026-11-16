@@ -4,7 +4,7 @@
 use glove_config::tr;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use glove_ui::{
     paint::{draw::*, Color},
@@ -30,13 +30,21 @@ pub fn parse_devices(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Consulta ao Bluetooth. Com limite de tempo: sem o serviço (bluetoothd) rodando, o
+/// `bluetoothctl` espera para sempre, e o painel travaria junto.
 fn ctl(args: &[&str]) -> Option<String> {
-    let out = Command::new("bluetoothctl").args(args).output().ok()?;
+    let out = glove_config::comando::output_within(Command::new("bluetoothctl").args(args), Duration::from_secs(2))?;
     Some(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// Há um adaptador Bluetooth no computador (mesmo sem o serviço rodando)?
+fn has_adapter() -> bool {
+    std::fs::read_dir("/sys/class/bluetooth").is_ok_and(|d| d.flatten().any(|e| e.file_name().to_string_lossy().starts_with("hci")))
+}
+
 fn run(args: &[&str]) -> Result<(), String> {
-    let out = Command::new("bluetoothctl").args(args).output().map_err(|e| format!("Não foi possível usar o bluetoothctl: {e}"))?;
+    // Parear e conectar demoram; mais que isto, o serviço não está respondendo.
+    let out = glove_config::comando::output_within(Command::new("bluetoothctl").args(args), Duration::from_secs(60)).ok_or_else(|| tr!("o Bluetooth não respondeu").to_string())?;
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
     // O bluetoothctl sai com 0 mesmo quando falha: confere a frase.
     if out.status.success() && !text.contains("Failed") && !text.contains("not available") {
@@ -56,13 +64,30 @@ pub struct Bluetooth {
     busy: Option<String>,
     done: Arc<Mutex<Option<Result<String, String>>>>,
     message: Option<(bool, String)>,
+    /// Há adaptador, mas o Bluetooth não respondeu (o serviço não está rodando).
+    silent: bool,
+    /// Sem resposta: só pergunta de novo depois disto (cada tentativa segura o painel
+    /// pelo tempo do limite, e o painel se atualiza a cada 2 s).
+    retry_at: Option<Instant>,
 }
 
 impl Bluetooth {
     pub fn refresh(&mut self) {
         self.loaded = true;
+        if self.retry_at.is_some_and(|t| Instant::now() < t) {
+            return;
+        }
+        self.retry_at = None;
+        self.silent = false;
+        // Sem adaptador não há o que perguntar.
+        if !has_adapter() {
+            self.powered = None;
+            return;
+        }
         let Some(show) = ctl(&["show"]) else {
             self.powered = None;
+            self.silent = true;
+            self.retry_at = Some(Instant::now() + Duration::from_secs(30));
             return;
         };
         if !show.contains("Controller") {
@@ -113,7 +138,11 @@ impl Bluetooth {
             ui.wake_after(Duration::from_millis(250));
         }
         let Some(powered) = self.powered else {
-            ui.small(tr!("Nenhum adaptador Bluetooth encontrado (ou o bluetoothctl não está instalado)."));
+            ui.small(if self.silent {
+                tr!("O Bluetooth não respondeu. Confira se o serviço de Bluetooth (bluetoothd) está rodando.")
+            } else {
+                tr!("Nenhum adaptador Bluetooth encontrado (ou o bluetoothctl não está instalado).")
+            });
             return;
         };
         let mut on = powered;

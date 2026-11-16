@@ -373,6 +373,9 @@ Mac mais novos:
 
 - **Wi-Fi** (com o nome da rede), **Bluetooth** e **Não perturbe**: clique para ligar ou desligar.
 - **Tela** (brilho), **Luz do teclado** (só nos computadores que têm) e **Som**: arraste o trilho.
+- A central abre na hora, com o que o Glove já sabe; o estado do Wi-Fi, do Bluetooth e do som é
+  conferido em segundo plano e aparece logo em seguida. Se o serviço de Bluetooth do sistema
+  (bluetoothd) não estiver rodando, o botão do Bluetooth fica apagado.
 
 **Luz do teclado:** **Ctrl + teclas de brilho** aumentam e diminuem a luz do teclado (no Chromebook e
 nos notebooks com teclado iluminado), com o aviso na tela; as teclas próprias de luz do teclado

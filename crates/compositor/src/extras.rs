@@ -104,7 +104,8 @@ pub fn parse_wpctl(out: &str) -> Option<(f32, bool)> {
 }
 
 pub(crate) fn read_volume() -> Option<(f32, bool)> {
-    let out = Command::new("wpctl").args(["get-volume", SINK]).output().ok()?;
+    // Com limite: é chamado da linha principal (a cada minuto), que não pode ficar presa.
+    let out = glove_config::comando::output_within(Command::new("wpctl").args(["get-volume", SINK]), Duration::from_secs(2))?;
     parse_wpctl(&String::from_utf8_lossy(&out.stdout))
 }
 
@@ -801,7 +802,7 @@ pub fn parse_passwd(text: &str) -> Vec<(u32, String, String)> {
 
 /// Sessões abertas em consoles: (uid, número do console).
 fn list_sessions() -> Vec<(u32, u32)> {
-    let out = std::process::Command::new("loginctl").args(["list-sessions", "--no-legend"]).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+    let out = glove_config::comando::output_within(std::process::Command::new("loginctl").args(["list-sessions", "--no-legend"]), Duration::from_secs(3)).map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
     parse_sessions(&out)
 }
 

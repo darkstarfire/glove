@@ -1091,6 +1091,15 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   (`Frozen`); o recorte sai dessa imagem (`shot_from_freeze`), ou ao vivo se a área for noutro
   monitor. Testado no Glove aninhado com fundo animado: quadros idênticos durante a escolha e o
   recorte de 400×300 certo.
+- [x] 19.5 A central de controle congelava a tela (G) — v0.12.72 (glove-ui 0.2.43; relato de
+  16/11/2026, num Slackware): `open_control` rodava `bluetoothctl show` na linha principal do
+  compositor, e sem o bluetoothd esse comando nunca termina (reproduzido: 8 s de limite, sem
+  resposta). A tela inteira parava; desligando à força, o disco ficou com erro. Agora:
+  `glove_config::comando::output_within` roda o comando com limite e o encerra; a central abre com o
+  que já se sabe (`quick_control_info`) e lê Wi-Fi, Bluetooth e volume numa linha à parte
+  (`refresh_control` → `control_arrived`, uma leitura por vez, canal único); `wpctl`, `loginctl` e as
+  consultas do `nmcli` ganharam limite. No painel Bluetooth das Preferências: sem adaptador não
+  pergunta; sem resposta, avisa e só tenta de novo em 30 s.
 - [x] 19.4 `glove-setup-tool.sh` com sudo (P): sem cargo, como root vindo do sudo, diz para rodar sem
   o sudo; a mensagem do Rust mínimo dizia 1.85 (é 1.89).
 

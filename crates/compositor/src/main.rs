@@ -183,6 +183,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     state.start_xwayland();
 
     state.refresh_extras();
+    // A central de controle já abre sabendo do Bluetooth e do nome da rede (lidos à parte).
+    if !greeter {
+        state.refresh_control();
+    }
     state.start_idle_timer();
     // Bloqueio antes de qualquer repouso ou hibernação do sistema. Dentro de outro desktop
     // quem bloqueia é ele (só liga ali para os testes, com o modo de depuração).

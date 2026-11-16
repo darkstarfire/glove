@@ -350,6 +350,9 @@ Macs:
 - **Wi-Fi** (with the network name), **Bluetooth** and **Do Not Disturb**: click to turn on or off.
 - **Display** (brightness), **Keyboard light** (only on computers that have one) and **Sound**: drag
   the track.
+- It opens right away with what Glove already knows; the Wi-Fi, Bluetooth and sound state is checked
+  in the background and shows a moment later. If the system's Bluetooth service (bluetoothd) is not
+  running, the Bluetooth button stays off.
 
 **Keyboard light:** **Ctrl + brightness keys** raise and lower the keyboard light (on Chromebooks and
 laptops with a backlit keyboard), with the on-screen notice; dedicated keyboard light keys work too.

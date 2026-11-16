@@ -1863,6 +1863,12 @@ msgstr "Password:"
 msgid "o Bluetooth recusou"
 msgstr "Bluetooth refused"
 
+msgid "o Bluetooth não respondeu"
+msgstr "Bluetooth did not answer"
+
+msgid "O Bluetooth não respondeu. Confira se o serviço de Bluetooth (bluetoothd) está rodando."
+msgstr "Bluetooth did not answer. Check that the Bluetooth service (bluetoothd) is running."
+
 msgid "Aparelho sem nome"
 msgstr "Unnamed device"
 
