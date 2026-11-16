@@ -548,6 +548,7 @@ fn draw_bubble(f: &glove_paint::font::Fonts, a: &Aviso, sc: f32) -> Option<Canva
 fn draw_center(f: &glove_paint::font::Fonts, rows: &[&Aviso], quiet: bool, total: usize, h: f32, sc: f32) -> Option<Canvas> {
     let w = CENTER_W;
     let mut c = Canvas::new(w, h, sc)?;
+    let _style = glove_paint::draw::PanelStyle::begin(&mut c);
     c.fill(rrect4(0.0, 0.0, w, h, [0.0, 0.0, 8.0, 8.0]), &solid(rgba(245, 245, 247, 255)));
     c.stroke(rrect4(0.5, -0.5, w - 1.0, h, [0.0, 0.0, 8.0, 8.0]), &solid(rgba(0, 0, 0, 70)), 1.0);
     let ink = rgba(25, 25, 28, 255);

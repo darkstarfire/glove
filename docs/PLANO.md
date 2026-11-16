@@ -1212,8 +1212,11 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   `draw::set_grad_remap`), o que vale para os apps sem mexer em cada um.
   - [ ] 21.2.1 Revisar app por app no Escuro (cores vivas e cinzas médios fixos que o remapeamento
     não pega: a mesa do Discos, a grade das Preferências, os painéis do Painel de Widgets).
-  - [ ] 21.2.2 Campos de texto e listas suspensas com o anel de foco do moderno; abas lisas.
-  - [ ] 21.2.3 Central de controle, Busca Rápida, avisos e a grade de apps nas cores modernas.
+  - [x] 21.2.2 Campos de texto (v0.12.70): lisos e arredondados, com o anel de foco só no campo em
+    uso; as listas suspensas já ficam lisas pelo `gel_rect`. Falta: abas lisas.
+  - [x] 21.2.3 Painéis do compositor (v0.12.70): a central de controle, a central de avisos, a Busca
+    Rápida, Forçar Encerrar e o volume escurecem no Moderno Escuro (`draw::PanelStyle`, guarda que liga
+    o remapeamento só enquanto o painel se desenha). A grade de apps já é escura.
 - [x] 21.3 Janela do cabeçalho do Editor de Texto (P) — v0.12.68: rótulos curtos numa coluna medida,
   os controles encolhem com a folha e as explicações vão ao lado só se couberem (cortadas com "…");
   testado com a janela no tamanho mínimo.
