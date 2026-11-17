@@ -526,6 +526,9 @@ ligado:
 - A tela bloqueia antes de qualquer repouso ou hibernação do sistema, peça quem pedir: o
   menu Repouso, fechar a tampa, o botão de energia, a bateria no fim ou `systemctl
   hibernate`. Ao voltar, aparece o painel da senha, nunca a mesa.
+- **Repouso** (menu principal): a tela de bloqueio aparece, o monitor apaga 3 segundos depois e
+  então o computador dorme. Se ele não conseguir dormir, o monitor continua apagado e a sessão
+  bloqueada.
 - Fechar a tampa com um monitor externo ligado só desliga a tela do notebook (dá para
   continuar no externo). Se o monitor externo sair com a tampa fechada, a tela apaga e
   bloqueia na hora.

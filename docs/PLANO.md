@@ -1313,3 +1313,7 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     efeito; agora confere a data do config.toml a cada 2 s nesse caso.
   - Os atalhos da gravação de tela (PR #5) entraram no grupo Sistema do painel Atalhos.
   - A janela de senha (glove.Senha) tem nome e o ícone do chaveiro no Dock e na barra.
+- [x] 21.8 Repouso que apaga o monitor (v0.12.76; pedido de 17/11/2026): `Glove::sleep` bloqueia, deixa
+  a tela de bloqueio 3 s à vista (`SLEEP_SHOW_LOCK`), apaga o monitor (`screen_off`) e só então
+  chama o `systemctl suspend` (o erro dele vai para o registro). Antes, se a suspensão não
+  acontecia, ficava tudo aceso. Dentro de outro desktop não suspende (só bloqueia e apaga).

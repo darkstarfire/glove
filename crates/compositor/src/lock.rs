@@ -67,6 +67,8 @@ pub enum SleepEvent {
 
 /// Quanto o sistema espera o quadro do bloqueio ir para a tela antes de suspender.
 const SLEEP_HOLD: Duration = Duration::from_millis(300);
+/// Repouso pelo menu: quanto a tela de bloqueio fica à vista antes de o monitor apagar.
+const SLEEP_SHOW_LOCK: Duration = Duration::from_secs(3);
 
 #[derive(Default)]
 pub struct Idle {
@@ -298,12 +300,40 @@ impl Glove {
         }
     }
 
-    /// Repouso: bloqueia antes (se pedido) e pede ao sistema para suspender.
+    /// Repouso (menu principal ou repouso por inatividade): bloqueia (se pedido) e mostra a
+    /// tela de bloqueio por um instante, apaga o monitor e só então pede ao sistema para
+    /// suspender. Se o sistema não suspender (máquina sem suporte, algo segurando o
+    /// repouso), o monitor fica apagado e a sessão bloqueada do mesmo jeito; antes, a tela
+    /// ficava acesa com a mesa ou o painel de senha.
     pub fn sleep(&mut self) {
         if self.config.energy.require_password {
             self.lock_screen();
         }
-        let _ = std::process::Command::new("systemctl").arg("suspend").spawn();
+        self.close_menu();
+        self.dirty = true;
+        self.loop_handle
+            .insert_source(Timer::from_duration(SLEEP_SHOW_LOCK), |_, _, data| {
+                data.state.screen_off();
+                // Dentro de outro desktop, quem põe o computador para dormir é ele.
+                if data.state.nested {
+                    tracing::info!("repouso: dentro de outro desktop, só bloqueia e apaga");
+                    return TimeoutAction::Drop;
+                }
+                // Um instante para o monitor apagar antes de o sistema dormir.
+                data.state
+                    .loop_handle
+                    .insert_source(Timer::from_duration(Duration::from_millis(500)), |_, _, _| {
+                        std::thread::spawn(|| match std::process::Command::new("systemctl").arg("suspend").output() {
+                            Ok(o) if o.status.success() => {}
+                            Ok(o) => tracing::warn!("repouso: o sistema não suspendeu ({})", String::from_utf8_lossy(&o.stderr).trim()),
+                            Err(e) => tracing::warn!("repouso: sem o systemctl ({e})"),
+                        });
+                        TimeoutAction::Drop
+                    })
+                    .ok();
+                TimeoutAction::Drop
+            })
+            .ok();
     }
 
     // -----------------------------------------------------------------------
