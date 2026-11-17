@@ -223,6 +223,40 @@ pub(crate) fn grow() -> f32 {
 /// O ffmpeg existe? (Para avisar na coleção de vídeos.)
 static FFMPEG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
+/// Duas linhas cruzadas em volta de (cx, cy): um "×" (`diagonal`) ou um "+".
+fn cross_path(cx: f32, cy: f32, r: f32, diagonal: bool) -> Option<glove_ui::paint::tiny_skia::Path> {
+    let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
+    if diagonal {
+        pb.move_to(cx - r, cy - r);
+        pb.line_to(cx + r, cy + r);
+        pb.move_to(cx + r, cy - r);
+        pb.line_to(cx - r, cy + r);
+    } else {
+        pb.move_to(cx - r, cy);
+        pb.line_to(cx + r, cy);
+        pb.move_to(cx, cy - r);
+        pb.line_to(cx, cy + r);
+    }
+    pb.finish()
+}
+
+/// As coleções do painel Mesa, na ordem da lista.
+#[derive(Clone, Copy, PartialEq)]
+enum DeskSource {
+    Favorites,
+    Glove,
+    Colors,
+    Pictures,
+    Videos,
+}
+const DESK_SOURCES: [(DeskSource, &str); 5] = [
+    (DeskSource::Favorites, "Favoritas"),
+    (DeskSource::Glove, "Imagens do Glove"),
+    (DeskSource::Colors, "Cores Sólidas"),
+    (DeskSource::Pictures, "Pasta Imagens"),
+    (DeskSource::Videos, "Vídeos e Animações"),
+];
+
 /// Altura máxima da janela (cabe numa tela de 768 linhas com a barra e o Dock);
 /// painel maior ganha rolagem.
 const MAX_H: f32 = 640.0;
@@ -296,8 +330,10 @@ struct Prefs {
     desk_tab: usize,
     /// Hora de abrir (para animar a prévia do protetor).
     started: Instant,
-    /// Coleção escolhida no painel Mesa.
+    /// Coleção escolhida no painel Mesa (`DESK_SOURCES`, pela posição na lista).
     desk_source: usize,
+    /// Escolhendo uma imagem para as Favoritas (a folha Abrir).
+    desk_file: Option<glove_ui::FileBrowser>,
     /// Miniaturas de papel de parede já desenhadas.
     thumbs: std::collections::HashMap<String, Option<glove_ui::paint::draw::Canvas>>,
     /// Histórico das setas da barra.
@@ -317,7 +353,7 @@ const SHORTCUT_GROUPS: [(&str, &[&str]); 4] = [
     ("Janelas", &["close", "minimize", "zoom", "fullscreen", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "grade", "cycle_windows"]),
     ("Mesas virtuais", &["desk_prev", "desk_next", "desk_move_prev", "desk_move_next"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
-    ("Sistema", &["screenshot", "screenshot_area", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
+    ("Sistema", &["screenshot", "screenshot_area", "record_screen", "record_area", "record_toggle", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
 ];
 
 impl Prefs {
@@ -403,6 +439,7 @@ impl Prefs {
             kbd_tab,
             open_groups: [true, false, false, false],
             desk_source: 0,
+            desk_file: None,
             desk_tab: 0,
             started: Instant::now(),
             access_tab: 0,
@@ -967,10 +1004,10 @@ impl Prefs {
         if glove_ui::paint::wallpaper::is_animated(&cur) {
             self.anim_options(ui);
         }
-        // Coleções.
-        let sources = [tr!("Imagens do Glove"), tr!("Cores Sólidas"), tr!("Pasta Imagens"), tr!("Vídeos e Animações")];
+        // Coleções (as Favoritas primeiro).
         let mut sel = Some(self.desk_source);
-        let rows: Vec<String> = sources.iter().map(|s| s.to_string()).collect();
+        let rows: Vec<String> = DESK_SOURCES.iter().map(|s| tr(s.1).to_string()).collect();
+        let source = DESK_SOURCES.get(self.desk_source).map_or(DeskSource::Glove, |s| s.0);
         let (lx, ly) = ui.cursor();
         let list_h = 230.0 + grow();
         ui.area(Rect::new(lx, ly, 150.0, list_h), |ui| {
@@ -981,32 +1018,35 @@ impl Prefs {
             }
         });
         // Miniaturas da coleção.
-        let items: Vec<String> = match self.desk_source {
-            0 => glove_config::glove_os_wallpaper()
+        let items: Vec<String> = match source {
+            DeskSource::Favorites => self.config.wallpaper_favorites.clone(),
+            DeskSource::Glove => glove_config::glove_os_wallpaper()
                 .into_iter()
                 .chain(WALLPAPERS.iter().map(|(i, _)| i.to_string()))
                 .collect(),
-            1 => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
-            2 => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
-            _ => self.videos.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
+            DeskSource::Colors => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
+            DeskSource::Pictures => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
+            DeskSource::Videos => self.videos.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
         };
         let gx = lx + 166.0;
         let gw = w - 166.0;
         ui.c.fill_rect(gx, ly, gw, list_h, &solid(rgba(255, 255, 255, 255)));
         ui.c.stroke(rrect(gx + 0.5, ly + 0.5, gw - 1.0, list_h - 1.0, 0.0), &solid(rgba(130, 130, 135, 255)), 1.0);
-        if items.is_empty() {
-            let t = if self.desk_source == 3 { tr!("Ponha vídeos (MP4, WebM…) ou GIF na pasta Vídeos ou Imagens.") } else { tr!("Ponha imagens (PNG, JPEG, WebP) na sua pasta Imagens.") };
+        if items.is_empty() && source != DeskSource::Favorites {
+            let t = if source == DeskSource::Videos { tr!("Ponha vídeos (MP4, WebM…) ou GIF na pasta Vídeos ou Imagens.") } else { tr!("Ponha imagens (PNG, JPEG, WebP) na sua pasta Imagens.") };
             ui.fonts.draw(ui.c, t, gx + 14.0, ly + 24.0, 11.0, false, rgba(110, 110, 116, 255));
         }
-        if self.desk_source == 3 && !*FFMPEG.get_or_init(glove_ui::paint::wallpaper::has_ffmpeg) {
+        if source == DeskSource::Videos && !*FFMPEG.get_or_init(glove_ui::paint::wallpaper::has_ffmpeg) {
             ui.fonts.draw(ui.c, tr!("Para papel animado, instale o ffmpeg (sudo apt install ffmpeg)."), gx + 14.0, ly + list_h - 12.0, 11.0, false, rgba(180, 60, 40, 255));
         }
         let (tw, th, gap) = (88.0, 62.0, 10.0);
         let per_row = ((gw - gap) / (tw + gap)).floor().max(1.0) as usize;
+        let cell = |i: usize| Rect::new(gx + gap + (i % per_row) as f32 * (tw + gap), ly + gap + (i / per_row) as f32 * (th + gap), tw, th);
         let mut chosen = None;
+        let mut remove = None;
+        let favorites = source == DeskSource::Favorites;
         for (i, it) in items.iter().enumerate() {
-            let (col, row) = ((i % per_row) as f32, (i / per_row) as f32);
-            let r = Rect::new(gx + gap + col * (tw + gap), ly + gap + row * (th + gap), tw, th);
+            let r = cell(i);
             if r.y + r.h > ly + list_h {
                 break;
             }
@@ -1014,9 +1054,51 @@ impl Prefs {
                 ui.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, 3.0), &solid(ui.theme.accent));
             }
             self.draw_thumb(ui, it, r);
+            // Nas Favoritas, com o mouse em cima: o "×" no canto tira da coleção.
+            let x_btn = Rect::new(r.x + r.w - 18.0, r.y + 2.0, 16.0, 16.0);
+            if favorites && r.contains(ui.pointer()) {
+                ui.c.fill(circle(x_btn.x + 8.0, x_btn.y + 8.0, 7.5), &solid(rgba(0, 0, 0, 150)));
+                ui.c.stroke(cross_path(x_btn.x + 8.0, x_btn.y + 8.0, 3.0, true), &solid(Color::WHITE), 1.4);
+                if ui.hit(x_btn).clicked {
+                    remove = Some(i);
+                    continue;
+                }
+            }
             if ui.hit(r).clicked {
                 chosen = Some(it.clone());
             }
+            // Nas outras coleções, o botão direito junta às Favoritas.
+            if !favorites && ui.right_clicked(r) && !self.config.wallpaper_favorites.contains(it) {
+                self.config.wallpaper_favorites.push(it.clone());
+                self.save();
+            }
+        }
+        // Nas Favoritas, a última casa: um "+" discreto para buscar uma imagem.
+        if favorites {
+            let r = cell(items.len());
+            if r.y + r.h <= ly + list_h {
+                let hot = r.contains(ui.pointer());
+                let ink = if hot { ui.theme.accent } else { rgba(160, 160, 166, 255) };
+                ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 4.0), &solid(with_alpha(ink, if hot { 0.9 } else { 0.6 })), 1.0);
+                ui.c.stroke(cross_path(r.x + r.w / 2.0, r.y + r.h / 2.0 - 7.0, 7.0, false), &solid(ink), 1.6);
+                let t = tr!("Adicionar…");
+                let w2 = ui.text_width(t, 10.0, false);
+                ui.fonts.draw(ui.c, t, r.x + (r.w - w2) / 2.0, r.y + r.h - 10.0, 10.0, false, ink);
+                if ui.hit(r).clicked {
+                    self.desk_file = Some(glove_ui::FileBrowser::open(glove_config::arquivos::user_dir("PICTURES"), &["png", "jpg", "jpeg", "webp"]).labeled(tr!("Adicionar às Favoritas"), tr!("Adicionar")));
+                }
+            }
+            if items.is_empty() {
+                let t = tr!("Junte aqui as imagens de que você mais gosta. Nas outras coleções, clique numa imagem com o botão direito para juntar.");
+                for (k, l) in glove_ui::paint::chrome::wrap_lines(ui.fonts, t, 11.0, false, gw - 2.0 * gap - tw - 20.0).into_iter().take(4).enumerate() {
+                    ui.fonts.draw(ui.c, &l, gx + 2.0 * gap + tw + 6.0, ly + gap + 14.0 + k as f32 * 15.0, 11.0, false, rgba(110, 110, 116, 255));
+                }
+            }
+        }
+        if let Some(i) = remove {
+            self.config.wallpaper_favorites.remove(i);
+            self.save();
+            ui.redraw = true;
         }
         if let Some(c) = chosen {
             self.set_desk_wallpaper(c);
@@ -1024,6 +1106,23 @@ impl Prefs {
             ui.redraw = true;
         }
         ui.alloc(w, list_h);
+    }
+
+    /// A folha Abrir das Favoritas: a imagem escolhida entra na coleção e vira o papel.
+    pub fn desk_file_sheet(&mut self, ui: &mut Ui) {
+        let Some(mut fb) = self.desk_file.take() else { return };
+        match ui.file_sheet(&mut fb) {
+            Some(glove_ui::Choice::Picked(p)) => {
+                let p = p.to_string_lossy().into_owned();
+                if !self.config.wallpaper_favorites.contains(&p) {
+                    self.config.wallpaper_favorites.push(p.clone());
+                }
+                self.set_desk_wallpaper(p);
+                self.save();
+            }
+            Some(glove_ui::Choice::Cancelled) => {}
+            None => self.desk_file = Some(fb),
+        }
     }
 
     /// Os monitores ligados (nome do conector, nome para mostrar, retângulo na mesa),
@@ -2378,6 +2477,7 @@ impl App for Prefs {
         let sheet = (self.pane == Pane::Rede && self.rede.prompt.is_some())
             || (matches!(self.pane, Pane::Inicio | Pane::Contas) && self.inicio.sheet_open())
             || (self.pane == Pane::Contas && self.contas.sheet_open())
+            || (self.pane == Pane::Mesa && self.desk_file.is_some())
             || (self.pane == Pane::Seguranca && self.fw_ask.is_some())
             || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some());
         if sheet {
@@ -2480,6 +2580,8 @@ impl App for Prefs {
                 self.atualizacao.prompt_sheet(ui);
             } else if self.pane == Pane::Rede {
                 self.rede.prompt_sheet(ui);
+            } else if self.desk_file.is_some() {
+                self.desk_file_sheet(ui);
             } else if self.contas.sheet_open() {
                 self.contas.sheets(ui);
             } else {

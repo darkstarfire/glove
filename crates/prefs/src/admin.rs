@@ -1,7 +1,6 @@
-//! Senha de administrador: uma folha na própria janela e o comando pelo
-//! `sudo -S` (a senha vai só para a entrada do sudo, nunca para a linha de
-//! comando). O Glove não tem agente do polkit: o pkexec ficaria esperando a
-//! senha num terminal que ninguém vê.
+//! Senha de administrador: a janela de senha do sistema (o `glove-senha --sudo`, a mesma
+//! do polkit) e o comando pelo `sudo -S` (a senha vai só para a entrada do sudo, nunca
+//! para a linha de comando). Sem o glove-senha instalado, uma folha na própria janela.
 
 use glove_config::tr;
 use glove_ui::{paint::draw::*, Rect, Ui};
@@ -14,6 +13,8 @@ pub struct Prompt {
     pub what: String,
     text: String,
     error: bool,
+    /// A janela de senha aberta (sem ela, a folha).
+    window: Option<glove_config::senha::Pedido>,
 }
 
 pub enum Answer {
@@ -25,17 +26,29 @@ pub enum Answer {
 
 impl Prompt {
     pub fn new(what: String) -> Self {
-        Self { what, text: String::new(), error: false }
+        let window = glove_config::senha::Pedido::novo(&what);
+        Self { what, text: String::new(), error: false, window }
     }
 
-    /// Desenha a folha (abaixo da barra de ferramentas) e trata Enter, OK, Cancelar e Esc.
+    /// A resposta da janela de senha (que já confere a senha); sem ela, a folha
+    /// (abaixo da barra de ferramentas), que trata Enter, OK, Cancelar e Esc.
     pub fn sheet(&mut self, ui: &mut Ui) -> Answer {
+        if let Some(w) = &mut self.window {
+            use glove_config::senha::Resposta;
+            return match w.resposta() {
+                Resposta::Esperando => {
+                    ui.wake_after(std::time::Duration::from_millis(150));
+                    Answer::Waiting
+                }
+                Resposta::Cancelado => Answer::Cancel,
+                Resposta::Senha(p) => Answer::Password(p),
+            };
+        }
         let (sw, sh) = (420.0, 150.0);
         let x = ((ui.c.w - sw) / 2.0).round();
         let y = 78.0;
-        ui.c.fill(rrect(x - 6.0, y, sw + 12.0, sh + 8.0, 6.0), &solid(rgba(0, 0, 0, 40)));
-        ui.c.fill_rect(x, y, sw, sh, &vgrad(y, y + sh, &[(0.0, rgba(236, 236, 238, 252)), (1.0, rgba(246, 246, 248, 252))]));
-        ui.c.stroke(rrect(x + 0.5, y - 0.5, sw - 1.0, sh, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0);
+        // A folha: sombra suave em volta e os cantos de baixo arredondados.
+        ui.sheet_panel(Rect::new(x, y, sw, sh));
         let ink = rgba(20, 20, 20, 255);
         ui.fonts.draw(ui.c, tr!("Digite a sua senha de administrador"), x + 20.0, y + 26.0, 13.0, true, ink);
         let what = ui.fonts.ellipsize(&self.what, 11.5, false, sw - 40.0);

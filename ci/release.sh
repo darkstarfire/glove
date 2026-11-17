@@ -28,6 +28,9 @@ $msg
 | Arch | \`glove-$v-1-x86_64.pkg.tar.zst\` | \`sudo pacman -U glove-$v-1-x86_64.pkg.tar.zst\` |
 | Slackware 15.0 ou -current | \`glove-$v-x86_64-1.tgz\` | \`upgradepkg --install-new glove-$v-x86_64-1.tgz\` (precisa do seatd e do greetd, do SlackBuilds.org) |
 
+Dentro do Glove, Preferências ▸ Atualização de Software instala as versões seguintes. No Debian/Ubuntu,
+no Fedora e no Arch há também os [repositórios](https://fabioaacarneiro.github.io/glove/) (apt, dnf e pacman).
+
 Confira os arquivos com \`sha256sum -c SHA256SUMS\`.
 EOF2
 gh release create "$tag" --title "Glove $tag" --notes-file /tmp/notas.md --verify-tag

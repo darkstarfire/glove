@@ -258,6 +258,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(smithay::reexports::calloop::PostAction::Continue)
             },
         )?;
+    } else {
+        // Sem o inotify (o limite de vigias do sistema cheio, por exemplo): confere a data
+        // do arquivo a cada 2 s. Sem isto, nada do que as Preferências mudam teria efeito.
+        tracing::warn!("configuração: sem o inotify; conferindo o arquivo a cada 2 s");
+        let mtime = || std::fs::metadata(glove_config::path()).and_then(|m| m.modified()).ok();
+        let mut last = mtime();
+        event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(2)), move |_, _, data| {
+            let now = mtime();
+            if now != last {
+                last = now;
+                if data.state.reload_config() {
+                    udev::config_changed(data);
+                }
+            }
+            TimeoutAction::ToDuration(Duration::from_secs(2))
+        })?;
     }
     state.apply_keyboard();
 

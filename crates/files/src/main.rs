@@ -2107,15 +2107,34 @@ impl Files {
             }
             ui.redraw = true;
         }
+        // Arrastando algo sobre a lista: a pasta sob o mouse é o destino (sem ela, a
+        // pasta à vista), como nos ícones e nas colunas.
+        if self.dnd_hover {
+            let (px, py) = ui.pointer();
+            let i = ((py - area.y - glove_ui::TABLE_HEADER_H + state.scroll) / ROW_H).floor();
+            if area.contains((px, py)) && py > area.y + glove_ui::TABLE_HEADER_H && i >= 0.0 && (i as usize) < entries.len() && entries[i as usize].kind == Kind::Folder {
+                self.drop_target = Some(entries[i as usize].path.clone());
+            }
+        }
         let action = r.pressed.map(|i| (entries[i].clone(), r.double == Some(i)));
         if let Some((e, double)) = action {
-            // Ctrl alterna o item, Shift escolhe a faixa (como nas colunas e nos ícones).
-            if double || !self.multi_click(ui, &e, &entries) {
+            let m = ui.mods();
+            if !double && !(m.ctrl || m.shift) && !self.extra.is_empty() && self.is_chosen(&e.path) {
+                // Apertar num dos vários escolhidos não desfaz a seleção (pode ser o
+                // começo de arrastar todos); sem arrastar, vira seleção única ao soltar.
+                self.defer_select = Some((usize::MAX, e.clone()));
+            } else if double || !self.multi_click(ui, &e, &entries) {
+                // Ctrl alterna o item, Shift escolhe a faixa (como nas colunas e nos ícones).
                 self.selected = Some(e.path.clone());
                 self.extra.clear();
                 if double {
                     self.open(&e);
                 }
+            }
+            // O começo de um arrastar: depois de 5 pontos vira o arrastar do sistema,
+            // para outra pasta, outra janela do Arquivos ou outro app (drag_frame).
+            if !double {
+                self.drag = Some((e.path.clone(), ui.pointer(), false));
             }
             ui.redraw = true;
         }

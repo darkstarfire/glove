@@ -349,6 +349,11 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 
 Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
 
+- **Favoritas** (a primeira coleção): as imagens que você juntou, em grade. A última casa, **+
+  Adicionar…**, abre a janela Abrir para buscar uma imagem (PNG, JPEG ou WebP) em qualquer pasta; ela
+  entra nas Favoritas e vira o papel de parede. Nas outras coleções, clique numa imagem com o botão
+  direito para juntá-la às Favoritas. Com o mouse sobre uma favorita, o **×** no canto a tira da
+  coleção (o arquivo continua onde está).
 - **Monitores** (aparece com mais de um monitor, no modo estender):
   - **A mesma imagem em todos:** cada monitor mostra o papel no tamanho dele;
   - **Uma imagem para cada monitor:** clique num monitor na miniatura e depois numa imagem;
@@ -491,6 +496,15 @@ o `glove-os` num **repositório apt do Glove OS** (assinado), que o Glove OS já
   diante o Glove se atualiza pelo apt também (sem a identidade do Glove OS, que só o pacote
   `glove-os` traz). Pelo Terminal, os comandos estão em https://fabioaacarneiro.github.io/glove.
 - Pelo Terminal, também vale o de sempre: `sudo apt update && sudo apt upgrade`.
+- **Glove no Fedora e no Arch:** o painel também oferece **Adicionar o Repositório do Glove** (uma
+  vez) e depois **Atualizar o Glove**. Com o repositório, o Glove passa a chegar junto com as
+  atualizações do sistema (`sudo dnf upgrade`, `sudo pacman -Syu`). As atualizações são conferidas
+  pela chave do Glove, que vem no pacote.
+- **Glove no Slackware:** não há repositório; **Atualizar o Glove** baixa o pacote da versão nova da
+  página de releases, confere a soma (`SHA256SUMS`) e instala com o `upgradepkg`.
+- **Glove instalado pelo código** (`./glove-setup-tool.sh instalar`): o painel avisa da versão nova e
+  diz como atualizar (`git pull` e instalar de novo).
+- Fora do apt, a atualização mostra um giratório no lugar da barra de progresso.
 
 ## Senha do sistema (pedidos de administrador)
 
@@ -499,6 +513,10 @@ Flatpak, mudar uma rede do sistema, `pkexec` no Terminal), abre a janela **Auten
 foi pedido. Digite a sua senha e clique em **Autenticar**; **Cancelar** (ou Esc) nega o pedido. A
 senha é conferida pelo próprio sistema (polkit e PAM); o Glove não a guarda. Contas que não são de
 administrador veem o nome de um administrador e precisam da senha dele.
+
+Os apps do Glove que precisam de administrador (Atualização de Software, Itens de Início ▸ Serviços,
+Segurança, Central de Apps) usam a mesma janela **Autenticação**, separada do app, em vez de uma folha
+dentro da janela dele. A senha errada é avisada ali mesmo.
 
 ## Senha ao voltar do repouso e da hibernação
 
@@ -594,6 +612,7 @@ Observações:
 | Espaço (Arquivos) | Olhada Rápida |
 | Ctrl+T / Ctrl+Shift+T | Nova aba (Arquivos / Editor e Terminal) |
 | Ctrl+Page Up / Page Down | Aba anterior / próxima |
+| Alt+Tab | Faixa com as janelas do app em uso (como a do Super+Tab, com as miniaturas). Com o Alt preso, Tab e Shift+Tab (ou ← →) escolhem, Q fecha a janela escolhida, Esc cancela; soltar o Alt traz a escolhida |
 
 ## Ícones modernos (Mide)
 
@@ -601,7 +620,8 @@ Em **Preferências › Aparência › Ícones**, além do tema do Glove (o padr�
 **Mide**: **Mide**, **Mide Claro** e **Mide Escuro**, mais modernos, desenhados pelo projeto Mide (a
 partir do WhiteSur, sem arte da Apple). Eles já vêm no Glove OS e chegam pelas atualizações (pacote
 `glove-mide-icons`). Os apps do Glove usam os desenhos do Mide quando ele tem um próprio (Arquivos,
-Terminal, Editor de Texto, Preferências…).
+Terminal, Editor de Texto, Preferências…). Os painéis das Preferências também mudam para os ícones do
+tema escolhido, e no Dock a sombra de cada ícone acompanha o desenho novo.
 
 ## Aparência Moderna (Claro e Escuro)
 
@@ -609,5 +629,7 @@ Em **Preferências › Aparência › Aparência**, além dos temas da época (C
 o padrão continua o Claro), há o **Moderno Claro** e o **Moderno Escuro**: janelas lisas de cantos
 arredondados, botões de fechar, minimizar e ampliar planos, barra de menu translúcida, menus
 arredondados, Dock de vidro fosco, botões e caixas lisos e barras de rolagem finas. O Escuro deixa as
-janelas em grafite com o texto claro. Combina com os ícones do Mide (Mide Claro e Mide Escuro).
+janelas em grafite com o texto claro. Combina com os ícones do Mide (Mide Claro e Mide Escuro). Os
+menus de escolha (como Aparência, Cor de destaque e Ícones) também ficam lisos, com as setas num
+quadradinho na cor de destaque.
 

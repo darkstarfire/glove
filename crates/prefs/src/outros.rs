@@ -67,7 +67,7 @@ fn os_name() -> String {
 pub enum Op {
     /// `apt update` (o Verificar Agora).
     Verificar,
-    /// Só o glove e o glove-os.
+    /// Só o Glove (no apt, o glove e o glove-os; nas outras distribuições, o pacote dele).
     Glove,
     /// O sistema inteiro (`apt full-upgrade`).
     Tudo,
@@ -129,29 +129,37 @@ impl Atualizacao {
         });
     }
 
-    fn comando(op: Op) -> Vec<String> {
+    /// O comando da operação. `versao`: a versão nova do Glove (fora do apt, o pacote é
+    /// buscado por ela). None se não há o que rodar (versão inesperada).
+    fn comando(op: Op, versao: &str) -> Option<Vec<String>> {
+        use crate::atualizar as a;
         let apt = "DEBIAN_FRONTEND=noninteractive apt-get -o APT::Status-Fd=1 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -y";
         let sh = |c: String| vec!["sh".to_string(), "-c".to_string(), c];
-        match op {
+        Some(match op {
             Op::Verificar => sh("apt-get update".into()),
+            Op::Glove if a::pacote() != a::Pacote::Apt => sh(a::script_atualizar(a::pacote(), versao, &a::repo_url())?),
             Op::Glove => sh(format!(
                 "apt-get update -o Dir::Etc::sourcelist={} -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 && {apt} install --only-upgrade glove glove-os",
                 crate::atualizar::SOURCES
             )),
             Op::Tudo => sh(format!("{apt} full-upgrade")),
             Op::Repositorio => crate::atualizar::comando_repositorio(),
-        }
+        })
     }
 
     /// Roda como administrador: direto se o sudo não pede senha, senão pela folha.
     fn como_admin(&mut self, op: Op) {
         self.msg = None;
-        let args = Self::comando(op);
+        let versao = self.glove.as_ref().and_then(|r| r.as_ref().ok()).map(|n| n.versao.clone()).unwrap_or_default();
+        let Some(args) = Self::comando(op, &versao) else {
+            self.msg = Some(tr!("Não deu certo: {}", tr!("A resposta do repositório veio num formato inesperado.")));
+            return;
+        };
         let what = match op {
             Op::Verificar => tr!("Procurar atualizações."),
             Op::Glove => tr!("Atualizar o Glove."),
             Op::Tudo => tr!("Instalar as atualizações do sistema."),
-            Op::Repositorio => tr!("Adicionar o repositório do Glove ao apt."),
+            Op::Repositorio => tr!("Adicionar o repositório do Glove."),
         };
         match crate::admin::sudo_state() {
             crate::admin::Sudo::Free => self.start(op, args, None),
@@ -160,11 +168,21 @@ impl Atualizacao {
         }
     }
 
+    /// O comando informa o andamento (a barra)? Só o apt; os outros mostram o giratório.
+    fn com_andamento(op: Op) -> bool {
+        match op {
+            Op::Verificar | Op::Repositorio => false,
+            Op::Glove => crate::atualizar::pacote() == crate::atualizar::Pacote::Apt,
+            Op::Tudo => true,
+        }
+    }
+
     fn start(&mut self, op: Op, args: Vec<String>, password: Option<String>) {
         self.progress = 0.0;
         self.fase = match op {
             Op::Verificar => tr!("Procurando atualizações…").into(),
             Op::Repositorio => tr!("Adicionando o repositório…").into(),
+            Op::Glove if !Self::com_andamento(op) => tr!("Baixando e instalando o Glove…").into(),
             _ => tr!("Preparando…").into(),
         };
         self.job = Some((op, crate::admin::run_stream(args, password)));
@@ -247,8 +265,11 @@ impl Atualizacao {
                 let mut sel = None;
                 ui.list(&mut sel, &linhas, ui.available_width(), 110.0 + crate::grow() * 0.5);
                 ui.space(4.0);
-                if !a::configurado() {
-                    ui.small(tr!("Este sistema ainda não recebe as atualizações do Glove pelo apt."));
+                if a::pacote() == a::Pacote::Nenhum {
+                    // Sem pacote não há o que o gerenciador atualizar.
+                    ui.paragraph(tr!("O Glove foi instalado pelo código neste computador. Para atualizar, na pasta do código: git pull e ./glove-setup-tool.sh instalar"));
+                } else if !a::configurado() {
+                    ui.small(tr!("Este sistema ainda não recebe as atualizações do Glove pelo gerenciador de pacotes."));
                     ui.set_active(!busy);
                     if ui.button(tr!("Adicionar o Repositório do Glove")) {
                         self.como_admin(Op::Repositorio);
@@ -313,7 +334,7 @@ impl Atualizacao {
         // Em andamento: a barra e o que está sendo feito.
         if busy {
             ui.space(6.0);
-            if self.job.as_ref().is_some_and(|j| j.0 == Op::Verificar || j.0 == Op::Repositorio) {
+            if self.job.as_ref().is_some_and(|j| !Self::com_andamento(j.0)) {
                 ui.horizontal(|ui| {
                     ui.spinner(16.0);
                     ui.small(&self.fase);

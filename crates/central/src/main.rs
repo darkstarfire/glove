@@ -84,6 +84,8 @@ struct Senha {
     acao: Acao,
     texto: String,
     erro: bool,
+    /// A janela de senha do sistema (o glove-senha); sem ela, a folha.
+    janela: Option<glove_config::senha::Pedido>,
 }
 
 struct Central {
@@ -145,7 +147,8 @@ impl Central {
             return;
         }
         if a.passos().iter().any(|p| p.admin) {
-            self.senha = Some(Senha { acao: a, texto: String::new(), erro: false });
+            let janela = glove_config::senha::Pedido::novo(&a.texto());
+            self.senha = Some(Senha { acao: a, texto: String::new(), erro: false, janela });
         } else {
             self.job = Some((fontes::rodar(a.passos(), None), a));
         }
@@ -278,6 +281,19 @@ impl Central {
     /// Folha da senha de administrador.
     fn folha_senha(&mut self, ui: &mut Ui) {
         let Some(s) = &mut self.senha else { return };
+        // A janela de senha do sistema (ela mesma confere a senha).
+        if let Some(j) = &mut s.janela {
+            use glove_config::senha::Resposta;
+            match j.resposta() {
+                Resposta::Esperando => ui.wake_after(std::time::Duration::from_millis(150)),
+                Resposta::Cancelado => self.senha = None,
+                Resposta::Senha(p) => {
+                    let s = self.senha.take().unwrap();
+                    self.job = Some((fontes::rodar(s.acao.passos(), Some(p)), s.acao));
+                }
+            }
+            return;
+        }
         let (w, h) = (ui.c.w, ui.c.h);
         ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 60)));
         let (pw, ph) = (400.0, 170.0);

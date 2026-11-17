@@ -8,6 +8,11 @@
 //!                          esperando pedidos (a sessão do Glove o inicia)
 //!   glove-senha --pedir    a janela de um pedido (aberta pelo serviço; os dados
 //!                          vêm pelo ambiente)
+//!   glove-senha --sudo     a janela de senha para os apps do Glove que rodam um
+//!                          comando com o sudo (Atualização de Software, Central de
+//!                          Apps…): confere a senha com o próprio sudo e, certa, a
+//!                          escreve na saída para o app (glove_config::senha). O que
+//!                          vai ser feito vem em GLOVE_SENHA_MENSAGEM.
 //!
 //! A senha é conferida pelo `polkit-agent-helper-1` (do próprio polkit, pelo PAM):
 //! o Glove nunca vê nem guarda nada além do que é digitado na janela.
@@ -32,6 +37,9 @@ const PATH: &str = "/org/glove/PolkitAgent";
 pub fn main() {
     if std::env::args().any(|a| a == "--pedir") {
         std::process::exit(ask());
+    }
+    if std::env::args().any(|a| a == "--sudo") {
+        std::process::exit(ask_sudo());
     }
     if let Err(e) = serve() {
         eprintln!("glove-senha: {e}");
@@ -179,18 +187,37 @@ fn verify(user: &str, cookie: &str, password: &str) -> Result<bool, String> {
     Ok(ok)
 }
 
+/// Confere a senha com o sudo (sem aproveitar uma confirmação anterior). A senha vai só
+/// pela entrada dele, nunca pela linha de comando.
+fn verify_sudo(password: &str) -> Result<bool, String> {
+    let mut c = Command::new("sudo").args(["-S", "-k", "-v", "-p", ""]).env("LC_ALL", "C").stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().map_err(|e| format!("sudo: {e}"))?;
+    if let Some(mut i) = c.stdin.take() {
+        let _ = writeln!(i, "{password}");
+    }
+    Ok(c.wait().map_err(|e| e.to_string())?.success())
+}
+
+/// Quem confere a senha: o polkit (pedido de um programa do sistema) ou o sudo (um app
+/// do Glove que vai rodar um comando com ele).
+#[derive(Clone)]
+enum Check {
+    Polkit { user: String, cookie: String },
+    Sudo,
+}
+
 struct Ask {
+    check: Check,
     message: String,
     action: String,
-    user: String,
     real: String,
-    cookie: String,
     text: String,
     error: Option<String>,
     checking: Option<Receiver<Result<bool, String>>>,
     /// A resposta do ajudante, recebida no tique e tratada no quadro seguinte.
     outcome: Option<Result<bool, String>>,
     result: Arc<Mutex<i32>>,
+    /// No modo sudo: a senha conferida, para escrever na saída depois que a janela fechar.
+    password: Option<Arc<Mutex<Option<String>>>>,
 }
 
 impl App for Ask {
@@ -237,6 +264,7 @@ impl App for Ask {
             ui.fonts.draw(ui.c, tr!("Conferindo…"), x, y, 11.0, false, rgba(90, 90, 96, 255));
         }
         let act = ui.fonts.ellipsize(&self.action, 9.5, false, x - 30.0);
+        let act = if matches!(self.check, Check::Sudo) { String::new() } else { act };
         ui.fonts.draw(ui.c, &act, 20.0, h - 18.0, 9.5, false, rgba(140, 140, 146, 255));
         let (mut cancel, mut ok) = (false, false);
         ui.area(Rect::new(w - 220.0, h - 40.0, 200.0, 30.0), |ui| {
@@ -254,9 +282,22 @@ impl App for Ask {
         }
         if (ok || enter) && !busy && !self.text.is_empty() {
             let (tx, rx) = channel();
-            let (user, cookie, password) = (self.user.clone(), self.cookie.clone(), std::mem::take(&mut self.text));
+            let (check, password) = (self.check.clone(), std::mem::take(&mut self.text));
+            // No modo sudo, a senha certa fica guardada para ir ao app que pediu (pela
+            // saída, que só ele lê) quando a janela fechar.
+            let keep = self.password.clone().unwrap_or_default();
             std::thread::spawn(move || {
-                let _ = tx.send(verify(&user, &cookie, &password));
+                let r = match check {
+                    Check::Polkit { user, cookie } => verify(&user, &cookie, &password),
+                    Check::Sudo => {
+                        let r = verify_sudo(&password);
+                        if r == Ok(true) {
+                            *keep.lock().unwrap() = Some(password);
+                        }
+                        r
+                    }
+                };
+                let _ = tx.send(r);
             });
             self.checking = Some(rx);
             self.error = None;
@@ -279,16 +320,16 @@ fn ask() -> i32 {
     let env = |k: &str| std::env::var(k).unwrap_or_default();
     let result = Arc::new(Mutex::new(1));
     let app = Ask {
+        check: Check::Polkit { user: env("GLOVE_SENHA_USUARIO"), cookie: env("GLOVE_SENHA_COOKIE") },
         message: env("GLOVE_SENHA_MENSAGEM"),
         action: env("GLOVE_SENHA_ACAO"),
-        user: env("GLOVE_SENHA_USUARIO"),
         real: env("GLOVE_SENHA_NOME"),
-        cookie: env("GLOVE_SENHA_COOKIE"),
         text: String::new(),
         error: None,
         checking: None,
         outcome: None,
         result: result.clone(),
+        password: None,
     };
     let opts = WindowOptions { title: tr!("Autenticação").into(), app_id: "glove.Senha".into(), size: (480, 230), fixed: true, min_size: None };
     if let Err(e) = run(opts, app) {
@@ -296,5 +337,43 @@ fn ask() -> i32 {
         return 1;
     }
     let code = *result.lock().unwrap();
+    code
+}
+
+/// A janela de senha dos apps do Glove (`--sudo`). Sai com 0 e a senha na saída se ela
+/// foi conferida; com 1 se cancelada.
+fn ask_sudo() -> i32 {
+    let me = unsafe { libc::getuid() };
+    let real = user_names(me).map(|(_, r)| r).unwrap_or_default();
+    let result = Arc::new(Mutex::new(1));
+    let password = Arc::new(Mutex::new(None));
+    let app = Ask {
+        check: Check::Sudo,
+        message: std::env::var("GLOVE_SENHA_MENSAGEM").unwrap_or_default(),
+        action: String::new(),
+        real,
+        text: String::new(),
+        error: None,
+        checking: None,
+        outcome: None,
+        result: result.clone(),
+        password: Some(password.clone()),
+    };
+    let opts = WindowOptions { title: tr!("Autenticação").into(), app_id: "glove.Senha".into(), size: (480, 230), fixed: true, min_size: None };
+    if let Err(e) = run(opts, app) {
+        eprintln!("glove-senha: {e}");
+        return 1;
+    }
+    let code = *result.lock().unwrap();
+    if code == 0 {
+        // A senha do último pedido conferido (a janela guarda a de cada tentativa certa).
+        if let Some(p) = password.lock().unwrap().take() {
+            let mut out = std::io::stdout();
+            let _ = writeln!(out, "{p}");
+            let _ = out.flush();
+            return 0;
+        }
+        return 1;
+    }
     code
 }

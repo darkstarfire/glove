@@ -184,8 +184,13 @@ on its own distribution:
 | Arch | `glove-VERSION-1-x86_64.pkg.tar.zst` | `sudo pacman -U glove-VERSION-1-x86_64.pkg.tar.zst` |
 | Slackware 15.0 or -current | `glove-VERSION-x86_64-1.tgz` | `upgradepkg --install-new glove-VERSION-x86_64-1.tgz` |
 
-On Slackware, Glove needs `seatd` and `greetd`, from SlackBuilds.org. On Debian and derivatives you
-can also get updates from the [apt repository](https://fabioaacarneiro.github.io/glove/).
+On Slackware, Glove needs `seatd` and `greetd`, from SlackBuilds.org.
+
+**Updates.** Inside Glove, Preferences ▸ Software Update tells you about a new version and installs
+it on any of these distributions. On Debian/Ubuntu, Fedora and Arch, Glove has signed
+[repositories](https://fabioaacarneiro.github.io/glove/) (apt, dnf and pacman): set up once (from
+the pane, or with the commands on that page), Glove comes along with the system updates. On
+Slackware, the pane downloads the package from the release and checks its checksum.
 
 **From source.** `glove-setup-tool.sh` builds the packages and also installs directly, on any Linux. It speaks
 Portuguese when the system is in Portuguese and English otherwise. The package brings

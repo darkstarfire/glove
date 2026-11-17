@@ -321,6 +321,8 @@ impl Glove {
         }
         tracing::info!("tela bloqueada");
         self.close_menu();
+        self.win_switcher = None;
+        self.switcher = None;
         self.close_force_quit();
         self.close_volume_slider();
         self.close_control();

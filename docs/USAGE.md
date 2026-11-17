@@ -464,6 +464,16 @@ Glove moves at its own pace, without waiting for Debian: for every new version, 
   on Glove updates through apt too (without the Glove OS identity, which only the `glove-os` package
   brings). The Terminal commands are at https://fabioaacarneiro.github.io/glove.
 - From the Terminal the usual also works: `sudo apt update && sudo apt upgrade`.
+- **Glove on Fedora and Arch:** the pane also offers **Add the Glove Repository** (once) and then
+  **Update Glove**. With the repository, Glove comes along with the system updates (`sudo dnf
+  upgrade`, `sudo pacman -Syu`). Updates are checked against the Glove key, which ships in the
+  package.
+- **Glove on Slackware:** there is no repository; **Update Glove** downloads the new version's
+  package from the releases page, checks its checksum (`SHA256SUMS`) and installs it with
+  `upgradepkg`.
+- **Glove installed from source** (`./glove-setup-tool.sh install`): the pane tells you about the new
+  version and how to update (`git pull` and install again).
+- Outside apt, updating shows a spinner instead of the progress bar.
 
 ## System password (administrator requests)
 
@@ -472,6 +482,10 @@ Flatpak, changing a system network, `pkexec` in the Terminal), the **Authenticat
 with what was asked. Type your password and click **Authenticate**; **Cancel** (or Esc) denies the
 request. The password is checked by the system itself (polkit and PAM); Glove does not keep it.
 Accounts that are not administrators see an administrator's name and need that password.
+
+Glove's own apps that need an administrator (Software Update, Startup Items ▸ Services, Security,
+App Center) use the same **Authentication** window, separate from the app, instead of a sheet
+inside their window. A wrong password is reported right there.
 
 ## Password after sleep and hibernation
 
@@ -489,6 +503,11 @@ turned on:
 
 In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
 
+- **Favorites** (the first collection): the pictures you gathered, in a grid. The last cell, **+
+  Add…**, opens the Open window to pick a picture (PNG, JPEG or WebP) from any folder; it joins the
+  Favorites and becomes the wallpaper. In the other collections, right-click a picture to add it to
+  the Favorites. With the pointer over a favorite, the **×** in its corner removes it from the
+  collection (the file stays where it is).
 - **Displays** (shown with more than one display, in extend mode):
   - **The same picture on all:** each display shows the wallpaper at its own size;
   - **A picture for each display:** click a display in the miniature, then a picture;
@@ -588,6 +607,7 @@ Notes:
 | Space (Files) | Quick Look |
 | Ctrl+T / Ctrl+Shift+T | New tab (Files / Text Editor and Terminal) |
 | Ctrl+Page Up / Page Down | Previous / next tab |
+| Alt+Tab | Strip with the current app's windows (like Super+Tab, with thumbnails). Holding Alt, Tab and Shift+Tab (or ← →) choose, Q closes the chosen window, Esc cancels; releasing Alt brings the chosen one |
 
 ## Modern icons (Mide)
 
@@ -595,7 +615,8 @@ In **Preferences › Appearance › Icons**, besides Glove's own theme (the defa
 are the **Mide** icons: **Mide**, **Mide Claro** (light) and **Mide Escuro** (dark), more modern,
 drawn by the Mide project (based on WhiteSur, with no Apple artwork). They come with Glove OS and
 arrive with updates (the `glove-mide-icons` package). Glove's apps use Mide's own drawings when it
-has one (Files, Terminal, Text Editor, Preferences…).
+has one (Files, Terminal, Text Editor, Preferences…). The Preferences panes switch to the chosen
+theme's icons too, and in the Dock each icon's shadow follows the new drawing.
 
 ## Modern appearance (Light and Dark)
 
@@ -603,5 +624,7 @@ In **Preferences › Appearance › Appearance**, besides the period themes (Lig
 Graphite; Light is still the default), there are **Modern Light** and **Modern Dark**: flat windows
 with rounded corners, flat close, minimize and zoom buttons, a translucent menu bar, rounded menus, a
 frosted-glass Dock, flat buttons and checkboxes and thin scroll bars. Dark turns windows graphite with
-light text. It goes well with the Mide icons (Mide Claro and Mide Escuro).
+light text. It goes well with the Mide icons (Mide Claro and Mide Escuro). The pop-up menus (such as
+Appearance, Highlight color and Icons) are flat too, with the arrows in a small square in the
+highlight color.
 

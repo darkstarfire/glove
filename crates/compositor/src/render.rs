@@ -457,6 +457,16 @@ impl Glove {
                 out.extend(mem(renderer, (x, y).into(), t, sc));
             }
         }
+        // As janelas do app (Alt+Tab): as miniaturas por cima do fundo da faixa.
+        if let (Some(s), Some((x, y))) = (&self.win_switcher, self.win_switcher_pos()) {
+            for (w, sl) in s.windows.iter().zip(&s.slots) {
+                let r = Rectangle::new((x as f64 + sl[0] as f64, y as f64 + sl[1] as f64).into(), (sl[2] as f64, sl[3] as f64).into());
+                self.push_scaled_window(renderer, w, r, sc, &mut out);
+            }
+            if let Some(t) = &s.tex {
+                out.extend(mem(renderer, (x, y).into(), t, sc));
+            }
+        }
         // Tela apagada: nada (na sessão própria a tela nem recebe quadros).
         if self.idle.screen_off {
             return out;

@@ -199,6 +199,9 @@ stage() {
     # Wallpapers (the Glove OS one is the default).
     mkdir -p "$dest$prefix/share/glove/papeis"
     install -m 644 data/papeis/*.png "$dest$prefix/share/glove/papeis/"
+    # The key of the Glove repositories: on Fedora and Arch the package manager checks
+    # the Glove updates with it (Software Update adds the repository).
+    install -m 644 data/glove-os/glove-os-repositorio.asc "$dest$prefix/share/glove/glove-os-repositorio.asc"
     # Documentation and license.
     mkdir -p "$dest$prefix/share/doc/glove"
     install -m 644 README.md LICENSE "$dest$prefix/share/doc/glove/"

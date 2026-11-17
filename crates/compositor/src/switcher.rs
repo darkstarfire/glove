@@ -2,6 +2,10 @@
 //! abertos (do usado mais recentemente para o mais antigo) numa faixa no meio da
 //! tela. Com o Super preso: Tab/→ avançam, Shift+Tab/← voltam, Q encerra, H oculta,
 //! Esc cancela. Soltar o Super troca para o app escolhido.
+//!
+//! Alt+Tab (alternar as janelas do app): a mesma faixa, mas com as miniaturas das
+//! janelas do app em uso (a de cima primeiro). Com o Alt preso, Tab/→ e Shift+Tab/←
+//! andam, Q fecha a janela escolhida e Esc cancela; soltar o Alt traz a escolhida.
 
 use glove_paint::{chrome, icons::Icon};
 use smithay::desktop::Window;
@@ -10,6 +14,17 @@ use crate::{
     shell::{app_display_name, to_tex, window_info, Tex},
     state::Glove,
 };
+
+/// A faixa das janelas do mesmo app (Alt+Tab).
+pub struct WinSwitcher {
+    /// As janelas, da de cima da pilha para a de baixo.
+    pub windows: Vec<Window>,
+    pub selected: usize,
+    /// Onde vai cada miniatura, relativo à faixa (de `chrome::window_switcher_layout`).
+    pub slots: Vec<[f32; 4]>,
+    key: Option<(usize, usize, u64, String)>,
+    pub tex: Option<Tex>,
+}
 
 pub struct Switcher {
     /// (pid, ícone, nome), na ordem da faixa.
@@ -158,6 +173,106 @@ impl Glove {
             s.tex = chrome::app_switcher(&self.fonts, &apps, s.selected, w as f32 - 80.0, sc).map(to_tex);
             s.key = Some(key);
         }
+    }
+
+    /// Alt+Tab: abre a faixa das janelas do app em uso na próxima janela, ou anda se já
+    /// estiver aberta. Com uma janela só, não há o que trocar.
+    pub fn win_switcher_open_or_next(&mut self, back: bool) {
+        if self.win_switcher.is_some() {
+            self.win_switcher_key(if back { SwitcherKey::Prev } else { SwitcherKey::Next });
+            return;
+        }
+        let Some(focused) = self.focused_window() else { return };
+        let app = window_info(&focused).1;
+        let pid = self.window_pid(&focused);
+        let windows: Vec<Window> = self
+            .space
+            .elements()
+            .rev()
+            .filter(|w| if app.is_empty() { pid.is_some() && self.window_pid(w) == pid } else { window_info(w).1 == app })
+            .filter(|w| !self.x11_overlays.contains(w))
+            .cloned()
+            .collect();
+        if windows.len() < 2 {
+            return;
+        }
+        self.close_menu();
+        let n = windows.len();
+        let selected = if back { n - 1 } else { 1 };
+        self.win_switcher = Some(WinSwitcher { windows, selected, slots: Vec::new(), key: None, tex: None });
+        self.dirty = true;
+    }
+
+    pub fn win_switcher_key(&mut self, k: SwitcherKey) {
+        let Some(s) = &mut self.win_switcher else { return };
+        // Janelas que fecharam enquanto a faixa estava aberta saem dela.
+        let alive: Vec<Window> = self.space.elements().cloned().collect();
+        s.windows.retain(|w| alive.contains(w));
+        if s.windows.is_empty() {
+            self.win_switcher = None;
+            self.dirty = true;
+            return;
+        }
+        let n = s.windows.len();
+        s.selected = s.selected.min(n - 1);
+        match k {
+            SwitcherKey::Next => s.selected = (s.selected + 1) % n,
+            SwitcherKey::Prev => s.selected = (s.selected + n - 1) % n,
+            SwitcherKey::Quit => {
+                let w = s.windows.remove(s.selected);
+                if s.windows.is_empty() {
+                    self.win_switcher = None;
+                } else {
+                    s.selected = s.selected.min(s.windows.len() - 1);
+                }
+                self.close_window(&w);
+            }
+            SwitcherKey::Hide => {}
+            SwitcherKey::Cancel => self.win_switcher = None,
+            SwitcherKey::Commit => {
+                let w = s.windows.get(s.selected).cloned();
+                self.win_switcher = None;
+                if let Some(w) = w {
+                    self.space.raise_element(&w, true);
+                    self.focus_window(Some(w));
+                }
+            }
+        }
+        self.dirty = true;
+    }
+
+    pub fn prepare_win_switcher(&mut self) {
+        let sc = self.scale() as f32;
+        let (w, _) = self.output_size();
+        let tgen = self.theme_gen;
+        let Some(s) = &self.win_switcher else { return };
+        // O tamanho de cada janela com a barra de título (a proporção da miniatura).
+        let sizes: Vec<(f32, f32)> = s.windows.iter().map(|w| {
+            let g = w.geometry().size;
+            (g.w.max(1) as f32, (g.h + crate::shell::deco_top(w)).max(1) as f32)
+        }).collect();
+        let title = s.windows.get(s.selected).map(|w| {
+            let t = window_info(w).0;
+            if t.is_empty() { app_display_name(w) } else { t }
+        }).unwrap_or_default();
+        let key = (s.windows.len(), s.selected, tgen, format!("{title}{sizes:?}"));
+        if s.key.as_ref() == Some(&key) {
+            return;
+        }
+        let max_w = w as f32 - 80.0;
+        let slots = chrome::window_switcher_layout(&sizes, max_w).1;
+        let tex = chrome::window_switcher(&self.fonts, &sizes, s.selected, &title, max_w, sc).map(to_tex);
+        if let Some(s) = &mut self.win_switcher {
+            s.slots = slots;
+            s.tex = tex;
+            s.key = Some(key);
+        }
+    }
+
+    pub fn win_switcher_pos(&self) -> Option<(i32, i32)> {
+        let t = self.win_switcher.as_ref()?.tex.as_ref()?;
+        let (w, h) = self.output_size();
+        Some(((w - t.size.w) / 2, (h - t.size.h) / 2))
     }
 
     pub fn switcher_pos(&self) -> Option<(i32, i32)> {

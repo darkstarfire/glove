@@ -190,6 +190,7 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
         "glove.Disks" => return tr!("Discos").into(),
         "glove.Chess" => return tr!("Xadrez").into(),
         "glove.Arquivo" => return tr!("Utilitário de Arquivo").into(),
+        "glove.Senha" => return tr!("Autenticação").into(),
         "glove.Navegador" => return tr!("Navegador").into(),
         "glove.Musica" => return tr!("Música").into(),
         "glove.Contatos" => return tr!("Contatos").into(),
@@ -1971,6 +1972,7 @@ impl Glove {
         self.prepare_search();
         self.prepare_expose();
         self.prepare_switcher();
+        self.prepare_win_switcher();
         self.prepare_lock();
         self.prepare_extras();
         self.prepare_wait_cursor();

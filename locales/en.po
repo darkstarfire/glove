@@ -5957,8 +5957,8 @@ msgstr "The repository's answer came in an unexpected format."
 msgid "Adicionar o Repositório do Glove"
 msgstr "Add the Glove Repository"
 
-msgid "Adicionar o repositório do Glove ao apt."
-msgstr "Add the Glove repository to apt."
+msgid "Adicionar o repositório do Glove."
+msgstr "Add the Glove repository."
 
 msgid "Atualizando…"
 msgstr "Updating…"
@@ -5975,8 +5975,17 @@ msgstr "Checking the Glove repository…"
 msgid "Encerrar Sessão…"
 msgstr "Log Out…"
 
-msgid "Este sistema ainda não recebe as atualizações do Glove pelo apt."
-msgstr "This system does not get Glove updates through apt yet."
+msgid "Este sistema ainda não recebe as atualizações do Glove pelo gerenciador de pacotes."
+msgstr "This system does not get Glove updates from the package manager yet."
+
+msgid "O Glove foi instalado pelo código neste computador. Para atualizar, na pasta do código: git pull e ./glove-setup-tool.sh instalar"
+msgstr "Glove was installed from source on this computer. To update, in the source folder: git pull and ./glove-setup-tool.sh install"
+
+msgid "Baixando e instalando o Glove…"
+msgstr "Downloading and installing Glove…"
+
+msgid "o repositório do Glove não trouxe a versão {}"
+msgstr "the Glove repository did not bring version {}"
 
 msgid "Glove OS {} disponível"
 msgstr "Glove OS {} available"
@@ -6191,3 +6200,101 @@ msgstr "Cover page without header and footer"
 
 msgid "Estilo:"
 msgstr "Style:"
+
+msgid "Favoritas"
+msgstr "Favorites"
+
+msgid "Adicionar…"
+msgstr "Add…"
+
+msgid "Adicionar às Favoritas"
+msgstr "Add to Favorites"
+
+msgid "Junte aqui as imagens de que você mais gosta. Nas outras coleções, clique numa imagem com o botão direito para juntar."
+msgstr "Gather the pictures you like most here. In the other collections, right-click a picture to add it."
+
+# Gravação de tela (PR #5 do darkstarfire)
+
+msgid "A gravação continua por software em um novo arquivo"
+msgstr "Recording continues in software in a new file"
+
+msgid "A gravação já foi encerrada."
+msgstr "The recording has already ended."
+
+msgid "Falha ao aguardar o FFmpeg"
+msgstr "Failed while waiting for FFmpeg"
+
+msgid "Falha ao salvar a gravação de tela"
+msgstr "Failed to save the screen recording"
+
+msgid "Falha ao verificar o FFmpeg"
+msgstr "Failed to check FFmpeg"
+
+msgid "Grava a tela, uma área ou uma janela,"
+msgstr "Records the screen, an area or a window,"
+
+msgid "Gravação de tela"
+msgstr "Screen Recording"
+
+msgid "Gravação de tela salva"
+msgstr "Screen recording saved"
+
+msgid "Gravação interrompida. O que foi gravado foi salvo"
+msgstr "Recording interrupted. What was recorded has been saved"
+
+msgid "Gravação salva, mas com erro"
+msgstr "Recording saved, but with an error"
+
+msgid "Gravações de tela"
+msgstr "Screen Recordings"
+
+msgid "Microfone"
+msgstr "Microphone"
+
+msgid "Nenhum encoder de vídeo utilizável foi encontrado no FFmpeg instalado."
+msgstr "No usable video encoder was found in the installed FFmpeg."
+
+msgid "Não foi possível criar a pasta de gravações"
+msgstr "Could not create the recordings folder"
+
+msgid "Não foi possível executar o FFmpeg"
+msgstr "Could not run FFmpeg"
+
+msgid "Não foi possível gravar a tela"
+msgstr "Could not record the screen"
+
+msgid "Não foi possível iniciar o FFmpeg"
+msgstr "Could not start FFmpeg"
+
+msgid "O FFmpeg encerrou logo após iniciar."
+msgstr "FFmpeg quit right after starting."
+
+msgid "O FFmpeg não abriu a entrada de vídeo."
+msgstr "FFmpeg did not open the video input."
+
+msgid "O FFmpeg não conseguiu listar os encoders disponíveis."
+msgstr "FFmpeg could not list the available encoders."
+
+msgid "O FFmpeg não finalizou a tempo."
+msgstr "FFmpeg did not finish in time."
+
+msgid "O FFmpeg não foi encontrado. Instale-o (ex.: sudo apt install ffmpeg) e tente de novo."
+msgstr "FFmpeg was not found. Install it (e.g. sudo apt install ffmpeg) and try again."
+
+msgid "O FFmpeg parou inesperadamente"
+msgstr "FFmpeg stopped unexpectedly"
+
+msgid "O arquivo da gravação ficou vazio."
+msgstr "The recording file is empty."
+
+msgid "Parar Gravação"
+msgstr "Stop Recording"
+
+msgid "VAAPI exige um nó de render da GPU."
+msgstr "VAAPI needs a GPU render node."
+
+msgid "salva em Videos e avisa quando terminar."
+msgstr "saves it in Videos and tells you when it is done."
+
+msgid "Áudio do sistema"
+msgstr "System audio"

@@ -1215,27 +1215,6 @@ impl Glove {
         self.show_context_menu(nodes, (pos.x - 20.0, pos.y + 10.0).into());
     }
 
-    /// Alt+Tab: traz a janela de baixo do app em foco (dá a volta nas janelas dele).
-    /// Junta pelo app (app_id, ou a classe nos apps X11): apps que abrem um
-    /// processo por janela também entram; sem app_id, pelo processo.
-    pub fn cycle_app_windows(&mut self) {
-        let Some(focused) = self.focused_window() else { return };
-        let app = crate::shell::window_info(&focused).1;
-        let wins: Vec<_> = if app.is_empty() {
-            let Some(pid) = self.focused_pid() else { return };
-            self.windows_of_pid(pid)
-        } else {
-            self.space.elements().filter(|w| crate::shell::window_info(w).1 == app).cloned().collect()
-        };
-        if wins.len() < 2 {
-            return;
-        }
-        // A de baixo da pilha (a primeira) vem para a frente.
-        if let Some(w) = wins.first().cloned() {
-            self.focus_window(Some(w));
-        }
-    }
-
     /// Menu de contexto no ponto (clamped à tela).
     pub fn show_context_menu(&mut self, nodes: Vec<MenuNode>, pos: Point<f64, Logical>) {
         self.close_menu();

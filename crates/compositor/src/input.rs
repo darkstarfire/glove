@@ -88,8 +88,10 @@ enum KeyAction {
     Desk(crate::desk::DeskKey),
     /// F12: abre ou fecha o Painel de Widgets.
     Dashboard,
-    /// Alt+Tab: a próxima janela do mesmo app.
+    /// Alt+Tab: a faixa das janelas do mesmo app.
     CycleWindows,
+    /// Tecla com a faixa das janelas aberta.
+    WinSwitcher(crate::switcher::SwitcherKey),
     /// Tecla com o Painel aberto.
     DashKey(crate::desk::DeskKey),
     /// F4: abre ou fecha a grade de apps.
@@ -489,6 +491,10 @@ impl Glove {
                 if st.switcher.is_some() && !mods.logo && !(st.nested && mods.alt) {
                     st.switcher_commit = true;
                 }
+                // Soltou o modificador do atalho com a faixa das janelas aberta: troca.
+                if st.win_switcher.is_some() && !mods.alt && !mods.logo && !mods.ctrl {
+                    st.win_switcher_commit = true;
+                }
                 if let Some(i) = st.suppressed_keys.iter().position(|k| *k == code) {
                     st.suppressed_keys.remove(i);
                     return FilterResult::Intercept(None);
@@ -553,6 +559,21 @@ impl Glove {
                 };
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(k.map(KeyAction::Switcher));
+            }
+            // Faixa das janelas do app aberta: as teclas são dela.
+            if st.win_switcher.is_some() {
+                use crate::switcher::SwitcherKey as K;
+                let k = match name.as_str() {
+                    "tab" | "iso_left_tab" if mods.shift => Some(K::Prev),
+                    "tab" | "right" => Some(K::Next),
+                    "iso_left_tab" | "left" => Some(K::Prev),
+                    "q" => Some(K::Quit),
+                    "escape" => Some(K::Cancel),
+                    "return" | "kp_enter" => Some(K::Commit),
+                    _ => None,
+                };
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(k.map(KeyAction::WinSwitcher));
             }
             // Super+Shift+Tab: abre voltando.
             if (mods.logo || (st.nested && mods.alt)) && mods.shift && matches!(name.as_str(), "tab" | "iso_left_tab") {
@@ -686,6 +707,9 @@ impl Glove {
         if std::mem::take(&mut self.switcher_commit) {
             self.switcher_key(crate::switcher::SwitcherKey::Commit);
         }
+        if std::mem::take(&mut self.win_switcher_commit) {
+            self.win_switcher_key(crate::switcher::SwitcherKey::Commit);
+        }
         // Tecla entregue a um app: aproveita para ver se ele responde.
         if state == KeyState::Pressed && action.as_ref().is_some_and(|a| a.is_none()) {
             if let Some(w) = self.focused_window() {
@@ -768,7 +792,8 @@ impl Glove {
             Some(KeyAction::Fullscreen) => self.toggle_fullscreen_focused(),
             Some(KeyAction::VirtualDesk(d, carry)) => self.step_desk(d, carry),
             Some(KeyAction::GradeKey(k)) => self.grade_key(k),
-            Some(KeyAction::CycleWindows) => self.cycle_app_windows(),
+            Some(KeyAction::CycleWindows) => self.win_switcher_open_or_next(false),
+            Some(KeyAction::WinSwitcher(k)) => self.win_switcher_key(k),
             Some(KeyAction::DashKey(k)) => self.dashboard_key(k),
             Some(KeyAction::SearchMove(d)) => self.search_move(d),
             Some(KeyAction::LockKey(k)) => self.lock_key(k),

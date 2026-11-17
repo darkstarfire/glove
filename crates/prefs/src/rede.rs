@@ -397,9 +397,8 @@ impl Rede {
         let (sw, sh) = (400.0, 150.0);
         let x = ((w - sw) / 2.0).round();
         let y = 78.0;
-        ui.c.fill(rrect(x - 6.0, y, sw + 12.0, sh + 8.0, 6.0), &solid(rgba(0, 0, 0, 40)));
-        ui.c.fill_rect(x, y, sw, sh, &vgrad(y, y + sh, &[(0.0, rgba(236, 236, 238, 252)), (1.0, rgba(246, 246, 248, 252))]));
-        ui.c.stroke(rrect(x + 0.5, y - 0.5, sw - 1.0, sh, 0.0), &solid(rgba(0, 0, 0, 70)), 1.0);
+        // A folha: sombra suave em volta e os cantos de baixo arredondados.
+        ui.sheet_panel(Rect::new(x, y, sw, sh));
         let title = tr!("A rede “{}” pede uma senha.", ssid);
         ui.fonts.draw(ui.c, &title, x + 20.0, y + 26.0, 13.0, true, rgba(20, 20, 20, 255));
         ui.fonts.draw(ui.c, tr!("Senha:"), x + 20.0, y + 62.0, 13.0, false, rgba(20, 20, 20, 255));

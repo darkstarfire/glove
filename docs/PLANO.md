@@ -1074,6 +1074,26 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
     e do Arch/Slackware; agora há as do Fedora e, se nenhuma existir, o fontconfig responde
     (`font::load`, `font::font_file`; o PDF do Editor usa o mesmo para a Liberation). O `.rpm`
     passou a pedir também a `dejavu-sans-mono-fonts` (a fonte do Terminal).
+- [x] 17.5 Atualização no Fedora, no Arch e no Slackware (M) — v0.12.75 (pedido de 17/11/2026). O
+  aviso de versão nova já aparecia em qualquer distribuição, mas o painel só sabia do apt (oferecia
+  "Adicionar o Repositório" do apt no Fedora).
+  - Repositórios no GitHub Pages, montados por `ci/repositorios.sh` (o mesmo script do apt, agora
+    fora do YAML e testável): `fedora/` (createrepo_c; o índice `repomd.xml` assinado, `repo_gpgcheck`;
+    `glove.repo` na raiz) e `arch/` (o índice do `repo-add`, feito no trabalho do Arch, e a
+    assinatura `.sig` do pacote). A chave é a do apt. Distribuição sem pacote na versão: fica o
+    repositório que está no ar (`manter`, pela lista `arquivos.txt`).
+  - `atualizar::pacote()` descobre com que pacote o Glove está instalado (dpkg, rpm, pacman,
+    pkgtools ou nenhum) e daí saem a versão instalada, se há repositório e os comandos:
+    `script_repo_dnf`/`script_repo_pacman` (a chave vem no pacote, em
+    `/usr/share/glove/glove-os-repositorio.asc`; no pacman, `--lsign-key` pela impressão digital
+    fixada) e `script_atualizar` (dnf com conferência da versão; `pacman -U` do pacote da versão,
+    sem renovar os índices do sistema; no Slackware, o `.tgz` da release conferido pelo
+    `SHA256SUMS` e o `upgradepkg`). A versão vem da rede e vai para um comando de administrador:
+    só números e pontos (`versao_valida`).
+  - Testado em contêineres com um repositório assinado por uma chave de teste: instalar pelo dnf e
+    pelo pacman; índice ou pacote adulterado e chave desconhecida recusados; 0.12.73 → 0.12.74
+    pelos comandos do painel no Fedora, no Arch e no Slackware (este, contra a release de verdade).
+    Falta ver o painel em si numa dessas distribuições (a tela), e a primeira publicação de verdade.
 - [ ] 17.3 Ligar no GitHub (usuário): o segredo `APT_SIGNING_KEY` e o Pages com origem "GitHub
   Actions" (feitos em 15/11/2026), e no ambiente `github-pages` a regra de tag `v*` (ele só
   aceitava publicar do ramo master). O token do gh desta máquina não tem permissão para isso.
@@ -1270,3 +1290,26 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 - [x] 21.5 Discos (P) — v0.12.68: o nome e o tamanho dos volumes no mapa (gel azul) em texto escuro.
 - [x] 21.6 Ícone do Xadrez (P) — v0.12.68: o peão torneado (pé, base, anel, corpo, colarinho e a
   cabeça redonda) no lugar da torre com defeitos; o glove-icons foi regenerado.
+- [x] 21.7 Ajustes do uso real (v0.12.75, glove-ui 0.2.46; pedido de 17/11/2026):
+  - Alt+Tab com a faixa das janelas do app (`WinSwitcher`, switcher.rs): o mesmo fundo da troca de
+    apps, com as miniaturas das janelas (`push_scaled_window`, nas casas de
+    `chrome::window_switcher_layout`) e o título da escolhida; soltar o Alt traz a janela, Q a
+    fecha, Esc cancela. Substitui o `cycle_app_windows`, que trocava sem mostrar nada.
+  - Ícones dos painéis das Preferências no tema escolhido (`Icon::pref_name`, nomes freedesktop de
+    "preferências"); no tema do Glove continua o desenho.
+  - Moderno: o seletor (`Ui::popup`) sem a ponta de gel, com as setas num quadradinho liso.
+  - Favoritas no papel de parede (`wallpaper_favorites` na configuração): grade, a casa "+
+    Adicionar…" (a folha Abrir), botão direito nas outras coleções junta, "×" tira.
+  - Senha de administrador numa janela própria: `glove-senha --sudo` confere com o sudo e devolve a
+    senha pela saída (`glove_config::senha::Pedido`); a folha dentro da janela fica só como
+    reserva. As folhas que continuam (Discos, Agenda, senha nova…) usam `Ui::sheet_panel`, com a
+    sombra em degradê no lugar do retângulo cinza.
+  - Dock com os ícones do Mide: a sombra (no formato do ícone) era guardada sem o tema na chave e
+    ficava a do desenho antigo; o tema entrou na chave (`icons::theme_name`).
+  - As 28 frases da gravação de tela (PR #5) ganharam a tradução em inglês.
+  - Arquivos no modo lista: apertar uma linha não começava o arrasto (só nos ícones e nas colunas)
+    e a pasta sob o mouse não virava destino; agora arrasta para pastas, outras janelas e apps.
+  - Compositor: sem o inotify (o limite de vigias do sistema cheio), as Preferências não tinham
+    efeito; agora confere a data do config.toml a cada 2 s nesse caso.
+  - Os atalhos da gravação de tela (PR #5) entraram no grupo Sistema do painel Atalhos.
+  - A janela de senha (glove.Senha) tem nome e o ícone do chaveiro no Dock e na barra.

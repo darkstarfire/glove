@@ -170,6 +170,10 @@ pub struct Glove {
     pub corner_armed: bool,
     /// Troca de apps (Super+Tab) aberta.
     pub switcher: Option<crate::switcher::Switcher>,
+    /// A faixa das janelas do mesmo app (Alt+Tab).
+    pub win_switcher: Option<crate::switcher::WinSwitcher>,
+    /// Soltou o Alt com a faixa das janelas aberta: troca depois de entregar a tecla.
+    pub win_switcher_commit: bool,
     /// Apps (pid) do usado mais recentemente para o mais antigo.
     pub app_mru: Vec<u32>,
     /// O Super foi solto com a troca aberta: trocar depois de entregar a tecla.
@@ -319,6 +323,8 @@ impl Glove {
             expose: None,
             corner_armed: true,
             switcher: None,
+            win_switcher: None,
+            win_switcher_commit: false,
             app_mru: Vec::new(),
             switcher_commit: false,
             launching: Vec::new(),

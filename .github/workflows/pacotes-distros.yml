@@ -29,9 +29,12 @@ jobs:
           - distro: fedora
             imagem: fedora:44
             arquivos: pacotes/*.rpm
+          # "repo": o índice do pacman (feito pelo repo-add do próprio Arch), para o
+          # repositório do Glove no GitHub Pages.
           - distro: arch
             imagem: archlinux:latest
             arquivos: pacotes/*.pkg.tar.zst
+            repo: pacotes/repo-arch/*
           # Compilado no 15.0 (estável), serve também para o -current.
           - distro: slackware
             imagem: aclemons/slackware:15.0
@@ -49,5 +52,13 @@ jobs:
         with:
           name: pacote-${{ matrix.distro }}
           path: ${{ matrix.arquivos }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ matrix.repo }}
+        with:
+          name: repo-${{ matrix.distro }}
+          path: ${{ matrix.repo }}
           if-no-files-found: error
           retention-days: 7
