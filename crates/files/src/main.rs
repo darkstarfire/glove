@@ -1647,7 +1647,10 @@ impl Files {
     }
 
     fn sidebar(&mut self, ui: &mut Ui, r: Rect) {
-        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(Color::WHITE));
+        // Moderno: fundo cinza-claro, ícones de contorno na cor de destaque e a
+        // escolhida numa pílula cinza (o texto não fica branco).
+        let modern = ui.theme.modern;
+        ui.c.fill_rect(r.x, r.y, r.w, r.h, &solid(if modern { rgba(240, 240, 242, 255) } else { Color::WHITE }));
         let mut y = r.y + 4.0;
         let mounts = self.removable();
         // Pendrive ou servidor à vista: confere de novo daqui a pouco (pode ter sido ejetado).
@@ -1671,13 +1674,16 @@ impl Files {
                 self.drop_target = Some(path.clone());
                 ui.c.stroke(rrect(row.x + 2.0, row.y + 1.0, row.w - 4.0, row.h - 2.0, 4.0), &solid(ui.theme.accent), 2.0);
             }
-            if here {
+            if here && modern {
+                ui.c.fill(rrect(row.x + 6.0, row.y + 1.0, row.w - 12.0, row.h - 2.0, 6.0), &solid(rgba(214, 214, 218, 255)));
+            } else if here {
                 // Destaque do Tiger: degradê azul com uma linha mais clara em cima.
                 ui.c.fill_rect(row.x, row.y, row.w, row.h, &vgrad(row.y, row.y + row.h, &[(0.0, lighten(ui.theme.accent, 0.3)), (1.0, darken(ui.theme.accent, 0.08))]));
                 ui.c.hline(row.x, row.y, row.w, lighten(ui.theme.accent, 0.15));
             }
             let icon = if icon == Icon::Folder { special_folder(&path).map(Icon::SpecialFolder).unwrap_or(icon) } else { icon };
-            icons::draw_bare(ui.c, ui.fonts, icon, r.x + 6.0, y + 3.0, 24.0, None);
+            let here = here && !modern;
+            icons::draw_sidebar(ui.c, ui.fonts, icon, r.x + 8.0, y + 3.0, 24.0, ui.theme.accent);
             let col = if here { Color::WHITE } else { rgba(20, 20, 24, 255) };
             let removable = mounts.iter().any(|m| m.path == path);
             let name = ui.fonts.ellipsize(&name, 12.0, true, r.w - if removable { 62.0 } else { 42.0 });
@@ -2651,7 +2657,9 @@ impl App for Files {
         let strips: Vec<(f32, f32)> = if self.bare { vec![(0.0, PANE_M), (w - PANE_M, PANE_M)] } else { vec![(0.0, PANE_M), (SIDEBAR_W - PANE_GAP / 2.0, PANE_GAP), (w - PANE_M, PANE_M)] };
         for (sx, sw) in strips {
             if ui.theme.modern {
-                ui.c.fill_rect(sx, top, sw, body_h, &solid(ui.theme.body_a));
+                // Moderno: sem moldura; à esquerda o cinza da lateral, à direita o branco da lista.
+                let c = if sx < x0 && !self.bare { rgba(240, 240, 242, 255) } else { Color::WHITE };
+                ui.c.fill_rect(sx, top, sw, body_h, &solid(c));
             } else {
                 ui.c.brushed_metal(sx, top, sw, body_h, mt, mb);
                 ui.c.metal_sheen(sx, top, sw, body_h, w);
@@ -2675,9 +2683,15 @@ impl App for Files {
             View::List => self.list_view(ui, area),
             View::Icons => self.icons_view(ui, area),
         }
-        // Contorno dos painéis.
-        for r in if self.bare { vec![pane_r] } else { vec![side_r, pane_r] } {
-            ui.c.stroke(rrect(r.x - 0.5, r.y - 0.5, r.w + 1.0, r.h + 1.0, 0.0), &solid(rgba(120, 120, 126, 255)), 1.0);
+        // Contorno dos painéis (no Moderno, só a linha entre a lateral e a lista).
+        if ui.theme.modern {
+            if !self.bare {
+                ui.c.vline(x0 - 1.0, top, body_h, rgba(214, 214, 218, 255));
+            }
+        } else {
+            for r in if self.bare { vec![pane_r] } else { vec![side_r, pane_r] } {
+                ui.c.stroke(rrect(r.x - 0.5, r.y - 0.5, r.w + 1.0, r.h + 1.0, 0.0), &solid(rgba(120, 120, 126, 255)), 1.0);
+            }
         }
         // Faixa de baixo em metal com o status (e o puxador de redimensionar).
         self.status(ui, h - BOTTOM_H);

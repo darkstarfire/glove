@@ -1243,6 +1243,14 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     não pega: a mesa do Discos, a grade das Preferências, os painéis do Painel de Widgets).
   - [x] 21.2.2 Campos de texto (v0.12.70): lisos e arredondados, com o anel de foco só no campo em
     uso; as listas suspensas já ficam lisas pelo `gel_rect`. Falta: abas lisas.
+  - [x] 21.2.4 Moderno mais liso (v0.12.74, glove-ui 0.2.45): sem listras em lugar nenhum
+    (`pinstripes` vira fundo liso), tabelas com cabeçalho liso (a coluna ordenada em negrito com uma
+    divisa, sem o azul) e linhas alternadas em cinza bem leve (a Busca e o Monitor mudam junto), e
+    linhas finas e contornos que escurecem no Escuro. Ícones como nos sistemas de hoje: na barra
+    lateral (Arquivos, Abrir/Salvar) os de contorno do tema na cor de destaque, numa lateral cinza
+    encostada na lista, sem moldura; nas listas, os coloridos do Mide também pequenos.
+  - [x] 21.2.5 Visual por app no glove-ui (v0.2.45): `set_visual(Visual::Classic | Modern | System)`
+    fixa o visual de um app sem mudar a estrutura dele (documentado no guia).
   - [x] 21.2.3 Painéis do compositor (v0.12.70): a central de controle, a central de avisos, a Busca
     Rápida, Forçar Encerrar e o volume escurecem no Moderno Escuro (`draw::PanelStyle`, guarda que liga
     o remapeamento só enquanto o painel se desenha). A grade de apps já é escura.
