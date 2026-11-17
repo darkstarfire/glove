@@ -29,7 +29,13 @@ fn has(prog: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 /// (verificar, instalar) para o gerenciador de pacotes do sistema.
+/// (Descoberto uma vez: cada consulta roda um shell, e o painel é desenhado a cada quadro.)
 fn package_manager() -> Option<(&'static str, &'static str)> {
+    static PM: std::sync::OnceLock<Option<(&'static str, &'static str)>> = std::sync::OnceLock::new();
+    *PM.get_or_init(find_package_manager)
+}
+
+fn find_package_manager() -> Option<(&'static str, &'static str)> {
     if has("apt") {
         Some(("apt list --upgradable 2>/dev/null", "sudo apt update && sudo apt full-upgrade"))
     } else if has("checkupdates") {
@@ -59,6 +65,11 @@ pub fn parse_updates(text: &str) -> Vec<String> {
 }
 
 fn os_name() -> String {
+    static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NAME.get_or_init(read_os_name).clone()
+}
+
+fn read_os_name() -> String {
     std::fs::read_to_string("/etc/os-release").ok().and_then(|t| t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=")).map(|v| v.trim_matches('"').to_string())).unwrap_or_else(|| "Linux".into())
 }
 
@@ -109,10 +120,15 @@ pub struct Atualizacao {
     msg: Option<String>,
     /// O Glove mudou: oferece encerrar a sessão.
     atualizado: bool,
+    /// A versão instalada e se o repositório do Glove está configurado: perguntados ao
+    /// sistema ao abrir e depois de cada operação, não a cada quadro (rolar o painel
+    /// rodava o dpkg dezenas de vezes por segundo e ficava lento).
+    inst: Option<(String, bool)>,
 }
 
 impl Atualizacao {
     fn buscar_glove(&mut self) {
+        self.inst = None;
         self.buscando = true;
         let r = self.nova.clone();
         std::thread::spawn(move || *r.lock().unwrap() = Some(crate::atualizar::buscar()));
@@ -250,7 +266,7 @@ impl Atualizacao {
             self.glove = Some(r);
             self.buscando = false;
         }
-        let inst = a::instalada();
+        let (inst, configurado) = self.inst.get_or_insert_with(|| (a::instalada(), a::configurado())).clone();
         ui.label_ex("Glove OS", 13.0, true, glove_ui::paint::draw::rgba(20, 20, 24, 255));
         ui.small(&tr!("Versão instalada: {}", inst));
         let busy = self.job.is_some();
@@ -268,7 +284,7 @@ impl Atualizacao {
                 if a::pacote() == a::Pacote::Nenhum {
                     // Sem pacote não há o que o gerenciador atualizar.
                     ui.paragraph(tr!("O Glove foi instalado pelo código neste computador. Para atualizar, na pasta do código: git pull e ./glove-setup-tool.sh instalar"));
-                } else if !a::configurado() {
+                } else if !configurado {
                     ui.small(tr!("Este sistema ainda não recebe as atualizações do Glove pelo gerenciador de pacotes."));
                     ui.set_active(!busy);
                     if ui.button(tr!("Adicionar o Repositório do Glove")) {
@@ -314,7 +330,7 @@ impl Atualizacao {
             ui.small(tr!("Não achei o gerenciador de pacotes deste sistema (apt, pacman, dnf ou zypper)."));
             return;
         };
-        let apt = has("apt-get");
+        let apt = package_manager().is_some_and(|p| p.0.starts_with("apt"));
         let busy = self.job.is_some();
         let mut verificar = false;
         ui.horizontal(|ui| {

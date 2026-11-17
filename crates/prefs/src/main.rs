@@ -240,6 +240,9 @@ fn cross_path(cx: f32, cy: f32, r: f32, diagonal: bool) -> Option<glove_ui::pain
     pb.finish()
 }
 
+/// Margens dos painéis dentro da área que rola: (lados, em cima, embaixo).
+const PANE_PAD: (f32, f32, f32) = (28.0, 20.0, 20.0);
+
 /// As coleções do painel Mesa, na ordem da lista.
 #[derive(Clone, Copy, PartialEq)]
 enum DeskSource {
@@ -2498,14 +2501,25 @@ impl App for Prefs {
         // aparece a barra (nada fica cortado sem jeito de ver).
         // "Mostrar Todos" ocupa a largura toda, sem margens (as faixas vão de borda a borda).
         let todos = self.pane == Pane::Todos;
-        let view = if todos { Rect::new(0.0, TOOLBAR_H, w, h - TOOLBAR_H) } else { Rect::new(28.0, TOOLBAR_H + 20.0, w - 56.0, h - TOOLBAR_H - 40.0) };
+        // A área que rola ocupa a janela toda abaixo da barra (a barra de rolagem fica
+        // encostada na borda da janela, como nos apps de verdade); as margens dos painéis
+        // vão por dentro do conteúdo.
+        let view = Rect::new(0.0, TOOLBAR_H, w, h - TOOLBAR_H);
         let mut scroll = self.pane_scroll;
         let content = self.pane_h;
         // Janela maior que o painel: o que sobra vai para o componente principal dele.
         // (Os 4 pontos são a margem de baixo: no tamanho mínimo nada muda de lugar.)
+        // (As margens estão nas duas medidas: a área e o tamanho natural do painel.)
         let spare = if todos { 0.0 } else { (view.h - 4.0 - self.pane_natural).floor().max(0.0) };
         GROW.with(|g| g.set((spare, false)));
-        let used = ui.scroll_view(view, &mut scroll, content, |ui| match self.pane {
+        let used = ui.scroll_view(view, &mut scroll, content, |ui| {
+            if todos {
+                return self.show_all(ui);
+            }
+            ui.space(PANE_PAD.1);
+            let (x, y) = ui.cursor();
+            let iw = ui.available_width();
+            let (_, ph) = ui.area_size(Rect::new(x + PANE_PAD.0, y, (iw - 2.0 * PANE_PAD.0).max(100.0), 0.0), |ui| match self.pane {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
             Pane::Mesa => self.mesa(ui),
@@ -2567,6 +2581,8 @@ impl App for Prefs {
             Pane::Seguranca => self.seguranca(ui),
             Pane::Busca => self.busca(ui),
             Pane::Expose => self.expose(ui),
+            });
+            ui.alloc(iw, ph + PANE_PAD.2);
         });
         if sheet {
             ui.set_enabled(true);
@@ -2599,7 +2615,7 @@ impl App for Prefs {
             ui.redraw = true;
         }
         // A janela fica da altura do painel (cresce e encolhe suave, como na era).
-        let win_h = if todos { (TOOLBAR_H + natural).clamp(240.0, MAX_TODOS_H) } else { (TOOLBAR_H + 20.0 + natural + 24.0).clamp(240.0, MAX_H) };
+        let win_h = if todos { (TOOLBAR_H + natural).clamp(240.0, MAX_TODOS_H) } else { (TOOLBAR_H + natural + 4.0).clamp(240.0, MAX_H) };
         // Esse é o tamanho mínimo: dá para aumentar a janela pelo canto, e o que foi
         // aumentado vale para os outros painéis.
         ui.set_window_min_size(W as f32, win_h, true);

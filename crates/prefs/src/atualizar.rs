@@ -57,7 +57,7 @@ fn consulta(cmd: &str, args: &[&str]) -> Option<String> {
 pub fn pacote() -> Pacote {
     static P: std::sync::OnceLock<Pacote> = std::sync::OnceLock::new();
     *P.get_or_init(|| {
-        if consulta("dpkg-query", &["-W", "-f=${Status}", "glove"]).is_some_and(|s| s.contains("install ok installed")) {
+        if consulta("dpkg-query", &["-W", "-f=${Status}", "glove"]).is_some_and(|s| dpkg_instalado(&s)) {
             Pacote::Apt
         } else if consulta("rpm", &["-q", "glove"]).is_some() {
             Pacote::Dnf
@@ -69,6 +69,14 @@ pub fn pacote() -> Pacote {
             Pacote::Nenhum
         }
     })
+}
+
+/// O estado do dpkg diz que o pacote está instalado? ("install ok installed", ou
+/// "hold ok installed" se ele foi segurado). Removido com a configuração guardada
+/// ("deinstall ok config-files") não conta: o dpkg ainda dá a versão dele, e o painel
+/// mostrava essa versão velha como a instalada.
+pub fn dpkg_instalado(status: &str) -> bool {
+    status.split_whitespace().nth(2) == Some("installed")
 }
 
 /// A versão num nome de pacote do Slackware ("glove-0.12.74-x86_64-1"); None se o
@@ -314,6 +322,16 @@ mod tests {
         let n = parse(r#"{"versao":"0.12.50","data":"2026-11-15","notas":"Discos novo\n- formatar"}"#).unwrap();
         assert_eq!((n.versao.as_str(), n.notas.lines().count()), ("0.12.50", 2));
         assert_eq!(parse("{}"), None);
+    }
+
+    #[test]
+    fn estado_do_dpkg() {
+        assert!(dpkg_instalado("install ok installed"));
+        assert!(dpkg_instalado("hold ok installed"));
+        assert!(!dpkg_instalado("deinstall ok config-files"));
+        assert!(!dpkg_instalado("unknown ok not-installed"));
+        assert!(!dpkg_instalado("install ok half-configured"));
+        assert!(!dpkg_instalado(""));
     }
 
     #[test]

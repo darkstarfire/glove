@@ -1317,3 +1317,12 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   a tela de bloqueio 3 s à vista (`SLEEP_SHOW_LOCK`), apaga o monitor (`screen_off`) e só então
   chama o `systemctl suspend` (o erro dele vai para o registro). Antes, se a suspensão não
   acontecia, ficava tudo aceso. Dentro de outro desktop não suspende (só bloqueia e apaga).
+- [x] 21.9 Atualização de Software: versão e rolagem (v0.12.77; relato de 17/11/2026):
+  - A versão instalada vinha do dpkg mesmo com o pacote já removido (estado "deinstall ok
+    config-files": mostrava 0.11.9). A 0.12.75 já olhava o estado; agora pela terceira palavra
+    dele (`dpkg_instalado`), que também aceita o pacote segurado ("hold ok installed").
+  - Lentidão ao rolar: o painel rodava o dpkg e shells (`command -v`) a cada quadro. A versão e o
+    repositório são lidos ao abrir e depois de cada operação; o gerenciador de pacotes e o nome
+    do sistema, uma vez.
+  - Barra de rolagem solta no meio da janela: a área que rola das Preferências passa a ocupar a
+    janela toda abaixo da barra (`PANE_PAD` por dentro), e a barra fica encostada na borda.
