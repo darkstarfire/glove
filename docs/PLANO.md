@@ -1118,6 +1118,12 @@ O Glove OS atualiza o que é dele (o `glove` e o `glove-os`) no próprio ritmo, 
   (`refresh_control` → `control_arrived`, uma leitura por vez, canal único); `wpctl`, `loginctl` e as
   consultas do `nmcli` ganharam limite. No painel Bluetooth das Preferências: sem adaptador não
   pergunta; sem resposta, avisa e só tenta de novo em 30 s.
+- [x] 19.6 `instalar` parava com a compilação pela metade (P) — 17/11/2026: o script só olhava se
+  o `glove` e o `glove-apps` existiam; com eles prontos e um programa novo ainda não compilado (o
+  `glove-bateria`), não compilava e parava ao copiar. Pior: depois de um `git pull`, perguntava
+  "Compilar de novo?" com "não" de padrão e instalava os programas velhos com os arquivos novos.
+  Agora `stage` sempre chama o cargo (que só refaz o que falta ou mudou) e confere que todos os
+  programas existem; a pergunta saiu. A receita do Arch, que compila antes, pula isso (`_stage`).
 - [x] 19.4 `glove-setup-tool.sh` com sudo (P): sem cargo, como root vindo do sudo, diz para rodar sem
   o sudo; a mensagem do Rust mínimo dizia 1.85 (é 1.89).
 

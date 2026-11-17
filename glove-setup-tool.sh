@@ -150,7 +150,14 @@ app_links() {
 # $3 = PAM style: debian (common-auth) or other (system-auth).
 stage() {
     dest=$1; prefix=$2; pam=$3
-    [ -x target/release/glove ] && [ -x target/release/glove-apps ] || compile
+    # Always build first: cargo only redoes what is missing or changed (seconds when
+    # nothing did). Checking for one or two programs was a trap: after a "git pull", or
+    # with a partial build, it staged old programs, or stopped on a missing one.
+    # stage_no_build: the Arch recipe calls this right after its own build.
+    [ -n "${stage_no_build:-}" ] || compile
+    for b in glove glove-apps glove-portal glove-escolher glove-bateria glove-arte; do
+        [ -x "target/release/$b" ] || die "$(t "falta o programa target/release/$b; compile com: cargo build --release" "the program target/release/$b is missing; build with: cargo build --release")"
+    done
     [ "$(app_links | wc -l)" -ge 30 ] || die "$(t "não achei a lista de apps em crates/apps/src/main.rs" "could not find the app list in crates/apps/src/main.rs")"
     bin="$dest$prefix/bin"
     mkdir -p "$bin"
@@ -262,11 +269,9 @@ installed_package() {
 install_glove() {
     prefix=${1:-/usr/local}
     case "$prefix" in /*) ;; *) die "$(t "o prefixo precisa ser um caminho absoluto" "the prefix must be an absolute path")" ;; esac
-    if [ ! -x target/release/glove ] || ask "$(t "Compilar de novo antes de instalar?" "Build again before installing?")" n; then
-        if ! has cargo || ! has pkg-config; then
-            ask "$(t "Faltam ferramentas para compilar. Instalar agora?" "Build tools are missing. Install them now?")" y && install_deps
-        fi
-        compile
+    # The build itself happens in "stage" (always: cargo only redoes what changed).
+    if ! has cargo || ! has pkg-config; then
+        ask "$(t "Faltam ferramentas para compilar. Instalar agora?" "Build tools are missing. Install them now?")" y && install_deps
     fi
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
@@ -1111,7 +1116,7 @@ case "${1:-}" in
     login) shift; login "$@" ;;
     grub|bootloader) shift; grub_screen "$@" ;;
     iso) case "${2:-}" in test|testar) test_iso ;; *) build_iso ;; esac ;;
-    _stage|_montar) stage "$2" "$3" "$4" ;;
+    _stage|_montar) stage_no_build=1; stage "$2" "$3" "$4" ;;
     -h|--help|help|ajuda) show_help ;;
     *) die "$(t "opção desconhecida: $1 (veja ./glove-setup-tool.sh ajuda)" "unknown option: $1 (see ./glove-setup-tool.sh help)")" ;;
 esac
