@@ -579,8 +579,15 @@ fi
 # the login manager (in /etc/rc.d/rc.4).
 EOF
     mkdir -p "$out_dir"
-    f="$out_dir/glove-$version-$arch-1.tgz"
-    (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -czf "$f" .)
+    # Número da build, como nos SlackBuilds: 1 para uma versão nova; quando o código é o
+    # mesmo e só o empacotamento ou um patch muda, sobe 1 (BUILD=2 ./glove-setup-tool.sh
+    # slackware). Sem isso, o upgradepkg não vê que o pacote é mais novo.
+    build=${BUILD:-1}
+    case $build in ''|*[!0-9]*) die "$(t "BUILD tem de ser um número (ex.: 2)" "BUILD must be a number (e.g. 2)")" ;; esac
+    f="$out_dir/glove-$version-$arch-$build.tgz"
+    # Os nomes das entradas sem "./" (install/slack-desc, não ./install/slack-desc): é como o
+    # installpkg acha a descrição e o doinst.sh dentro do pacote.
+    (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -czf "$f" $(ls -A))
     rm -rf "$tmp"
     msg "$(t "Pacote Slackware: $f (instale com: installpkg $(basename "$f"))" "Slackware package: $f (install with: installpkg $(basename "$f"))")"
 }

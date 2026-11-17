@@ -26,7 +26,7 @@ $msg
 | Debian, Ubuntu, Mint, Zorin | \`glove_${v}_amd64.deb\` | \`sudo apt install ./glove_${v}_amd64.deb\` |
 | Fedora 44 ou mais novo | \`glove-$v-1.x86_64.rpm\` | \`sudo dnf install ./glove-$v-1.x86_64.rpm\` |
 | Arch | \`glove-$v-1-x86_64.pkg.tar.zst\` | \`sudo pacman -U glove-$v-1-x86_64.pkg.tar.zst\` |
-| Slackware 15.0 ou -current | \`glove-$v-x86_64-1.tgz\` | \`upgradepkg --install-new glove-$v-x86_64-1.tgz\` (precisa do seatd e do greetd, do SlackBuilds.org) |
+| Slackware 15.0 ou -current | \`glove-$v-x86_64-${BUILD:-1}.tgz\` | \`upgradepkg --install-new glove-$v-x86_64-${BUILD:-1}.tgz\` (precisa do seatd e do greetd, do SlackBuilds.org) |
 
 Dentro do Glove, Preferências ▸ Atualização de Software instala as versões seguintes. No Debian/Ubuntu,
 no Fedora e no Arch há também os [repositórios](https://fabioaacarneiro.github.io/glove/) (apt, dnf e pacman).

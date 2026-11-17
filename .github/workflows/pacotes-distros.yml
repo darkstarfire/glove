@@ -9,7 +9,17 @@ name: Pacotes das outras distribuições
 
 on:
   workflow_call:
+    inputs:
+      build:
+        description: "Número da build do pacote Slackware (sobe quando a versão é a mesma)"
+        type: string
+        default: "1"
   workflow_dispatch:
+    inputs:
+      build:
+        description: "Número da build do pacote Slackware (1 para versão nova; 2, 3… para rebuild)"
+        required: false
+        default: "1"
 
 permissions:
   contents: read
@@ -46,7 +56,9 @@ jobs:
           fetch-depth: 1
 
       - name: Compilar, empacotar e conferir (${{ matrix.imagem }})
-        run: docker run --rm -v "$PWD:/src" -w /src ${{ matrix.imagem }} sh ci/${{ matrix.distro }}.sh
+        env:
+          BUILD: ${{ inputs.build || '1' }}
+        run: docker run --rm -e BUILD -v "$PWD:/src" -w /src ${{ matrix.imagem }} sh ci/${{ matrix.distro }}.sh
 
       - uses: actions/upload-artifact@v4
         with:
