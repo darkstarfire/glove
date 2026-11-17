@@ -23,6 +23,8 @@ pub struct RegionSel {
     pub open: bool,
     /// Escolhendo uma janela (não um retângulo).
     pub window: bool,
+    /// Para gravar (e não para uma captura).
+    pub gravar: bool,
 }
 
 impl RegionSel {
@@ -52,7 +54,8 @@ impl Glove {
     pub fn begin_region(&mut self, frozen: Option<Frozen>) {
         let Some((open, window)) = self.region_pending.take() else { return };
         self.freeze = frozen;
-        self.region = Some(RegionSel { start: None, cur: self.pointer_pos, open, window });
+        let gravar = std::mem::take(&mut self.region_gravar);
+        self.region = Some(RegionSel { start: None, cur: self.pointer_pos, open, window, gravar });
         self.dirty = true;
     }
 
@@ -125,12 +128,14 @@ impl Glove {
             if !pressed {
                 return;
             }
-            let (pos, open) = (r.cur, r.open);
+            let (pos, open, gravar) = (r.cur, r.open, r.gravar);
             self.region = None;
             self.dirty = true;
             if let Some((w, rect)) = self.window_frame_at(pos) {
-                // Da tela congelada, se der; senão, ao vivo, com a janela na frente de tudo.
-                if !self.shot_from_freeze(rect, open) {
+                if gravar {
+                    self.iniciar_gravacao(rect);
+                } else if !self.shot_from_freeze(rect, open) {
+                    // Da tela congelada, se der; senão, ao vivo, com a janela na frente de tudo.
                     self.space.raise_element(&w, true);
                     self.screenshot_crop = Some(rect);
                     self.open_after_shot = open;
@@ -147,9 +152,11 @@ impl Glove {
         }
         let rect = r.rect();
         let open = r.open;
+        let gravar = r.gravar;
         self.region = None;
         self.dirty = true;
         match rect.filter(|r| r.size.w >= 4 && r.size.h >= 4) {
+            Some(rect) if gravar => self.iniciar_gravacao(rect),
             Some(rect) => {
                 if !self.shot_from_freeze(rect, open) {
                     self.screenshot_crop = Some(rect);

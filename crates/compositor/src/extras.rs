@@ -36,6 +36,8 @@ pub enum ExtraKind {
     Battery,
     Clock,
     Notifications,
+    /// Gravação em andamento: bolinha piscando e o tempo; clique = Parar.
+    Recording,
     User,
 }
 
@@ -252,6 +254,9 @@ impl Glove {
         if !self.greeter {
             v.push(ExtraKind::Control);
         }
+        if self.gravacao.is_some() {
+            v.push(ExtraKind::Recording);
+        }
         if self.config.clock.show {
             v.push(ExtraKind::Clock);
         }
@@ -290,6 +295,10 @@ impl Glove {
                 }
                 ExtraKind::User => Extra::User { name: crate::shell::user_full_name() },
                 ExtraKind::Notifications => Extra::Notifications { unread: self.avisos.unread, quiet: self.avisos.quiet },
+                ExtraKind::Recording => {
+                    let (tempo, aceso) = self.texto_gravacao();
+                    Extra::Recording { tempo, aceso }
+                }
             })
             .collect()
     }
@@ -333,6 +342,10 @@ impl Glove {
                 self.show_menu(BarTarget::Extra(k), nodes);
             }
             ExtraKind::Notifications => self.toggle_avisos_center(),
+            ExtraKind::Recording => {
+                let parar = MenuNode::new(MenuItem::item(glove_config::tr!("Parar Gravação")), Some(MenuAction::StopRecording));
+                self.show_menu(BarTarget::Extra(k), vec![parar]);
+            }
             ExtraKind::Control => self.open_control(k),
         }
     }

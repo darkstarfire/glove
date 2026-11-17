@@ -264,6 +264,8 @@ struct LastSize(std::cell::Cell<(i32, i32)>);
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuAction {
     About,
+    /// Para a gravação de tela em andamento (o item do indicador na barra).
+    StopRecording,
     /// Abre a Ajuda do Glove.
     Help,
     Preferences,
@@ -1649,6 +1651,7 @@ impl Glove {
     pub fn run_menu_action(&mut self, a: MenuAction) {
         match a {
             MenuAction::About => self.spawn("glove-about"),
+            MenuAction::StopRecording => self.parar_gravacao(),
             MenuAction::Preferences => self.open_preferences(),
             MenuAction::Help => self.spawn("glove-ajuda"),
             MenuAction::DockMagnification => {

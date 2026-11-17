@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Apps que não aparecem no Dock (painéis do próprio Glove).
-const NOT_IN_DOCK: [&str; 2] = ["glove.About", "glove.Sair"];
+const NOT_IN_DOCK: [&str; 3] = ["glove.About", "glove.Sair", "glove.Gravacao"];
 
 impl Glove {
     /// Todas as janelas: na tela, minimizadas e ocultas.

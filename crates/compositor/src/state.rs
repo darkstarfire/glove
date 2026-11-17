@@ -105,6 +105,16 @@ pub struct Glove {
     pub region: Option<crate::region::RegionSel>,
     /// Captura de área pedida: o próximo quadro congela a tela e começa a seleção.
     pub region_pending: Option<(bool, bool)>,
+    /// A área escolhida agora é para gravar (e não para uma captura).
+    pub region_gravar: bool,
+    /// Gravação de tela em andamento (ver gravar.rs).
+    pub gravacao: Option<crate::gravar::Gravacao>,
+    /// O ffmpeg está subindo (a gravação ainda não começou).
+    pub gravacao_iniciando: bool,
+    /// Áudio escolhido no painel: (do sistema, microfone).
+    pub gravacao_audio: (bool, bool),
+    /// Já há um tique de redesenho da barra agendado (ver gravar.rs).
+    pub gravacao_tique: bool,
     /// A tela congelada durante a seleção.
     pub freeze: Option<crate::region::Frozen>,
     /// Área (lógica) da próxima captura; None = a tela inteira.
@@ -278,6 +288,11 @@ impl Glove {
             saver: None,
             region: None,
             region_pending: None,
+            region_gravar: false,
+            gravacao_audio: (false, false),
+            gravacao_tique: false,
+            gravacao: None,
+            gravacao_iniciando: false,
             freeze: None,
             screenshot_crop: None,
             ending: None,
