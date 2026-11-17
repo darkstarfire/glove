@@ -35,6 +35,12 @@ enum KeyAction {
     Screenshot,
     /// Captura de uma área (Shift+Print).
     ScreenshotArea,
+    /// Gravar a tela inteira (Shift+Super+3).
+    RecordScreen,
+    /// Gravar uma área, escolhida na tela (Shift+Super+4).
+    RecordArea,
+    /// Parar a gravação em andamento (Shift+Super+5). O menu flutuante ainda não existe.
+    RecordToggle,
     /// Esc com a área da captura sendo escolhida.
     RegionEsc,
     ForceQuit,
@@ -109,6 +115,9 @@ impl KeyAction {
             "preferences" => Self::Preferences,
             "screenshot" => Self::Screenshot,
             "screenshot_area" => Self::ScreenshotArea,
+            "record_screen" => Self::RecordScreen,
+            "record_area" => Self::RecordArea,
+            "record_toggle" => Self::RecordToggle,
             "force_quit" => Self::ForceQuit,
             "hide" => Self::Hide,
             "lock" => Self::Lock,
@@ -709,6 +718,9 @@ impl Glove {
             Some(KeyAction::Preferences) => self.open_preferences(),
             Some(KeyAction::Screenshot) => self.request_screenshot(),
             Some(KeyAction::ScreenshotArea) => self.start_region_shot(false, false),
+            Some(KeyAction::RecordScreen) => self.gravar_tela(),
+            Some(KeyAction::RecordArea) => self.gravar_area(false),
+            Some(KeyAction::RecordToggle) => self.gravar_alternar(),
             Some(KeyAction::RegionEsc) => self.cancel_region(),
             Some(KeyAction::Hide) => {
                 if let Some(pid) = self.focused_pid() {

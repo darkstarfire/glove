@@ -27,6 +27,7 @@ mod render;
 mod shell;
 mod search;
 mod region;
+mod gravar;
 mod saver;
 mod startup;
 mod state;
@@ -300,10 +301,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Recolhe apps que terminaram (sem zumbis). Não usamos SIGCHLD = SIG_IGN:
         // ele impede esperar por comandos (wpctl, systemctl) e passaria para os apps.
         loop {
-            let pid = unsafe { libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) };
+            let mut status: libc::c_int = 0;
+            let pid = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
             if pid <= 0 {
                 break;
             }
+            // O ffmpeg da gravação também cai aqui: o status vai para o recorder, que o lê.
+            glove_recorder::registrar_saida(pid as u32, status);
             // Tela de login: o app de login terminou (sessão iniciada ou erro).
             if data.state.greeter_child == Some(pid as u32) {
                 tracing::info!("app de login terminou");

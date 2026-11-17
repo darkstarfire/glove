@@ -976,6 +976,8 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
         });
         state.begin_region(frozen);
     }
+    // Gravação em andamento: manda a tela deste quadro para o ffmpeg.
+    crate::gravar::quadro(state, renderer);
     if let Some(path) = state.screenshot_request.take() {
         let crop = state.screenshot_crop.take();
         match screenshot(state, renderer, &path, crop) {
@@ -1048,7 +1050,7 @@ fn extra_screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path
 }
 
 /// A tela principal inteira, como está agora (sem o cursor), em pixels reais.
-fn grab(state: &Glove, renderer: &mut GlesRenderer) -> Result<(glove_paint::Pixmap, f64), Box<dyn std::error::Error>> {
+pub(crate) fn grab(state: &Glove, renderer: &mut GlesRenderer) -> Result<(glove_paint::Pixmap, f64), Box<dyn std::error::Error>> {
     let (lw, lh) = state.output_size();
     let sc = state.scale();
     let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);

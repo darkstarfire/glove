@@ -28,6 +28,7 @@ glove-instalador = { path = "../instalador" }
 glove-mensagens = { path = "../mensagens" }
 glove-fotos = { path = "../fotos" }
 glove-gravador = { path = "../gravador" }
+glove-gravacao = { path = "../gravacao" }
 glove-central = { path = "../central" }
 glove-copias = { path = "../copias" }
 glove-correio = { path = "../correio" }
