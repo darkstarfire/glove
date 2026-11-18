@@ -28,6 +28,9 @@ pub struct Rede {
     form_dirty: bool,
     /// Pedido de senha: (rede, senha).
     pub prompt: Option<(String, String)>,
+    /// A janela que pede a senha da rede (None = ainda não aberta; Some(None) = sem o
+    /// glove-senha, a folha dentro do painel).
+    prompt_win: Option<Option<glove_config::senha::Pedido>>,
     /// Trabalho em andamento ("Conectando a “X”…") e a resposta dele.
     busy: Option<String>,
     done: Arc<Mutex<Option<Result<String, String>>>>,
@@ -393,6 +396,37 @@ impl Rede {
     /// Folha pedindo a senha da rede (por cima do painel).
     pub fn prompt_sheet(&mut self, ui: &mut Ui) {
         let Some((ssid, mut pw)) = self.prompt.clone() else { return };
+        // A janela de senha do sistema; sem ela (glove-senha ausente), a folha.
+        use glove_config::senha::{Formulario, Pedido, Valores};
+        if self.prompt_win.is_none() {
+            let title = tr!("A rede “{}” pede uma senha.", ssid);
+            self.prompt_win = Some(Pedido::formulario(&Formulario {
+                titulo: &title,
+                mensagem: tr!("Digite a senha da rede Wi-Fi para conectar."),
+                campos: &[(tr!("Senha:"), true)],
+                botao: tr!("Conectar"),
+                icone: "netutil",
+                confirmar: None,
+                erro: None,
+            }));
+        }
+        if let Some(Some(w)) = &mut self.prompt_win {
+            match w.valores() {
+                Valores::Esperando => ui.wake_after(Duration::from_millis(150)),
+                Valores::Cancelado => {
+                    self.prompt = None;
+                    self.prompt_win = None;
+                }
+                Valores::Prontos(v) => {
+                    self.prompt = None;
+                    self.prompt_win = None;
+                    if let Some(pw) = v.into_iter().next().filter(|p| !p.is_empty()) {
+                        self.join(ssid, Some(pw));
+                    }
+                }
+            }
+            return;
+        }
         let (w, _) = (ui.c.w, ui.c.h);
         let (sw, sh) = (400.0, 150.0);
         let x = ((w - sw) / 2.0).round();

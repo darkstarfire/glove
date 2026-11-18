@@ -13,6 +13,10 @@
 //!                          Apps…): confere a senha com o próprio sudo e, certa, a
 //!                          escreve na saída para o app (glove_config::senha). O que
 //!                          vai ser feito vem em GLOVE_SENHA_MENSAGEM.
+//!   glove-senha --campos   um formulário de senha (a senha de uma rede Wi-Fi, trocar a
+//!                          senha da conta ou do chaveiro): os campos vêm do ambiente
+//!                          (glove_config::senha::Formulario) e os valores saem na
+//!                          saída, um por linha. Quem pediu confere e usa.
 //!
 //! A senha é conferida pelo `polkit-agent-helper-1` (do próprio polkit, pelo PAM):
 //! o Glove nunca vê nem guarda nada além do que é digitado na janela.
@@ -40,6 +44,9 @@ pub fn main() {
     }
     if std::env::args().any(|a| a == "--sudo") {
         std::process::exit(ask_sudo());
+    }
+    if std::env::args().any(|a| a == "--campos") {
+        std::process::exit(ask_fields());
     }
     if let Err(e) = serve() {
         eprintln!("glove-senha: {e}");
@@ -376,4 +383,134 @@ fn ask_sudo() -> i32 {
         return 1;
     }
     code
+}
+
+// --- o formulário (--campos) --------------------------------------------------------
+
+/// Um formulário de senha: título, explicação, os campos e o botão. Os valores saem na
+/// saída, um por linha, quando o botão é apertado (os campos não aceitam quebra de linha).
+struct Fields {
+    title: String,
+    message: String,
+    /// (rótulo, esconde o que é digitado, valor).
+    fields: Vec<(String, bool, String)>,
+    button: String,
+    icon: Icon,
+    /// Os dois campos que têm de ser iguais (a senha nova e a confirmação).
+    confirm: Option<(usize, usize)>,
+    error: Option<String>,
+    done: Arc<Mutex<Option<Vec<String>>>>,
+}
+
+impl App for Fields {
+    fn ui(&mut self, ui: &mut Ui) {
+        let (w, h) = (ui.c.w, ui.c.h);
+        ui.c.fill_rect(0.0, 0.0, w, h, &vgrad(0.0, h, &[(0.0, rgba(238, 238, 240, 255)), (1.0, rgba(226, 226, 230, 255))]));
+        icons::draw(ui.c, ui.fonts, self.icon, 20.0, 18.0, 64.0, None);
+        let ink = rgba(20, 20, 24, 255);
+        let x = 100.0;
+        let tw = w - x - 20.0;
+        let mut y = 34.0;
+        for l in wrap_lines(ui.fonts, &self.title, 14.0, true, tw).into_iter().take(2) {
+            ui.fonts.draw(ui.c, &l, x, y, 14.0, true, ink);
+            y += 18.0;
+        }
+        y += 2.0;
+        for l in wrap_lines(ui.fonts, &self.message, 11.5, false, tw).into_iter().take(3) {
+            ui.fonts.draw(ui.c, &l, x, y, 11.5, false, rgba(70, 70, 76, 255));
+            y += 15.0;
+        }
+        y += 8.0;
+        // Os rótulos alinhados à direita, numa coluna do tamanho do maior.
+        let lw = self.fields.iter().map(|f| ui.text_width(&f.0, 12.0, false)).fold(0.0_f32, f32::max);
+        let mut enter = false;
+        for (k, (label, secret, value)) in self.fields.iter_mut().enumerate() {
+            ui.fonts.draw(ui.c, label, x + lw - ui.text_width(label, 12.0, false), y + 15.0, 12.0, false, ink);
+            let r = Rect::new(x + lw + 8.0, y, tw - lw - 8.0, 22.0);
+            enter |= if *secret { ui.password_field_in(r, value, k == 0) } else { ui.text_field_in(r, value, k == 0).1 };
+            y += 30.0;
+        }
+        if let Some(e) = &self.error {
+            let e = ui.fonts.ellipsize(e, 11.0, false, tw);
+            ui.fonts.draw(ui.c, &e, x, y + 6.0, 11.0, false, rgba(180, 30, 30, 255));
+        }
+        let (mut cancel, mut ok) = (false, false);
+        ui.area(Rect::new(w - 240.0, h - 40.0, 220.0, 30.0), |ui| {
+            ui.horizontal(|ui| {
+                cancel = ui.button(tr!("Cancelar"));
+                ok = ui.default_button(&self.button);
+            });
+        });
+        if cancel || ui.keys().iter().any(|k| k.key == glove_ui::ui::Key::Escape) {
+            ui.close = true;
+            return;
+        }
+        if ok || enter {
+            if self.fields.first().is_some_and(|f| f.2.is_empty()) {
+                return;
+            }
+            if let Some((a, b)) = self.confirm {
+                let (va, vb) = (self.fields.get(a).map(|f| &f.2), self.fields.get(b).map(|f| &f.2));
+                if va.is_none_or(|v| v.is_empty()) || va != vb {
+                    self.error = Some(tr!("A senha nova e a confirmação precisam ser iguais.").into());
+                    if let Some(f) = self.fields.get_mut(b) {
+                        f.2.clear();
+                    }
+                    return;
+                }
+            }
+            *self.done.lock().unwrap() = Some(self.fields.iter().map(|f| f.2.clone()).collect());
+            ui.close = true;
+        }
+    }
+}
+
+/// `--campos`: sai com 0 e os valores na saída (um por linha), ou com 1 se cancelado.
+fn ask_fields() -> i32 {
+    let env = |k: &str| std::env::var(k).unwrap_or_default();
+    // "*Senha:" = campo que esconde o que é digitado; os rótulos vêm um por linha.
+    let fields: Vec<(String, bool, String)> = env("GLOVE_SENHA_CAMPOS")
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .take(5)
+        .map(|l| match l.strip_prefix('*') {
+            Some(r) => (r.to_string(), true, String::new()),
+            None => (l.to_string(), false, String::new()),
+        })
+        .collect();
+    if fields.is_empty() {
+        return 1;
+    }
+    let confirm = env("GLOVE_SENHA_CONFIRMAR").split_once('-').and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?)));
+    let icon_name = env("GLOVE_SENHA_ICONE");
+    let n = fields.len() as u32;
+    let done = Arc::new(Mutex::new(None));
+    let error = Some(env("GLOVE_SENHA_ERRO")).filter(|e| !e.is_empty());
+    let app = Fields {
+        title: env("GLOVE_SENHA_TITULO"),
+        message: env("GLOVE_SENHA_MENSAGEM"),
+        fields,
+        button: Some(env("GLOVE_SENHA_BOTAO")).filter(|b| !b.is_empty()).unwrap_or_else(|| "OK".into()),
+        icon: if icon_name.is_empty() { Icon::Pref(icons::PrefKind::Security) } else { Icon::from_name(&icon_name) },
+        confirm,
+        error,
+        done: done.clone(),
+    };
+    let opts = WindowOptions { title: tr!("Autenticação").into(), app_id: "glove.Senha".into(), size: (480, 160 + 30 * n + 30), fixed: true, min_size: None };
+    if let Err(e) = run(opts, app) {
+        eprintln!("glove-senha: {e}");
+        return 1;
+    }
+    let values = done.lock().unwrap().take();
+    match values {
+        Some(v) => {
+            let mut out = std::io::stdout();
+            for x in v {
+                let _ = writeln!(out, "{}", x.replace('\n', " "));
+            }
+            let _ = out.flush();
+            0
+        }
+        None => 1,
+    }
 }

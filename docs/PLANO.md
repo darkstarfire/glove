@@ -1326,3 +1326,16 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     do sistema, uma vez.
   - Barra de rolagem solta no meio da janela: a área que rola das Preferências passa a ocupar a
     janela toda abaixo da barra (`PANE_PAD` por dentro), e a barra fica encostada na borda.
+- [x] 21.10 Ajustes de 18/11/2026 (v0.12.78, glove-ui 0.2.47):
+  - Ocultação automática do Dock ligada ou desligada: as janelas em zoom não acompanhavam a área
+    útil nova (o reajuste só via o Dock mudar de tamanho). `chrome.last_work_area` compara a área
+    de um quadro com a do anterior e chama `refit_zoomed` sempre que ela muda.
+  - Todas as senhas em janela própria: `glove-senha --campos` (`glove_config::senha::Formulario`)
+    mostra um formulário (campos escondidos ou não, confirmação de senha nova, aviso de erro) e
+    devolve os valores pela saída. Usado na senha do Wi-Fi, na troca de senha da conta e do
+    Chaveiro; o Instalador pede a de administrador pelo `--sudo`. A folha fica só de reserva.
+    O login do "Conectar ao Servidor" (Arquivos) já é uma janela própria.
+  - Lâmpada Mágica em duas etapas, como no Mac: primeiro a parte de baixo da janela estica até o
+    ícone e afina no funil, com o topo parado (40% do tempo); depois a janela escorre pelo funil.
+  - Ícone da central de controle na barra: as duas chaves só no contorno, com a bolinha cheia
+    (nada pintado de branco: no tema escuro virava um bloco branco).

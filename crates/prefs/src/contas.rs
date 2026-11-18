@@ -162,6 +162,10 @@ pub struct Contas {
     photos: HashMap<String, Option<Pixmap>>,
     /// Folha da senha: (atual, nova, confirmação).
     pw: Option<[String; 3]>,
+    /// A janela que pede as senhas (None = ainda não aberta; Some(None) = sem o
+    /// glove-senha, a folha) e o aviso para mostrar nela ao abrir de novo.
+    pw_win: Option<Option<glove_config::senha::Pedido>>,
+    pw_error: Option<String>,
     file: Option<FileBrowser>,
     busy: bool,
     done: Arc<Mutex<Option<Result<String, String>>>>,
@@ -402,6 +406,37 @@ impl Contas {
             return;
         }
         let Some(mut f) = self.pw.take() else { return };
+        // A janela de senha do sistema; sem ela (glove-senha ausente), a folha.
+        use glove_config::senha::{Formulario, Pedido, Valores};
+        if self.pw_win.is_none() {
+            let err = self.pw_error.take();
+            self.pw_win = Some(Pedido::formulario(&Formulario {
+                titulo: tr!("Mudar a senha desta conta"),
+                mensagem: tr!("A senha nova vale para entrar, desbloquear a tela e como administrador."),
+                campos: &[(tr!("Senha atual:"), true), (tr!("Senha nova:"), true), (tr!("Confirmar:"), true)],
+                botao: tr!("Mudar Senha"),
+                icone: "",
+                confirmar: Some((1, 2)),
+                erro: err.as_deref(),
+            }));
+        }
+        if let Some(Some(w)) = &mut self.pw_win {
+            match w.valores() {
+                Valores::Esperando => {
+                    ui.wake_after(Duration::from_millis(150));
+                    self.pw = Some(f);
+                }
+                Valores::Cancelado => self.pw_win = None,
+                Valores::Prontos(v) => {
+                    self.pw_win = None;
+                    if let [old, new, ..] = v.as_slice() {
+                        let (old, new) = (old.clone(), new.clone());
+                        self.start(tr!("Senha trocada.").into(), move || change_password(&old, &new));
+                    }
+                }
+            }
+            return;
+        }
         let (sw, sh) = (420.0, 200.0);
         let x = ((ui.c.w - sw) / 2.0).round();
         let y = 78.0;

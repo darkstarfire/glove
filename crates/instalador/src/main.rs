@@ -114,6 +114,9 @@ struct Instalador {
     /// Senha de administrador para o sudo (fora do Glove ao vivo).
     senha_admin: Option<String>,
     pedir_admin: bool,
+    /// A janela de senha do sistema (None = ainda não aberta; Some(None) = sem o
+    /// glove-senha, a folha).
+    janela_admin: Option<Option<glove_config::senha::Pedido>>,
     texto_admin: String,
     uefi: bool,
     /// O Discos aberto pela página Disco (preparar o disco): ao fechar, a lista é relida.
@@ -162,6 +165,7 @@ impl Instalador {
             trabalho: None,
             senha_admin: None,
             pedir_admin: false,
+            janela_admin: None,
             texto_admin: String::new(),
             uefi: std::path::Path::new("/sys/firmware/efi").exists(),
             discos_app: None,
@@ -545,6 +549,27 @@ impl Instalador {
 
     fn folha_admin(&mut self, ui: &mut Ui) {
         if !self.pedir_admin {
+            return;
+        }
+        // A janela de senha do sistema (ela confere a senha com o sudo); sem ela, a folha.
+        use glove_config::senha::{Pedido, Resposta};
+        if self.janela_admin.is_none() {
+            self.janela_admin = Some(Pedido::novo(tr!("Para mexer nos discos, digite a senha deste sistema.")));
+        }
+        if let Some(Some(j)) = &mut self.janela_admin {
+            match j.resposta() {
+                Resposta::Esperando => ui.wake_after(std::time::Duration::from_millis(150)),
+                Resposta::Cancelado => {
+                    self.janela_admin = None;
+                    self.pedir_admin = false;
+                }
+                Resposta::Senha(p) => {
+                    self.janela_admin = None;
+                    self.senha_admin = Some(p);
+                    self.pedir_admin = false;
+                    self.comecar();
+                }
+            }
             return;
         }
         let (w, h) = (ui.c.w, ui.c.h);

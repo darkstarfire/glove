@@ -40,6 +40,9 @@ struct Chaves {
     table: TableState,
     sheet: Sheet,
     message: Option<String>,
+    /// A janela que pede as senhas do chaveiro (None = ainda não aberta; Some(None) =
+    /// sem o glove-senha, a folha).
+    pw_win: Option<Option<glove_config::senha::Pedido>>,
 }
 
 impl Chaves {
@@ -170,6 +173,47 @@ impl Chaves {
                     }
                     Some(_) => self.sheet = Sheet::None,
                     None => {}
+                }
+            }
+            Sheet::Password(_, _, _, err) if !matches!(self.pw_win, Some(None)) => {
+                // A janela de senha do sistema (sem o glove-senha, a folha abaixo).
+                use glove_config::senha::{Formulario, Pedido, Valores};
+                if self.pw_win.is_none() {
+                    let name = self.rings.get(self.ring).map(|r| r.label.clone()).unwrap_or_default();
+                    let title = tr!("Mudar a senha do chaveiro “{}”", name);
+                    self.pw_win = Some(Pedido::formulario(&Formulario {
+                        titulo: &title,
+                        mensagem: tr!("Os programas que guardam senhas neste chaveiro passam a abri-lo com a senha nova."),
+                        campos: &[(tr!("Senha atual:"), true), (tr!("Nova senha:"), true), (tr!("Confirmar:"), true)],
+                        botao: tr!("Mudar"),
+                        icone: "keychain",
+                        confirmar: Some((1, 2)),
+                        erro: err.as_deref(),
+                    }));
+                    return;
+                }
+                if let Some(Some(w)) = &mut self.pw_win {
+                    match w.valores() {
+                        Valores::Esperando => ui.wake_after(std::time::Duration::from_millis(150)),
+                        Valores::Cancelado => {
+                            self.pw_win = None;
+                            self.sheet = Sheet::None;
+                        }
+                        Valores::Prontos(v) => {
+                            self.pw_win = None;
+                            let (old, new) = (v.first().cloned().unwrap_or_default(), v.get(1).cloned().unwrap_or_default());
+                            if let Some(r) = self.rings.get(self.ring) {
+                                match self.backend.change_password(&r.path, &old, &new) {
+                                    Ok(()) => {
+                                        self.sheet = Sheet::None;
+                                        self.message = Some(tr!("Senha do chaveiro mudada.").into());
+                                    }
+                                    // Não deu certo: a janela abre de novo, com o aviso.
+                                    Err(e) => *err = Some(e),
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Sheet::Password(old, new, again, err) => {
@@ -333,7 +377,7 @@ pub fn main() {
         }
         return;
     }
-    let mut app = Chaves { backend, rings: Vec::new(), ring: 0, item: None, shown: None, search: String::new(), table: TableState::default(), sheet: Sheet::None, message: None };
+    let mut app = Chaves { backend, rings: Vec::new(), ring: 0, item: None, shown: None, search: String::new(), table: TableState::default(), sheet: Sheet::None, message: None, pw_win: None };
     app.reload();
     // O chaveiro "login" primeiro (o de todo dia).
     if let Some(i) = app.rings.iter().position(|r| r.path.ends_with("/login")) {

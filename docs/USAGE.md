@@ -484,8 +484,10 @@ request. The password is checked by the system itself (polkit and PAM); Glove do
 Accounts that are not administrators see an administrator's name and need that password.
 
 Glove's own apps that need an administrator (Software Update, Startup Items ▸ Services, Security,
-App Center) use the same **Authentication** window, separate from the app, instead of a sheet
-inside their window. A wrong password is reported right there.
+App Center, Installer) use the same **Authentication** window, separate from the app, instead of a
+sheet inside their window. A wrong password is reported right there. The other passwords open in it
+too: a Wi-Fi network's, changing the account password (Preferences ▸ Accounts) and changing the
+Keychain password.
 
 ## Password after sleep and hibernation
 

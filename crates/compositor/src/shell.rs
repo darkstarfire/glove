@@ -476,6 +476,9 @@ impl DockGpu {
 pub struct Chrome {
     pub out_size: (i32, i32),
     wallpaper_key: Option<(i32, i32, u64)>,
+    /// A área útil do último quadro: mudou (o Dock mudou de tamanho, de lado, ou a
+    /// ocultação automática foi ligada ou desligada), as janelas em zoom acompanham.
+    pub last_work_area: Option<Rectangle<i32, Logical>>,
     pub wallpaper: Option<Tex>,
     menubar_key: Option<(i32, Vec<String>, Vec<chrome::Extra>, String, Option<BarTarget>, Option<usize>, bool, u64)>,
     pub menubar: Option<Tex>,
@@ -2017,10 +2020,9 @@ impl Glove {
         for (id, w) in self.running_unpinned() {
             let name = app_display_name(&w);
             let app_id = window_info(&w).1;
-            let icon = glove_config::known_app(&[], &app_id)
-                .map(|a| Icon::from_name(&a.icon))
-                .or_else(|| glove_config::desktop_icon(&app_id).map(|n| Icon::from_name(&n)))
-                .unwrap_or(Icon::Window);
+            // O mesmo ícone da troca de apps e do Forçar Encerrar (inclui os dos utilitários
+            // do Glove sem atalho, como a janela de senha com o chaveiro).
+            let icon = Icon::from_name(&glove_config::app_icon_name(&[], &app_id));
             items.push(DockItem { icon, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
             actions.push(DockAction::Running(id));
         }
@@ -2116,11 +2118,14 @@ impl Glove {
         self.prepare_dock_gpu(&items, &layout, hover, zooming);
         self.chrome.dock_items = items;
         self.chrome.dock_actions = actions;
-        let before = self.work_area();
         self.chrome.dock_layout = Some(layout);
-        if self.work_area() != before {
+        // Compara com a do quadro anterior (e não só com a de antes deste Dock): ligar a
+        // ocultação automática muda a área sem mudar o desenho do Dock.
+        let area = self.work_area();
+        if self.chrome.last_work_area.is_some_and(|a| a != area) {
             self.refit_zoomed();
         }
+        self.chrome.last_work_area = Some(area);
     }
 
     /// Garante as texturas das peças do Dock e calcula onde vai cada uma.

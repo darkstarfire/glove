@@ -122,9 +122,14 @@ uniform vec2 bx;
 void main() {
     vec2 p = v_coords * bx;
     float bottom = sl.y + sl.w;
-    float top = fr.y + anim.y * (bottom - fr.y);
-    // Linha da janela neste ponto (ela só escorre: a altura não muda).
-    float v = (p.y - top) / fr.w;
+    // Duas etapas, como no Mac. anim.x: a parte de baixo da janela estica até o ícone e
+    // afina no funil (a lâmpada), com o topo parado. anim.y: o topo desce até o ícone e a
+    // janela escorre pelo funil para dentro dele.
+    float bot = mix(fr.y + fr.w, bottom, anim.x);
+    float top = mix(fr.y, bottom, anim.y);
+    float hh = max(bot - top, 0.5);
+    // Linha da janela neste ponto.
+    float v = (p.y - top) / hh;
     // Borda do funil nesta altura: da janela até o ícone, em "S".
     float f = smoothstep(0.0, 1.0, (p.y - fr.y) / max(sl.y - fr.y, 1.0));
     float l = mix(fr.x, mix(fr.x, sl.x, f), anim.x);
@@ -132,7 +137,7 @@ void main() {
     float u = (p.x - l) / max(wd, 0.5);
     // Bordas suaves (meio ponto de cada lado) e nada abaixo do ícone.
     float edge = clamp(min(p.x - l, l + wd - p.x) + 0.5, 0.0, 1.0)
-        * clamp(min(p.y - top, top + fr.w - p.y) + 0.5, 0.0, 1.0)
+        * clamp(min(p.y - top, bot - p.y) + 0.5, 0.0, 1.0)
         * clamp(bottom - p.y + 0.5, 0.0, 1.0);
     if (edge <= 0.0 || u < 0.0 || u > 1.0 || v < 0.0 || v > 1.0) {
         gl_FragColor = vec4(0.0);
@@ -809,8 +814,9 @@ impl Glove {
             let t = t.clamp(0.0, 1.0);
             t * t * (3.0 - 2.0 * t)
         };
-        let bend = smooth(p / 0.45);
-        let slide = smooth((p - 0.3) / 0.7);
+        // Primeiro a lâmpada (40% do tempo), depois a descida até o ícone.
+        let bend = smooth(p / 0.4);
+        let slide = smooth((p - 0.4) / 0.6);
         // Área que a animação ocupa: da janela até o ícone.
         let bb = frame.merge(slot);
         let bb = Rectangle::new((bb.loc.x.floor() - 2.0, bb.loc.y.floor() - 2.0).into(), (bb.size.w.ceil() + 4.0, bb.size.h.ceil() + 4.0).into());

@@ -515,8 +515,10 @@ senha é conferida pelo próprio sistema (polkit e PAM); o Glove não a guarda. 
 administrador veem o nome de um administrador e precisam da senha dele.
 
 Os apps do Glove que precisam de administrador (Atualização de Software, Itens de Início ▸ Serviços,
-Segurança, Central de Apps) usam a mesma janela **Autenticação**, separada do app, em vez de uma folha
-dentro da janela dele. A senha errada é avisada ali mesmo.
+Segurança, Central de Apps, Instalador) usam a mesma janela **Autenticação**, separada do app, em vez
+de uma folha dentro da janela dele. A senha errada é avisada ali mesmo. As outras senhas também
+abrem nela: a da rede Wi-Fi, trocar a senha da conta (Preferências ▸ Contas) e trocar a senha do
+Chaveiro.
 
 ## Senha ao voltar do repouso e da hibernação
 

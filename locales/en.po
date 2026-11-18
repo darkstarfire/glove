@@ -6298,3 +6298,15 @@ msgstr "saves it in Videos and tells you when it is done."
 
 msgid "Áudio do sistema"
 msgstr "System audio"
+
+msgid "A senha nova e a confirmação precisam ser iguais."
+msgstr "The new password and the confirmation must match."
+
+msgid "A senha nova vale para entrar, desbloquear a tela e como administrador."
+msgstr "The new password is used to log in, unlock the screen and as administrator."
+
+msgid "Digite a senha da rede Wi-Fi para conectar."
+msgstr "Type the Wi-Fi network password to connect."
+
+msgid "Os programas que guardam senhas neste chaveiro passam a abri-lo com a senha nova."
+msgstr "Programs that keep passwords in this keychain will open it with the new password."
