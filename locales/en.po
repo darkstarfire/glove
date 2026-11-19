@@ -6310,3 +6310,18 @@ msgstr "Type the Wi-Fi network password to connect."
 
 msgid "Os programas que guardam senhas neste chaveiro passam a abri-lo com a senha nova."
 msgstr "Programs that keep passwords in this keychain will open it with the new password."
+
+msgid "As mudanças pedem a senha de administrador."
+msgstr "Changes ask for the administrator password."
+
+msgid "Iniciar sempre em “{}”."
+msgstr "Always start up from “{}”."
+
+msgid "Pronto: o computador passa a iniciar nesse sistema."
+msgstr "Done: the computer will start up from this system."
+
+msgid "Reiniciar o computador em “{}”."
+msgstr "Restart the computer in “{}”."
+
+msgid "Só uma conta de administrador pode mudar o disco de inicialização."
+msgstr "Only an administrator account can change the startup disk."

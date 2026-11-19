@@ -1339,3 +1339,9 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     ícone e afina no funil, com o topo parado (40% do tempo); depois a janela escorre pelo funil.
   - Ícone da central de controle na barra: as duas chaves só no contorno, com a bolinha cheia
     (nada pintado de branco: no tema escuro virava um bloco branco).
+- [x] 21.11 As últimas senhas pelo Terminal (v0.12.79): o Disco de Inicialização e o "Instalar no
+  Terminal…" da Atualização de Software (fora do apt) abriam o Terminal para o sudo pedir a senha.
+  Agora usam a janela de senha (`admin::Prompt`) e rodam em segundo plano (`upgrade_all`: dnf,
+  pacman, zypper sem perguntas; efibootmgr e, no "Reiniciar Nele", o `systemctl reboot` depois).
+  Ficam campos de senha só em formulários que não são pedidos: a conta de e-mail no Correio, a
+  conta nova no Instalador, a tela de login e o "Conectar ao Servidor" (já uma janela própria).

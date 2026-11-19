@@ -2482,7 +2482,8 @@ impl App for Prefs {
             || (self.pane == Pane::Contas && self.contas.sheet_open())
             || (self.pane == Pane::Mesa && self.desk_file.is_some())
             || (self.pane == Pane::Seguranca && self.fw_ask.is_some())
-            || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some());
+            || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some())
+            || (self.pane == Pane::Inicializacao && self.inicializacao.prompt.is_some());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -2592,6 +2593,8 @@ impl App for Prefs {
                     admin::Answer::Cancel => {}
                     admin::Answer::Password(pw) => self.fw_job = Some(admin::run(args, Some(pw))),
                 }
+            } else if self.pane == Pane::Inicializacao {
+                self.inicializacao.prompt_sheet(ui);
             } else if self.pane == Pane::Atualizacao {
                 self.atualizacao.prompt_sheet(ui);
             } else if self.pane == Pane::Rede {

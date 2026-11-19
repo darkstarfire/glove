@@ -13,13 +13,6 @@ fn sibling(name: &str) -> std::path::PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(name))).filter(|p| p.is_file()).unwrap_or_else(|| name.into())
 }
 
-/// Abre o Terminal do Glove rodando `cmd`.
-fn in_terminal(cmd: &str) {
-    if let Ok(mut c) = Command::new(sibling("glove-term")).arg("-e").arg(cmd).spawn() {
-        std::thread::spawn(move || c.wait());
-    }
-}
-
 fn has(prog: &str) -> bool {
     Command::new("sh").arg("-c").arg(format!("command -v {prog}")).output().is_ok_and(|o| o.status.success())
 }
@@ -33,6 +26,17 @@ fn has(prog: &str) -> bool {
 fn package_manager() -> Option<(&'static str, &'static str)> {
     static PM: std::sync::OnceLock<Option<(&'static str, &'static str)>> = std::sync::OnceLock::new();
     *PM.get_or_init(find_package_manager)
+}
+
+/// Atualizar o sistema inteiro sem perguntas (roda como administrador, pela janela de
+/// senha): None no apt, que tem o comando próprio (com o andamento).
+fn upgrade_all() -> Option<&'static str> {
+    match package_manager()?.0 {
+        "checkupdates" => Some("pacman -Syu --noconfirm"),
+        c if c.starts_with("dnf") => Some("dnf -y upgrade --refresh"),
+        c if c.starts_with("zypper") => Some("zypper -n update"),
+        _ => None,
+    }
 }
 
 fn find_package_manager() -> Option<(&'static str, &'static str)> {
@@ -158,7 +162,10 @@ impl Atualizacao {
                 "apt-get update -o Dir::Etc::sourcelist={} -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 && {apt} install --only-upgrade glove glove-os",
                 crate::atualizar::SOURCES
             )),
-            Op::Tudo => sh(format!("{apt} full-upgrade")),
+            Op::Tudo => match upgrade_all() {
+                Some(c) => sh(c.into()),
+                None => sh(format!("{apt} full-upgrade")),
+            },
             Op::Repositorio => crate::atualizar::comando_repositorio(),
         })
     }
@@ -189,7 +196,7 @@ impl Atualizacao {
         match op {
             Op::Verificar | Op::Repositorio => false,
             Op::Glove => crate::atualizar::pacote() == crate::atualizar::Pacote::Apt,
-            Op::Tudo => true,
+            Op::Tudo => upgrade_all().is_none(),
         }
     }
 
@@ -379,18 +386,13 @@ impl Atualizacao {
                 let l = l.clone();
                 ui.list(&mut sel, &l, ui.available_width(), 140.0 + crate::grow() * 0.5);
                 ui.space(6.0);
-                if apt {
-                    ui.set_active(!busy);
-                    if ui.default_button(tr!("Instalar Tudo")) {
-                        self.como_admin(Op::Tudo);
-                    }
-                    ui.set_active(true);
-                } else {
-                    if ui.button(tr!("Instalar no Terminal…")) {
-                        in_terminal(install);
-                    }
-                    ui.small(tr!("O Terminal pede a sua senha de administrador."));
+                // A senha vai na janela de senha do sistema (no apt, no dnf, no pacman…).
+                let _ = (apt, install);
+                ui.set_active(!busy);
+                if ui.default_button(tr!("Instalar Tudo")) {
+                    self.como_admin(Op::Tudo);
                 }
+                ui.set_active(true);
             }
         }
     }
@@ -443,6 +445,11 @@ pub struct Inicializacao {
     current: String,
     entries: Vec<BootEntry>,
     sel: Option<usize>,
+    /// O pedido de senha aberto: o comando, se reinicia depois, e a janela de senha.
+    pub prompt: Option<(Vec<String>, bool, crate::admin::Prompt)>,
+    /// O efibootmgr rodando como administrador (reinicia depois?).
+    job: Option<(bool, std::sync::mpsc::Receiver<Result<(), String>>)>,
+    msg: Option<String>,
 }
 
 impl Inicializacao {
@@ -474,15 +481,63 @@ impl Inicializacao {
             ui.set_active(true);
         });
         if let (true, Some(e)) = (once, chosen.clone()) {
-            in_terminal(&format!("sudo efibootmgr -n {} && echo 'O computador vai reiniciar em 5 s (Ctrl+C cancela).' && sleep 5 && systemctl reboot", e.num));
+            let what = tr!("Reiniciar o computador em “{}”.", e.name);
+            self.como_admin(vec!["efibootmgr".into(), "-n".into(), e.num.clone()], true, what);
         }
         if let (true, Some(e)) = (always, chosen) {
             let rest: Vec<String> = self.entries.iter().filter(|x| x.num != e.num).map(|x| x.num.clone()).collect();
             let order = std::iter::once(e.num.clone()).chain(rest).collect::<Vec<_>>().join(",");
-            in_terminal(&format!("sudo efibootmgr -o {order}"));
+            let what = tr!("Iniciar sempre em “{}”.", e.name);
+            self.como_admin(vec!["efibootmgr".into(), "-o".into(), order], false, what);
+        }
+        // O efibootmgr terminou: a mensagem e, no "Reiniciar Nele", reinicia.
+        if let Some((reboot, rx)) = &self.job {
+            match rx.try_recv() {
+                Ok(Ok(())) => {
+                    if *reboot {
+                        self.msg = Some(tr!("Reiniciando…").into());
+                        let _ = Command::new("systemctl").arg("reboot").spawn();
+                    } else {
+                        self.msg = Some(tr!("Pronto: o computador passa a iniciar nesse sistema.").into());
+                        self.loaded = false;
+                    }
+                    self.job = None;
+                }
+                Ok(Err(e)) => {
+                    self.msg = Some(tr!("Não deu certo: {}", e));
+                    self.job = None;
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => ui.wake_after(Duration::from_millis(200)),
+                Err(_) => self.job = None,
+            }
         }
         ui.space(4.0);
-        ui.small(tr!("As mudanças abrem no Terminal, que pede a senha de administrador."));
+        match &self.msg {
+            Some(m) => ui.small(m),
+            None => ui.small(tr!("As mudanças pedem a senha de administrador.")),
+        }
+    }
+
+    /// Roda o efibootmgr como administrador: direto se o sudo não pede senha, senão pela
+    /// janela de senha do sistema.
+    fn como_admin(&mut self, args: Vec<String>, reboot: bool, what: String) {
+        self.msg = None;
+        match crate::admin::sudo_state() {
+            crate::admin::Sudo::Free => self.job = Some((reboot, crate::admin::run(args, None))),
+            crate::admin::Sudo::No => self.msg = Some(tr!("Só uma conta de administrador pode mudar o disco de inicialização.").into()),
+            crate::admin::Sudo::Password => self.prompt = Some((args, reboot, crate::admin::Prompt::new(what))),
+        }
+    }
+
+    /// A janela de senha aberta (ou a folha, sem o glove-senha).
+    pub fn prompt_sheet(&mut self, ui: &mut Ui) {
+        if let Some((args, reboot, mut p)) = self.prompt.take() {
+            match p.sheet(ui) {
+                crate::admin::Answer::Waiting => self.prompt = Some((args, reboot, p)),
+                crate::admin::Answer::Cancel => {}
+                crate::admin::Answer::Password(pw) => self.job = Some((reboot, crate::admin::run(args, Some(pw)))),
+            }
+        }
     }
 }
 

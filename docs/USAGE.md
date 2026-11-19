@@ -486,8 +486,9 @@ Accounts that are not administrators see an administrator's name and need that p
 Glove's own apps that need an administrator (Software Update, Startup Items ▸ Services, Security,
 App Center, Installer) use the same **Authentication** window, separate from the app, instead of a
 sheet inside their window. A wrong password is reported right there. The other passwords open in it
-too: a Wi-Fi network's, changing the account password (Preferences ▸ Accounts) and changing the
-Keychain password.
+too: a Wi-Fi network's, changing the account password (Preferences ▸ Accounts), changing the
+Keychain password, Startup Disk and Software Update's **Install All** on Fedora, Arch and openSUSE
+(these two used to open the Terminal to ask for the password).
 
 ## Password after sleep and hibernation
 
