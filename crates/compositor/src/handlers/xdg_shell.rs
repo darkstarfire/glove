@@ -1,6 +1,6 @@
 use smithay::{
     delegate_xdg_shell,
-    desktop::{find_popup_root_surface, get_popup_toplevel_coords, PopupKind, PopupManager, Space, Window},
+    desktop::{find_popup_root_surface, get_popup_toplevel_coords, PopupKeyboardGrab, PopupKind, PopupManager, PopupPointerGrab, PopupUngrabStrategy, Space, Window},
     input::{
         pointer::{Focus, GrabStartData as PointerGrabStartData},
         Seat,
@@ -24,6 +24,7 @@ use smithay::{
 
 use crate::{
     grabs::{MoveSurfaceGrab, ResizeSurfaceGrab},
+    handlers::focus::KbFocus,
     shell::deco_top,
     state::Glove,
 };
@@ -184,8 +185,43 @@ impl XdgShellHandler for Glove {
         }
     }
 
-    fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
-        // TODO popup grabs
+    /// O app pediu o grab do popup (lista suspensa, menu): como no anvil, o mouse
+    /// fica com o app dono do popup (clicar fora dele, noutro app ou na mesa, fecha
+    /// com `popup_done`) e o teclado vai para o popup até ele fechar.
+    fn grab(&mut self, surface: PopupSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        let Some(seat) = Seat::<Glove>::from_resource(&seat) else { return };
+        let kind = PopupKind::Xdg(surface);
+        let Ok(root) = find_popup_root_surface(&kind) else { return };
+        // Só popups de janelas Wayland (a raiz precisa ser uma janela do espaço).
+        if !self.space.elements().any(|w| w.toplevel().is_some_and(|t| t.wl_surface() == &root)) {
+            return;
+        }
+        let mut grab = match self.popups.grab_popup(KbFocus::Wl(root), kind, &seat, serial) {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::warn!("grab do popup recusado: {e:?}");
+                return;
+            }
+        };
+        if let Some(keyboard) = seat.get_keyboard() {
+            if keyboard.is_grabbed() && !(keyboard.has_grab(serial) || keyboard.has_grab(grab.previous_serial().unwrap_or(serial))) {
+                tracing::warn!("grab do popup recusado: o teclado já tem outro grab");
+                grab.ungrab(PopupUngrabStrategy::All);
+                return;
+            }
+            keyboard.set_focus(self, grab.current_grab(), serial);
+            keyboard.set_grab(self, PopupKeyboardGrab::new(&grab), serial);
+        }
+        if let Some(pointer) = seat.get_pointer() {
+            if pointer.is_grabbed() && !(pointer.has_grab(serial) || pointer.has_grab(grab.previous_serial().unwrap_or_else(|| grab.serial()))) {
+                tracing::warn!("grab do popup recusado: o mouse já tem outro grab");
+                grab.ungrab(PopupUngrabStrategy::All);
+                return;
+            }
+            pointer.set_grab(self, PopupPointerGrab::new(&grab), serial, Focus::Keep);
+        }
+        self.popup_grab = Some(grab);
+        self.dirty = true;
     }
 }
 
@@ -255,6 +291,57 @@ pub fn handle_commit(popups: &mut PopupManager, space: &Space<Window>, surface: 
 }
 
 impl Glove {
+    /// O app fechou o popup que tinha o grab (escolheu um item, apertou Esc): devolve
+    /// o teclado à janela na hora. Sem isso o foco só voltaria no próximo evento, e a
+    /// janela ficaria com a barra de título apagada até lá. Chamado a cada volta do laço.
+    pub fn end_popup_grab(&mut self) {
+        let Some(grab) = self.popup_grab.as_ref() else { return };
+        if !grab.has_ended() {
+            return;
+        }
+        let grab = self.popup_grab.take().unwrap();
+        let serial = smithay::utils::SERIAL_COUNTER.next_serial();
+        // O grab do mouse também sai já. Deixado para o próximo movimento, ele se
+        // desfaz sem repassar esse movimento (o do smithay), e o app recebe a entrada
+        // na janela com a posição antiga do mouse: o clique seguinte cai noutro lugar.
+        if let Some(pointer) = self.seat.get_pointer() {
+            if pointer.is_grabbed() && (pointer.has_grab(grab.serial()) || grab.previous_serial().is_some_and(|s| pointer.has_grab(s))) {
+                let time = self.start_time.elapsed().as_millis() as u32;
+                pointer.unset_grab(self, serial, time);
+            }
+        }
+        if let Some(keyboard) = self.seat.get_keyboard() {
+            if keyboard.is_grabbed() && (keyboard.has_grab(grab.serial()) || grab.previous_serial().is_some_and(|s| keyboard.has_grab(s))) {
+                keyboard.unset_grab(self);
+            }
+            // Só se o foco ainda está no popup que fechou (ou em nada): não rouba o
+            // foco de uma janela que o usuário escolheu nesse meio-tempo.
+            let stale = keyboard.current_focus().is_none_or(|f| !smithay::utils::IsAlive::alive(&f));
+            if stale {
+                if let Some(root) = grab.current_grab().filter(|r| smithay::utils::IsAlive::alive(r)) {
+                    keyboard.set_focus(self, Some(root), serial);
+                }
+            }
+        }
+        // O mouse volta a apontar para o que está embaixo dele (a janela), na posição certa.
+        self.refresh_pointer_focus();
+        self.dirty = true;
+    }
+
+    /// Recalcula a superfície sob o mouse parado (um popup apareceu embaixo dele).
+    pub fn refresh_pointer_focus(&mut self) {
+        let Some(pointer) = self.seat.get_pointer() else { return };
+        let pos = pointer.current_location();
+        let under = self.surface_under(pos);
+        if pointer.current_focus() == under.as_ref().map(|u| u.0.clone()) {
+            return;
+        }
+        let serial = smithay::utils::SERIAL_COUNTER.next_serial();
+        let time = self.start_time.elapsed().as_millis() as u32;
+        pointer.motion(self, under, &smithay::input::pointer::MotionEvent { location: pos, serial, time });
+        pointer.frame(self);
+    }
+
     fn window_for(&self, surface: &ToplevelSurface) -> Option<Window> {
         self.space.elements().find(|w| w.toplevel() == Some(surface)).cloned()
     }
@@ -278,7 +365,10 @@ impl Glove {
 
         // The target geometry for the positioner should be relative to its parent's geometry, so
         // we will compute that here.
-        let mut target = output_geo;
+        // Como no Mac: o popup não cobre a barra de menus nem o Dock (a área útil),
+        // se o monitor for o da barra; nos outros, o monitor inteiro.
+        let work = self.work_area();
+        let mut target = output_geo.intersection(work).filter(|_| output_geo.contains(work.loc)).unwrap_or(output_geo);
         target.loc -= get_popup_toplevel_coords(&PopupKind::Xdg(popup.clone()));
         target.loc -= window_geo.loc;
 

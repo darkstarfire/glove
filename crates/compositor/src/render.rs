@@ -250,7 +250,10 @@ impl Glove {
                 }
                 let Some(geo) = self.space.element_geometry(w) else { continue };
                 let framed = Rectangle::new((geo.loc.x - 30, geo.loc.y - TITLE_H - 30).into(), (geo.size.w + 60, geo.size.h + TITLE_H + 60).into());
-                if !framed.overlaps(area) {
+                // Os popups (listas suspensas) podem passar das bordas da janela.
+                let mut with_popups = w.bbox_with_popups();
+                with_popups.loc += geo.loc - w.geometry().loc;
+                if !framed.overlaps(area) && !with_popups.overlaps(area) {
                     continue;
                 }
                 let render_loc = geo.loc - w.geometry().loc - origin;

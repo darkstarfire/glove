@@ -668,6 +668,12 @@ impl Glove {
             let Some(geo) = self.space.element_geometry(w) else { continue };
             let ssd = is_ssd(w);
             let top = if ssd { TITLE_H } else { 0 };
+            // Popups da janela (lista suspensa, menu) ficam por cima da barra de título
+            // dela e podem passar das bordas: valem antes da barra.
+            let render_loc = geo.loc - w.geometry().loc;
+            if w.surface_under(pos - render_loc.to_f64(), WindowSurfaceType::POPUP).is_some() {
+                return Hit::Client(w.clone());
+            }
             if ssd {
                 let title = Rectangle::new((geo.loc.x, geo.loc.y - top).into(), (geo.size.w, top).into()).to_f64();
                 if title.contains(pos) {
@@ -688,7 +694,6 @@ impl Glove {
                     };
                 }
             }
-            let render_loc = geo.loc - w.geometry().loc;
             if w.surface_under(pos - render_loc.to_f64(), WindowSurfaceType::ALL).is_some() {
                 return Hit::Client(w.clone());
             }
@@ -751,6 +756,12 @@ impl Glove {
     pub fn focused_window(&self) -> Option<Window> {
         use crate::handlers::focus::KbFocus;
         let focus = self.seat.get_keyboard()?.current_focus()?;
+        // Popup com o teclado (lista suspensa aberta): a janela é a dona dele, que
+        // continua ativa (barra de título acesa) enquanto o popup está aberto.
+        let focus = match focus {
+            KbFocus::Wl(s) => KbFocus::Wl(self.popups.find_popup(&s).and_then(|p| smithay::desktop::find_popup_root_surface(&p).ok()).unwrap_or(s)),
+            f => f,
+        };
         self.space
             .elements()
             .find(|w| match &focus {

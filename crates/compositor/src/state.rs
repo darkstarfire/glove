@@ -51,6 +51,10 @@ pub struct Glove {
     pub seat_state: SeatState<Glove>,
     pub data_device_state: DataDeviceState,
     pub popups: PopupManager,
+    /// Grab do popup aberto (lista suspensa, menu de app): clicar fora fecha e o
+    /// teclado vai para ele. Guardado para devolver o foco à janela assim que o app
+    /// fecha o popup (sem esperar o próximo movimento do mouse).
+    pub popup_grab: Option<smithay::desktop::PopupGrab<Glove>>,
     pub seat: Seat<Self>,
 
     pub config: Config,
@@ -264,6 +268,7 @@ impl Glove {
             seat_state,
             data_device_state,
             popups: PopupManager::default(),
+            popup_grab: None,
             seat,
             bindings: crate::input::parse_bindings(&config),
             config,

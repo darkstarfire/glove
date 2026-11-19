@@ -332,6 +332,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         data.state.space.refresh();
         data.state.popups.cleanup();
+        data.state.end_popup_grab();
         data.state.minimized.retain(|(w, _)| w.alive());
         data.state.hidden.retain(|(w, _)| w.alive());
         data.state.mesas.away.retain(|(w, _, _)| w.alive());

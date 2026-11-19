@@ -303,6 +303,15 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - Em qualquer imagem aberta no Visualizador: botão **Desenhar** (Ctrl+D). Fotos JPEG
   ou reduzidas ao abrir são salvas num arquivo novo ao lado, "nome (desenho).png".
 
+## Listas suspensas
+
+- As listas de escolha dos apps do Glove (Aparência, Layout do teclado, Fonte…) abrem por cima de tudo
+  e podem passar das bordas da janela, como no Mac: o item escolhido fica em cima do botão. Uma lista
+  mais alta que a tela encolhe até a barra de menu e o Dock e rola (rodinha, ou o mouse parado na
+  seta de cima ou de baixo). Setas e Enter escolhem, Esc ou clicar fora fecha.
+- As listas e os menus dos outros apps (GTK, Qt, navegadores) também podem passar da janela, recebem o
+  teclado enquanto estão abertos e fecham ao clicar fora, noutro app ou na mesa.
+
 ## Abrir e Salvar
 
 - Apps de fora (VS Code, navegador e outros que usam o portal do sistema) mostram a janela

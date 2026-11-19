@@ -55,6 +55,12 @@ impl CompositorHandler for Glove {
 
         xdg_shell::handle_commit(&mut self.popups, &self.space, surface);
         resize_grab::handle_commit(&mut self.space, surface);
+        // Popup com grab que acabou de aparecer (ou mudou) embaixo do mouse parado:
+        // o mouse passa a apontar para ele já, sem esperar mexer (senão o clique
+        // seguinte iria para a janela de baixo).
+        if self.popup_grab.is_some() && self.popups.find_popup(surface).is_some() {
+            self.refresh_pointer_focus();
+        }
     }
 }
 

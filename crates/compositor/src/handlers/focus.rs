@@ -29,6 +29,25 @@ impl From<WlSurface> for KbFocus {
     }
 }
 
+/// O popup com o grab recebe o teclado (lista suspensa, menu de app).
+impl From<smithay::desktop::PopupKind> for KbFocus {
+    fn from(p: smithay::desktop::PopupKind) -> Self {
+        KbFocus::Wl(p.wl_surface().clone())
+    }
+}
+
+/// O mouse durante o grab de um popup começa na janela raiz (sempre Wayland: o
+/// grab só é aceito para popups de janelas do espaço, ver `XdgShellHandler::grab`).
+impl From<KbFocus> for WlSurface {
+    fn from(f: KbFocus) -> Self {
+        match f {
+            KbFocus::Wl(s) => s,
+            // Janela X11 já associada ao Xwayland (popups Wayland nunca têm raiz X11).
+            KbFocus::X11(x) => x.wl_surface().expect("foco X11 sem superfície Wayland"),
+        }
+    }
+}
+
 impl IsAlive for KbFocus {
     fn alive(&self) -> bool {
         match self {

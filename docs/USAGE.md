@@ -300,6 +300,15 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - On any image open in the Viewer: the **Draw** button (Ctrl+D). JPEG photos, or ones
   reduced on opening, are saved to a new file next to them, "name (desenho).png".
 
+## Pop-up lists
+
+- The choice lists in Glove's apps (Appearance, Keyboard layout, Font…) open above everything and can
+  go past the window edges, like on the Mac: the chosen item sits over the button. A list taller
+  than the screen shrinks to fit between the menu bar and the Dock and scrolls (wheel, or rest the
+  pointer on the top or bottom arrow). Arrow keys and Enter choose, Esc or a click outside closes.
+- The lists and menus of other apps (GTK, Qt, browsers) can also go past their window, get the
+  keyboard while open and close on a click outside, in another app or on the desktop.
+
 ## Open and Save
 
 - Outside apps (VS Code, the browser and others that use the system portal) show Glove's

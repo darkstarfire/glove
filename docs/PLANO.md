@@ -1345,3 +1345,13 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   pacman, zypper sem perguntas; efibootmgr e, no "Reiniciar Nele", o `systemctl reboot` depois).
   Ficam campos de senha só em formulários que não são pedidos: a conta de e-mail no Correio, a
   conta nova no Instalador, a tela de login e o "Conectar ao Servidor" (já uma janela própria).
+- [x] 21.12 Popups fora da janela (v0.12.80, glove-ui 0.2.48; trabalho começado por outra sessão em
+  17/11/2026 e terminado em 19/11): o 19.2 tinha deixado os menus desenhados dentro da janela.
+  - Kit: a lista suspensa (`Ui::popup`) abre num xdg_popup próprio (`ListPopup`, platform.rs): o item
+    atual sobre o botão, desliza para dentro da tela e, alta demais, encolhe e rola (setas, rodinha,
+    mouse parado na seta); teclado e Esc. `GLOVE_POPUP_IN_WINDOW=1` volta ao desenho dentro da janela.
+  - Compositor: grab de popup (`XdgShellHandler::grab`, `popup_grab`, `end_popup_grab`): o teclado
+    vai para o popup, clicar fora fecha e o foco volta à janela na hora; popups acima da barra de
+    título e fora das bordas no `surface_under`; não cobrem a barra de menu nem o Dock.
+  - Testado na sessão oculta: lista do Teclado passando da janela, escolha pelo teclado e pelo mouse,
+    Esc, clicar fora, lista de 40 itens rolando (rodinha e seta), e a lista suspensa do GTK (zenity).
