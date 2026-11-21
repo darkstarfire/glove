@@ -1355,3 +1355,23 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     título e fora das bordas no `surface_under`; não cobrem a barra de menu nem o Dock.
   - Testado na sessão oculta: lista do Teclado passando da janela, escolha pelo teclado e pelo mouse,
     Esc, clicar fora, lista de 40 itens rolando (rodinha e seta), e a lista suspensa do GTK (zenity).
+
+## Fase 22 — Lista de 21/11/2026
+
+- [x] 22.1 Dock no Moderno (v0.12.82): bordas finas em cima e dos lados, faixa de baixo mais alta
+  com o pontinho de app aberto no meio dela, com folga do ícone e da borda.
+- [x] 22.2 Mesa (v0.12.82): as miniaturas dos papéis de parede rolam (roda e barra) quando não
+  cabem, em todas as coleções.
+- [ ] 22.3 Confirmações e senhas sempre em janela própria (regra: nunca dentro da janela do app);
+  botão azul do Moderno Claro com texto branco; revisão das cores do Moderno Escuro.
+- [ ] 22.4 Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
+  salva ali por padrão.
+- [ ] 22.5 Busca Rápida no Moderno: no centro da tela, no visual moderno.
+- [ ] 22.6 Moderno: os quatro cantos arredondados em todas as janelas.
+- [ ] 22.7 Navegador próprio do Glove (base Chromium), leve para máquinas fracas.
+- [ ] 22.8 Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
+  item, alinhado com a primeira opção; só sobe se faltar espaço no monitor.
+- [ ] 22.9 Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
+  depois sugada para o ícone); restaurar é o inverso.
+- [ ] 22.10 Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
+

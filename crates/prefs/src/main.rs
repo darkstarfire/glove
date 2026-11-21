@@ -190,6 +190,11 @@ const SOLID_COLORS: [(u8, u8, u8); 10] = [
 ];
 
 /// Nome do papel de parede para mostrar ("Ondas", "Cor sólida", "foto.png").
+/// As Favoritas têm uma casa a mais (o "+").
+fn favorites_source(s: DeskSource) -> bool {
+    s == DeskSource::Favorites
+}
+
 fn wallpaper_name(style: &str) -> String {
     if glove_config::glove_os_wallpaper().is_some_and(|p| p == style) {
         return "Glove OS".into();
@@ -335,6 +340,9 @@ struct Prefs {
     started: Instant,
     /// Coleção escolhida no painel Mesa (`DESK_SOURCES`, pela posição na lista).
     desk_source: usize,
+    /// Rolagem das miniaturas e a coleção a que ela se refere.
+    desk_scroll: f32,
+    desk_scroll_source: usize,
     /// Escolhendo uma imagem para as Favoritas (a folha Abrir).
     desk_file: Option<glove_ui::FileBrowser>,
     /// Miniaturas de papel de parede já desenhadas.
@@ -442,6 +450,8 @@ impl Prefs {
             kbd_tab,
             open_groups: [true, false, false, false],
             desk_source: 0,
+            desk_scroll: 0.0,
+            desk_scroll_source: 0,
             desk_file: None,
             desk_tab: 0,
             started: Instant::now(),
@@ -1043,15 +1053,35 @@ impl Prefs {
             ui.fonts.draw(ui.c, tr!("Para papel animado, instale o ffmpeg (sudo apt install ffmpeg)."), gx + 14.0, ly + list_h - 12.0, 11.0, false, rgba(180, 60, 40, 255));
         }
         let (tw, th, gap) = (88.0, 62.0, 10.0);
+        // Rola quando as miniaturas não cabem (a barra aparece só então).
+        if self.desk_scroll_source != self.desk_source {
+            self.desk_scroll_source = self.desk_source;
+            self.desk_scroll = 0.0;
+        }
+        let slots = items.len() + usize::from(favorites_source(source));
+        let rows_for = |w: f32| slots.div_ceil(((w - gap) / (tw + gap)).floor().max(1.0) as usize);
+        let content = rows_for(gw) as f32 * (th + gap) + gap;
+        let (gw, scroll) = if content > list_h {
+            let body = ui.scroll_area(Rect::new(gx + 1.0, ly + 1.0, gw - 2.0, list_h - 2.0), &mut self.desk_scroll, rows_for(gw - glove_ui::SCROLLBAR_W) as f32 * (th + gap) + gap, th + gap);
+            (body.w + 1.0, self.desk_scroll)
+        } else {
+            self.desk_scroll = 0.0;
+            (gw, 0.0)
+        };
+        let view = Rect::new(gx, ly, gw, list_h);
+        let s = ui.c.scale;
+        let old_clip = ui.c.clip();
+        ui.c.set_clip(Some([(gx * s).floor() as i32, ((ly + 1.0) * s).floor() as i32, ((gx + gw) * s).ceil() as i32, ((ly + list_h - 1.0) * s).ceil() as i32]));
+        let in_view = view.contains(ui.pointer());
         let per_row = ((gw - gap) / (tw + gap)).floor().max(1.0) as usize;
-        let cell = |i: usize| Rect::new(gx + gap + (i % per_row) as f32 * (tw + gap), ly + gap + (i / per_row) as f32 * (th + gap), tw, th);
+        let cell = |i: usize| Rect::new(gx + gap + (i % per_row) as f32 * (tw + gap), ly + gap + (i / per_row) as f32 * (th + gap) - scroll, tw, th);
         let mut chosen = None;
         let mut remove = None;
         let favorites = source == DeskSource::Favorites;
         for (i, it) in items.iter().enumerate() {
             let r = cell(i);
-            if r.y + r.h > ly + list_h {
-                break;
+            if r.y + r.h < ly || r.y > ly + list_h {
+                continue;
             }
             if *it == cur {
                 ui.c.fill(rrect(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0, 3.0), &solid(ui.theme.accent));
@@ -1059,19 +1089,19 @@ impl Prefs {
             self.draw_thumb(ui, it, r);
             // Nas Favoritas, com o mouse em cima: o "×" no canto tira da coleção.
             let x_btn = Rect::new(r.x + r.w - 18.0, r.y + 2.0, 16.0, 16.0);
-            if favorites && r.contains(ui.pointer()) {
+            if favorites && in_view && r.contains(ui.pointer()) {
                 ui.c.fill(circle(x_btn.x + 8.0, x_btn.y + 8.0, 7.5), &solid(rgba(0, 0, 0, 150)));
                 ui.c.stroke(cross_path(x_btn.x + 8.0, x_btn.y + 8.0, 3.0, true), &solid(Color::WHITE), 1.4);
-                if ui.hit(x_btn).clicked {
+                if ui.hit(x_btn).clicked && in_view {
                     remove = Some(i);
                     continue;
                 }
             }
-            if ui.hit(r).clicked {
+            if ui.hit(r).clicked && in_view {
                 chosen = Some(it.clone());
             }
             // Nas outras coleções, o botão direito junta às Favoritas.
-            if !favorites && ui.right_clicked(r) && !self.config.wallpaper_favorites.contains(it) {
+            if !favorites && in_view && ui.right_clicked(r) && !self.config.wallpaper_favorites.contains(it) {
                 self.config.wallpaper_favorites.push(it.clone());
                 self.save();
             }
@@ -1079,15 +1109,15 @@ impl Prefs {
         // Nas Favoritas, a última casa: um "+" discreto para buscar uma imagem.
         if favorites {
             let r = cell(items.len());
-            if r.y + r.h <= ly + list_h {
-                let hot = r.contains(ui.pointer());
+            if r.y + r.h >= ly && r.y <= ly + list_h {
+                let hot = in_view && r.contains(ui.pointer());
                 let ink = if hot { ui.theme.accent } else { rgba(160, 160, 166, 255) };
                 ui.c.stroke(rrect(r.x + 0.5, r.y + 0.5, r.w - 1.0, r.h - 1.0, 4.0), &solid(with_alpha(ink, if hot { 0.9 } else { 0.6 })), 1.0);
                 ui.c.stroke(cross_path(r.x + r.w / 2.0, r.y + r.h / 2.0 - 7.0, 7.0, false), &solid(ink), 1.6);
                 let t = tr!("Adicionar…");
                 let w2 = ui.text_width(t, 10.0, false);
                 ui.fonts.draw(ui.c, t, r.x + (r.w - w2) / 2.0, r.y + r.h - 10.0, 10.0, false, ink);
-                if ui.hit(r).clicked {
+                if ui.hit(r).clicked && in_view {
                     self.desk_file = Some(glove_ui::FileBrowser::open(glove_config::arquivos::user_dir("PICTURES"), &["png", "jpg", "jpeg", "webp"]).labeled(tr!("Adicionar às Favoritas"), tr!("Adicionar")));
                 }
             }
@@ -1098,6 +1128,7 @@ impl Prefs {
                 }
             }
         }
+        ui.c.set_clip(old_clip);
         if let Some(i) = remove {
             self.config.wallpaper_favorites.remove(i);
             self.save();
