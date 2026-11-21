@@ -840,9 +840,12 @@ impl Glove {
             let t = t.clamp(0.0, 1.0);
             t * t * (3.0 - 2.0 * t)
         };
-        // Primeiro a lâmpada (40% do tempo), depois a descida até o ícone.
-        let bend = smooth(p / 0.4);
-        let slide = smooth((p - 0.4) / 0.6);
+        // Duas fases (p é o tempo, sem suavizar): primeiro o funil, só a parte de baixo
+        // (~100 ms, o topo parado), depois a janela é sugada para o ícone, acelerando.
+        let cut = crate::minimize::GENIE_FUNNEL_MS as f64 / crate::minimize::GENIE_MS as f64;
+        let bend = smooth(p / cut);
+        let q = ((p - cut) / (1.0 - cut)).clamp(0.0, 1.0);
+        let slide = q * q * (3.0 - 2.0 * q);
         // Área que a animação ocupa: da janela até o ícone.
         let bb = frame.merge(slot);
         let bb = Rectangle::new((bb.loc.x.floor() - 2.0, bb.loc.y.floor() - 2.0).into(), (bb.size.w.ceil() + 4.0, bb.size.h.ceil() + 4.0).into());

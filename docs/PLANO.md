@@ -1372,7 +1372,7 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 - [ ] 22.7 Navegador próprio do Glove (base Chromium), leve para máquinas fracas.
 - [ ] 22.8 Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
   item, alinhado com a primeira opção; só sobe se faltar espaço no monitor.
-- [ ] 22.9 Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
+- [x] 22.9 (v0.12.86) Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
   depois sugada para o ícone); restaurar é o inverso.
 - [x] 22.10 (v0.12.84) Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
 

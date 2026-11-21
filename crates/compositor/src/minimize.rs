@@ -19,10 +19,15 @@ use crate::{
     state::Glove,
 };
 
-/// Duração da animação (quase nada com "Reduzir efeitos").
-fn anim() -> Duration {
-    glove_config::anim(Duration::from_millis(420))
+/// Duração da animação (quase nada com "Reduzir efeitos"): a Lâmpada Mágica é mais
+/// lenta (duas fases, como no Mac) que a Escala.
+fn anim_for(genie: bool) -> Duration {
+    glove_config::anim(Duration::from_millis(if genie { GENIE_MS } else { 420 }))
 }
+
+/// Lâmpada Mágica: ~650 ms; o funil (só a parte de baixo, o topo parado) nos primeiros ~100 ms.
+pub const GENIE_MS: u64 = 650;
+pub const GENIE_FUNNEL_MS: u64 = 100;
 /// Intervalo mínimo entre quadros para as janelas minimizadas.
 pub const MINIMIZED_FRAME: Duration = Duration::from_millis(500);
 
@@ -35,17 +40,29 @@ pub struct MinAnim {
     pub frame: Rectangle<f64, Logical>,
     /// Foto da janela para a Lâmpada Mágica (tirada no primeiro quadro).
     pub snapshot: std::cell::RefCell<Option<smithay::backend::renderer::gles::GlesTexture>>,
+    /// Com a Lâmpada Mágica (mais longa, em duas fases).
+    pub genie: bool,
 }
 
 impl MinAnim {
     /// 0 = na tela, 1 = no Dock (suavizado nos dois extremos).
     pub fn progress(&self) -> f64 {
-        let t = (self.start.elapsed().as_secs_f64() / anim().as_secs_f64()).clamp(0.0, 1.0);
+        let t = self.linear();
         let e = t * t * (3.0 - 2.0 * t);
         if self.restoring { 1.0 - e } else { e }
     }
+    /// O tempo andado, de 0 a 1, sem suavizar.
+    fn linear(&self) -> f64 {
+        (self.start.elapsed().as_secs_f64() / anim_for(self.genie).as_secs_f64().max(1e-3)).clamp(0.0, 1.0)
+    }
+    /// Lâmpada Mágica: 0 = na tela, 1 = no Dock, sem suavizar (as fases suavizam cada uma).
+    /// Ao restaurar, o mesmo caminho ao contrário.
+    pub fn genie_progress(&self) -> f64 {
+        let t = self.linear();
+        if self.restoring { 1.0 - t } else { t }
+    }
     pub fn done(&self) -> bool {
-        self.start.elapsed() >= anim()
+        self.start.elapsed() >= anim_for(self.genie)
     }
 }
 
@@ -89,7 +106,8 @@ impl Glove {
     pub fn animate_minimize(&mut self, w: &Window, loc: smithay::utils::Point<i32, Logical>) {
         let frame = self.frame_of(w, loc);
         self.min_anims.retain(|a| &a.window != w);
-        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: false, frame, snapshot: Default::default() });
+        let genie = self.genie_on();
+        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: false, frame, snapshot: Default::default(), genie });
         self.min_anim_timer();
     }
 
@@ -101,7 +119,8 @@ impl Glove {
             self.restore_slots.retain(|(x, _)| x != w);
             self.restore_slots.push((w.clone(), from_slot.unwrap()));
         }
-        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: true, frame, snapshot: Default::default() });
+        let genie = self.genie_on();
+        self.min_anims.push(MinAnim { window: w.clone(), start: Instant::now(), restoring: true, frame, snapshot: Default::default(), genie });
         self.min_anim_timer();
     }
 
@@ -145,12 +164,17 @@ impl Glove {
     /// Lâmpada Mágica (Dock embaixo): a moldura na tela, o lugar no Dock e o
     /// andamento. None = efeito Escala (ou Dock nas laterais).
     pub fn genie_params(&self, w: &Window) -> Option<(Rectangle<f64, Logical>, Rectangle<f64, Logical>, f64)> {
-        if self.config.dock.minimize_effect != "genio" || glove_paint::chrome::DockSide::from_config(&self.config.dock.position) != glove_paint::chrome::DockSide::Bottom {
+        if !self.genie_on() {
             return None;
         }
         let a = self.min_anims.iter().find(|a| &a.window == w)?;
         let slot = if a.restoring { self.restore_slots.iter().find(|(x, _)| x == w).map(|(_, r)| *r)? } else { self.dock_slot(w)? };
-        Some((a.frame, slot, a.progress()))
+        Some((a.frame, slot, a.genie_progress()))
+    }
+
+    /// O efeito de minimizar é a Lâmpada Mágica (com o Dock embaixo).
+    fn genie_on(&self) -> bool {
+        self.config.dock.minimize_effect == "genio" && glove_paint::chrome::DockSide::from_config(&self.config.dock.position) == glove_paint::chrome::DockSide::Bottom
     }
 
     pub fn min_animating(&self, w: &Window) -> bool {
