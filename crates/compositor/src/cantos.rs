@@ -43,6 +43,8 @@ uniform float tint;
 uniform vec4 win;
 uniform vec2 size;
 uniform float radius;
+// 1 = os cantos de cima também (janela sem barra de título, como os alertas).
+uniform float top;
 
 void main() {
     vec4 color = texture2D(tex, v_coords);
@@ -52,13 +54,20 @@ void main() {
     vec2 p = v_coords * size;
     float k = 1.0;
     float by = win.y + win.w - radius;
+    float ty = win.y + radius;
+    float lx = win.x + radius;
+    float rx = win.x + win.z - radius;
+    float cy = -1.0;
     if (p.y > by) {
-        float lx = win.x + radius;
-        float rx = win.x + win.z - radius;
+        cy = by;
+    } else if (top > 0.5 && p.y < ty) {
+        cy = ty;
+    }
+    if (cy >= 0.0) {
         if (p.x < lx) {
-            k = clamp(radius - distance(p, vec2(lx, by)) + 0.5, 0.0, 1.0);
+            k = clamp(radius - distance(p, vec2(lx, cy)) + 0.5, 0.0, 1.0);
         } else if (p.x > rx) {
-            k = clamp(radius - distance(p, vec2(rx, by)) + 0.5, 0.0, 1.0);
+            k = clamp(radius - distance(p, vec2(rx, cy)) + 0.5, 0.0, 1.0);
         }
     }
     color = color * alpha * k;
@@ -71,7 +80,7 @@ void main() {
 "#;
 
 pub fn compile(renderer: &mut GlesRenderer) -> Option<GlesTexProgram> {
-    let names = [UniformName::new("win", UniformType::_4f), UniformName::new("size", UniformType::_2f), UniformName::new("radius", UniformType::_1f)];
+    let names = [UniformName::new("win", UniformType::_4f), UniformName::new("size", UniformType::_2f), UniformName::new("radius", UniformType::_1f), UniformName::new("top", UniformType::_1f)];
     match renderer.compile_custom_texture_shader(SHADER, &names) {
         Ok(p) => Some(p),
         Err(e) => {
@@ -88,32 +97,43 @@ pub struct Rounded {
     /// A janela inteira, em pixels da tela.
     win: Rectangle<i32, Physical>,
     radius: f64,
+    /// Arredonda também os cantos de cima.
+    top: bool,
 }
 
 impl Rounded {
     /// Envolve `inner` se ela encosta num canto de baixo de `win` (e fica dentro da
     /// janela: um menu que sai para fora não é recortado). Senão devolve a própria.
-    pub fn wrap(inner: WaylandSurfaceRenderElement<GlesRenderer>, program: &GlesTexProgram, win: Rectangle<i32, Physical>, scale: f64) -> Result<Self, WaylandSurfaceRenderElement<GlesRenderer>> {
+    pub fn wrap(inner: WaylandSurfaceRenderElement<GlesRenderer>, program: &GlesTexProgram, win: Rectangle<i32, Physical>, scale: f64, top: bool) -> Result<Self, WaylandSurfaceRenderElement<GlesRenderer>> {
         let g = inner.geometry(Scale::from(scale));
         let radius = (RAIO * scale).round();
         let r = radius as i32;
         let inside = g.loc.x >= win.loc.x - 1 && g.loc.y >= win.loc.y - 1 && g.loc.x + g.size.w <= win.loc.x + win.size.w + 1 && g.loc.y + g.size.h <= win.loc.y + win.size.h + 1;
-        let corners = [
+        let mut corners = vec![
             Rectangle::<i32, Physical>::new((win.loc.x, win.loc.y + win.size.h - r).into(), (r, r).into()),
             Rectangle::new((win.loc.x + win.size.w - r, win.loc.y + win.size.h - r).into(), (r, r).into()),
         ];
+        if top {
+            corners.push(Rectangle::new(win.loc, (r, r).into()));
+            corners.push(Rectangle::new((win.loc.x + win.size.w - r, win.loc.y).into(), (r, r).into()));
+        }
         if !inside || !corners.iter().any(|c| c.overlaps(g)) {
             return Err(inner);
         }
-        Ok(Self { inner, program: program.clone(), win, radius })
+        Ok(Self { inner, program: program.clone(), win, radius, top })
     }
 
     /// Os quadrados dos cantos, relativos à superfície.
-    fn corners_local(&self, scale: Scale<f64>) -> [Rectangle<i32, Physical>; 2] {
+    fn corners_local(&self, scale: Scale<f64>) -> Vec<Rectangle<i32, Physical>> {
         let g = self.inner.geometry(scale);
         let r = self.radius.ceil() as i32;
         let (x, y, w, h) = (self.win.loc.x - g.loc.x, self.win.loc.y - g.loc.y, self.win.size.w, self.win.size.h);
-        [Rectangle::new((x, y + h - r).into(), (r, r).into()), Rectangle::new((x + w - r, y + h - r).into(), (r, r).into())]
+        let mut v = vec![Rectangle::new((x, y + h - r).into(), (r, r).into()), Rectangle::new((x + w - r, y + h - r).into(), (r, r).into())];
+        if self.top {
+            v.push(Rectangle::new((x, y).into(), (r, r).into()));
+            v.push(Rectangle::new((x + w - r, y).into(), (r, r).into()));
+        }
+        v
     }
 }
 
@@ -142,7 +162,7 @@ impl Element for Rounded {
     /// Os cantos não são mais opacos: o que está atrás aparece neles.
     fn opaque_regions(&self, scale: Scale<f64>) -> OpaqueRegions<i32, Physical> {
         let corners = self.corners_local(scale);
-        self.inner.opaque_regions(scale).into_iter().flat_map(|r| r.subtract_rects(corners)).collect()
+        self.inner.opaque_regions(scale).into_iter().flat_map(|r| r.subtract_rects(corners.iter().copied())).collect()
     }
     fn alpha(&self) -> f32 {
         self.inner.alpha()
@@ -158,7 +178,12 @@ impl RenderElement<GlesRenderer> for Rounded {
         let win = [(self.win.loc.x - dst.loc.x) as f32, (self.win.loc.y - dst.loc.y) as f32, self.win.size.w as f32, self.win.size.h as f32];
         frame.override_default_tex_program(
             self.program.clone(),
-            vec![Uniform::new("win", win), Uniform::new("size", [dst.size.w as f32, dst.size.h as f32]), Uniform::new("radius", self.radius as f32)],
+            vec![
+                Uniform::new("win", win),
+                Uniform::new("size", [dst.size.w as f32, dst.size.h as f32]),
+                Uniform::new("radius", self.radius as f32),
+                Uniform::new("top", if self.top { 1.0f32 } else { 0.0 }),
+            ],
         );
         let r = RenderElement::<GlesRenderer>::draw(&self.inner, frame, src, dst, damage, opaque_regions);
         frame.clear_tex_program_override();

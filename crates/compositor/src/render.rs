@@ -359,9 +359,10 @@ impl Glove {
             return w.render_elements::<GloveElement>(renderer, render_loc, Scale::from(sc), 1.0);
         };
         let win = Rectangle::new(loc.to_physical_precise_round(sc), w.geometry().size.to_physical_precise_round(sc));
+        let top = crate::shell::bare_dialog(w);
         w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, render_loc, Scale::from(sc), 1.0)
             .into_iter()
-            .map(|e| match crate::cantos::Rounded::wrap(e, &program, win, sc) {
+            .map(|e| match crate::cantos::Rounded::wrap(e, &program, win, sc, top) {
                 Ok(r) => GloveElement::Rounded(r),
                 Err(e) => GloveElement::Surface(e),
             })

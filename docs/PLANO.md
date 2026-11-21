@@ -1362,8 +1362,12 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   com o pontinho de app aberto no meio dela, com folga do ícone e da borda.
 - [x] 22.2 Mesa (v0.12.82): as miniaturas dos papéis de parede rolam (roda e barra) quando não
   cabem, em todas as coleções.
-- [ ] 22.3 Confirmações e senhas sempre em janela própria (regra: nunca dentro da janela do app);
-  botão azul do Moderno Claro com texto branco; revisão das cores do Moderno Escuro.
+- [x] 22.3 (v0.12.89) Confirmações e senhas sempre em janela própria (regra: nunca dentro da janela
+  do app). `Ui::alert` abre uma janela filha (sem barra, com sombra e, no Moderno, os quatro cantos
+  arredondados), centrada sobre a dona perto do alto; a dona fica parada até a resposta. Vale para
+  todo app sem mudar nada nele (GLOVE_ALERT_SHEET=1 volta à folha). As senhas já eram janela
+  própria (glove-senha, v0.12.78). Botão azul do Moderno com texto branco.
+  - [ ] 22.3.1 Revisão das cores do Moderno Escuro app por app (continua a 21.2.1).
 - [x] 22.4 (v0.12.83) Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
   salva ali por padrão.
 - [x] 22.5 (v0.12.87) Busca Rápida no Moderno: no centro da tela, no visual moderno (campo grande,

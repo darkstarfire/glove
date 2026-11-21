@@ -148,6 +148,20 @@ pub fn set_zoom_restore(w: &Window, rect: Rectangle<i32, Logical>) {
     }
 }
 
+/// Diálogo sem moldura de ninguém: janela com dona, sem a barra do Glove e sem a
+/// sombra do próprio app (a geometria é a superfície inteira) — ex.: os alertas do
+/// glove-ui. O Glove dá a sombra e, no Moderno, os quatro cantos arredondados.
+pub fn bare_dialog(w: &Window) -> bool {
+    let Some(t) = w.toplevel() else { return false };
+    t.parent().is_some() && !is_ssd(w) && !is_fullscreen(w) && w.geometry().loc == (0, 0).into() && w.bbox().size == w.geometry().size
+}
+
+/// A janela dona de um diálogo (a do mesmo app que o abriu).
+pub fn parent_of<'a>(space: &'a smithay::desktop::Space<Window>, w: &Window) -> Option<&'a Window> {
+    let parent = w.toplevel()?.parent()?;
+    space.elements().find(|o| o.toplevel().is_some_and(|t| *t.wl_surface() == parent))
+}
+
 pub fn deco_top(w: &Window) -> i32 {
     if is_ssd(w) { TITLE_H } else { 0 }
 }
@@ -1237,6 +1251,13 @@ impl Glove {
         let center = centered(size, top, area);
         // Diálogos (janelas com dona) ficam sempre no centro.
         let child = w.toplevel().is_some_and(|t| t.parent().is_some()) || w.x11_surface().is_some_and(|x| x.is_transient_for().is_some());
+        // Diálogo de um app (alerta, confirmação): centrado sobre a janela dona, perto do
+        // alto dela, como as folhas do Mac; sem dona à vista, no centro da tela.
+        if let Some(p) = parent_of(&self.space, w).and_then(|p| self.space.element_geometry(p)) {
+            let x = (p.loc.x + (p.size.w - size.w) / 2).clamp(area.loc.x, (area.loc.x + area.size.w - size.w).max(area.loc.x));
+            let y = (p.loc.y + 24).clamp(area.loc.y + top, (area.loc.y + area.size.h - size.h).max(area.loc.y + top));
+            return (x, y).into();
+        }
         if child {
             return center;
         }
@@ -2234,6 +2255,23 @@ impl Glove {
         for w in self.space.elements() {
             w.user_data().insert_if_missing(|| RefCell::new(Deco::default()));
             let mut deco = w.user_data().get::<RefCell<Deco>>().unwrap().borrow_mut();
+            // Diálogo sem moldura (alerta): só a sombra, colada na própria janela.
+            if bare_dialog(w) {
+                deco.title = None;
+                let size = w.geometry().size;
+                let active = focused.as_ref() == Some(w);
+                let reduce = glove_config::reduce_effects();
+                let skey = (size.w, size.h, active && !reduce, tgen ^ u64::from(reduce) ^ 0xb4e);
+                if deco.shadow_key != Some(skey) && size.w > 0 && size.h > 0 {
+                    deco.shadows = if reduce {
+                        Vec::new()
+                    } else {
+                        chrome::window_shadow(size.w, size.h, active, sc).into_iter().map(|(x, y, p)| (x, y + TITLE_H, to_tex(p))).collect()
+                    };
+                    deco.shadow_key = Some(skey);
+                }
+                continue;
+            }
             if !is_ssd(w) {
                 if deco.title.is_some() || !deco.shadows.is_empty() {
                     *deco = Deco::default();
