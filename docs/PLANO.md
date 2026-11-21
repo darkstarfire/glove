@@ -1390,8 +1390,8 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   Glove (`Ui::context_menu`, protocolo `CTX … CTXEND` no socket dos menus) e o compositor o desenha
   como os da barra; a escolha volta como ação de menu. Arquivos (com as bolinhas dos rótulos) e
   Visualizador já usam; fora do Glove, o menu antigo dentro da janela continua.
-- [x] 22.9 (v0.12.86) Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
-  depois sugada para o ícone); restaurar é o inverso.
+- [x] 22.9 (v0.12.86; tempos na v0.12.95) Lâmpada Mágica: 500 ms em duas fases (funil de 200 ms sem
+  mexer no topo da janela, depois 300 ms sugada para o ícone); restaurar é o inverso.
 - [x] 22.10 (v0.12.84) Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
 - [x] 22.11 (v0.12.93) O Firefox sai da ISO: o navegador do Glove OS é o glove-web. Quem quiser outro
   instala pela Central de Apps (o Firefox instalado continua ganhando o tema do Glove).
@@ -1408,6 +1408,21 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   Avançado); favoritos (estrela, barra, menu, página inicial); histórico no menu; buscar na página;
   salvar como PDF; bloqueador de anúncios e rastreadores, modo escuro nas páginas, Não Rastrear/GPC,
   bloqueio de janelas sozinhas, apagar cookies; buscador escolhido; reabrir as abas; zoom padrão.
-- [ ] 22.14 Jangada: senhas e autopreenchimento, rolagem lateral e botão do meio, entrada de
-  idiomas (IME), imprimir no papel, lista de downloads, extensões da loja do Chrome (o motor sem
-  janela não as carrega: estudar o modo com janela do CEF).
+- [x] 22.14 (v0.12.95, Jangada 1.3.0) Jangada completa: janela sem barra de título (os botões da
+  janela na barra dela, `use_own_frame_main`/`Ui::window_buttons`/`Ui::toolbar_drag`; o compositor
+  dá sombra e cantos às janelas sem moldura, no clássico só os de cima), campo de endereço mais
+  baixo, abas sempre à vista com um só + depois da última e as de fundo um tom acima da faixa,
+  botão do meio (aba por trás; fecha a aba) e rolagem lateral, Reabrir a Última Aba Fechada,
+  Reabrir as Abas da Última Sessão, janela Histórico, janela Downloads, Imprimir pela folha do
+  Glove. Desempenho: a página vai do motor direto para a imagem da aba só nas áreas que mudaram,
+  e para a janela em faixas com chave (sem conferir bytes); a janela só é refeita quando algo
+  muda (`App::tick_redraw`). Medido na mesma página: ~13% → ~3,5% de CPU no processo da janela.
+  - [ ] 22.14.1 Ainda faltam: senhas e autopreenchimento, entrada de idiomas (IME) e as extensões
+    da loja do Chrome (o motor sem janela não as carrega: estudar o modo com janela do CEF).
+- [x] 22.15 (v0.12.95) Menus de contexto no monitor do clique (e o submenu no da janela-mãe),
+  desenhados também nos monitores extras; ícone da central com a bolinha de cima à esquerda e a de
+  baixo à direita; logo da barra de menus chapado no Moderno (preto no claro, branco no escuro);
+  **Usar a aparência em todo o sistema** (Aparência): abertura da sessão, bloqueio e tela de saída
+  no Moderno, e, com a senha de administrador, a tela de login (/etc/glove/login) e os temas do
+  Plymouth glove-moderno e glove-moderno-escuro (`glove-prefs --tema-sistema`); Monitor com o % de
+  CPU dos processos como fatia da máquina inteira (a soma bate com o resumo embaixo).

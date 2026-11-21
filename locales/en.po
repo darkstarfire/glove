@@ -6365,3 +6365,24 @@ msgstr "New Tab"
 
 msgid "Recarregar a Página"
 msgstr "Reload Page"
+
+msgid "Usar a aparência em todo o sistema"
+msgstr "Use the appearance everywhere"
+
+msgid "Abertura e desligamento, tela de login, bloqueio e saída."
+msgstr "Startup and shutdown, login screen, lock screen and log out."
+
+msgid "Aplicando ao sistema… (pode levar um minuto)"
+msgstr "Applying to the system… (this can take a minute)"
+
+msgid "A tela de login e a abertura do sistema só mudam com uma conta de administrador."
+msgstr "Only an administrator account can change the login screen and the startup screen."
+
+msgid "Usar a aparência na tela de login e na abertura do sistema."
+msgstr "Use the appearance on the login screen and the startup screen."
+
+msgid "Pronto: a tela de login e a abertura do sistema seguem a aparência."
+msgstr "Done: the login screen and the startup screen now follow the appearance."
+
+msgid "Não deu para trocar o tema de abertura do sistema."
+msgstr "Could not change the system startup theme."

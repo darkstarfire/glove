@@ -1,7 +1,8 @@
 //! glove-arte: gera por código a arte que o Glove precisa fora dele mesmo.
 //!
-//!   glove-arte plymouth <pasta>   tema do Plymouth (início e desligamento do sistema):
-//!                                 logo (a luva), 12 quadros do giratório, glove.plymouth e glove.script
+//!   glove-arte plymouth <pasta> [tema]  tema do Plymouth (início e desligamento do sistema):
+//!                                 logo (a luva), 12 quadros do giratório, .plymouth e .script;
+//!                                 tema: claro (o "glove"), moderno ou moderno-escuro
 //!   glove-arte icones <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
 //!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
 //!   glove-arte firefox <pasta>    tema do Glove para o Firefox (metal escovado, como o
@@ -54,44 +55,67 @@ fn save_compact(c: &Canvas, dir: &Path, name: &str) -> Result<(), String> {
     wr.write_image_data(&data).map_err(|e| format!("{name}: {e}"))
 }
 
-fn plymouth(dir: &Path) -> Result<(), String> {
+fn plymouth(dir: &Path, tema: &str) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let theme = Theme::new(Variant::Claro);
+    let variante = Variant::from_config(tema);
+    let theme = Theme::new(variante);
+    // O nome do tema: "glove" (clássico), "glove-moderno" e "glove-moderno-escuro".
+    let nome = if theme.modern { format!("glove-{}", variante.id()) } else { "glove".to_string() };
 
-    // A logo (luva de gel), a mesma do "Sobre o Glove" e da tela de encerramento.
+    // A logo: a luva de gel (clássico) ou chapada, preta ou branca (Moderno), a mesma da
+    // tela de encerramento.
     let s = 112.0;
     let mut c = Canvas::new(s, s, SCALE).ok_or("canvas")?;
-    glove_paint::icons::logo(&mut c, 0.0, 0.0, s, theme.accent);
+    glove_paint::icons::logo_for(&mut c, &theme, 0.0, 0.0, s);
     save(&c, dir, "logo.png")?;
 
-    // Giratório de 12 raios, um quadro por passo.
+    // Giratório de 12 raios, um quadro por passo (claro no fundo escuro).
+    let raio = if theme.dark { rgba(210, 210, 216, 255) } else { rgba(70, 72, 76, 255) };
     for i in 0..12 {
         let s = 32.0;
         let mut c = Canvas::new(s, s, SCALE).ok_or("canvas")?;
-        spinner(&mut c, s / 2.0, s / 2.0, s / 2.0, i as f32 / 12.0, rgba(70, 72, 76, 255));
+        spinner(&mut c, s / 2.0, s / 2.0, s / 2.0, i as f32 / 12.0, raio);
         save(&c, dir, &format!("spinner-{i}.png"))?;
     }
 
-    std::fs::write(dir.join("glove.plymouth"), PLYMOUTH).map_err(|e| e.to_string())?;
-    std::fs::write(dir.join("glove.script"), SCRIPT).map_err(|e| e.to_string())?;
+    // Fundo (cima, baixo) e texto, como a tela de encerramento do Glove.
+    let (cima, baixo, texto) = match (theme.modern, theme.dark) {
+        (true, true) => ("0.118, 0.118, 0.129", "0.086, 0.086, 0.098", "0.84, 0.84, 0.86"),
+        (true, false) => ("0.949, 0.949, 0.957", "0.902, 0.902, 0.918", "0.24, 0.24, 0.26"),
+        _ => ("0.84, 0.85, 0.86", "0.74, 0.75, 0.77", "0.24, 0.24, 0.26"),
+    };
+    let descricao = match (theme.modern, theme.dark) {
+        (true, true) => "fundo grafite, a luva branca",
+        (true, false) => "fundo claro e liso, a luva preta",
+        _ => "fundo cinza claro, a luva de gel",
+    };
+    let titulo = match (theme.modern, theme.dark) {
+        (true, true) => "Glove Moderno Escuro",
+        (true, false) => "Glove Moderno",
+        _ => "Glove",
+    };
+    let cfg = PLYMOUTH.replace("{titulo}", titulo).replace("{nome}", &nome).replace("{descricao}", descricao);
+    let script = SCRIPT.replace("{cima}", cima).replace("{baixo}", baixo).replace("{texto}", texto);
+    std::fs::write(dir.join(format!("{nome}.plymouth")), cfg).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join(format!("{nome}.script")), script).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 const PLYMOUTH: &str = "[Plymouth Theme]
-Name=Glove
-Description=Início e desligamento do Glove: fundo cinza claro, a logo (luva) e giratório (arte gerada por código).
+Name={titulo}
+Description=Início e desligamento do Glove: {descricao} e o giratório (arte gerada por código).
 ModuleName=script
 
 [script]
-ImageDir=/usr/share/plymouth/themes/glove
-ScriptFile=/usr/share/plymouth/themes/glove/glove.script
+ImageDir=/usr/share/plymouth/themes/{nome}
+ScriptFile=/usr/share/plymouth/themes/{nome}/{nome}.script
 ";
 
 /// Script do Plymouth: fundo cinza claro em degradê, a logo no meio, giratório
 /// embaixo; "Desligando…" ao desligar; pedido de senha (disco criptografado).
 const SCRIPT: &str = r#"# Tema do Plymouth do Glove (gerado por glove-arte).
-Window.SetBackgroundTopColor(0.84, 0.85, 0.86);
-Window.SetBackgroundBottomColor(0.74, 0.75, 0.77);
+Window.SetBackgroundTopColor({cima});
+Window.SetBackgroundBottomColor({baixo});
 
 cx = Window.GetX() + Window.GetWidth() / 2;
 cy = Window.GetY() + Window.GetHeight() / 2;
@@ -108,7 +132,7 @@ spinner.sprite.SetPosition(cx - spin[0].GetWidth() / 2, cy + 90, 1);
 if (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot") {
     label = "Desligando…";
     if (Plymouth.GetMode() == "reboot") label = "Reiniciando…";
-    msg.image = Image.Text(label, 0.24, 0.24, 0.26);
+    msg.image = Image.Text(label, {texto});
     msg.sprite = Sprite(msg.image);
     msg.sprite.SetPosition(cx - msg.image.GetWidth() / 2, cy + 140, 1);
 }
@@ -122,12 +146,12 @@ Plymouth.SetRefreshFunction(refresh_callback);
 
 # Senha do disco criptografado: o texto do pedido e uma bolinha por letra.
 fun display_password_callback(prompt, bullets) {
-    prompt_sprite = Sprite(Image.Text(prompt, 0.2, 0.2, 0.22));
+    prompt_sprite = Sprite(Image.Text(prompt, {texto}));
     prompt_sprite.SetPosition(cx - prompt_sprite.GetImage().GetWidth() / 2, cy + 130, 2);
     dots = "";
     for (i = 0; i < bullets; i++)
         dots = dots + "●";
-    dots_sprite = Sprite(Image.Text(dots + " ", 0.1, 0.1, 0.12));
+    dots_sprite = Sprite(Image.Text(dots + " ", {texto}));
     dots_sprite.SetPosition(cx - dots_sprite.GetImage().GetWidth() / 2, cy + 155, 2);
     spinner.sprite.SetOpacity(0);
 }
@@ -314,7 +338,7 @@ fn main() {
     // arquivos não mudarem conforme o dia em que foram gerados.
     glove_paint::icons::fix_calendar_date(7, 17);
     let r = match args.first().map(String::as_str) {
-        Some("plymouth") => plymouth(Path::new(args.get(1).map(String::as_str).unwrap_or("data/plymouth/glove"))),
+        Some("plymouth") => plymouth(Path::new(args.get(1).map(String::as_str).unwrap_or("data/plymouth/glove")), args.get(2).map(String::as_str).unwrap_or("claro")),
         Some("icones") => match args.get(1) {
             Some(d) => icones(Path::new(d)).map(|n| println!("{n} imagens em {d}")),
             None => Err("uso: glove-arte icones <pasta>".into()),
@@ -337,26 +361,32 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    const TEMAS: [(&str, &str); 3] = [("glove", "claro"), ("glove-moderno", "moderno"), ("glove-moderno-escuro", "moderno-escuro")];
+
     #[test]
-    fn gera_o_tema() {
-        let dir = std::env::temp_dir().join(format!("glove-arte-{}", std::process::id()));
-        super::plymouth(&dir).unwrap();
-        for f in ["logo.png", "spinner-0.png", "spinner-11.png", "glove.plymouth", "glove.script"] {
-            assert!(dir.join(f).is_file(), "{f}");
+    fn gera_os_temas() {
+        for (nome, tema) in TEMAS {
+            let dir = std::env::temp_dir().join(format!("glove-arte-{}-{nome}", std::process::id()));
+            super::plymouth(&dir, tema).unwrap();
+            for f in ["logo.png".to_string(), "spinner-0.png".into(), "spinner-11.png".into(), format!("{nome}.plymouth"), format!("{nome}.script")] {
+                assert!(dir.join(&f).is_file(), "{f}");
+            }
+            std::fs::remove_dir_all(&dir).unwrap();
         }
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// O tema guardado em data/plymouth/glove (o que vai no pacote glove-os e na ISO) é o
-    /// que o código gera hoje: mudou a logo, tem de regenerar (glove-arte plymouth).
+    /// Os temas guardados em data/plymouth (os que vão no pacote glove-os e na ISO) são
+    /// os que o código gera hoje: mudou a logo, tem de regenerar (glove-arte plymouth).
     #[test]
-    fn tema_do_repositorio_em_dia() {
-        let dir = std::env::temp_dir().join(format!("glove-arte-repo-{}", std::process::id()));
-        super::plymouth(&dir).unwrap();
-        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/plymouth/glove");
-        for f in ["logo.png", "spinner-0.png", "spinner-11.png", "glove.plymouth", "glove.script"] {
-            assert!(std::fs::read(dir.join(f)).unwrap() == std::fs::read(repo.join(f)).unwrap(), "{f} desatualizado: rode glove-arte plymouth data/plymouth/glove");
+    fn temas_do_repositorio_em_dia() {
+        for (nome, tema) in TEMAS {
+            let dir = std::env::temp_dir().join(format!("glove-arte-repo-{}-{nome}", std::process::id()));
+            super::plymouth(&dir, tema).unwrap();
+            let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/plymouth").join(nome);
+            for f in ["logo.png".to_string(), "spinner-0.png".into(), "spinner-11.png".into(), format!("{nome}.plymouth"), format!("{nome}.script")] {
+                assert!(std::fs::read(dir.join(&f)).unwrap() == std::fs::read(repo.join(&f)).unwrap(), "{nome}/{f} desatualizado: rode glove-arte plymouth data/plymouth/{nome} {tema}");
+            }
+            std::fs::remove_dir_all(&dir).unwrap();
         }
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

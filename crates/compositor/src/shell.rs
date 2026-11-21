@@ -157,12 +157,15 @@ pub fn set_zoom_restore(w: &Window, rect: Rectangle<i32, Logical>) {
     }
 }
 
-/// Diálogo sem moldura de ninguém: janela com dona, sem a barra do Glove e sem a
-/// sombra do próprio app (a geometria é a superfície inteira) — ex.: os alertas do
-/// glove-ui. O Glove dá a sombra e, no Moderno, os quatro cantos arredondados.
+/// Janela sem moldura de ninguém: sem a barra do Glove e sem a sombra do próprio app
+/// (a geometria é a superfície inteira) — ex.: os alertas do glove-ui e a Jangada, que
+/// põe os botões da janela na barra de ferramentas. O Glove dá a sombra e, no Moderno,
+/// os quatro cantos arredondados.
 pub fn bare_dialog(w: &Window) -> bool {
-    let Some(t) = w.toplevel() else { return false };
-    t.parent().is_some() && !is_ssd(w) && !is_fullscreen(w) && w.geometry().loc == (0, 0).into() && w.bbox().size == w.geometry().size
+    if w.toplevel().is_none() {
+        return false;
+    }
+    !is_ssd(w) && !is_fullscreen(w) && w.geometry().loc == (0, 0).into() && w.bbox().size == w.geometry().size
 }
 
 /// A janela dona de um diálogo (a do mesmo app que o abriu).
@@ -1593,13 +1596,16 @@ impl Glove {
         let top = chrome::menu_item_top(&lv.items, i) - chrome::menu_item_top(&lv.items, 0);
         let (px, py, pw) = (lv.origin.x, lv.origin.y + top as i32, lv.size.w);
         let mut sub = self.menu_level(node.sub.clone(), (0, 0).into());
+        // Dentro do monitor do menu que abriu o submenu.
         let (sw, sh) = self.output_size();
+        let mon = self.output_rect_at((px as f64 + 1.0, py as f64 + 1.0).into()).unwrap_or(smithay::utils::Rectangle::new((0, 0).into(), (sw, sh).into()));
+        let (mx, my, mw, mh) = (mon.loc.x, mon.loc.y, mon.size.w, mon.size.h);
         // À direita do menu; sem espaço, à esquerda (como no Mac OS X).
         let mut x = px + pw - 1;
-        if x + sub.size.w > sw {
-            x = (px - sub.size.w + 1).max(0);
+        if x + sub.size.w > mx + mw {
+            x = (px - sub.size.w + 1).max(mx);
         }
-        let y = py.min(sh - sub.size.h).max(MENUBAR_H);
+        let y = py.min(my + mh - sub.size.h).max(my + MENUBAR_H);
         sub.origin = (x, y).into();
         sub.parent = Some(i);
         if let Some(m) = &mut self.chrome.menu {
@@ -1995,7 +2001,7 @@ impl Glove {
                 }
                 let key = (e.spinner_step(), tgen);
                 if e.spinner_key != Some(key) {
-                    e.spinner = chrome::ending_spinner(key.0 as f32 / 12.0, sc).map(to_tex);
+                    e.spinner = chrome::ending_spinner(&self.theme, key.0 as f32 / 12.0, sc).map(to_tex);
                     e.spinner_key = Some(key);
                 }
             }
@@ -2265,7 +2271,7 @@ impl Glove {
             w.user_data().insert_if_missing(|| RefCell::new(Deco::default()));
             let mut deco = w.user_data().get::<RefCell<Deco>>().unwrap().borrow_mut();
             // Diálogo sem moldura (alerta): só a sombra, colada na própria janela.
-            if bare_dialog(w) {
+            if !self.greeter && bare_dialog(w) {
                 deco.title = None;
                 let size = w.geometry().size;
                 let active = focused.as_ref() == Some(w);

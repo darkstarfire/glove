@@ -234,6 +234,15 @@ impl Glove {
         if cursor && area.to_f64().contains(self.pointer_pos) {
             self.cursor_elements_at(renderer, sc, origin, &mut out);
         }
+        // Menus (de contexto, do Dock) abertos neste monitor, por cima das janelas.
+        if let Some(m) = &self.chrome.menu {
+            for lv in m.levels.iter().rev() {
+                let r = Rectangle::new(lv.buffer_pos(), (lv.size.w + 2 * glove_paint::chrome::MENU_SHADOW, lv.size.h + glove_paint::chrome::MENU_SHADOW).into());
+                if let Some(b) = lv.buffer.as_ref().filter(|_| r.overlaps(area)) {
+                    out.extend(mem(renderer, lv.buffer_pos() - origin, b, sc));
+                }
+            }
+        }
         if cursor {
             self.region_elements_at(sc, origin, (area.size.w, area.size.h), &mut out);
         }
@@ -349,20 +358,33 @@ impl Glove {
     /// tela). No Moderno, as que encostam nos cantos de baixo saem arredondadas.
     fn window_elements(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, loc: Point<i32, Logical>, sc: f64) -> Vec<GloveElement> {
         let render_loc = (loc - w.geometry().loc).to_physical_precise_round(sc);
-        let rounder = if self.theme.modern && !crate::shell::is_fullscreen(w) {
+        // Moderno: os cantos de baixo (os de cima vêm da barra de título) ou os quatro
+        // (janela sem barra). Clássico: só as janelas sem barra, nos cantos de cima (como
+        // a barra de título clássica; embaixo ela é reta).
+        let bare = !self.greeter && crate::shell::bare_dialog(w);
+        let cheia = crate::shell::is_fullscreen(w);
+        let modo = if cheia {
+            None
+        } else if self.theme.modern {
+            Some((if bare { crate::cantos::Cantos::Todos } else { crate::cantos::Cantos::Baixo }, crate::cantos::RAIO))
+        } else if bare && w.toplevel().is_some_and(|t| t.parent().is_none()) {
+            Some((crate::cantos::Cantos::Cima, 6.0))
+        } else {
+            None
+        };
+        let rounder = if modo.is_some() {
             let mut cache = self.effects.borrow_mut();
             cache.cantos.get_or_insert_with(|| crate::cantos::compile(renderer)).clone()
         } else {
             None
         };
-        let Some(program) = rounder else {
+        let (Some(program), Some((cantos, raio))) = (rounder, modo) else {
             return w.render_elements::<GloveElement>(renderer, render_loc, Scale::from(sc), 1.0);
         };
         let win = Rectangle::new(loc.to_physical_precise_round(sc), w.geometry().size.to_physical_precise_round(sc));
-        let top = crate::shell::bare_dialog(w);
         w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, render_loc, Scale::from(sc), 1.0)
             .into_iter()
-            .map(|e| match crate::cantos::Rounded::wrap(e, &program, win, sc, top) {
+            .map(|e| match crate::cantos::Rounded::wrap(e, &program, win, sc, cantos, raio) {
                 Ok(r) => GloveElement::Rounded(r),
                 Err(e) => GloveElement::Surface(e),
             })

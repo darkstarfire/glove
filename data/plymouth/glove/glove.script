@@ -31,12 +31,12 @@ Plymouth.SetRefreshFunction(refresh_callback);
 
 # Senha do disco criptografado: o texto do pedido e uma bolinha por letra.
 fun display_password_callback(prompt, bullets) {
-    prompt_sprite = Sprite(Image.Text(prompt, 0.2, 0.2, 0.22));
+    prompt_sprite = Sprite(Image.Text(prompt, 0.24, 0.24, 0.26));
     prompt_sprite.SetPosition(cx - prompt_sprite.GetImage().GetWidth() / 2, cy + 130, 2);
     dots = "";
     for (i = 0; i < bullets; i++)
         dots = dots + "●";
-    dots_sprite = Sprite(Image.Text(dots + " ", 0.1, 0.1, 0.12));
+    dots_sprite = Sprite(Image.Text(dots + " ", 0.24, 0.24, 0.26));
     dots_sprite.SetPosition(cx - dots_sprite.GetImage().GetWidth() / 2, cy + 155, 2);
     spinner.sprite.SetOpacity(0);
 }

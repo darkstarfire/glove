@@ -43,7 +43,8 @@ uniform float tint;
 uniform vec4 win;
 uniform vec2 size;
 uniform float radius;
-// 1 = os cantos de cima também (janela sem barra de título, como os alertas).
+// 0 = só os de baixo; 1 = os quatro (janela sem barra de título, como os alertas);
+// 2 = só os de cima (janela sem barra no tema clássico, como a Jangada).
 uniform float top;
 
 void main() {
@@ -58,7 +59,7 @@ void main() {
     float lx = win.x + radius;
     float rx = win.x + win.z - radius;
     float cy = -1.0;
-    if (p.y > by) {
+    if (top < 1.5 && p.y > by) {
         cy = by;
     } else if (top > 0.5 && p.y < ty) {
         cy = ty;
@@ -90,6 +91,17 @@ pub fn compile(renderer: &mut GlesRenderer) -> Option<GlesTexProgram> {
     }
 }
 
+/// Quais cantos arredondar.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Cantos {
+    /// Os de baixo (a barra de título do Glove já arredonda os de cima).
+    Baixo,
+    /// Os quatro (janela sem barra, no Moderno).
+    Todos,
+    /// Só os de cima (janela sem barra no tema clássico: embaixo ele é reto).
+    Cima,
+}
+
 /// Uma superfície da janela desenhada com os cantos de baixo dela recortados.
 pub struct Rounded {
     inner: WaylandSurfaceRenderElement<GlesRenderer>,
@@ -97,44 +109,43 @@ pub struct Rounded {
     /// A janela inteira, em pixels da tela.
     win: Rectangle<i32, Physical>,
     radius: f64,
-    /// Arredonda também os cantos de cima.
-    top: bool,
+    cantos: Cantos,
 }
 
 impl Rounded {
     /// Envolve `inner` se ela encosta num canto de baixo de `win` (e fica dentro da
     /// janela: um menu que sai para fora não é recortado). Senão devolve a própria.
-    pub fn wrap(inner: WaylandSurfaceRenderElement<GlesRenderer>, program: &GlesTexProgram, win: Rectangle<i32, Physical>, scale: f64, top: bool) -> Result<Self, WaylandSurfaceRenderElement<GlesRenderer>> {
+    pub fn wrap(inner: WaylandSurfaceRenderElement<GlesRenderer>, program: &GlesTexProgram, win: Rectangle<i32, Physical>, scale: f64, cantos: Cantos, raio: f64) -> Result<Self, WaylandSurfaceRenderElement<GlesRenderer>> {
         let g = inner.geometry(Scale::from(scale));
-        let radius = (RAIO * scale).round();
-        let r = radius as i32;
+        let radius = (raio * scale).round();
         let inside = g.loc.x >= win.loc.x - 1 && g.loc.y >= win.loc.y - 1 && g.loc.x + g.size.w <= win.loc.x + win.size.w + 1 && g.loc.y + g.size.h <= win.loc.y + win.size.h + 1;
-        let mut corners = vec![
-            Rectangle::<i32, Physical>::new((win.loc.x, win.loc.y + win.size.h - r).into(), (r, r).into()),
-            Rectangle::new((win.loc.x + win.size.w - r, win.loc.y + win.size.h - r).into(), (r, r).into()),
-        ];
-        if top {
-            corners.push(Rectangle::new(win.loc, (r, r).into()));
-            corners.push(Rectangle::new((win.loc.x + win.size.w - r, win.loc.y).into(), (r, r).into()));
-        }
+        let corners = quadrados(win.loc.x, win.loc.y, win.size.w, win.size.h, radius as i32, cantos);
         if !inside || !corners.iter().any(|c| c.overlaps(g)) {
             return Err(inner);
         }
-        Ok(Self { inner, program: program.clone(), win, radius, top })
+        Ok(Self { inner, program: program.clone(), win, radius, cantos })
     }
 
     /// Os quadrados dos cantos, relativos à superfície.
     fn corners_local(&self, scale: Scale<f64>) -> Vec<Rectangle<i32, Physical>> {
         let g = self.inner.geometry(scale);
         let r = self.radius.ceil() as i32;
-        let (x, y, w, h) = (self.win.loc.x - g.loc.x, self.win.loc.y - g.loc.y, self.win.size.w, self.win.size.h);
-        let mut v = vec![Rectangle::new((x, y + h - r).into(), (r, r).into()), Rectangle::new((x + w - r, y + h - r).into(), (r, r).into())];
-        if self.top {
-            v.push(Rectangle::new((x, y).into(), (r, r).into()));
-            v.push(Rectangle::new((x + w - r, y).into(), (r, r).into()));
-        }
-        v
+        quadrados(self.win.loc.x - g.loc.x, self.win.loc.y - g.loc.y, self.win.size.w, self.win.size.h, r, self.cantos)
     }
+}
+
+/// Os quadrados dos cantos arredondados de uma janela (x, y, largura, altura).
+fn quadrados(x: i32, y: i32, w: i32, h: i32, r: i32, cantos: Cantos) -> Vec<Rectangle<i32, Physical>> {
+    let mut v = Vec::new();
+    if cantos != Cantos::Cima {
+        v.push(Rectangle::new((x, y + h - r).into(), (r, r).into()));
+        v.push(Rectangle::new((x + w - r, y + h - r).into(), (r, r).into()));
+    }
+    if cantos != Cantos::Baixo {
+        v.push(Rectangle::new((x, y).into(), (r, r).into()));
+        v.push(Rectangle::new((x + w - r, y).into(), (r, r).into()));
+    }
+    v
 }
 
 impl Element for Rounded {
@@ -182,7 +193,11 @@ impl RenderElement<GlesRenderer> for Rounded {
                 Uniform::new("win", win),
                 Uniform::new("size", [dst.size.w as f32, dst.size.h as f32]),
                 Uniform::new("radius", self.radius as f32),
-                Uniform::new("top", if self.top { 1.0f32 } else { 0.0 }),
+                Uniform::new("top", match self.cantos {
+                    Cantos::Baixo => 0.0f32,
+                    Cantos::Todos => 1.0,
+                    Cantos::Cima => 2.0,
+                }),
             ],
         );
         let r = RenderElement::<GlesRenderer>::draw(&self.inner, frame, src, dst, damage, opaque_regions);

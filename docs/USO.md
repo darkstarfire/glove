@@ -98,17 +98,26 @@ github.com/fabioaacarneiro/jangada): o motor do Chromium (os recursos da web de 
 Glove, com as abas, a barra de endereço e as páginas da própria Jangada, no visual clássico ou no
 Moderno.
 
+- **Janela sem barra de título**, como a do Safari: fechar, minimizar e zoom ficam na própria barra
+  da Jangada, ao lado de voltar, avançar e do início (a casinha). Arrastar a barra (ou o espaço
+  livre das abas) move a janela; dois cliques dão o zoom.
 - **Barra de endereço**, como a do Safari: fora de foco mostra só o site, com o cadeado; clique (ou
   Ctrl+L) e digite um endereço ou uma busca (DuckDuckGo). Esc volta. Recarregar e parar ficam
-  dentro dela; ao lado, voltar, avançar, o início (a casinha) e a aba nova (+).
+  dentro dela.
 - **Página inicial** da Jangada: o logo, a busca e os atalhos dos sites. Quando um site não abre,
   a **página de erro** é a da Jangada, com Tentar de Novo.
-- **Abas** como as do Safari: todas da mesma largura, a escolhida em destaque, o ícone do site e o
-  título no meio, o × ao passar o mouse. Ctrl+T abre, Ctrl+W fecha, Ctrl+Tab passa para a próxima;
-  links que abrem janela nova viram abas.
+- **Abas** como as do Safari: todas da mesma largura, a escolhida em destaque, as outras um tom
+  acima da faixa, o ícone do site e o título no meio, o × ao passar o mouse e o + logo depois da
+  última. Ctrl+T abre, Ctrl+W fecha, Ctrl+Shift+T reabre a última fechada, Ctrl+Tab passa para a
+  próxima; links que abrem janela nova viram abas. O **botão do meio** (ou Ctrl + clique) abre o
+  link numa aba por trás; numa aba, fecha ela.
 - **Favoritos:** a estrela no campo de endereço (ou Ctrl+D); a barra de favoritos (Ctrl+Shift+B), o
-  menu Favoritos e a página inicial mostram os favoritos. O menu **Histórico** traz os últimos sites.
-- **Buscar na página** (Ctrl+F) e **Salvar como PDF** (Ctrl+P, na pasta Downloads).
+  menu Favoritos e a página inicial mostram os favoritos.
+- **Histórico:** o menu traz os últimos sites, **Reabrir a Última Aba Fechada**, **Reabrir as Abas
+  da Última Sessão** (as que estavam abertas quando a Jangada fechou) e **Mostrar Todo o Histórico**
+  (Ctrl+H), uma janela com busca, abrir em nova aba e apagar.
+- **Buscar na página** (Ctrl+F), **Imprimir** (Ctrl+P, pela folha Imprimir do Glove) e **Salvar
+  como PDF** (menu Arquivo, na pasta Downloads).
 - **Preferências** (Ctrl+,): página inicial, reabrir as abas da última vez, tamanho das páginas, o
   buscador (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), bloquear janelas que as
   páginas abrem sozinhas, Não Rastrear, limpar o histórico e os cookies, e as extensões da Jangada:
@@ -119,10 +128,12 @@ Moderno.
 - **Botão direito:** o menu do Glove (solto, por cima de tudo) com abrir o link em nova aba,
   copiar o link, copiar, colar, buscar o texto escolhido, voltar e recarregar.
 - **Cursor:** a mãozinha nos links e a barra de texto nos campos (vale para todo o Glove).
-- **Downloads:** vão direto para a pasta Downloads; um aviso embaixo diz quando terminam.
+- **Downloads:** vão direto para a pasta Downloads; a janela **Downloads** (Ctrl+J, ou a seta à
+  direita da barra) mostra o andamento e deixa abrir, mostrar na pasta e cancelar.
 - **Avisos das páginas** (alert e confirm) aparecem como alertas do Glove, em janela própria.
 - **Sobre a Jangada**, no menu com o nome dela, mostra a versão e o motor.
-- **Leve:** sem o processo da placa de vídeo, poucos processos de página e nada rodando de fundo.
+- **Leve:** sem o processo da placa de vídeo, poucos processos de página e nada rodando de fundo;
+  só as partes da página que mudaram vão para a tela, e parada a janela não é refeita.
   Para usar a placa de vídeo: `JANGADA_GPU=1 jangada`.
 - Abrir de novo (pelo Dock ou `jangada endereço`) abre uma aba na janela que já está aberta. No
   Glove OS ela é o navegador padrão do sistema.
@@ -689,5 +700,12 @@ arredondados, botões de fechar, minimizar e ampliar planos, barra de menu trans
 arredondados, Dock de vidro fosco, botões e caixas lisos e barras de rolagem finas. O Escuro deixa as
 janelas em grafite com o texto claro. Combina com os ícones do Mide (Mide Claro e Mide Escuro). Os
 menus de escolha (como Aparência, Cor de destaque e Ícones) também ficam lisos, com as setas num
-quadradinho na cor de destaque.
+quadradinho na cor de destaque. O logo da barra de menus fica chapado: preto no Moderno Claro,
+branco no Moderno Escuro (nos temas da época, a luva de gel).
+
+**Usar a aparência em todo o sistema** (logo abaixo da escolha da aparência): a abertura da sessão,
+o bloqueio de tela e a tela de saída passam a seguir a aparência (no Moderno: painéis lisos, fundo
+liso claro ou grafite e a luva chapada). A tela de login e a abertura e o desligamento do sistema
+(o Plymouth) também mudam: pedem a senha de administrador e podem levar um minuto (o sistema refaz
+a imagem de início). Desligada, essas telas voltam ao visual clássico.
 

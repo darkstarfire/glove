@@ -153,7 +153,6 @@ struct Monitor {
     /// Usuário da sessão (para "Meus processos").
     me: String,
     users: HashMap<u32, String>,
-    ncpu: f32,
     message: Option<String>,
     /// Pedido de forçar encerramento esperando confirmação: (pid, nome).
     confirm_kill: Option<(i32, String)>,
@@ -178,7 +177,6 @@ struct Monitor {
 
 impl Monitor {
     fn new() -> Self {
-        let ncpu = std::fs::read_to_string("/proc/stat").map(|s| s.lines().filter(|l| l.starts_with("cpu") && !l.starts_with("cpu ")).count()).unwrap_or(1).max(1) as f32;
         let mut m = Self {
             procs: Vec::new(),
             last_ticks: HashMap::new(),
@@ -194,7 +192,6 @@ impl Monitor {
             collapsed: HashSet::new(),
             me: String::new(),
             users: users(),
-            ncpu,
             message: None,
             confirm_kill: None,
             filter: String::new(),
@@ -267,7 +264,9 @@ impl Monitor {
             let rss_pages: u64 = rest.get(21).and_then(|v| v.parse().ok()).unwrap_or(0);
             let threads: u64 = rest.get(17).and_then(|v| v.parse().ok()).unwrap_or(1);
             let prev = self.last_ticks.get(&pid).copied().unwrap_or(t);
-            let cpu = if self.last_total == 0 { 0.0 } else { (t.saturating_sub(prev)) as f32 / dtotal * self.ncpu * 100.0 };
+            // A fatia da máquina inteira (todos os núcleos = 100%), a mesma conta do
+            // resumo embaixo: a soma dos processos bate com Usuário + Sistema.
+            let cpu = if self.last_total == 0 { 0.0 } else { (t.saturating_sub(prev)) as f32 / dtotal * 100.0 };
             ticks.insert(pid, t);
             // Dono da pasta do processo = usuário (sem ler outro arquivo).
             let uid = {

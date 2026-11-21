@@ -162,10 +162,10 @@ impl App for Login {
         let w = ui.c.w;
         let cx = w / 2.0 + dx;
         let ink = rgba(20, 20, 20, 255);
-        let accent = ui.theme.accent;
 
         // Cabeçalho: orbe, nome e computador.
-        glove_ui::paint::icons::logo(ui.c, cx - 28.0, 16.0, 56.0, accent);
+        // Gel nos temas clássicos; chapada (preta ou branca) nos modernos.
+        glove_ui::paint::icons::logo_for(ui.c, ui.theme, cx - 28.0, 16.0, 56.0);
         center_text(ui, "Glove", cx, 96.0, 22.0, true, ink);
         let host = self.host.clone();
         center_text(ui, &host, cx, 114.0, 11.0, false, rgba(90, 90, 90, 255));

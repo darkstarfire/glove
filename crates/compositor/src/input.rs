@@ -386,6 +386,15 @@ impl Glove {
                     pointer.frame(self);
                 }
             }
+            // "fim encerrar|reiniciar|desligar": o fim de sessão (a tela de saída).
+            Some("fim") => {
+                let w = it.next().unwrap_or("encerrar").to_string();
+                self.end_session(&w);
+            }
+            Some("mclick") => {
+                self.on_button(0x112, ButtonState::Pressed, t);
+                self.on_button(0x112, ButtonState::Released, t + 1);
+            }
             Some("rclick") => {
                 self.on_button(BTN_RIGHT, ButtonState::Pressed, t);
                 self.on_button(BTN_RIGHT, ButtonState::Released, t + 1);

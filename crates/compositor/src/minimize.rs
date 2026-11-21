@@ -25,9 +25,10 @@ fn anim_for(genie: bool) -> Duration {
     glove_config::anim(Duration::from_millis(if genie { GENIE_MS } else { 420 }))
 }
 
-/// Lâmpada Mágica: ~650 ms; o funil (só a parte de baixo, o topo parado) nos primeiros ~100 ms.
-pub const GENIE_MS: u64 = 650;
-pub const GENIE_FUNNEL_MS: u64 = 100;
+/// Lâmpada Mágica: 500 ms; o funil (só a parte de baixo, o topo parado) nos primeiros 200 ms
+/// e a janela sugada para o ícone nos outros 300 (restaurar é o inverso).
+pub const GENIE_MS: u64 = 500;
+pub const GENIE_FUNNEL_MS: u64 = 200;
 /// Intervalo mínimo entre quadros para as janelas minimizadas.
 pub const MINIMIZED_FRAME: Duration = Duration::from_millis(500);
 

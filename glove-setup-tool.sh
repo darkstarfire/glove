@@ -12,7 +12,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=1.2.1
+jangada_version=1.3.0
 mide_icons_repo="https://github.com/fabioaacarneiro/mide-icons"
 mide_icons_commit=11f848417aba8abbb2889439d374803a6c6f0cbf
 mide_icons_version=1.0
@@ -534,9 +534,12 @@ package_glove_os() {
     mkdir -p "$o" "$tmp/DEBIAN" "$tmp/etc/xdg/fastfetch" "$tmp/etc/skel/.config/neofetch" "$tmp/etc/apt/apt.conf.d" "$tmp/etc/default/grub.d" "$tmp/usr/share/pixmaps"
     echo "$version" > "$o/versao"
     install -m 755 "$d/identidade" "$d/tela-de-inicio" "$o/"
-    # Boot and shutdown screen: the Glove Plymouth theme (tela-de-inicio turns it on).
-    mkdir -p "$tmp/usr/share/plymouth/themes/glove"
-    install -m 644 "$root_dir"/data/plymouth/glove/* "$tmp/usr/share/plymouth/themes/glove/"
+    # Boot and shutdown screen: the Glove Plymouth themes (tela-de-inicio turns on the
+    # classic one; "Use the appearance everywhere" switches to the Modern ones).
+    for p in glove glove-moderno glove-moderno-escuro; do
+        mkdir -p "$tmp/usr/share/plymouth/themes/$p"
+        install -m 644 "$root_dir"/data/plymouth/$p/* "$tmp/usr/share/plymouth/themes/$p/"
+    done
     install -m 644 "$d/logo.txt" "$d/logo-neofetch.txt" "$o/"
     install -m 644 "$d/glove-os.png" "$o/logo.png"
     install -m 644 "$d/fastfetch.jsonc" "$tmp/etc/xdg/fastfetch/config.jsonc"

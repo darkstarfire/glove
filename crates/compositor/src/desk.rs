@@ -1238,9 +1238,12 @@ impl Glove {
     pub fn show_context_menu(&mut self, nodes: Vec<MenuNode>, pos: Point<f64, Logical>) {
         self.close_menu();
         let mut level = self.new_menu_level(nodes);
+        // Dentro do monitor onde foi o clique (não do principal).
         let (sw, sh) = self.output_size();
-        let x = (pos.x as i32 + 1).min(sw - level.size.w - 4).max(0);
-        let y = if pos.y as i32 + level.size.h > sh - 4 { (pos.y as i32 - level.size.h).max(MENUBAR_H) } else { pos.y as i32 + 1 };
+        let mon = self.output_rect_at(pos).unwrap_or(smithay::utils::Rectangle::new((0, 0).into(), (sw, sh).into()));
+        let (mx, my, mw, mh) = (mon.loc.x, mon.loc.y, mon.size.w, mon.size.h);
+        let x = (pos.x as i32 + 1).min(mx + mw - level.size.w - 4).max(mx);
+        let y = if pos.y as i32 + level.size.h > my + mh - 4 { (pos.y as i32 - level.size.h).max(my + MENUBAR_H) } else { pos.y as i32 + 1 };
         level.origin = (x, y).into();
         self.chrome.menu = Some(crate::shell::OpenMenu { target: BarTarget::Context, levels: vec![level], pointer_x: None });
         self.dirty = true;

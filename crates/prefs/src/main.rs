@@ -19,6 +19,7 @@ mod padrao;
 mod rede;
 mod servicos;
 mod som;
+mod tema_sistema;
 
 use glove_config::{Config, OutputsInfo};
 use glove_ui::{
@@ -328,6 +329,8 @@ struct Prefs {
     padrao: padrao::Padrao,
     bluetooth: bluetooth::Bluetooth,
     atualizacao: outros::Atualizacao,
+    /// "Usar a aparência em todo o sistema": a senha e o trabalho de administrador.
+    tema_sistema: tema_sistema::TemaSistema,
     inicializacao: outros::Inicializacao,
     fala: outros::Fala,
     impressao: outros::Impressao,
@@ -467,6 +470,7 @@ impl Prefs {
             inicio: inicio::Inicio::default(),
             fw_ask: None,
             fw_job: None,
+            tema_sistema: Default::default(),
             fw_message: None,
             contas: contas::Contas::default(),
             internacional: internacional::Internacional::default(),
@@ -762,9 +766,31 @@ impl Prefs {
                 if ui.popup(&mut v, &names, 160.0) {
                     self.config.theme = Variant::ALL[v].id().into();
                     self.save();
+                    if self.config.appearance.system_theme {
+                        let t = self.config.theme.clone();
+                        self.tema_sistema.aplicar(&t);
+                    }
                 }
                 ui.small(tr!("Para botões, menus e janelas"));
             });
+        });
+        ui.space(2.0);
+        let mut sistema = self.config.appearance.system_theme;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut sistema, tr!("Usar a aparência em todo o sistema")) {
+                self.config.appearance.system_theme = sistema;
+                self.save();
+                // Desligada, a tela de login e a abertura do sistema voltam ao clássico.
+                let t = if sistema { self.config.theme.clone() } else { "claro".to_string() };
+                self.tema_sistema.aplicar(&t);
+            }
+            ui.small(tr!("Abertura e desligamento, tela de login, bloqueio e saída."));
+            self.tema_sistema.andamento(ui);
+            if self.tema_sistema.ocupado() {
+                ui.small(tr!("Aplicando ao sistema… (pode levar um minuto)"));
+            } else if let Some(m) = self.tema_sistema.msg.clone() {
+                ui.small(&m);
+            }
         });
         ui.space(4.0);
         let names: Vec<String> = glove_config::HIGHLIGHTS.iter().map(|h| tr(h.1).to_string()).collect();
@@ -2520,7 +2546,8 @@ impl App for Prefs {
             || (self.pane == Pane::Mesa && self.desk_file.is_some())
             || (self.pane == Pane::Seguranca && self.fw_ask.is_some())
             || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some())
-            || (self.pane == Pane::Inicializacao && self.inicializacao.prompt.is_some());
+            || (self.pane == Pane::Inicializacao && self.inicializacao.prompt.is_some())
+            || (self.pane == Pane::Aparencia && self.tema_sistema.prompt.is_some());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -2630,6 +2657,8 @@ impl App for Prefs {
                     admin::Answer::Cancel => {}
                     admin::Answer::Password(pw) => self.fw_job = Some(admin::run(args, Some(pw))),
                 }
+            } else if self.pane == Pane::Aparencia {
+                self.tema_sistema.prompt_sheet(ui);
             } else if self.pane == Pane::Inicializacao {
                 self.inicializacao.prompt_sheet(ui);
             } else if self.pane == Pane::Atualizacao {
@@ -2764,6 +2793,16 @@ pub fn main() {
     // O verificador de atualizações do Glove (a sessão o inicia; sem janela).
     if std::env::args().any(|a| a == "--verificar-atualizacao") {
         atualizar::verificar_em_segundo_plano();
+        return;
+    }
+    // Como administrador (pelo sudo): a aparência na tela de login e na abertura do sistema.
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--tema-sistema") {
+        let tema = args.get(i + 1).cloned().unwrap_or_default();
+        if let Err(e) = tema_sistema::aplicar_como_admin(&tema) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
         return;
     }
     let opts = WindowOptions { title: tr!("Preferências").into(), app_id: "glove.Preferences".into(), size: (W, H), fixed: false, min_size: Some((W, 240)) };

@@ -97,17 +97,26 @@ The **Jangada** icon in the Dock opens the Glove OS browser (package `jangada`, 
 github.com/fabioaacarneiro/jangada): the Chromium engine (today's web features) in a Glove window,
 with tabs, the address bar and Jangada's own pages, in the classic or the Modern look.
 
+- **No title bar**, like Safari: close, minimize and zoom sit in Jangada's own toolbar, next to
+  back, forward and home (the little house). Dragging the toolbar (or the free space of the tab
+  strip) moves the window; a double click zooms it.
 - **Address bar**, like Safari's: out of focus it shows only the site, with the padlock; click it
   (or Ctrl+L) and type an address or a search (DuckDuckGo). Esc goes back. Reload and stop are
-  inside it; beside it, back, forward, home (the little house) and new tab (+).
+  inside it.
 - **Start page** of its own: the logo, the search and site shortcuts. When a site does not open,
   the **error page** is Jangada's, with Try Again.
-- **Tabs** like Safari's: all the same width, the current one highlighted, the site icon and the
-  title in the middle, the × on hover. Ctrl+T opens, Ctrl+W closes, Ctrl+Tab goes to the next;
-  links that open a new window become tabs.
+- **Tabs** like Safari's: all the same width, the current one highlighted, the others a shade
+  lighter than the strip, the site icon and the title in the middle, the × on hover and the + right
+  after the last one. Ctrl+T opens, Ctrl+W closes, Ctrl+Shift+T reopens the last closed one,
+  Ctrl+Tab goes to the next; links that open a new window become tabs. The **middle button** (or
+  Ctrl + click) opens a link in a background tab; on a tab, it closes it.
 - **Favorites:** the star in the address field (or Ctrl+D); the favorites bar (Ctrl+Shift+B), the
-  Favorites menu and the start page show them. The **History** menu has the latest sites.
-- **Find on page** (Ctrl+F) and **Save as PDF** (Ctrl+P, to the Downloads folder).
+  Favorites menu and the start page show them.
+- **History:** the menu has the latest sites, **Reopen Last Closed Tab**, **Reopen Tabs from Last
+  Session** (the ones open when Jangada closed) and **Show All History** (Ctrl+H), a window with
+  search, open in new tab and remove.
+- **Find on page** (Ctrl+F), **Print** (Ctrl+P, through Glove's Print sheet) and **Save as PDF**
+  (File menu, to the Downloads folder).
 - **Preferences** (Ctrl+,): home page, reopen last time's tabs, page size, the search engine
   (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), block windows pages open by
   themselves, Do Not Track, clear history and cookies, and Jangada's extensions: the **ad and
@@ -118,10 +127,12 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
 - **Right click:** Glove's menu (floating, above everything) with open link in new tab, copy link,
   copy, paste, search the selected text, back and reload.
 - **Cursor:** the hand over links and the text bar over fields (for all of Glove).
-- **Downloads** go straight to the Downloads folder; a notice at the bottom says when they finish.
+- **Downloads** go straight to the Downloads folder; the **Downloads** window (Ctrl+J, or the
+  arrow at the right of the toolbar) shows the progress and lets you open, show in folder and cancel.
 - **Page notices** (alert and confirm) show as Glove alerts, in their own window.
 - **About Jangada**, in the menu with its name, shows the version and the engine.
-- **Light:** no GPU process, few page processes and nothing running in the background. To use the
+- **Light:** no GPU process, few page processes and nothing running in the background; only the
+  parts of the page that changed go to the screen, and when idle the window is not redrawn. To use the
   graphics card: `JANGADA_GPU=1 jangada`.
 - Opening it again (from the Dock or `jangada address`) opens a tab in the window already open. On
   Glove OS it is the system's default browser.
@@ -683,5 +694,12 @@ with rounded corners, flat close, minimize and zoom buttons, a translucent menu 
 frosted-glass Dock, flat buttons and checkboxes and thin scroll bars. Dark turns windows graphite with
 light text. It goes well with the Mide icons (Mide Claro and Mide Escuro). The pop-up menus (such as
 Appearance, Highlight color and Icons) are flat too, with the arrows in a small square in the
-highlight color.
+highlight color. The menu bar logo is flat: black in Modern Light, white in Modern Dark (in the
+period themes, the gel glove).
+
+**Use the appearance everywhere** (right below the appearance choice): session startup, the lock
+screen and the log-out screen follow the appearance (in Modern: flat panels, a flat light or
+graphite background and the flat glove). The login screen and system startup and shutdown
+(Plymouth) change too: they ask for the administrator password and can take a minute (the system
+rebuilds its boot image). Turned off, these screens go back to the classic look.
 
