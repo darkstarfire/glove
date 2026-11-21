@@ -99,7 +99,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 | Terminal | Alacritty core: truecolor, nvim/htop, mouse, OSC 52, themes, Nerd Font |
 | Text Editor | RTF documents (open in Word and LibreOffice): fonts, paragraphs and ruler, styles, lists, tables, pictures, pages with header, footer and footnotes, ABNT template, PDF export; plain text too; Find/Replace |
 | Viewer | Pictures (PNG, JPEG, WebP) and PDF, thumbnails, zoom, rotate; drawing on screenshots |
-| Browser | Glove's browser (`glove-web`): the Chromium engine in a Glove window, with tabs, an address bar with search, a floating context menu, downloads; light (no GPU process). Without it, opens Firefox (or NetSurf with little RAM) |
+| Jangada | The Glove OS browser ([its own repository](https://github.com/fabioaacarneiro/jangada)): the Chromium engine in a Glove window, a Safari-like address bar, tabs with site icons, its own start and error pages, a floating context menu, downloads; light (no GPU process) |
 | Mail | IMAP and SMTP with TLS, mailboxes, compose, reply and forward |
 | Calendar and Contacts | Month grid with events (.ics) and cards (vCard) |
 | Music | Library (the Music folder and any you add), Artists and Albums, playlists (M3U), shuffle and repeat; light pure-Rust player |
@@ -219,6 +219,11 @@ sudo apt install ./pacotes/glove_VERSION_amd64.deb
 
 Then, on your usual login screen (GDM, LightDM, SDDM…), choose **Glove** from the gear menu.
 
+Glove's browser, [Jangada](https://github.com/fabioaacarneiro/jangada), has its own Debian/Ubuntu
+package (`jangada_VERSION_amd64.deb`, in its release). The `glove` package recommends it (apt installs
+it from Glove's repository); installing from source, `./glove-setup-tool.sh install` asks whether to
+install Jangada too. Glove OS ships with it.
+
 **Glove login screen as the main one** (from the next boot):
 
 ```sh
@@ -259,7 +264,7 @@ compatible) with Glove as the desktop and its own identity: the name "Glove OS" 
 glove, the console and the GRUB menu. That identity comes in the `glove-os` package, which only
 ships in the ISO; the `glove` package installed on another distribution does not rename it.
 
-The ISO works on a USB stick or DVD, with Glove, Glove's browser and the installer. It is a "sleeper"
+The ISO works on a USB stick or DVD, with Glove, Jangada (the browser) and the installer. It is a "sleeper"
 system: it ships what everyday use needs (Glove's tools, a browser, video, Wi-Fi, Bluetooth and
 sound firmware for desktops and laptops) and leaves out server things (datacenter network card
 firmware, Apache…), which anyone who needs them installs later from the App Center or apt. Booting from the stick

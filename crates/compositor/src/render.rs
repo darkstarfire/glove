@@ -931,9 +931,14 @@ impl Glove {
                         .map(GloveElement::Surface),
                 );
             }
-            CursorImageStatus::Named(_) => {
-                if let Some(t) = &self.cursor_tex {
-                    let (hx, hy) = glove_paint::chrome::CURSOR_HOTSPOT;
+            CursorImageStatus::Named(icon) => {
+                use smithay::input::pointer::CursorIcon;
+                let (tex, (hx, hy)) = match icon {
+                    CursorIcon::Pointer if self.hand_tex.is_some() => (&self.hand_tex, glove_paint::chrome::HAND_HOTSPOT),
+                    CursorIcon::Text | CursorIcon::VerticalText if self.ibeam_tex.is_some() => (&self.ibeam_tex, glove_paint::chrome::IBEAM_HOTSPOT),
+                    _ => (&self.cursor_tex, glove_paint::chrome::CURSOR_HOTSPOT),
+                };
+                if let Some(t) = tex {
                     let k = self.config.access.cursor_size.clamp(1.0, 4.0) as f64;
                     let loc = Point::<f64, Logical>::from((pos.x - hx as f64 * k, pos.y - hy as f64 * k));
                     if let Some(buf) = t.upload(renderer) {

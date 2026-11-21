@@ -1,4 +1,4 @@
-//! glove-navegador: abre o navegador. O do Glove (glove-web, com o motor do Chromium)
+//! glove-navegador: abre o navegador. O do Glove (a Jangada, com o motor do Chromium)
 //! vem primeiro; sem ele, o que cabe na máquina: abaixo de 1 GB de RAM, o NetSurf
 //! (leve); acima, o Firefox (com o perfil de sempre do usuário).
 //! A escolha das Preferências (navegador = "...") vale antes de tudo.
@@ -28,9 +28,9 @@ pub fn choose(mem_mb: u64, preferred: &str, has: &dyn Fn(&str) -> bool) -> Optio
     if !preferred.is_empty() && has(preferred) {
         return Some((preferred.to_string(), preferred == "firefox"));
     }
-    // O navegador do Glove (pacote glove-web).
-    if has("glove-web") {
-        return Some(("glove-web".to_string(), false));
+    // O navegador do Glove (a Jangada; glove-web era o nome de antes).
+    if let Some(j) = ["jangada", "glove-web"].iter().find(|n| has(n)) {
+        return Some((j.to_string(), false));
     }
     let netsurf = NETSURF.iter().find(|n| has(n)).map(|n| (n.to_string(), false));
     let firefox = has("firefox").then(|| ("firefox".to_string(), true));
@@ -86,8 +86,8 @@ mod tests {
         assert_eq!(choose(512, "", &|_| false), None);
         assert_eq!(mem_total_mb("MemTotal:        8034516 kB\nMemFree: 1 kB\n"), 7846);
         // O do Glove vem antes dos outros (menos se a pessoa escolheu outro).
-        let com_web = |p: &str| matches!(p, "glove-web" | "firefox");
-        assert_eq!(choose(4096, "", &com_web), Some(("glove-web".into(), false)));
+        let com_web = |p: &str| matches!(p, "jangada" | "firefox");
+        assert_eq!(choose(4096, "", &com_web), Some(("jangada".into(), false)));
         assert_eq!(choose(4096, "firefox", &com_web), Some(("firefox".into(), true)));
     }
 }

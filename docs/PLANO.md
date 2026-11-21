@@ -1384,9 +1384,7 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   até 4 processos de página, sem cache de voltar e sem rede de fundo. Pacote `glove-web` (o motor
   em /usr/lib/glove-web), dependência do glove-os e na ISO; a CI só recompila quando a versão dele
   muda. O ícone do Navegador (glove-navegador) abre ele primeiro.
-  - [ ] 22.7.1 Próximos: cursores (mão nos links), rolagem lateral e botão do meio, senhas e
-    autopreenchimento, favoritos e histórico, buscar na página (Ctrl+F), imprimir, entrada de
-    idiomas (IME), área de transferência com imagens.
+  - [x] 22.7.1 Cursores (mão nos links): v0.12.94. O resto foi para a 22.13.
 - [x] 22.8 (v0.12.88) Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
   item, alinhado com a primeira opção; só sobe se faltar espaço no monitor. O app pede o menu ao
   Glove (`Ui::context_menu`, protocolo `CTX … CTXEND` no socket dos menus) e o compositor o desenha
@@ -1397,4 +1395,19 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 - [x] 22.10 (v0.12.84) Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
 - [x] 22.11 (v0.12.93) O Firefox sai da ISO: o navegador do Glove OS é o glove-web. Quem quiser outro
   instala pela Central de Apps (o Firefox instalado continua ganhando o tema do Glove).
-- [ ] 22.12 Navegador em repositório próprio e com nome próprio (nome a escolher).
+- [x] 22.12 (v0.12.94, Jangada 1.2.1) O navegador virou a **Jangada**, em repositório próprio
+  (github.com/fabioaacarneiro/jangada, com o histórico), pacote `jangada` (substitui o glove-web,
+  navegador padrão do sistema), publicado na release dela e trazido pelo CI do Glove (versão fixa
+  em `jangada_version`). Ícone próprio (a jangada no mar redondo) no Dock, no tema e no pacote; o
+  Dock migra o Navegador para ela. Visual e comportamento do Safari: barra com só o site e o
+  cadeado, recarregar dentro dela, início, abas com o ícone dos sites, página inicial e de erro
+  próprias, Sobre a Jangada; o user agent diz Jangada. No Glove todo: cursor de mãozinha e de
+  texto (protocolo cursor-shape no compositor e `Ui::set_cursor`).
+- [x] 22.13 (Jangada 1.2.1) Abas como as do Safari (iguais, a escolhida em destaque, ícone e
+  título no meio, × ao passar o mouse); Preferências (Geral, Busca, Privacidade, Extensões,
+  Avançado); favoritos (estrela, barra, menu, página inicial); histórico no menu; buscar na página;
+  salvar como PDF; bloqueador de anúncios e rastreadores, modo escuro nas páginas, Não Rastrear/GPC,
+  bloqueio de janelas sozinhas, apagar cookies; buscador escolhido; reabrir as abas; zoom padrão.
+- [ ] 22.14 Jangada: senhas e autopreenchimento, rolagem lateral e botão do meio, entrada de
+  idiomas (IME), imprimir no papel, lista de downloads, extensões da loja do Chrome (o motor sem
+  janela não as carrega: estudar o modo com janela do CEF).

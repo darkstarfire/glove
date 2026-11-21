@@ -96,6 +96,10 @@ pub struct Glove {
     pub dnd_icon: Option<smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>,
     /// A seta padrão, desenhada na escala atual.
     pub cursor_tex: Option<crate::shell::Tex>,
+    /// Mãozinha (links) e a barra de texto, pedidas pelos apps (cursor-shape).
+    pub hand_tex: Option<crate::shell::Tex>,
+    pub ibeam_tex: Option<crate::shell::Tex>,
+    pub _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     pub cursor_tex_scale: f64,
     /// Setas de redimensionar: ↔, ↕, ⤡ e ⤢ (na mesma escala da seta).
     pub resize_cursors: [Option<crate::shell::Tex>; 4],
@@ -231,6 +235,7 @@ impl Glove {
         let xdg_shell_state = XdgShellState::new::<Self>(&dh);
         let xdg_decoration_state = XdgDecorationState::new::<Self>(&dh);
         let fractional_scale_state = FractionalScaleManagerState::new::<Self>(&dh);
+        let cursor_shape = smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(&dh);
         let viewporter_state = ViewporterState::new::<Self>(&dh);
         let shm_state = ShmState::new::<Self>(&dh, vec![]);
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
@@ -289,6 +294,9 @@ impl Glove {
             cursor_status: smithay::input::pointer::CursorImageStatus::default_named(),
             dnd_icon: None,
             cursor_tex: None,
+            hand_tex: None,
+            ibeam_tex: None,
+            _cursor_shape: cursor_shape,
             cursor_tex_scale: 0.0,
             resize_cursors: Default::default(),
             resize_hover: None,
@@ -489,6 +497,13 @@ impl Glove {
                 t.size = t.size.to_f64().upscale(k).to_i32_round();
                 t
             });
+            let up = |c: glove_paint::draw::Canvas| {
+                let mut t = crate::shell::to_tex(c);
+                t.size = t.size.to_f64().upscale(k).to_i32_round();
+                t
+            };
+            self.hand_tex = glove_paint::chrome::cursor_hand(key as f32).map(up);
+            self.ibeam_tex = glove_paint::chrome::cursor_ibeam(key as f32).map(up);
             for (i, angle) in [0.0, 90.0, 45.0, -45.0].into_iter().enumerate() {
                 self.resize_cursors[i] = glove_paint::chrome::cursor_resize(angle, key as f32).map(|c| {
                     let mut t = crate::shell::to_tex(c);

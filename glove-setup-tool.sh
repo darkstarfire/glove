@@ -11,6 +11,8 @@ arch=$(uname -m)
 out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
+# The browser (Jangada, its own repository): the version the Glove OS ships.
+jangada_version=1.2.1
 mide_icons_repo="https://github.com/fabioaacarneiro/mide-icons"
 mide_icons_commit=11f848417aba8abbb2889439d374803a6c6f0cbf
 mide_icons_version=1.0
@@ -308,6 +310,20 @@ install_glove() {
     if [ -z "$sysroot" ]; then
         root sh -c "$post_install_sh"
     fi
+    # O navegador do Glove (Jangada): o pacote da versão fixada, instalado pelo apt.
+    if [ -z "$sysroot" ]; then
+        if has jangada; then
+            :
+        elif [ "$(distro)" = debian ]; then
+            echo
+            if ask "$(t "Instalar também a Jangada, o navegador do Glove (~110 MB)?" "Also install Jangada, Glove's browser (~110 MB)?")" y; then
+                package_jangada
+                root apt-get install -y "$out_dir/jangada_${jangada_version}_amd64.deb" || echo "$(t "Aviso: a Jangada não foi instalada." "Warning: Jangada was not installed.")" >&2
+            fi
+        else
+            echo "$(t "A Jangada (o navegador do Glove) por enquanto só tem pacote para Debian e Ubuntu: $jangada_repo" "Jangada (Glove's browser) only has a Debian/Ubuntu package for now: $jangada_repo")"
+        fi
+    fi
     echo
     echo "$(t "Glove $version instalado em $prefix. Saia da sessão e escolha \"Glove\" na tela de login." "Glove $version installed in $prefix. Log out and choose \"Glove\" on the login screen.")"
     echo "$(t "Tela de login do Glove: ./glove-setup-tool.sh login (ou sudo systemctl enable --force glove-login)." "Glove login screen: ./glove-setup-tool.sh login (or sudo systemctl enable --force glove-login).")"
@@ -390,7 +406,7 @@ uninstall_glove() {
 
 # Packages Glove needs to run and the ones that improve it (per distribution).
 deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core, greetd"
-rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2, glove-mide-icons, glove-web"
+rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2, glove-mide-icons, jangada"
 deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts dejavu-sans-mono-fonts greetd"
 rec_rpm="xorg-x11-server-Xwayland mpv ffmpeg poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils"
 deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu greetd"
@@ -429,68 +445,28 @@ EOF
     msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
-# The glove-web package: Glove's browser (the Chromium engine, CEF, drawn in a glove-ui
-# window). Built apart from the rest (crates/web, its own Cargo workspace): the build
-# downloads CEF (~200 MB). Installed in /usr/lib/glove-web (the engine next to the
-# program) with /usr/bin/glove-web pointing there. Its own version (crates/web).
-web_version() { sed -n 's/^version = "\(.*\)"/\1/p' crates/web/Cargo.toml | head -1; }
-
-package_web() {
-    has dpkg-deb || die "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
-    has cmake || die "$(t "falta o cmake (o motor do navegador precisa)" "cmake is missing (the browser engine needs it)")"
-    wv=$(web_version)
-    msg "$(t "Compilando o navegador (glove-web $wv; a primeira vez baixa o motor do Chromium)" "Building the browser (glove-web $wv; the first time downloads the Chromium engine)")"
-    (cd crates/web && cargo build --release) || die "$(t "a compilação do navegador falhou" "the browser build failed")"
-    d=crates/web/target/release
-    # O motor (libcef.so e os recursos) vem de onde o CEF foi extraído: a cópia que a
-    # compilação deixa ao lado do programa depende da versão do Cargo (build-dir).
-    cefd=$(find crates/web/target -name libcef.so -path '*cef_linux*' 2>/dev/null | head -1)
-    cefd=${cefd:+$(dirname "$cefd")}
-    [ -n "$cefd" ] || cefd=$d
-    [ -f "$cefd/libcef.so" ] || die "$(t "não achei o motor (libcef.so) depois da compilação" "the engine (libcef.so) was not found after the build")"
-    tmp=$(mktemp -d)
-    lib="$tmp/usr/lib/glove-web"
-    mkdir -p "$lib/locales" "$tmp/usr/bin" "$tmp/usr/share/doc/glove-web"
-    cp "$d/glove-web" "$lib/" || die "$(t "falta o programa glove-web" "the glove-web program is missing")"
-    for f in libcef.so chrome-sandbox icudtl.dat v8_context_snapshot.bin resources.pak chrome_100_percent.pak chrome_200_percent.pak libvk_swiftshader.so libvulkan.so.1 vk_swiftshader_icd.json; do
-        if [ -e "$cefd/$f" ]; then cp "$cefd/$f" "$lib/"; fi
-    done
-    [ -f "$lib/chrome-sandbox" ] || die "$(t "o motor veio incompleto (sem chrome-sandbox)" "the engine is incomplete (no chrome-sandbox)")"
-    # Só os idiomas do Glove (o motor traz uns 200).
-    cp "$cefd"/locales/pt-BR*.pak "$cefd"/locales/en-US*.pak "$lib/locales/" 2>/dev/null || true
-    strip --strip-unneeded "$lib/libcef.so" "$lib/libvk_swiftshader.so" 2>/dev/null || true
-    ln -s ../lib/glove-web/glove-web "$tmp/usr/bin/glove-web"
-    cp "$cefd/CREDITS.html" "$tmp/usr/share/doc/glove-web/" 2>/dev/null || true
-    printf 'glove-web %s: Chromium Embedded Framework (CEF) %s, BSD license (see CREDITS.html).\n' "$wv" "$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$cefd/archive.json" 2>/dev/null | head -1)" > "$tmp/usr/share/doc/glove-web/SOURCE"
-    find "$tmp" -type d -exec chmod 755 {} +
-    find "$tmp/usr/share" -type f -exec chmod 644 {} +
-    chmod 644 "$lib"/*.pak "$lib"/*.dat "$lib"/*.bin "$lib"/locales/* "$lib"/*.json 2>/dev/null || true
-    chmod 755 "$lib/glove-web" "$lib"/*.so* 2>/dev/null || true
-    # A caixa de areia do Chromium (para os sistemas sem o isolamento por namespace).
-    chmod 4755 "$lib/chrome-sandbox"
-    mkdir -p "$tmp/DEBIAN"
-    {
-        echo "Package: glove-web"
-        echo "Version: $wv"
-        echo "Architecture: amd64"
-        echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
-        echo "Installed-Size: $(size_kb "$tmp")"
-        echo "Depends: libnss3, libnspr4, libatk1.0-0t64 | libatk1.0-0, libatk-bridge2.0-0t64 | libatk-bridge2.0-0, libcups2t64 | libcups2, libxcomposite1, libxdamage1, libxrandr2, libxext6, libxfixes3, libx11-6, libxcb1, libxkbcommon0, libgbm1, libdrm2, libpango-1.0-0, libcairo2, libasound2t64 | libasound2, libdbus-1-3, libexpat1, libudev1, libglib2.0-0t64 | libglib2.0-0"
-        echo "Recommends: glove, wl-clipboard"
-        echo "Section: web"
-        echo "Priority: optional"
-        echo "Homepage: $url"
-        echo "Description: Glove's web browser (Chromium engine)"
-        echo " The browser of the Glove desktop: the Chromium engine (CEF) with Glove's own"
-        echo " window, tabs and address bar, in the classic or the modern look. Light for"
-        echo " modest computers: no GPU process, few page processes, nothing running in the"
-        echo " background. The Dock's browser icon opens it."
-    } > "$tmp/DEBIAN/control"
+# The browser: Jangada (its own repository, github.com/fabioaacarneiro/jangada). The
+# package of the pinned version comes ready from its release; without it (offline, or the
+# release not out yet), it is built from the source of that version (downloads the
+# Chromium engine, ~200 MB, and needs cmake). glove-os depends on it.
+jangada_repo="https://github.com/fabioaacarneiro/jangada"
+package_jangada() {
+    f="$out_dir/jangada_${jangada_version}_amd64.deb"
     mkdir -p "$out_dir"
-    f="$out_dir/glove-web_${wv}_amd64.deb"
-    dpkg-deb --root-owner-group -Zxz --build "$tmp" "$f" >/dev/null
-    rm -rf "$tmp"
-    msg "$(t "Pacote do navegador: $f" "Browser package: $f")"
+    [ -f "$f" ] && { msg "$(t "Jangada: $f (já estava)" "Jangada: $f (already there)")"; return; }
+    if curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jangada_version/jangada_${jangada_version}_amd64.deb" -o "$f.parte" && dpkg-deb -I "$f.parte" >/dev/null 2>&1; then
+        mv "$f.parte" "$f"
+        msg "$(t "Jangada $jangada_version: o pacote da release" "Jangada $jangada_version: the release package")"
+        return
+    fi
+    rm -f "$f.parte"
+    has git || die "$(t "falta o git" "git is missing")"
+    msg "$(t "Jangada $jangada_version: sem o pacote pronto; compilando do código" "Jangada $jangada_version: no ready package; building from source")"
+    src=$(mktemp -d)
+    git clone -q --depth 1 --recursive --branch "v$jangada_version" "$jangada_repo" "$src/jangada" || die "$(t "não deu para baixar a Jangada" "could not download Jangada")"
+    (cd "$src/jangada" && ./empacotar.sh) || die "$(t "o empacotamento da Jangada falhou" "the Jangada packaging failed")"
+    cp "$src/jangada/pacotes/jangada_${jangada_version}_amd64.deb" "$f"
+    rm -rf "$src"
 }
 
 # The glove-mide-icons package: the mide-icons theme (light and modern, SVG) as an
@@ -618,9 +594,9 @@ FIM
         echo "Architecture: all"
         echo "Maintainer: Fabio Carneiro <$(maintainer_email)>"
         echo "Installed-Size: $(size_kb "$tmp")"
-        # glove-mide-icons and glove-web (the browser) are Depends (not Recommends) so
+        # glove-mide-icons and jangada (the browser) are Depends (not Recommends) so
         # that updates install them.
-        echo "Depends: glove (>= $version), base-files, glove-mide-icons, glove-web"
+        echo "Depends: glove (>= $version), base-files, glove-mide-icons, jangada"
         echo "Recommends: plymouth, plymouth-label"
         # The gel wallpapers (glove-papeis, 0.12.58 and 0.12.59) were withdrawn: this
         # removes them on the next update.
@@ -1073,12 +1049,11 @@ build_iso() {
         printf '#!/bin/sh\n# The Glove repository was offline when this ISO was built.\nrm -f /etc/apt/sources.list.d/glove-os.sources\n' > config/hooks/normal/0050-sem-repositorio.hook.chroot
         chmod +x config/hooks/normal/0050-sem-repositorio.hook.chroot
     fi
-    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb config/packages.chroot/glove-mide-icons_*.deb config/packages.chroot/glove-web_*.deb
+    rm -f config/packages.chroot/glove_*.deb config/packages.chroot/glove-os_*.deb config/packages.chroot/glove-mide-icons_*.deb config/packages.chroot/jangada_*.deb config/packages.chroot/glove-web_*.deb
     cp "$out_dir/glove_${version}_amd64.deb" "$out_dir/glove-os_${version}_all.deb" "$out_dir/glove-mide-icons_${mide_icons_version}_all.deb" config/packages.chroot/
-    # The browser (glove-os depends on it): the package of its version, built if missing.
-    wv=$(cd "$root_dir" && web_version)
-    [ -f "$out_dir/glove-web_${wv}_amd64.deb" ] || (cd "$root_dir" && package_web)
-    cp "$out_dir/glove-web_${wv}_amd64.deb" config/packages.chroot/
+    # The browser (glove-os depends on it): the Jangada package of the pinned version.
+    (cd "$root_dir" && package_jangada)
+    cp "$out_dir/jangada_${jangada_version}_amd64.deb" config/packages.chroot/
     # Boot menu (BIOS and UEFI): the Glove OS wallpaper as the background image, and
     # the menu placed below the glove (live-build copies config/bootloaders over its own).
     mkdir -p config/includes.binary config/bootloaders
@@ -1128,7 +1103,7 @@ Ferramenta de instalação do Glove (qualquer Linux)
   ./glove-setup-tool.sh instalar [PREFIXO]   compila e instala (padrão: /usr/local)
   ./glove-setup-tool.sh desinstalar          o inverso de instalar
   ./glove-setup-tool.sh deb|slackware|rpm|arch|todos   gera os pacotes em pacotes/
-  ./glove-setup-tool.sh web                  gera o pacote do navegador (glove-web, motor do Chromium)
+  ./glove-setup-tool.sh jangada              baixa (ou compila) o pacote do navegador, a Jangada
   ./glove-setup-tool.sh dependencias         instala o que falta para compilar
   ./glove-setup-tool.sh login [remover]      torna a tela de login do Glove a principal
                                              (= sudo systemctl enable --force glove-login)
@@ -1206,7 +1181,7 @@ case "${1:-}" in
     deb) package_deb ;;
     glove-os) package_glove_os ;;
     mide-icons) package_mide_icons ;;
-    web|navegador) package_web ;;
+    jangada|web|navegador) package_jangada ;;
     slackware|slack|tgz) package_slackware ;;
     rpm|fedora) package_rpm ;;
     arch|pacman) package_arch ;;

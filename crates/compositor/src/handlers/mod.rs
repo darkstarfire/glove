@@ -35,6 +35,11 @@ impl SeatHandler for Glove {
     }
 
     fn cursor_image(&mut self, _seat: &Seat<Self>, image: smithay::input::pointer::CursorImageStatus) {
+        if std::env::var_os("GLOVE_DEBUG_CURSOR").is_some() {
+            if let smithay::input::pointer::CursorImageStatus::Named(i) = &image {
+                tracing::info!("cursor pedido: {i:?}");
+            }
+        }
         self.cursor_status = image;
         if !self.nested {
             self.dirty = true;
@@ -166,6 +171,10 @@ impl FractionalScaleHandler for Glove {
     }
 }
 delegate_fractional_scale!(Glove);
+
+// Formato do cursor pedido pelo app (mãozinha nos links, barra nos textos).
+impl smithay::wayland::tablet_manager::TabletSeatHandler for Glove {}
+smithay::delegate_cursor_shape!(Glove);
 delegate_viewporter!(Glove);
 
 impl Glove {

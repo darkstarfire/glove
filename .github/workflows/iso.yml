@@ -62,7 +62,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy1.outputs.page_url || steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -119,9 +119,25 @@ jobs:
         with:
           path: site
 
-      - name: Publicar no GitHub Pages
-        id: deploy
+      # O GitHub às vezes demora a enxergar o artefato recém-enviado ("No artifacts named
+      # github-pages"): espera um pouco e, se falhar, tenta de novo.
+      - name: Esperar o artefato ficar visível
         if: steps.chave.outputs.ok == 'true'
+        run: sleep 30
+
+      - name: Publicar no GitHub Pages
+        id: deploy1
+        if: steps.chave.outputs.ok == 'true'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Esperar antes de tentar de novo
+        if: steps.chave.outputs.ok == 'true' && steps.deploy1.outcome == 'failure'
+        run: sleep 90
+
+      - name: Publicar no GitHub Pages (de novo)
+        id: deploy
+        if: steps.chave.outputs.ok == 'true' && steps.deploy1.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
   # 3. A ISO, com os pacotes do passo 1 (sem compilar de novo).

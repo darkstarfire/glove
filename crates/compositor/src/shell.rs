@@ -108,10 +108,19 @@ pub fn window_info(w: &Window) -> (String, String) {
     (title, canonical_app_id(id))
 }
 
-/// Os navegadores que o glove-navegador abre contam como o "Navegador" do Dock.
+/// A Jangada (o navegador do Glove) está instalada.
+pub fn jangada_instalada() -> bool {
+    static J: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *J.get_or_init(|| {
+        std::env::var_os("PATH").is_some_and(|p| std::env::split_paths(&p).any(|d| d.join("jangada").is_file() || d.join("glove-web").is_file()))
+    })
+}
+
+/// Sem a Jangada, os navegadores que o glove-navegador abre no lugar dela contam como
+/// o "Navegador" do Dock. Com ela, o Firefox (se alguém instalar) é um app como outro.
 pub fn canonical_app_id(id: String) -> String {
     match id.to_ascii_lowercase().as_str() {
-        "firefox" | "firefox_firefox" | "org.mozilla.firefox" | "netsurf" | "netsurf-gtk" | "netsurf-gtk3" => "glove.Navegador".into(),
+        "firefox" | "firefox_firefox" | "org.mozilla.firefox" | "netsurf" | "netsurf-gtk" | "netsurf-gtk3" if !jangada_instalada() => "glove.Navegador".into(),
         _ => id,
     }
 }
@@ -205,7 +214,7 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
         "glove.Chess" => return tr!("Xadrez").into(),
         "glove.Arquivo" => return tr!("Utilitário de Arquivo").into(),
         "glove.Senha" => return tr!("Autenticação").into(),
-        "glove.Navegador" => return tr!("Navegador").into(),
+        "glove.Navegador" => return if jangada_instalada() { "Jangada".into() } else { tr!("Navegador").into() },
         "glove.Musica" => return tr!("Música").into(),
         "glove.Contatos" => return tr!("Contatos").into(),
         "glove.Agenda" => return tr!("Agenda").into(),

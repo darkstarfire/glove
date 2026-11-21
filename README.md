@@ -96,7 +96,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 | Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font; arrastar um arquivo escreve o caminho |
 | Editor de Texto | Documentos em RTF (abre no Word e no LibreOffice): fontes, parágrafos e régua, estilos, listas, tabelas, imagens, páginas com cabeçalho, rodapé e notas, modelo ABNT, exportar PDF; também texto simples; Localizar/Substituir |
 | Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar; desenhar sobre as capturas de tela |
-| Navegador | O navegador do Glove (`glove-web`): o motor do Chromium numa janela do Glove, com abas, barra de endereço com busca, menu de contexto solto, downloads; leve (sem o processo da placa de vídeo). Sem ele, abre o Firefox (ou o NetSurf com pouca RAM) |
+| Jangada | O navegador do Glove OS ([repositório próprio](https://github.com/fabioaacarneiro/jangada)): o motor do Chromium numa janela do Glove, barra de endereço como a do Safari, abas com o ícone dos sites, página inicial e de erro próprias, menu de contexto solto, downloads; leve (sem o processo da placa de vídeo) |
 | Correio | IMAP e SMTP com TLS, caixas, escrever, responder e encaminhar |
 | Agenda e Contatos | Mês em grade com eventos (.ics) e fichas (vCard) |
 | Música | Biblioteca (a pasta Música e as que você juntar), Artistas e Álbuns, listas (M3U), aleatório e repetir; tocador leve em Rust puro |
@@ -187,6 +187,11 @@ própria distribuição:
 | Arch | `glove-VERSÃO-1-x86_64.pkg.tar.zst` | `sudo pacman -U glove-VERSÃO-1-x86_64.pkg.tar.zst` |
 | Slackware 15.0 ou -current | `glove-VERSÃO-x86_64-1.tgz` | `upgradepkg --install-new glove-VERSÃO-x86_64-1.tgz` |
 
+O navegador do Glove, a [Jangada](https://github.com/fabioaacarneiro/jangada), tem pacote próprio para
+Debian e Ubuntu (`jangada_VERSÃO_amd64.deb`, na release dela). O pacote `glove` a recomenda (o apt a
+instala junto pelo repositório do Glove); instalando pelo código, o `./glove-setup-tool.sh instalar`
+pergunta se instala a Jangada também. O Glove OS já vem com ela.
+
 No Slackware, o Glove precisa do `seatd` e do `greetd`, do SlackBuilds.org.
 
 **Atualizações.** Dentro do Glove, Preferências ▸ Atualização de Software avisa da versão nova e a
@@ -246,7 +251,7 @@ compatível) com o Glove como área de trabalho e identidade própria: o nome "G
 o neofetch com a luva, o console e o menu do GRUB. Essa identidade vem no pacote `glove-os`, que só
 vai na ISO; o pacote `glove` instalado em outra distro não muda o nome dela.
 
-A ISO serve para pendrive ou DVD, com o Glove, o navegador do Glove e o instalador. É um sistema "sleeper":
+A ISO serve para pendrive ou DVD, com o Glove, a Jangada (o navegador) e o instalador. É um sistema "sleeper":
 traz pronto o que o uso diário pede (as ferramentas do Glove, navegador, firmwares de vídeo, Wi-Fi,
 Bluetooth e som de desktops e notebooks) e deixa de fora o que é de servidor (firmwares de placas de
 datacenter, Apache…), que quem precisar instala depois pela Central de Apps ou pelo apt. Ao ligar pelo pendrive, ele
@@ -431,7 +436,6 @@ crates/senha       senha do sistema: o agente do polkit (`glove-senha`)
 crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
 crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
 crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)
-crates/web         o navegador em si (`glove-web`, motor do Chromium; compilado à parte: `./glove-setup-tool.sh web`)
 crates/correio     Correio (`glove-correio`)         crates/agenda     Agenda (`glove-agenda`)
 crates/contatos    Contatos (`glove-contatos`)       crates/musica     Música (`glove-musica`)
 crates/video       Vídeo (`glove-video`)             crates/notes      Lembretes (`glove-notes`)

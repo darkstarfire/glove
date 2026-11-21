@@ -91,27 +91,42 @@ To try it: `notify-send "Hello" "A test notification"` in Terminal.
 - The same shortcut, or Window ▸ Exit Full Screen, returns to the previous size.
 - Apps that ask for full screen themselves (Firefox's F11, videos) work too.
 
-## Browser
+## Jangada (the browser)
 
-The Browser icon in the Dock opens **Glove's browser** (`glove-web`, package `glove-web`): the
-Chromium engine (the same as Chrome's, with today's web features) in a Glove window, with tabs,
-the address bar and buttons in the classic or the Modern look.
+The **Jangada** icon in the Dock opens the Glove OS browser (package `jangada`, its own repository:
+github.com/fabioaacarneiro/jangada): the Chromium engine (today's web features) in a Glove window,
+with tabs, the address bar and Jangada's own pages, in the classic or the Modern look.
 
-- **Address bar:** type an address (`wikipedia.org`) or a search (goes to DuckDuckGo). Ctrl+L
-  goes to it; Esc brings back the page's address.
-- **Tabs:** Ctrl+T opens, Ctrl+W closes, Ctrl+Tab goes to the next; links that open a new window
-  become tabs. The tab strip shows when there is more than one.
-- **Shortcuts:** Ctrl+R or F5 reloads, Alt+← and Alt+→ go back and forward, Ctrl+= / Ctrl+- /
-  Ctrl+0 change the text size.
-- **Right click:** Glove's menu (floating, above everything) with open link in new tab, copy
-  link, copy, paste, search the selected text, back and reload.
+- **Address bar**, like Safari's: out of focus it shows only the site, with the padlock; click it
+  (or Ctrl+L) and type an address or a search (DuckDuckGo). Esc goes back. Reload and stop are
+  inside it; beside it, back, forward, home (the little house) and new tab (+).
+- **Start page** of its own: the logo, the search and site shortcuts. When a site does not open,
+  the **error page** is Jangada's, with Try Again.
+- **Tabs** like Safari's: all the same width, the current one highlighted, the site icon and the
+  title in the middle, the × on hover. Ctrl+T opens, Ctrl+W closes, Ctrl+Tab goes to the next;
+  links that open a new window become tabs.
+- **Favorites:** the star in the address field (or Ctrl+D); the favorites bar (Ctrl+Shift+B), the
+  Favorites menu and the start page show them. The **History** menu has the latest sites.
+- **Find on page** (Ctrl+F) and **Save as PDF** (Ctrl+P, to the Downloads folder).
+- **Preferences** (Ctrl+,): home page, reopen last time's tabs, page size, the search engine
+  (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), block windows pages open by
+  themselves, Do Not Track, clear history and cookies, and Jangada's extensions: the **ad and
+  tracker blocker** (on) and **dark mode on pages**. (Chrome Web Store extensions do not work yet
+  in the windowless engine.)
+- **Shortcuts:** Ctrl+R or F5 reloads, Alt+← and Alt+→ go back and forward, Alt+Home goes home,
+  Ctrl+= / Ctrl+- / Ctrl+0 change the text size.
+- **Right click:** Glove's menu (floating, above everything) with open link in new tab, copy link,
+  copy, paste, search the selected text, back and reload.
+- **Cursor:** the hand over links and the text bar over fields (for all of Glove).
 - **Downloads** go straight to the Downloads folder; a notice at the bottom says when they finish.
 - **Page notices** (alert and confirm) show as Glove alerts, in their own window.
-- **Light:** no GPU process (the page is drawn by the processor), few page processes and nothing
-  running in the background. To use the graphics card: `GLOVE_WEB_GPU=1 glove-web`.
-- Opening it again (from the Dock or `glove-web address`) opens a tab in the window already open.
-- Without the package, the icon opens Firefox (or NetSurf, with little memory), as before. The
-  choice in Preferences (`navegador = "..."`) comes first.
+- **About Jangada**, in the menu with its name, shows the version and the engine.
+- **Light:** no GPU process, few page processes and nothing running in the background. To use the
+  graphics card: `JANGADA_GPU=1 jangada`.
+- Opening it again (from the Dock or `jangada address`) opens a tab in the window already open. On
+  Glove OS it is the system's default browser.
+- Without the package, the icon opens Firefox or another installed browser. The choice in
+  Preferences (`navegador = "..."`) comes first.
 
 ## Tabs (Files, Text Editor and Terminal)
 
