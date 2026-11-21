@@ -7,9 +7,11 @@
 //! ```text
 //! app → glove:  HELLO <pid> | BEGIN | MENU <título> | ITEM <id> <rótulo> <atalho> <flags> | SEP
 //!               | SUB <rótulo> <flags> … ENDSUB (submenu) | END
+//!               | CTX <x> <y> … itens … CTXEND (menu de contexto solto no ponto x, y da
+//!                 janela do app, desenhado pelo Glove por cima de tudo)
 //! glove → app:  ACT <id>
 //! ```
-//! flags: `d` = desativado, `c` = marcado.
+//! flags: `d` = desativado, `c` = marcado. ITEM pode ter um 6º campo, RRGGBB: a bolinha de cor.
 
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -27,6 +29,8 @@ pub struct Entry {
     pub enabled: bool,
     pub checked: bool,
     pub separator: bool,
+    /// Bolinha de cor antes do nome (RRGGBB no protocolo).
+    pub swatch: Option<(u8, u8, u8)>,
     /// Itens do submenu (vazio = item comum).
     pub sub: Vec<Entry>,
     pub is_sub: bool,
@@ -62,6 +66,9 @@ pub struct MenuClient {
     pub edited: bool,
     /// Arquivo aberto (ícone no título).
     pub doc: Option<PathBuf>,
+    /// Menu de contexto sendo recebido e o pronto para abrir: (x, y na janela, itens).
+    ctx_pending: Option<(f64, f64, Vec<Entry>)>,
+    pub ctx: Option<(f64, f64, Vec<Entry>)>,
 }
 
 impl MenuClient {
@@ -73,7 +80,10 @@ impl MenuClient {
     fn target(&mut self) -> Option<&mut Vec<Entry>> {
         match self.open_subs.last_mut() {
             Some(e) => Some(&mut e.sub),
-            None => self.pending.last_mut().map(|m| &mut m.items),
+            None => match &mut self.ctx_pending {
+                Some((_, _, items)) => Some(items),
+                None => self.pending.last_mut().map(|m| &mut m.items),
+            },
         }
     }
 
@@ -97,6 +107,10 @@ impl MenuClient {
                     shortcut: f.get(3).unwrap_or(&"").to_string(),
                     enabled: !flags.contains('d'),
                     checked: flags.contains('c'),
+                    swatch: f.get(5).and_then(|c| {
+                        let v = u32::from_str_radix(c, 16).ok().filter(|_| c.len() == 6)?;
+                        Some(((v >> 16) as u8, (v >> 8) as u8, v as u8))
+                    }),
                     ..Default::default()
                 };
                 if let Some(t) = self.target() {
@@ -133,6 +147,15 @@ impl MenuClient {
                 ))
             }
             "PROTETOR" => self.saver = f.get(1).map(|k| k.to_string()),
+            "CTX" => {
+                self.open_subs.clear();
+                let n = |i: usize| f.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+                self.ctx_pending = Some((n(1), n(2), Vec::new()));
+            }
+            "CTXEND" => {
+                self.open_subs.clear();
+                self.ctx = self.ctx_pending.take();
+            }
             "EDITADO" => self.edited = f.get(1) == Some(&"1"),
             "DOC" => self.doc = f.get(1).filter(|p| !p.is_empty()).map(PathBuf::from),
             "END" => {
@@ -165,7 +188,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, ctx_pending: None, ctx: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -191,6 +214,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                     let mut end = None;
                     let mut saver = None;
                     let mut copy = None;
+                    let mut ctx = None;
                     if let Some(c) = st.menu_clients.iter_mut().find(|c| c.key == key) {
                         c.buf.extend_from_slice(&bytes);
                         let mut changed = false;
@@ -205,6 +229,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                             st.dirty = true;
                         }
                         copy = c.copy.take();
+                        ctx = c.ctx.take().map(|m| (c.pid, m));
                         if let Some((modo, sistema, microfone)) = c.gravar.take() {
                             // Espera a janela do painel sumir (ela não pode entrar no vídeo) e começa.
                             let _ = h2.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_millis(400)), move |_, _, data| {
@@ -234,6 +259,9 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                     if let Some(p) = copy.filter(|p: &PathBuf| p.is_file()) {
                         st.copy_file_to_clipboard(&p);
                     }
+                    if let Some((pid, (x, y, items))) = ctx {
+                        st.show_client_context_menu(pid, x, y, items);
+                    }
                     if closed {
                         st.menu_clients.retain(|c| c.key != key);
                         st.dirty = true;
@@ -255,7 +283,7 @@ mod tests {
     #[test]
     fn le_submenus() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, ctx_pending: None, ctx: None };
         let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
         let done = text.lines().fold(false, |d, l| c.line(l) || d);
         assert!(done);
@@ -265,5 +293,19 @@ mod tests {
         assert_eq!(items[1].sub[0].id, "r1");
         assert!(items[1].sub[1].is_sub && !items[1].sub[1].enabled);
         assert!(items[2].separator);
+    }
+
+    #[test]
+    fn le_menu_de_contexto() {
+        let (a, _b) = UnixStream::pair().unwrap();
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, ctx_pending: None, ctx: None };
+        for l in "CTX\t12.5\t40\nITEM\topen\tAbrir\t\t\nSUB\tRótulo\t\nITEM\tlabel:0\tNenhum\t\tc\nENDSUB\nCTXEND".lines() {
+            c.line(l);
+        }
+        let (x, y, items) = c.ctx.take().unwrap();
+        assert_eq!((x, y, items.len()), (12.5, 40.0, 2));
+        assert!(items[1].is_sub && items[1].sub[0].checked);
+        // Os menus da barra não mudam.
+        assert!(c.menus.is_empty());
     }
 }

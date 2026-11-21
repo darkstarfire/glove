@@ -1267,7 +1267,11 @@ impl App for Viewer {
         }
         // Botão direito na imagem: menu com copiar, Lixeira, girar…
         if self.ctx.is_none() && self.open_fb.is_none() && self.doc.is_some() && ui.right_clicked(area) {
-            self.ctx = Some(ui.pointer());
+            // No Glove, o menu é solto (por cima de tudo); a escolha volta como ação de menu.
+            let items: Vec<MenuItem> = CTX.iter().map(|(id, label)| if id.is_empty() { MenuItem::Separator } else { MenuItem::new(id, tr(label), "") }).collect();
+            if !ui.context_menu(ui.pointer(), &items) {
+                self.ctx = Some(ui.pointer());
+            }
         }
         if let Some(pos) = self.ctx {
             let r = ctx_rect(w, h, pos);

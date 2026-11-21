@@ -1449,8 +1449,53 @@ impl Files {
         }
     }
 
+    /// O menu de contexto como menu do Glove (com os submenus), para abrir solto.
+    fn ctx_menu_tree(&mut self, item: &Option<PathBuf>) -> Vec<MenuItem> {
+        let items = self.ctx_items(item);
+        let mut out = Vec::new();
+        for (id, label, on) in items {
+            if id.is_empty() {
+                out.push(MenuItem::Separator);
+            } else if id.starts_with("sub:") {
+                let sub = self
+                    .sub_items(id)
+                    .into_iter()
+                    .map(|(sid, sl, son)| {
+                        if sid.is_empty() {
+                            return MenuItem::Separator;
+                        }
+                        let (checked, sl) = match sl.strip_prefix("✓ ") {
+                            Some(rest) => (true, rest.to_string()),
+                            None => (false, sl),
+                        };
+                        let it = MenuItem::new(&sid, &sl, "").enabled(son).checked(checked);
+                        // Rótulos: a bolinha da cor antes do nome.
+                        match sid.strip_prefix("label:").and_then(|n| n.parse::<usize>().ok()).filter(|n| *n >= 1) {
+                            Some(n) => it.swatch(glove_config::arquivos::LABEL_COLORS[(n - 1).min(6)]),
+                            None => it,
+                        }
+                    })
+                    .collect();
+                out.push(MenuItem::submenu(&label, sub).enabled(on));
+            } else {
+                out.push(MenuItem::new(id, &label, "").enabled(on));
+            }
+        }
+        out
+    }
+
     fn context_menu(&mut self, ui: &mut Ui) {
         let Some(((x, y), item)) = self.ctx.clone() else { return };
+        // No Glove o menu é solto (por cima de tudo, fora da janela): o Glove o desenha e
+        // devolve a escolha como ação de menu.
+        if glove_ui::ui::native_menus() {
+            let tree = self.ctx_menu_tree(&item);
+            if ui.context_menu((x, y), &tree) {
+                self.ctx = None;
+                self.ctx_sub = None;
+                return;
+            }
+        }
         let items = self.ctx_items(&item);
         let mr = Self::menu_rect(ui, x, y, &items);
         // Passar o mouse num item com submenu abre o submenu; noutro item, fecha.

@@ -1371,8 +1371,11 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 - [x] 22.6 (v0.12.85) Moderno: os quatro cantos arredondados em todas as janelas (no compositor, com um
   programa de textura que recorta os cantos de baixo de cada superfície: vale para qualquer app).
 - [ ] 22.7 Navegador próprio do Glove (base Chromium), leve para máquinas fracas.
-- [ ] 22.8 Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
-  item, alinhado com a primeira opção; só sobe se faltar espaço no monitor.
+- [x] 22.8 (v0.12.88) Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
+  item, alinhado com a primeira opção; só sobe se faltar espaço no monitor. O app pede o menu ao
+  Glove (`Ui::context_menu`, protocolo `CTX … CTXEND` no socket dos menus) e o compositor o desenha
+  como os da barra; a escolha volta como ação de menu. Arquivos (com as bolinhas dos rótulos) e
+  Visualizador já usam; fora do Glove, o menu antigo dentro da janela continua.
 - [x] 22.9 (v0.12.86) Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
   depois sugada para o ícone); restaurar é o inverso.
 - [x] 22.10 (v0.12.84) Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.

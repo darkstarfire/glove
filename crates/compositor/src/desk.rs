@@ -1221,6 +1221,19 @@ impl Glove {
         self.show_context_menu(nodes, (pos.x - 20.0, pos.y + 10.0).into());
     }
 
+    /// Menu de contexto pedido por um app (CTX): no ponto (x, y) da janela dele, solto e
+    /// por cima de tudo; o item escolhido volta para o app (ACT).
+    pub fn show_client_context_menu(&mut self, pid: u32, x: f64, y: f64, items: Vec<crate::menus::Entry>) {
+        let focused = self.focused_window().filter(|w| self.window_pid(w) == Some(pid));
+        let w = focused.or_else(|| self.space.elements().rev().find(|w| self.window_pid(w) == Some(pid)).cloned());
+        let Some(loc) = w.and_then(|w| self.space.element_location(&w)) else { return };
+        let nodes = crate::shell::client_nodes(pid, items);
+        if nodes.is_empty() {
+            return;
+        }
+        self.show_context_menu(nodes, (loc.x as f64 + x, loc.y as f64 + y).into());
+    }
+
     /// Menu de contexto no ponto (clamped à tela).
     pub fn show_context_menu(&mut self, nodes: Vec<MenuNode>, pos: Point<f64, Logical>) {
         self.close_menu();

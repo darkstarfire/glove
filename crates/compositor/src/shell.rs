@@ -2339,6 +2339,9 @@ pub(crate) fn client_nodes(pid: u32, entries: Vec<crate::menus::Entry>) -> Vec<M
                 return n;
             }
             let mut it = MenuItem::check(e.label, e.checked).with_shortcut(e.shortcut);
+            if let Some((r, g, b)) = e.swatch {
+                it.swatch = Some(glove_paint::draw::rgba(r, g, b, 255));
+            }
             if !e.enabled {
                 it = it.disabled();
             }
