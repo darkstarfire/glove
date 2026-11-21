@@ -1367,7 +1367,10 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   arredondados), centrada sobre a dona perto do alto; a dona fica parada até a resposta. Vale para
   todo app sem mudar nada nele (GLOVE_ALERT_SHEET=1 volta à folha). As senhas já eram janela
   própria (glove-senha, v0.12.78). Botão azul do Moderno com texto branco.
-  - [ ] 22.3.1 Revisão das cores do Moderno Escuro app por app (continua a 21.2.1).
+  - [x] 22.3.1 (v0.12.91) Revisão das cores do Moderno Escuro em 13 apps: sem metal escovado
+    no Moderno (`brushed_metal` vira faixa lisa, que escurece; a barra do Música), visor da
+    Calculadora neutro (escuro no Escuro), a sigla do teclado na barra legível no Escuro. As
+    abas segmentadas já estavam certas.
 - [x] 22.4 (v0.12.83) Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
   salva ali por padrão.
 - [x] 22.5 (v0.12.87) Busca Rápida no Moderno: no centro da tela, no visual moderno (campo grande,

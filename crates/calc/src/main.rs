@@ -308,7 +308,9 @@ impl App for Calc {
         // Visor de cristal líquido verde-amarelado, afundado no metal.
         let (dx, dy, dw, dh) = (PAD, PAD, w - 2.0 * PAD, DISPLAY_H);
         ui.c.fill(rrect(dx - 1.0, dy - 1.0, dw + 2.0, dh + 2.0, 3.0), &vgrad(dy, dy + dh, &[(0.0, rgba(110, 112, 104, 255)), (1.0, rgba(235, 235, 230, 255))]));
-        ui.c.fill(rrect(dx, dy, dw, dh, 2.0), &solid(rgba(236, 242, 200, 255)));
+        // No Moderno o visor é neutro (no Escuro ele escurece e os números clareiam).
+        let lcd = if ui.theme.modern { rgba(246, 246, 248, 255) } else { rgba(236, 242, 200, 255) };
+        ui.c.fill(rrect(dx, dy, dw, dh, 2.0), &solid(lcd));
         ui.c.fill(rrect(dx, dy, dw, 4.0, 2.0), &vgrad(dy, dy + 4.0, &[(0.0, rgba(0, 0, 0, 45)), (1.0, rgba(0, 0, 0, 0))]));
         // Por dentro sempre vírgula; no visor, o separador do idioma.
         let shown = if self.error { tr!("Erro").to_string() } else { self.display.replace(',', glove_config::virgula()) };
