@@ -18,4 +18,18 @@ git config --global --add safe.directory '*'
 ./glove-setup-tool.sh deb
 ./glove-setup-tool.sh glove-os
 ./glove-setup-tool.sh mide-icons
+# O navegador (glove-web): compilado só quando a versão dele muda (a compilação baixa o
+# motor do Chromium, ~200 MB); senão vem o pacote que já está no repositório.
+wv=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/web/Cargo.toml | head -1)
+web="pacotes/glove-web_${wv}_amd64.deb"
+if curl -fsSL --max-time 600 "${GLOVE_REPO:-https://fabioaacarneiro.github.io/glove}/pool/main/glove-web_${wv}_amd64.deb" -o "$web" && dpkg-deb -I "$web" >/dev/null 2>&1; then
+    echo "glove-web $wv: o pacote que já está no repositório"
+else
+    rm -f "$web"
+    apt-get install -y --no-install-recommends cmake ninja-build binutils xz-utils \
+        libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxcomposite1 libxdamage1 \
+        libxrandr2 libxext6 libxfixes3 libx11-6 libxcb1 libgbm1 libdrm2 libpango-1.0-0 libcairo2 \
+        libasound2t64 libdbus-1-3 libexpat1 libudev1 libglib2.0-0t64
+    ./glove-setup-tool.sh web
+fi
 ls -l pacotes/

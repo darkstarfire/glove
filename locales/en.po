@@ -6331,3 +6331,37 @@ msgstr "Warning: there is an old copy of Glove installed from source in /usr/loc
 
 msgid "Clicar numa área livre da mesa mostra a mesa (afasta as janelas, como o F11)"
 msgstr "Clicking an empty area of the desktop shows the desktop (moves the windows aside, like F11)"
+
+# Navegador (glove-web)
+msgid "A página {} diz:"
+msgstr "The page {} says:"
+
+msgid "Abrir Imagem em Nova Aba"
+msgstr "Open Image in New Tab"
+
+msgid "Abrir Link em Nova Aba"
+msgstr "Open Link in New Tab"
+
+msgid "Baixado em Downloads: {}"
+msgstr "Downloaded to Downloads: {}"
+
+msgid "Baixando {}…"
+msgstr "Downloading {}…"
+
+msgid "Buscar “{}”"
+msgstr "Search for “{}”"
+
+msgid "Copiar Link"
+msgstr "Copy Link"
+
+msgid "Fechar Aba"
+msgstr "Close Tab"
+
+msgid "Histórico"
+msgstr "History"
+
+msgid "Nova Aba"
+msgstr "New Tab"
+
+msgid "Recarregar a Página"
+msgstr "Reload Page"

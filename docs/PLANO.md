@@ -1374,7 +1374,16 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   cantos arredondados, sombra macia, seleção em pílula; o Escuro pelo PanelStyle).
 - [x] 22.6 (v0.12.85) Moderno: os quatro cantos arredondados em todas as janelas (no compositor, com um
   programa de textura que recorta os cantos de baixo de cada superfície: vale para qualquer app).
-- [ ] 22.7 Navegador próprio do Glove (base Chromium), leve para máquinas fracas.
+- [x] 22.7 (v0.12.90, glove-web 1.0.0) Navegador próprio do Glove (base Chromium), leve para
+  máquinas fracas: `crates/web` (workspace à parte), o CEF 156 sem janela (a página desenhada numa
+  janela do glove-ui), abas, barra de endereço com busca, menu de contexto solto do Glove,
+  downloads, alert/confirm como alertas do Glove, uma instância só (socket). Sem o processo da GPU,
+  até 4 processos de página, sem cache de voltar e sem rede de fundo. Pacote `glove-web` (o motor
+  em /usr/lib/glove-web), dependência do glove-os e na ISO; a CI só recompila quando a versão dele
+  muda. O ícone do Navegador (glove-navegador) abre ele primeiro.
+  - [ ] 22.7.1 Próximos: cursores (mão nos links), rolagem lateral e botão do meio, senhas e
+    autopreenchimento, favoritos e histórico, buscar na página (Ctrl+F), imprimir, entrada de
+    idiomas (IME), área de transferência com imagens.
 - [x] 22.8 (v0.12.88) Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
   item, alinhado com a primeira opção; só sobe se faltar espaço no monitor. O app pede o menu ao
   Glove (`Ui::context_menu`, protocolo `CTX … CTXEND` no socket dos menus) e o compositor o desenha

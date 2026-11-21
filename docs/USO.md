@@ -91,6 +91,29 @@ Para testar: `notify-send "Olá" "Um aviso de teste"` no Terminal.
 - O mesmo atalho, ou Janela ▸ Sair da Tela Cheia, volta ao tamanho de antes.
 - Os apps que pedem tela cheia sozinhos (F11 do Firefox, vídeos) também funcionam.
 
+## Navegador
+
+O ícone do Navegador no Dock abre o **navegador do Glove** (`glove-web`, pacote `glove-web`): o
+motor do Chromium (o mesmo do Chrome, com os recursos da web de hoje) numa janela do Glove, com as
+abas, a barra de endereço e os botões no visual clássico ou no Moderno.
+
+- **Barra de endereço:** digite um endereço (`wikipedia.org`) ou uma busca (vai para o
+  DuckDuckGo). Ctrl+L vai para ela; Esc volta ao endereço da página.
+- **Abas:** Ctrl+T abre, Ctrl+W fecha, Ctrl+Tab passa para a próxima; links que abrem janela
+  nova viram abas. A faixa de abas aparece quando há mais de uma.
+- **Atalhos:** Ctrl+R ou F5 recarrega, Alt+← e Alt+→ voltam e avançam, Ctrl+= / Ctrl+- / Ctrl+0
+  mudam o tamanho do texto.
+- **Botão direito:** o menu do Glove (solto, por cima de tudo) com abrir o link em nova aba,
+  copiar o link, copiar, colar, buscar o texto escolhido, voltar e recarregar.
+- **Downloads:** vão direto para a pasta Downloads; um aviso embaixo diz quando terminam.
+- **Avisos das páginas** (alert e confirm) aparecem como alertas do Glove, em janela própria.
+- **Leve:** sem o processo da placa de vídeo (a página é desenhada pelo processador), poucos
+  processos de página e nada rodando de fundo. Para usar a placa de vídeo:
+  `GLOVE_WEB_GPU=1 glove-web`.
+- Abrir de novo (pelo Dock ou `glove-web endereço`) abre uma aba na janela que já está aberta.
+- Sem o pacote, o ícone abre o Firefox (ou o NetSurf, com pouca memória), como antes. A escolha
+  das Preferências (`navegador = "..."`) vale antes de tudo.
+
 ## Abas (Arquivos, Editor e Terminal)
 
 A faixa de abas aparece quando há mais de uma aba. Cada aba tem o **×** para fechar, e o **+** no

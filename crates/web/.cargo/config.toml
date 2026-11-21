@@ -1,0 +1,3 @@
+[env]
+# As traduções do Glove (o mesmo catálogo dos outros apps).
+GLOVE_LOCALES = { value = "../../locales", relative = true }

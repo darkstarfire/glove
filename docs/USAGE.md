@@ -91,6 +91,28 @@ To try it: `notify-send "Hello" "A test notification"` in Terminal.
 - The same shortcut, or Window ▸ Exit Full Screen, returns to the previous size.
 - Apps that ask for full screen themselves (Firefox's F11, videos) work too.
 
+## Browser
+
+The Browser icon in the Dock opens **Glove's browser** (`glove-web`, package `glove-web`): the
+Chromium engine (the same as Chrome's, with today's web features) in a Glove window, with tabs,
+the address bar and buttons in the classic or the Modern look.
+
+- **Address bar:** type an address (`wikipedia.org`) or a search (goes to DuckDuckGo). Ctrl+L
+  goes to it; Esc brings back the page's address.
+- **Tabs:** Ctrl+T opens, Ctrl+W closes, Ctrl+Tab goes to the next; links that open a new window
+  become tabs. The tab strip shows when there is more than one.
+- **Shortcuts:** Ctrl+R or F5 reloads, Alt+← and Alt+→ go back and forward, Ctrl+= / Ctrl+- /
+  Ctrl+0 change the text size.
+- **Right click:** Glove's menu (floating, above everything) with open link in new tab, copy
+  link, copy, paste, search the selected text, back and reload.
+- **Downloads** go straight to the Downloads folder; a notice at the bottom says when they finish.
+- **Page notices** (alert and confirm) show as Glove alerts, in their own window.
+- **Light:** no GPU process (the page is drawn by the processor), few page processes and nothing
+  running in the background. To use the graphics card: `GLOVE_WEB_GPU=1 glove-web`.
+- Opening it again (from the Dock or `glove-web address`) opens a tab in the window already open.
+- Without the package, the icon opens Firefox (or NetSurf, with little memory), as before. The
+  choice in Preferences (`navegador = "..."`) comes first.
+
 ## Tabs (Files, Text Editor and Terminal)
 
 The tab strip appears when there is more than one tab. Each tab has a **×** to close it, and the
