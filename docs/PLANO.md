@@ -1367,7 +1367,8 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 - [x] 22.4 (v0.12.83) Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
   salva ali por padrão.
 - [ ] 22.5 Busca Rápida no Moderno: no centro da tela, no visual moderno.
-- [ ] 22.6 Moderno: os quatro cantos arredondados em todas as janelas.
+- [x] 22.6 (v0.12.85) Moderno: os quatro cantos arredondados em todas as janelas (no compositor, com um
+  programa de textura que recorta os cantos de baixo de cada superfície: vale para qualquer app).
 - [ ] 22.7 Navegador próprio do Glove (base Chromium), leve para máquinas fracas.
 - [ ] 22.8 Menus de contexto soltos (acima de tudo, fora da janela); o submenu abre ao lado do
   item, alinhado com a primeira opção; só sobe se faltar espaço no monitor.

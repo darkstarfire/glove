@@ -11,6 +11,7 @@ mod dockmenu;
 mod ending;
 mod expose;
 mod avisos;
+mod cantos;
 mod gestos;
 mod dmabuf;
 mod grade;

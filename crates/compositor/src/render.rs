@@ -36,6 +36,7 @@ render_elements! {
     ScaledTexture=RescaleRenderElement<TextureRenderElement<GlesTexture>>,
     Solid=SolidColorRenderElement,
     Shader=TextureShaderElement,
+    Rounded=crate::cantos::Rounded,
 }
 
 /// Efeitos do Acesso Universal: escala de cinza, contraste e cores invertidas,
@@ -87,6 +88,8 @@ pub struct EffectCache {
     program: Option<GlesTexProgram>,
     /// Programa da Lâmpada Mágica.
     genie: Option<GlesTexProgram>,
+    /// Programa dos cantos de baixo arredondados (Moderno); `Some(None)` = não compilou.
+    cantos: Option<Option<GlesTexProgram>>,
 }
 
 /// Lâmpada Mágica: para cada ponto da área da animação, de onde ele vem na foto
@@ -256,8 +259,7 @@ impl Glove {
                 if !framed.overlaps(area) && !with_popups.overlaps(area) {
                     continue;
                 }
-                let render_loc = geo.loc - w.geometry().loc - origin;
-                out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+                out.extend(self.window_elements(renderer, w, geo.loc - origin, sc));
                 if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
                     let d = deco.borrow();
                     let top = (geo.loc.x - origin.x, geo.loc.y - TITLE_H - origin.y);
@@ -343,6 +345,29 @@ impl Glove {
     }
 
     /// Elementos da cena, da frente para o fundo (sem os efeitos de tela).
+    /// As superfícies de uma janela cuja área (geometria) começa em `loc` (pontos, na
+    /// tela). No Moderno, as que encostam nos cantos de baixo saem arredondadas.
+    fn window_elements(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, loc: Point<i32, Logical>, sc: f64) -> Vec<GloveElement> {
+        let render_loc = (loc - w.geometry().loc).to_physical_precise_round(sc);
+        let rounder = if self.theme.modern && !crate::shell::is_fullscreen(w) {
+            let mut cache = self.effects.borrow_mut();
+            cache.cantos.get_or_insert_with(|| crate::cantos::compile(renderer)).clone()
+        } else {
+            None
+        };
+        let Some(program) = rounder else {
+            return w.render_elements::<GloveElement>(renderer, render_loc, Scale::from(sc), 1.0);
+        };
+        let win = Rectangle::new(loc.to_physical_precise_round(sc), w.geometry().size.to_physical_precise_round(sc));
+        w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, render_loc, Scale::from(sc), 1.0)
+            .into_iter()
+            .map(|e| match crate::cantos::Rounded::wrap(e, &program, win, sc) {
+                Ok(r) => GloveElement::Rounded(r),
+                Err(e) => GloveElement::Surface(e),
+            })
+            .collect()
+    }
+
     fn build_scene(&self, renderer: &mut GlesRenderer, cursor: bool) -> Vec<GloveElement> {
         let mut out = Vec::new();
         let c = &self.chrome;
@@ -622,8 +647,7 @@ impl Glove {
             if self.min_animating(w) {
                 continue;
             }
-            let render_loc = loc - w.geometry().loc;
-            out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+            out.extend(self.window_elements(renderer, w, loc, sc));
             if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
                 let d = deco.borrow();
                 let top = (loc.x, loc.y - TITLE_H);
@@ -707,8 +731,7 @@ impl Glove {
                     continue;
                 }
                 let Some(loc) = self.space.element_location(w) else { continue };
-                let render_loc = loc - w.geometry().loc;
-                out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
+                out.extend(self.window_elements(renderer, w, loc, sc));
                 if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
                     if let Some(t) = &deco.borrow().title {
                         out.extend(mem(renderer, (loc.x, loc.y - TITLE_H).into(), t, sc));
