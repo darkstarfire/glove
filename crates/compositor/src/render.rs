@@ -566,7 +566,8 @@ impl Glove {
         if self.search.open {
             if let Some(t) = &self.search.tex {
                 let o = self.search_origin();
-                out.extend(mem(renderer, (o.x - glove_paint::chrome::MENU_SHADOW, o.y).into(), t, sc));
+                let (mx, my) = glove_paint::chrome::quick_search_margin();
+                out.extend(mem(renderer, (o.x - mx as i32, o.y - my as i32).into(), t, sc));
             }
         }
         if let Some(cp) = &self.control {

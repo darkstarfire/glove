@@ -1366,7 +1366,8 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   botão azul do Moderno Claro com texto branco; revisão das cores do Moderno Escuro.
 - [x] 22.4 (v0.12.83) Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
   salva ali por padrão.
-- [ ] 22.5 Busca Rápida no Moderno: no centro da tela, no visual moderno.
+- [x] 22.5 (v0.12.87) Busca Rápida no Moderno: no centro da tela, no visual moderno (campo grande,
+  cantos arredondados, sombra macia, seleção em pílula; o Escuro pelo PanelStyle).
 - [x] 22.6 (v0.12.85) Moderno: os quatro cantos arredondados em todas as janelas (no compositor, com um
   programa de textura que recorta os cantos de baixo de cada superfície: vale para qualquer app).
 - [ ] 22.7 Navegador próprio do Glove (base Chromium), leve para máquinas fracas.

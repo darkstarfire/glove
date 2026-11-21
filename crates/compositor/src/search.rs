@@ -500,9 +500,13 @@ impl Glove {
         }
     }
 
-    /// Canto do conteúdo do painel (encostado à direita, embaixo da lupa).
+    /// Canto do conteúdo do painel: encostado à direita, embaixo da lupa; no Moderno,
+    /// no centro da tela, um pouco acima do meio.
     pub fn search_origin(&self) -> Point<i32, Logical> {
-        let (w, _) = self.output_size();
+        let (w, h) = self.output_size();
+        if self.theme.modern {
+            return (((w as f32 - chrome::qs_w()) / 2.0) as i32, (h as f32 * 0.22) as i32).into();
+        }
         ((w as f32 - chrome::QS_W - 2.0) as i32, glove_paint::theme::MENUBAR_H).into()
     }
 
@@ -530,7 +534,7 @@ impl Glove {
         if s.key.as_ref() != Some(&key) {
             let rows: Vec<QsRow> = s.results.iter().map(|(r, _)| r.clone()).collect();
             let h = chrome::quick_search_height(rows.len(), s.query.is_empty(), rows.is_empty());
-            s.size = (chrome::QS_W as i32, h.ceil() as i32);
+            s.size = (chrome::qs_w() as i32, h.ceil() as i32);
             s.tex = chrome::quick_search(&self.fonts, &self.theme, &s.query, caret, &rows, s.selected, s.indexing && !s.query.is_empty(), sc).map(to_tex);
             s.key = Some(key);
         }
