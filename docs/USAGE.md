@@ -284,6 +284,8 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 
 - The **Screenshot** app opens with **An area** selected (then A window and Full
   screen): press Enter or Capture and drag the area.
+- Screenshots are saved in **Pictures › Screenshots** (the folder is created the first time); a
+  screenshot edited in the Viewer is saved there too.
 - Every screenshot (from the app or the shortcuts) goes to the clipboard right away:
   just paste it with Ctrl+V into a chat, e-mail or editor.
 - The screenshot opens in the **Viewer** with the pen ready: pick the **color** and the

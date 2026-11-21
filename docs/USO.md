@@ -288,6 +288,8 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 
 - O app **Captura** já abre com **Uma área** escolhida (depois vêm Uma janela e Tela
   inteira): Enter ou Capturar, e arraste a área.
+- As capturas ficam em **Imagens › Capturas de tela** (a pasta é criada na primeira vez); uma
+  captura editada no Visualizador é salva ali também.
 - Toda captura (pelo app ou pelos atalhos) já vai para a área de transferência: é só
   colar com Ctrl+V num chat, e-mail ou editor.
 - A captura abre no **Visualizador** com a caneta na mão: escolha a **cor** e a

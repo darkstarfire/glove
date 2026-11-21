@@ -1364,7 +1364,7 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   cabem, em todas as coleções.
 - [ ] 22.3 Confirmações e senhas sempre em janela própria (regra: nunca dentro da janela do app);
   botão azul do Moderno Claro com texto branco; revisão das cores do Moderno Escuro.
-- [ ] 22.4 Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
+- [x] 22.4 (v0.12.83) Capturas na pasta Imagens/Capturas de tela (criada se não existir); o Visualizador
   salva ali por padrão.
 - [ ] 22.5 Busca Rápida no Moderno: no centro da tela, no visual moderno.
 - [ ] 22.6 Moderno: os quatro cantos arredondados em todas as janelas.

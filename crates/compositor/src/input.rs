@@ -1408,6 +1408,9 @@ fn debug_keycode(k: &str) -> (u32, bool) {
     if k == "end" {
         return (107, false);
     }
+    if k == "print" {
+        return (99, false);
+    }
     if k == "delete" {
         return (111, false);
     }

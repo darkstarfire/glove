@@ -405,16 +405,15 @@ impl Glove {
         }
     }
 
-    /// Captura de tela para ~/Imagens (ou ~/Pictures).
+    /// Captura de tela para Imagens/Capturas de tela.
     pub fn request_screenshot(&mut self) {
         self.screenshot_request = Some(self.screenshot_path());
         self.dirty = true;
     }
 
-    /// Onde vai a captura: ~/Imagens (ou ~/Pictures), com a data e a hora.
+    /// Onde vai a captura: Imagens/Capturas de tela (criada se faltar), com a data e a hora.
     pub fn screenshot_path(&self) -> std::path::PathBuf {
-        let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
-        let dir = ["Imagens", "Pictures"].iter().map(|d| home.join(d)).find(|d| d.is_dir()).unwrap_or(home);
+        let dir = glove_config::arquivos::screenshots_dir();
         let name = unsafe {
             let t = libc::time(std::ptr::null_mut());
             let mut tm: libc::tm = std::mem::zeroed();

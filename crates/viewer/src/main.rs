@@ -633,12 +633,20 @@ impl Viewer {
     fn save_drawing(&mut self, ui: &mut Ui) -> bool {
         let (Some(p), Some(pm)) = (self.current_file(), self.drawn()) else { return false };
         let png = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("png"));
-        let target = if png && !self.reduced {
+        let mut target = if png && !self.reduced {
             p.clone()
         } else {
             let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
             p.with_file_name(format!("{stem} ({}).png", tr!("desenho")))
         };
+        // Uma captura de tela editada fica na pasta das capturas (mesmo a de antes, solta em Imagens).
+        let name = target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if glove_ui::config::arquivos::is_screenshot_name(&name) {
+            let dir = glove_ui::config::arquivos::screenshots_dir();
+            if target.parent() != Some(dir.as_path()) {
+                target = dir.join(&name);
+            }
+        }
         // Grava ao lado e troca o nome: o arquivo nunca fica pela metade.
         let tmp = target.with_extension("png.parte");
         let ok = pm.encode_png().ok().is_some_and(|data| std::fs::write(&tmp, data).is_ok() && std::fs::rename(&tmp, &target).is_ok());
