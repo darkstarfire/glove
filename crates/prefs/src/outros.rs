@@ -277,6 +277,10 @@ impl Atualizacao {
         ui.label_ex("Glove OS", 13.0, true, glove_ui::paint::draw::rgba(20, 20, 24, 255));
         ui.small(&tr!("Versão instalada: {}", inst));
         let busy = self.job.is_some();
+        if a::copia_local_sobrando() {
+            ui.paragraph(tr!("Atenção: há uma cópia antiga do Glove instalada pelo código em /usr/local, e a sessão a usa no lugar do pacote. Para removê-la, na pasta do código: ./glove-setup-tool.sh desinstalar (remove só a cópia de /usr/local) e reinicie o computador."));
+            ui.space(4.0);
+        }
         match &self.glove {
             None => ui.small(tr!("Consultando o repositório do Glove…")),
             Some(Err(e)) => ui.small(e),

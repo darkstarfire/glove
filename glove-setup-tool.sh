@@ -325,7 +325,32 @@ install_glove() {
     fi
 }
 
+# The old copy in /usr/local when Glove is also installed as a .deb: /usr/local comes
+# first (PATH, the glove-login service), so the session keeps opening the old one.
+# Removes only that copy: the files in its list that the package does not own.
+remove_local_copy() {
+    list=$(manifest_path /usr/local)
+    msg "$(t "Removendo a cópia antiga de /usr/local (o pacote fica)" "Removing the old copy in /usr/local (the package stays)")"
+    root sh -c '
+login=$(systemctl is-enabled glove-login 2>/dev/null || true)
+own=$(mktemp)
+dpkg -L glove > "$own" || exit 1
+grep -vxFf "$own" "$1" | while IFS= read -r f; do [ -n "$f" ] && rm -f "$f"; done
+rm -f "$own"
+rm -rf /usr/local/share/glove /usr/local/share/icons/Glove /usr/local/share/doc/glove
+command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true
+# The login screen was the /usr/local service: now the package one.
+if [ "$login" = enabled ]; then systemctl enable --force glove-login.service; fi' sh "$list" || die "$(t "não deu para remover a cópia de /usr/local" "could not remove the copy in /usr/local")"
+    echo "$(t "Pronto. Reinicie o computador para a tela de login e a sessão usarem o pacote." "Done. Restart the computer so the login screen and the session use the package.")"
+}
+
 uninstall_glove() {
+    if [ -z "$sysroot" ] && has dpkg-query && dpkg-query -W -f='${Status}' glove 2>/dev/null | grep -q "ok installed" && [ -f "$(manifest_path /usr/local)" ]; then
+        if ask "$(t "O Glove está instalado pelo pacote e também há uma cópia antiga em /usr/local, que a sessão usa no lugar dele. Remover só a cópia de /usr/local?" "Glove is installed as a package and there is also an old copy in /usr/local, which the session uses instead. Remove only the copy in /usr/local?")" y; then
+            remove_local_copy
+            return
+        fi
+    fi
     # Installed as a package: the package manager is the one that removes it.
     if [ -z "$sysroot" ] && has dpkg-query && dpkg-query -W glove >/dev/null 2>&1; then
         ask "$(t "O Glove foi instalado pelo pacote .deb. Remover com o apt?" "Glove was installed from the .deb package. Remove it with apt?")" y && root apt-get remove -y glove; return

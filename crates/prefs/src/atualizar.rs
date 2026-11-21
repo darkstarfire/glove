@@ -154,6 +154,15 @@ pub fn mais_nova(a: &str, b: &str) -> bool {
 
 /// O repositório do Glove está configurado neste sistema? (No Slackware não há
 /// repositório: o pacote vem da release, sem nada para configurar.)
+/// A lista do que o `glove-setup-tool.sh instalar` copiou para /usr/local.
+pub const MANIFESTO_LOCAL: &str = "/usr/local/share/glove/instalados.txt";
+
+/// Há o pacote e também uma cópia antiga instalada pelo código em /usr/local: ela
+/// vem antes (no PATH e na tela de login), e a sessão continua abrindo a antiga.
+pub fn copia_local_sobrando() -> bool {
+    pacote() != Pacote::Nenhum && std::path::Path::new(MANIFESTO_LOCAL).is_file()
+}
+
 pub fn configurado() -> bool {
     match pacote() {
         Pacote::Apt => std::path::Path::new(SOURCES).exists(),
