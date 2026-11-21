@@ -441,7 +441,8 @@ Glove OS (sem ela, o Glove os roda do mesmo jeito, abrindo o arquivo antes).
 
 ## Firefox com o visual do Glove
 
-No Glove OS o Firefox já vem com o **tema do Glove**: metal escovado atrás das abas e da barra, campo
+O Glove OS não traz mais o Firefox (o navegador é o do Glove), mas quem o instala pela Central de
+Apps ganha o **tema do Glove**: metal escovado atrás das abas e da barra, campo
 de endereço branco com o foco azul e os três botões da janela, como o navegador clássico do Mac. Para
 voltar ao tema padrão, use Configurações › Extensões e Temas › Temas no Firefox.
 

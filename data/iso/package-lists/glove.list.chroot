@@ -85,9 +85,8 @@ fonts-dejavu
 fonts-noto-core
 fonts-noto-color-emoji
 
-# Navegador
-firefox-esr
-firefox-esr-l10n-pt-br
+# Navegador: o do Glove (glove-web, dependência do glove-os). O Firefox não vem mais:
+# quem quiser outro navegador instala pela Central de Apps.
 
 # Apps
 flatpak

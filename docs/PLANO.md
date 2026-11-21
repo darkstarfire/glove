@@ -1395,4 +1395,6 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
 - [x] 22.9 (v0.12.86) Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
   depois sugada para o ícone); restaurar é o inverso.
 - [x] 22.10 (v0.12.84) Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
-
+- [x] 22.11 (v0.12.93) O Firefox sai da ISO: o navegador do Glove OS é o glove-web. Quem quiser outro
+  instala pela Central de Apps (o Firefox instalado continua ganhando o tema do Glove).
+- [ ] 22.12 Navegador em repositório próprio e com nome próprio (nome a escolher).

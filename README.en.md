@@ -76,7 +76,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 - Drag and drop between apps, text and file clipboard
 - Glove's Open/Save sheet also for other apps (FileChooser portal: Firefox, Chromium…)
 - **AppImage** with a double click: runs it, or installs it by dragging the icon onto Applications
-- On Glove OS, Firefox ships with the **Glove theme** (brushed metal, all three window buttons)
+- Installing Firefox on Glove OS gives it the **Glove theme** (brushed metal, all three window buttons)
 - **Light** (default, Tiger), **Pinstripes**, **Metal** and **Graphite** themes, plus the **Modern
   Light** and **Modern Dark** appearance (flat, rounded, with dark mode); icons from the **Glove**
   PNG icon theme (the default, generated from Glove's drawings and published as glove-icons; lighter
@@ -259,7 +259,7 @@ compatible) with Glove as the desktop and its own identity: the name "Glove OS" 
 glove, the console and the GRUB menu. That identity comes in the `glove-os` package, which only
 ships in the ISO; the `glove` package installed on another distribution does not rename it.
 
-The ISO works on a USB stick or DVD, with Glove, Firefox and the installer. It is a "sleeper"
+The ISO works on a USB stick or DVD, with Glove, Glove's browser and the installer. It is a "sleeper"
 system: it ships what everyday use needs (Glove's tools, a browser, video, Wi-Fi, Bluetooth and
 sound firmware for desktops and laptops) and leaves out server things (datacenter network card
 firmware, Apache…), which anyone who needs them installs later from the App Center or apt. Booting from the stick

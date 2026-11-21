@@ -412,7 +412,8 @@ still runs them by unpacking the file first).
 
 ## Firefox with the Glove look
 
-On Glove OS, Firefox comes with the **Glove theme**: brushed metal behind the tabs and toolbar, a
+Glove OS no longer ships Firefox (the browser is Glove's own), but whoever installs it from the App
+Center gets the **Glove theme**: brushed metal behind the tabs and toolbar, a
 white address field with the blue focus ring and all three window buttons, like the classic Mac
 browser. To go back to the default theme, use Settings › Extensions & Themes › Themes in Firefox.
 

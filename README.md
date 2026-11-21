@@ -73,7 +73,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - Arrastar e soltar entre apps, área de transferência de texto e de arquivos
 - Janela Abrir/Salvar do Glove também para outros apps (portal FileChooser: Firefox, Chromium…)
 - **AppImage** com dois cliques: abre ou instala arrastando o ícone para Aplicativos
-- No Glove OS, o Firefox vem com o **tema do Glove** (metal escovado, os três botões da janela)
+- Quem instala o Firefox no Glove OS ganha o **tema do Glove** (metal escovado, os três botões da janela)
 - Temas **Claro** (padrão, Tiger), **Listras**, **Metal** e **Grafite**, e a aparência **Moderno Claro**
   e **Moderno Escuro** (lisa, arredondada, com o modo escuro); ícones pelo tema **Glove** em
   arquivos PNG (o padrão, gerado dos desenhos do Glove e publicado no glove-icons; mais leve que
@@ -246,7 +246,7 @@ compatível) com o Glove como área de trabalho e identidade própria: o nome "G
 o neofetch com a luva, o console e o menu do GRUB. Essa identidade vem no pacote `glove-os`, que só
 vai na ISO; o pacote `glove` instalado em outra distro não muda o nome dela.
 
-A ISO serve para pendrive ou DVD, com o Glove, o Firefox e o instalador. É um sistema "sleeper":
+A ISO serve para pendrive ou DVD, com o Glove, o navegador do Glove e o instalador. É um sistema "sleeper":
 traz pronto o que o uso diário pede (as ferramentas do Glove, navegador, firmwares de vídeo, Wi-Fi,
 Bluetooth e som de desktops e notebooks) e deixa de fora o que é de servidor (firmwares de placas de
 datacenter, Apache…), que quem precisar instala depois pela Central de Apps ou pelo apt. Ao ligar pelo pendrive, ele
