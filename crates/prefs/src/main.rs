@@ -871,7 +871,7 @@ impl Prefs {
         let shown = tab;
         ui.space(4.0);
         let extra = if self.desk_monitors().len() > 1 { 70.0 } else { 0.0 } + if glove_ui::paint::wallpaper::is_animated(&self.desk_current()) { 64.0 } else { 0.0 };
-        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], (if shown == 0 { 430.0 + extra } else { 456.0 }) + grow(), |ui| match shown {
+        ui.tab_box(&mut tab, &[tr!("Mesa"), tr!("Protetor de Tela")], (if shown == 0 { 460.0 + extra } else { 456.0 }) + grow(), |ui| match shown {
             0 => self.mesa_tab(ui),
             _ => self.protetor_tab(ui),
         });
@@ -1140,6 +1140,12 @@ impl Prefs {
             ui.redraw = true;
         }
         ui.alloc(w, list_h);
+        ui.space(6.0);
+        let mut click = self.config.desk.click_shows_desktop;
+        if ui.checkbox(&mut click, tr!("Clicar numa área livre da mesa mostra a mesa (afasta as janelas, como o F11)")) {
+            self.config.desk.click_shows_desktop = click;
+            self.save();
+        }
     }
 
     /// A folha Abrir das Favoritas: a imagem escolhida entra na coleção e vira o papel.

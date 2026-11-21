@@ -41,6 +41,9 @@ Preferences ▸ Exposé & Dashboard ▸ Desktops (1 turns them off).
   panel in the middle of the screen shows which desktop you are on. On the touchpad: **three
   fingers sideways**.
 - **Take the window along:** add **Shift** (Ctrl+Super+Shift+← or →).
+- **Click the desktop to show it:** in Preferences ▸ Desktop & Screen Saver, turn the option on
+  and a click on an empty area of the desktop moves the windows aside (like F11); another click
+  brings them back.
 - **In Exposé (F9):** the strip at the top shows the desktops with their windows in miniature.
   - Click a desktop to go to it.
   - Drag a window onto a desktop to send it there (it shrinks over the strip).

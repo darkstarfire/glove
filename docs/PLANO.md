@@ -1373,5 +1373,5 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   item, alinhado com a primeira opção; só sobe se faltar espaço no monitor.
 - [ ] 22.9 Lâmpada Mágica: ~650 ms em duas fases (funil de ~100 ms sem mexer no topo da janela,
   depois sugada para o ícone); restaurar é o inverso.
-- [ ] 22.10 Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
+- [x] 22.10 (v0.12.84) Mesa: opção de mostrar a mesa (como o F11) ao clicar numa área livre dela.
 

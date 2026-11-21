@@ -41,6 +41,8 @@ Exposé e Painel ▸ Mesas virtuais (1 desliga).
 - **Trocar de mesa:** **Ctrl+Super+←** e **Ctrl+Super+→**. As janelas deslizam de lado e um aviso
   no meio da tela mostra em que mesa você está. No touchpad: **três dedos para os lados**.
 - **Levar a janela junto:** acrescente **Shift** (Ctrl+Super+Shift+← ou →).
+- **Clicar na mesa mostra a mesa:** em Preferências ▸ Mesa e Protetor de Tela, ligue a opção e um
+  clique numa área livre da mesa afasta as janelas (como o F11); outro clique as traz de volta.
 - **No Exposé (F9):** a faixa no alto mostra as mesas, com as janelas em miniatura.
   - Clique numa mesa para ir até ela.
   - Arraste uma janela até uma mesa para mandá-la para lá (ela encolhe sobre a faixa).

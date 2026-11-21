@@ -6328,3 +6328,6 @@ msgstr "Only an administrator account can change the startup disk."
 
 msgid "Atenção: há uma cópia antiga do Glove instalada pelo código em /usr/local, e a sessão a usa no lugar do pacote. Para removê-la, na pasta do código: ./glove-setup-tool.sh desinstalar (remove só a cópia de /usr/local) e reinicie o computador."
 msgstr "Warning: there is an old copy of Glove installed from source in /usr/local, and the session uses it instead of the package. To remove it, in the source folder: ./glove-setup-tool.sh uninstall (removes only the copy in /usr/local) and restart the computer."
+
+msgid "Clicar numa área livre da mesa mostra a mesa (afasta as janelas, como o F11)"
+msgstr "Clicking an empty area of the desktop shows the desktop (moves the windows aside, like F11)"

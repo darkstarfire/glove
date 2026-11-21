@@ -808,8 +808,14 @@ impl Glove {
                 false
             };
         };
-        if self.desk.rubber.take().is_some() {
+        let rubber = self.desk.rubber.take().is_some();
+        if rubber {
             self.dirty = true;
+        }
+        // Clique simples numa área livre da mesa: mostra a mesa (como o F11), se ligado.
+        if press.item.is_none() && !rubber && !press.extend && self.config.desk.click_shows_desktop && self.expose.is_none() {
+            self.toggle_expose(crate::expose::ExposeMode::Desktop);
+            return true;
         }
         // Clique simples num dos vários escolhidos: fica só ele.
         if let (Some(p), false, true) = (&press.item, press.extend, press.was_selected) {
