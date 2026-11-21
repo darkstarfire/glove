@@ -96,7 +96,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 | Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font; arrastar um arquivo escreve o caminho |
 | Editor de Texto | Documentos em RTF (abre no Word e no LibreOffice): fontes, parágrafos e régua, estilos, listas, tabelas, imagens, páginas com cabeçalho, rodapé e notas, modelo ABNT, exportar PDF; também texto simples; Localizar/Substituir |
 | Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar; desenhar sobre as capturas de tela |
-| Navegador | Abre o navegador que cabe na máquina (NetSurf com pouca RAM, Firefox acima) |
+| Navegador | O navegador do Glove (`glove-web`): o motor do Chromium numa janela do Glove, com abas, barra de endereço com busca, menu de contexto solto, downloads; leve (sem o processo da placa de vídeo). Sem ele, abre o Firefox (ou o NetSurf com pouca RAM) |
 | Correio | IMAP e SMTP com TLS, caixas, escrever, responder e encaminhar |
 | Agenda e Contatos | Mês em grade com eventos (.ics) e fichas (vCard) |
 | Música | Biblioteca (a pasta Música e as que você juntar), Artistas e Álbuns, listas (M3U), aleatório e repetir; tocador leve em Rust puro |
@@ -431,6 +431,7 @@ crates/senha       senha do sistema: o agente do polkit (`glove-senha`)
 crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
 crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
 crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)
+crates/web         o navegador em si (`glove-web`, motor do Chromium; compilado à parte: `./glove-setup-tool.sh web`)
 crates/correio     Correio (`glove-correio`)         crates/agenda     Agenda (`glove-agenda`)
 crates/contatos    Contatos (`glove-contatos`)       crates/musica     Música (`glove-musica`)
 crates/video       Vídeo (`glove-video`)             crates/notes      Lembretes (`glove-notes`)

@@ -596,7 +596,7 @@ dependencies = [
 
 [[package]]
 name = "glove-config"
-version = "0.2.54"
+version = "0.2.56"
 dependencies = [
  "glove-i18n",
  "libc",
@@ -606,11 +606,11 @@ dependencies = [
 
 [[package]]
 name = "glove-i18n"
-version = "0.2.54"
+version = "0.2.56"
 
 [[package]]
 name = "glove-paint"
-version = "0.2.54"
+version = "0.2.56"
 dependencies = [
  "ab_glyph",
  "glove-i18n",
@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "glove-ui"
-version = "0.2.54"
+version = "0.2.56"
 dependencies = [
  "glove-config",
  "glove-paint",

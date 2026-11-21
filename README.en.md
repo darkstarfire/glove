@@ -99,7 +99,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 | Terminal | Alacritty core: truecolor, nvim/htop, mouse, OSC 52, themes, Nerd Font |
 | Text Editor | RTF documents (open in Word and LibreOffice): fonts, paragraphs and ruler, styles, lists, tables, pictures, pages with header, footer and footnotes, ABNT template, PDF export; plain text too; Find/Replace |
 | Viewer | Pictures (PNG, JPEG, WebP) and PDF, thumbnails, zoom, rotate; drawing on screenshots |
-| Browser | Opens the browser that fits the machine (NetSurf with little RAM, Firefox above) |
+| Browser | Glove's browser (`glove-web`): the Chromium engine in a Glove window, with tabs, an address bar with search, a floating context menu, downloads; light (no GPU process). Without it, opens Firefox (or NetSurf with little RAM) |
 | Mail | IMAP and SMTP with TLS, mailboxes, compose, reply and forward |
 | Calendar and Contacts | Month grid with events (.ics) and cards (vCard) |
 | Music | Library (the Music folder and any you add), Artists and Albums, playlists (M3U), shuffle and repeat; light pure-Rust player |

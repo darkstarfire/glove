@@ -442,18 +442,26 @@ package_web() {
     msg "$(t "Compilando o navegador (glove-web $wv; a primeira vez baixa o motor do Chromium)" "Building the browser (glove-web $wv; the first time downloads the Chromium engine)")"
     (cd crates/web && cargo build --release) || die "$(t "a compilação do navegador falhou" "the browser build failed")"
     d=crates/web/target/release
+    # O motor (libcef.so e os recursos) vem de onde o CEF foi extraído: a cópia que a
+    # compilação deixa ao lado do programa depende da versão do Cargo (build-dir).
+    cefd=$(find crates/web/target -name libcef.so -path '*cef_linux*' 2>/dev/null | head -1)
+    cefd=${cefd:+$(dirname "$cefd")}
+    [ -n "$cefd" ] || cefd=$d
+    [ -f "$cefd/libcef.so" ] || die "$(t "não achei o motor (libcef.so) depois da compilação" "the engine (libcef.so) was not found after the build")"
     tmp=$(mktemp -d)
     lib="$tmp/usr/lib/glove-web"
     mkdir -p "$lib/locales" "$tmp/usr/bin" "$tmp/usr/share/doc/glove-web"
-    for f in glove-web libcef.so chrome-sandbox icudtl.dat v8_context_snapshot.bin resources.pak chrome_100_percent.pak chrome_200_percent.pak libvk_swiftshader.so libvulkan.so.1 vk_swiftshader_icd.json; do
-        [ -e "$d/$f" ] && cp "$d/$f" "$lib/"
+    cp "$d/glove-web" "$lib/" || die "$(t "falta o programa glove-web" "the glove-web program is missing")"
+    for f in libcef.so chrome-sandbox icudtl.dat v8_context_snapshot.bin resources.pak chrome_100_percent.pak chrome_200_percent.pak libvk_swiftshader.so libvulkan.so.1 vk_swiftshader_icd.json; do
+        if [ -e "$cefd/$f" ]; then cp "$cefd/$f" "$lib/"; fi
     done
+    [ -f "$lib/chrome-sandbox" ] || die "$(t "o motor veio incompleto (sem chrome-sandbox)" "the engine is incomplete (no chrome-sandbox)")"
     # Só os idiomas do Glove (o motor traz uns 200).
-    cp "$d"/locales/pt-BR*.pak "$d"/locales/en-US*.pak "$lib/locales/" 2>/dev/null || true
+    cp "$cefd"/locales/pt-BR*.pak "$cefd"/locales/en-US*.pak "$lib/locales/" 2>/dev/null || true
     strip --strip-unneeded "$lib/libcef.so" "$lib/libvk_swiftshader.so" 2>/dev/null || true
     ln -s ../lib/glove-web/glove-web "$tmp/usr/bin/glove-web"
-    cp "$d/CREDITS.html" "$tmp/usr/share/doc/glove-web/" 2>/dev/null || true
-    printf 'glove-web %s: Chromium Embedded Framework (CEF) %s, BSD license (see CREDITS.html).\n' "$wv" "$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$d/archive.json" | head -1)" > "$tmp/usr/share/doc/glove-web/SOURCE"
+    cp "$cefd/CREDITS.html" "$tmp/usr/share/doc/glove-web/" 2>/dev/null || true
+    printf 'glove-web %s: Chromium Embedded Framework (CEF) %s, BSD license (see CREDITS.html).\n' "$wv" "$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$cefd/archive.json" 2>/dev/null | head -1)" > "$tmp/usr/share/doc/glove-web/SOURCE"
     find "$tmp" -type d -exec chmod 755 {} +
     find "$tmp/usr/share" -type f -exec chmod 644 {} +
     chmod 644 "$lib"/*.pak "$lib"/*.dat "$lib"/*.bin "$lib"/locales/* "$lib"/*.json 2>/dev/null || true
