@@ -6443,3 +6443,27 @@ msgstr "Login screen now: {}."
 
 msgid "Telas do Sistema"
 msgstr "System Screens"
+
+msgid "Adicionar Layout…"
+msgstr "Add Layout…"
+
+msgid "Adicionar Teclado"
+msgstr "Add Keyboard"
+
+msgid "Bloqueio"
+msgstr "Lock"
+
+msgid "Buscar teclado"
+msgstr "Search keyboards"
+
+msgid "Busque pelo idioma ou pelo nome do teclado (ex.: abnt, alemão, dvorak). Clique para acrescentar à lista."
+msgstr "Search by language or keyboard name (e.g. abnt, german, dvorak). Click to add it to the list."
+
+msgid "Digite para ver os teclados."
+msgstr "Type to see the keyboards."
+
+msgid "O catálogo de teclados do sistema não foi encontrado (pacote xkb-data)."
+msgstr "The system keyboard catalog was not found (xkb-data package)."
+
+msgid "Prévia da sessão"
+msgstr "Session preview"

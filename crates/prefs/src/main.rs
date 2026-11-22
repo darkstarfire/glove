@@ -33,6 +33,8 @@ use glove_ui::{
 
 const W: u32 = 660;
 const H: u32 = 480;
+/// A janela "Adicionar Teclado" (o catálogo de layouts do sistema).
+const JANELA_TECLADO: u32 = 1;
 const TOOLBAR_H: f32 = 78.0;
 /// Intervalo mínimo entre gravações da configuração enquanto se arrasta um slider.
 const SAVE_EVERY: Duration = Duration::from_millis(150);
@@ -271,6 +273,21 @@ const DESK_SOURCES: [(DeskSource, &str); 5] = [
 /// Altura máxima da janela (cabe numa tela de 768 linhas com a barra e o Dock);
 /// painel maior ganha rolagem.
 const MAX_H: f32 = 640.0;
+/// Os layouts escolhíveis: os de sempre, depois os acrescentados ("Adicionar Layout…").
+/// (layout, variante, nome, sigla da barra).
+fn todos_layouts(k: &glove_config::Keyboard) -> Vec<(String, String, String, String)> {
+    let mut v: Vec<(String, String, String, String)> = LAYOUTS.iter().map(|l| (l.0.to_string(), l.1.to_string(), tr(l.2).to_string(), l.3.to_string())).collect();
+    for id in &k.extra_layouts {
+        let (l, var) = glove_config::split_layout(id);
+        if v.iter().any(|x| x.0 == l && x.1 == var) {
+            continue;
+        }
+        let badge = if var.is_empty() { l.to_uppercase() } else { format!("{}+", l.to_uppercase()) };
+        v.push((l.to_string(), var.to_string(), glove_config::nome_layout(id), badge));
+    }
+    v
+}
+
 /// A grade inteira cabe sem rolagem numa tela de 768 de altura.
 const MAX_TODOS_H: f32 = 680.0;
 
@@ -306,6 +323,11 @@ struct Prefs {
     icon_themes: Option<Vec<(String, String)>>,
     /// Aba aberta no painel Teclado.
     kbd_tab: usize,
+    /// "Adicionar Layout…": aberto, e a busca no catálogo do sistema.
+    layout_add: bool,
+    layout_busca: String,
+    /// Prévia das telas do sistema: 0 bloqueio, 1 saída, 2 início.
+    telas_previa: usize,
     /// Grupos abertos no painel Atalhos.
     open_groups: [bool; 4],
     /// Aba do painel Som e os dispositivos (None = sem PipeWire).
@@ -453,6 +475,9 @@ impl Prefs {
             mono_fonts: None,
             icon_themes: None,
             kbd_tab,
+            layout_add: false,
+            layout_busca: String::new(),
+            telas_previa: 0,
             open_groups: [true, false, false, false],
             desk_source: 0,
             desk_scroll: 0.0,
@@ -826,7 +851,38 @@ impl Prefs {
             tr!("Os temas de abertura do Glove vêm no pacote glove-os (o Glove OS): sem ele, a abertura do sistema fica como está.").to_string()
         };
         ui.paragraph(&abertura);
+        ui.space(10.0);
+        ui.separator();
+        ui.space(8.0);
+        // Prévia: como ficam as telas da sessão no tema escolhido (desenhadas com as
+        // mesmas funções do compositor, sem bloquear nem sair de verdade).
+        ui.label_ex(tr!("Prévia da sessão"), 12.0, true, Color::BLACK);
+        ui.space(4.0);
+        let mut quadro = self.telas_previa;
+        if ui.tabs(&mut quadro, &[tr!("Bloqueio"), tr!("Saída"), tr!("Início")]) {
+            self.telas_previa = quadro;
+        }
         ui.space(6.0);
+        let tema = glove_paint::theme::Theme::new(glove_paint::theme::Variant::from_config(&self.config.screen_theme(Screen::Session)));
+        glove_paint::theme::set_system_screens(true);
+        let escala = ui.c.scale;
+        let fontes = ui.fonts;
+        let (x, y) = ui.cursor();
+        let img = match self.telas_previa {
+            0 => glove_paint::chrome::lock_panel(fontes, &tema, &std::env::var("USER").unwrap_or_else(|_| "Usuário".into()), 0, None, false, false, false, 0.0, escala),
+            1 => glove_paint::chrome::ending_screen(fontes, &tema, 380.0, 180.0, &tr!("Saindo do Glove…"), escala),
+            _ => glove_paint::chrome::startup_panel(fontes, &tema, &tr!("Abrindo os itens de início…"), 0.6, escala),
+        };
+        let (w, h) = match self.telas_previa {
+            0 => (glove_paint::chrome::LOCK_W + 48.0, glove_paint::chrome::LOCK_H + 48.0),
+            1 => (380.0, 180.0),
+            _ => (glove_paint::chrome::STARTUP_W + 48.0, glove_paint::chrome::STARTUP_H + 48.0),
+        };
+        ui.alloc(w.min(ui.available_width()), h);
+        if let Some(c) = img {
+            ui.c.draw_canvas(&c, x, y - 10.0);
+        }
+        ui.space(8.0);
         if ui.button(tr!("Aplicar de Novo ao Sistema…")) {
             self.aplicar_telas();
         }
@@ -1500,19 +1556,26 @@ impl Prefs {
                     }
                 });
                 ui.space(8.0);
-                let names: Vec<String> = LAYOUTS.iter().map(|l| tr(l.2).to_string()).collect();
-                let mut cur = LAYOUTS
+                let todos = todos_layouts(&self.config.keyboard);
+                let names: Vec<String> = todos.iter().map(|l| l.2.clone()).collect();
+                let mut cur = todos
                     .iter()
                     .position(|l| l.0 == self.config.keyboard.layout && l.1 == self.config.keyboard.variant)
                     .unwrap_or(0);
                 ui.form_row(tr!("Layout do teclado"), LW, |ui| {
                     if ui.popup(&mut cur, &names, 240.0) {
-                        self.config.keyboard.layout = LAYOUTS[cur].0.into();
-                        self.config.keyboard.variant = LAYOUTS[cur].1.into();
+                        self.config.keyboard.layout = todos[cur].0.clone();
+                        self.config.keyboard.variant = todos[cur].1.clone();
                         self.save();
                     }
                 });
                 ui.form_note(LW, tr!("Vale na hora para todos os apps."));
+                ui.space(6.0);
+                ui.form_row("", LW, |ui| {
+                    if ui.button(tr!("Adicionar Layout…")) {
+                        self.layout_add = true;
+                    }
+                });
             }
             1 => self.atalhos(ui),
             _ => self.menu_entrada(ui),
@@ -1880,21 +1943,62 @@ impl Prefs {
         }
     }
 
+    /// A janela "Adicionar Teclado": uma busca no catálogo de layouts do sistema; clicar
+    /// num teclado o acrescenta à lista e o escolhe.
+    fn janela_teclado(&mut self, ui: &mut Ui) {
+        let (w, h) = (ui.c.w, ui.c.h);
+        ui.c.fill_rect(0.0, 0.0, w, h, &solid(ui.theme.body_a));
+        let catalogo = glove_config::catalogo_teclado();
+        ui.area(Rect::new(20.0, 16.0, w - 40.0, h - 30.0), |ui| {
+            if catalogo.is_empty() {
+                ui.paragraph(tr!("O catálogo de teclados do sistema não foi encontrado (pacote xkb-data)."));
+                return;
+            }
+            ui.paragraph(tr!("Busque pelo idioma ou pelo nome do teclado (ex.: abnt, alemão, dvorak). Clique para acrescentar à lista."));
+            ui.space(6.0);
+            ui.search_field(&mut self.layout_busca, &tr!("Buscar teclado"), w - 60.0);
+            ui.space(8.0);
+            let busca = self.layout_busca.to_lowercase();
+            let achados: Vec<&glove_config::Catalogo> = catalogo
+                .iter()
+                .filter(|c| busca.trim().is_empty() || format!("{} {} {}", c.0, c.1, c.2).to_lowercase().contains(busca.trim()))
+                .take(40)
+                .collect();
+            if busca.trim().is_empty() {
+                ui.small(tr!("Digite para ver os teclados."));
+            }
+            for c in achados {
+                let id = glove_config::layout_id(&c.0, &c.1);
+                let ja = todos_layouts(&self.config.keyboard).iter().any(|t| glove_config::layout_id(&t.0, &t.1) == id);
+                let rotulo = if ja { format!("✓  {}", c.2) } else { format!("+  {}", c.2) };
+                ui.push_id(&id, |ui| {
+                    if ui.button(&rotulo) && !ja {
+                        self.config.keyboard.extra_layouts.push(id.clone());
+                        self.config.keyboard.layout = c.0.clone();
+                        self.config.keyboard.variant = c.1.clone();
+                        self.save();
+                    }
+                });
+            }
+        });
+    }
+
     /// Menu de Entrada: os layouts que a barra e a tecla de troca oferecem.
     fn menu_entrada(&mut self, ui: &mut Ui) {
         ui.small(tr!("Marque os layouts que você usa. A barra de menu e Super+Alt+espaço passam por eles."));
         ui.space(6.0);
-        for (l, v, name, badge) in LAYOUTS {
-            let id = glove_config::layout_id(l, v);
+        for (l, v, name, badge) in todos_layouts(&self.config.keyboard).into_iter().map(|x| (x.0, x.1, x.2, x.3)) {
+            let id = glove_config::layout_id(&l, &v);
             let mut on = self.config.keyboard.input_menu.contains(&id);
-            let label = format!("{}  ({badge})", tr(name));
+            let label = format!("{}  ({badge})", name);
             ui.push_id(&id, |ui| {
                 if ui.checkbox(&mut on, &label) {
+                    let ordem: Vec<String> = todos_layouts(&self.config.keyboard).iter().map(|t| glove_config::layout_id(&t.0, &t.1)).collect();
                     let list = &mut self.config.keyboard.input_menu;
                     if on {
                         // Mantém a ordem da tabela.
                         list.push(id.clone());
-                        list.sort_by_key(|x| LAYOUTS.iter().position(|t| glove_config::layout_id(t.0, t.1) == *x).unwrap_or(99));
+                        list.sort_by_key(|x| ordem.iter().position(|t| t == x).unwrap_or(999));
                     } else {
                         list.retain(|x| *x != id);
                     }
@@ -2612,6 +2716,14 @@ thread_local! {
 
 impl App for Prefs {
     fn ui(&mut self, ui: &mut Ui) {
+        if ui.window_id() == JANELA_TECLADO {
+            self.janela_teclado(ui);
+            return;
+        }
+        // "Adicionar Layout…" abre a janela própria (a busca não cabe na tela de Teclado).
+        if std::mem::take(&mut self.layout_add) {
+            ui.open_window(JANELA_TECLADO, WindowOptions { title: tr!("Adicionar Teclado").into(), app_id: "glove.Preferences".into(), size: (460, 380), fixed: false, min_size: Some((360, 240)) });
+        }
         // Dispositivos de som lidos na thread. Arrastando um slider, a leitura
         // (que pode ser de antes do arraste) espera, para o polegar não pular.
         if !ui.mouse_down() {
