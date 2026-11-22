@@ -123,6 +123,11 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
   click turns shields on or off for the site. Third-party cookies are blocked too. The **Extensions**
   menu turns Jangada's extensions on and off (Chrome Web Store ones do not work in the windowless
   engine).
+- **Private window** (File ▸ New Private Window, Ctrl+Shift+N): no history, favorites, passwords or
+  cookies are saved; site data lives only in memory and disappears when it closes. It is a separate
+  window from the normal one.
+- **Bar suggestions:** while typing, the bar shows what you visited or bookmarked. Arrow keys pick,
+  Enter opens.
 - **Passwords:** when you sign in to a site, Jangada offers to save the password (in the system
   keyring, the same one as Keychain Access) and fills it in next time; Preferences ▸ Passwords shows,
   copies and deletes them.

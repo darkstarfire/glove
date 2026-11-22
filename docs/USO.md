@@ -124,6 +124,11 @@ Moderno.
   quanto a página teve barrado; o clique liga ou desliga os escudos no site. Também barra os cookies
   de terceiros. O menu **Extensões** liga e desliga as extensões da Jangada (as da loja do Chrome não
   funcionam no motor sem janela própria).
+- **Janela privada** (Arquivo ▸ Nova Janela Privada, Ctrl+Shift+N): sem histórico, favoritos, senhas
+  nem cookies gravados; os dados dos sites ficam só na memória e somem ao fechar. Ela é uma janela
+  separada da normal.
+- **Sugestões da barra:** ao digitar, a barra mostra o que já foi visitado ou é favorito. As setas
+  escolhem e o Enter abre.
 - **Senhas:** ao entrar num site, a Jangada oferece guardar a senha (no chaveiro do sistema, a mesma
   do Acesso às Chaves) e a preenche da próxima vez; Preferências ▸ Senhas mostra, copia e apaga.
 - **Importar de outro navegador** (Arquivo ▸ Importar de Outro Navegador…): do Chrome, Chromium,
