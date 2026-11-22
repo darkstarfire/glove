@@ -61,6 +61,9 @@ pub struct Glove {
     /// Atalhos já interpretados a partir da configuração.
     pub bindings: Vec<Binding>,
     pub theme: Theme,
+    /// O tema das telas da sessão (abertura, bloqueio, saída): Preferências ▸ Telas do
+    /// Sistema (ou a aparência, com "em todo o sistema").
+    pub screen_theme: Theme,
     /// Muda a cada troca de tema, invalidando os caches de desenho.
     pub theme_gen: u64,
     pub fonts: Fonts,
@@ -252,7 +255,10 @@ impl Glove {
         glove_paint::icons::set_theme(&config.appearance.icon_theme);
         let theme = Theme::new(Variant::from_config(&config.theme));
         glove_paint::theme::set_style(&theme);
-        glove_paint::theme::set_system_screens(config.appearance.system_theme);
+        // O tema das telas chega pronto (`screen_theme`): o moderno delas vale sempre que
+        // o tema escolhido é moderno.
+        glove_paint::theme::set_system_screens(true);
+        let screen_theme = Theme::new(Variant::from_config(&config.screen_theme(glove_config::Screen::Session)));
         let fonts = Fonts::load_system().expect("nenhuma fonte encontrada (instale fonts-dejavu)");
 
         Self {
@@ -279,6 +285,7 @@ impl Glove {
             bindings: crate::input::parse_bindings(&config),
             config,
             theme,
+            screen_theme,
             theme_gen: 0,
             fonts,
             chrome: Chrome::default(),
@@ -440,8 +447,8 @@ impl Glove {
         }
         let old = std::mem::replace(&mut self.config, new);
         glove_paint::icons::set_theme(&self.config.appearance.icon_theme);
-        glove_paint::theme::set_system_screens(self.config.appearance.system_theme);
-        if old.theme != self.config.theme || old.wallpaper != self.config.wallpaper || old.appearance.icon_theme != self.config.appearance.icon_theme || old.appearance.system_theme != self.config.appearance.system_theme {
+        self.screen_theme = Theme::new(Variant::from_config(&self.config.screen_theme(glove_config::Screen::Session)));
+        if old.theme != self.config.theme || old.wallpaper != self.config.wallpaper || old.appearance.icon_theme != self.config.appearance.icon_theme || old.appearance.system_theme != self.config.appearance.system_theme || old.appearance.screen_session != self.config.appearance.screen_session {
             self.theme = Theme::new(Variant::from_config(&self.config.theme));
             glove_paint::theme::set_style(&self.theme);
             self.theme_gen += 1;

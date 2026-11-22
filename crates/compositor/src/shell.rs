@@ -1846,6 +1846,7 @@ impl Glove {
         self.theme = Theme::new(v);
         self.theme_gen += 1;
         self.config.theme = v.id().to_string();
+        self.screen_theme = Theme::new(Variant::from_config(&self.config.screen_theme(glove_config::Screen::Session)));
         let _ = self.config.save();
         self.dirty = true;
     }
@@ -1996,12 +1997,12 @@ impl Glove {
             if e.screen_since.is_some() {
                 let key = (w, h, tgen);
                 if e.bg_key != Some(key) {
-                    e.bg = chrome::ending_screen(&self.fonts, &self.theme, w as f32, h as f32, e.kind.label(nested), sc).map(to_tex);
+                    e.bg = chrome::ending_screen(&self.fonts, &self.screen_theme, w as f32, h as f32, e.kind.label(nested), sc).map(to_tex);
                     e.bg_key = Some(key);
                 }
                 let key = (e.spinner_step(), tgen);
                 if e.spinner_key != Some(key) {
-                    e.spinner = chrome::ending_spinner(&self.theme, key.0 as f32 / 12.0, sc).map(to_tex);
+                    e.spinner = chrome::ending_spinner(&self.screen_theme, key.0 as f32 / 12.0, sc).map(to_tex);
                     e.spinner_key = Some(key);
                 }
             }

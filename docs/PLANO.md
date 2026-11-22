@@ -1433,3 +1433,12 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   alerta (o "Sobre" da Jangada piscava e o OK sumia); Jangada: iniciar a sessão no Google
   (Preferências ▸ Contas e menu Jangada) com o user agent de um Chrome comum; o atualizador do Glove
   também atualiza a Jangada.
+- [x] 22.17 (v0.12.97, Jangada 1.4.0) Preferências › Telas do Sistema: tema próprio para a sessão
+  (abertura, bloqueio, saída), a tela de login e a abertura do sistema (`screen_session`,
+  `screen_login`, `screen_boot`; "" segue a opção "em todo o sistema"); o comando de administrador
+  usava o caminho do glove-apps (o multi-call não sabia que era o glove-prefs) e o login nunca
+  mudava: agora usa o atalho e confere o arquivo depois. Jangada 1.4.0: escudos com o motor do Brave
+  (`adblock`: rede e cosmético, contagem por aba, por site, cookies de terceiros, WebRTC),
+  gerenciador de senhas no chaveiro (guardar ao entrar, preencher), importar do Chrome, Chromium,
+  Brave, Edge e Vivaldi (favoritos, histórico, cookies, senhas; AES-128-CBC com a chave do
+  chaveiro), menu Extensões, passkeys desligadas (travavam o login do Facebook), Contas sem piscar.

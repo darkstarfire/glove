@@ -68,6 +68,7 @@ enum Pane {
     Seguranca,
     Busca,
     Expose,
+    Telas,
 }
 
 /// Categorias da grade (como no 10.4). As vazias não aparecem.
@@ -84,8 +85,9 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-const PANES: [PaneInfo; 27] = [
+const PANES: [PaneInfo; 28] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
+    PaneInfo { pane: Pane::Telas, id: "telas", icon: Icon::Pref(PrefKind::LoginScreen), name: "Telas do Sistema", category: 3, keywords: "login entrar bloqueio bloquear tela saída sair abertura splash plymouth boot desligar tema moderno clássico" },
     PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
     PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
@@ -755,6 +757,87 @@ impl Prefs {
         }
     }
 
+    /// Leva os temas da tela de login e da abertura do sistema (pede a senha).
+    fn aplicar_telas(&mut self) {
+        let login = self.config.screen_theme(glove_config::Screen::Login);
+        let abertura = self.config.screen_theme(glove_config::Screen::Boot);
+        self.tema_sistema.aplicar(&login, &abertura);
+    }
+
+    /// Depois de trocar a aparência: aplica de novo se a tela de login ou a abertura a seguem.
+    fn aplicar_telas_se_seguem(&mut self) {
+        let segue = |c: &str| c == "aparencia" || (c.is_empty() && self.config.appearance.system_theme);
+        if segue(self.config.screen_choice(glove_config::Screen::Login)) || segue(self.config.screen_choice(glove_config::Screen::Boot)) {
+            self.aplicar_telas();
+        }
+    }
+
+    /// Telas do Sistema: o tema da sessão (abertura, bloqueio, saída), da tela de login e
+    /// da abertura do sistema, cada um à parte da aparência das janelas.
+    fn telas(&mut self, ui: &mut Ui) {
+        use glove_config::Screen;
+        const LW: f32 = 210.0;
+        ui.space(4.0);
+        ui.paragraph(tr!("O tema das telas que aparecem fora das janelas. \"Como a aparência\" acompanha o que estiver escolhido em Aparência."));
+        ui.space(8.0);
+        let mut nomes = vec![tr!("Como a aparência").to_string()];
+        nomes.extend(Variant::ALL.iter().map(|v| v.label().to_string()));
+        let telas = [
+            (Screen::Session, tr!("Sessão"), tr!("Abertura da sessão, bloqueio de tela e saída.")),
+            (Screen::Login, tr!("Tela de login"), tr!("Antes de entrar (pede a senha de administrador).")),
+            (Screen::Boot, tr!("Abertura do sistema"), tr!("Ao ligar e desligar o computador (pede a senha de administrador).")),
+        ];
+        let mut mudou_sistema = false;
+        for (w, rotulo, dica) in telas {
+            let escolha = self.config.screen_choice(w).to_string();
+            let efetivo = self.config.screen_theme(w);
+            let mut i = if escolha == "aparencia" || (escolha.is_empty() && self.config.appearance.system_theme) {
+                0
+            } else {
+                Variant::ALL.iter().position(|v| v.id() == efetivo).map_or(0, |p| p + 1)
+            };
+            ui.form_row(rotulo, LW, |ui| {
+                if ui.popup(&mut i, &nomes, 190.0) {
+                    let v = if i == 0 { "aparencia".to_string() } else { Variant::ALL[i - 1].id().to_string() };
+                    self.config.set_screen_choice(w, &v);
+                    self.save();
+                    mudou_sistema |= w != Screen::Session;
+                }
+                ui.small(dica);
+            });
+            ui.space(6.0);
+        }
+        if mudou_sistema {
+            self.aplicar_telas();
+        }
+        ui.separator();
+        ui.space(6.0);
+        // Como está agora no sistema.
+        let login = match tema_sistema::login_atual() {
+            Some(t) if t != self.config.screen_theme(Screen::Login) => tr!("Tela de login agora: {} (ainda não é a escolhida: use Aplicar de Novo).", Variant::from_config(&t).label()),
+            Some(t) => tr!("Tela de login agora: {}.", Variant::from_config(&t).label()),
+            None => tr!("Este computador não usa a tela de login do Glove.").to_string(),
+        };
+        ui.paragraph(&login);
+        let abertura = if tema_sistema::plymouth_do_glove() {
+            let a = tema_sistema::plymouth_atual();
+            if a.starts_with("glove") { tr!("Abertura do sistema agora: {}.", a) } else { tr!("Abertura do sistema agora: {} (de outro sistema; escolher um tema aqui passa para o do Glove).", a) }
+        } else {
+            tr!("Os temas de abertura do Glove vêm no pacote glove-os (o Glove OS): sem ele, a abertura do sistema fica como está.").to_string()
+        };
+        ui.paragraph(&abertura);
+        ui.space(6.0);
+        if ui.button(tr!("Aplicar de Novo ao Sistema…")) {
+            self.aplicar_telas();
+        }
+        self.tema_sistema.andamento(ui);
+        if self.tema_sistema.ocupado() {
+            ui.small(tr!("Aplicando ao sistema… (pode levar um minuto)"));
+        } else if let Some(m) = self.tema_sistema.msg.clone() {
+            ui.small(&m);
+        }
+    }
+
     fn aparencia(&mut self, ui: &mut Ui) {
         // Formulário da era: rótulos à direita, controles numa coluna comum.
         const LW: f32 = 210.0;
@@ -766,10 +849,8 @@ impl Prefs {
                 if ui.popup(&mut v, &names, 160.0) {
                     self.config.theme = Variant::ALL[v].id().into();
                     self.save();
-                    if self.config.appearance.system_theme {
-                        let t = self.config.theme.clone();
-                        self.tema_sistema.aplicar(&t);
-                    }
+                    // As telas do sistema que seguem a aparência mudam junto.
+                    self.aplicar_telas_se_seguem();
                 }
                 ui.small(tr!("Para botões, menus e janelas"));
             });
@@ -779,12 +860,15 @@ impl Prefs {
         ui.form_row("", LW, |ui| {
             if ui.checkbox(&mut sistema, tr!("Usar a aparência em todo o sistema")) {
                 self.config.appearance.system_theme = sistema;
+                // A opção vale para todas as telas (cada uma pode ter outro tema em
+                // Telas do Sistema). Desligada, voltam ao clássico.
+                for w in [glove_config::Screen::Session, glove_config::Screen::Login, glove_config::Screen::Boot] {
+                    self.config.set_screen_choice(w, "");
+                }
                 self.save();
-                // Desligada, a tela de login e a abertura do sistema voltam ao clássico.
-                let t = if sistema { self.config.theme.clone() } else { "claro".to_string() };
-                self.tema_sistema.aplicar(&t);
+                self.aplicar_telas();
             }
-            ui.small(tr!("Abertura e desligamento, tela de login, bloqueio e saída."));
+            ui.small(tr!("Abertura e desligamento, tela de login, bloqueio e saída. Cada uma pode ter outro tema em Telas do Sistema."));
             self.tema_sistema.andamento(ui);
             if self.tema_sistema.ocupado() {
                 ui.small(tr!("Aplicando ao sistema… (pode levar um minuto)"));
@@ -2547,7 +2631,7 @@ impl App for Prefs {
             || (self.pane == Pane::Seguranca && self.fw_ask.is_some())
             || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some())
             || (self.pane == Pane::Inicializacao && self.inicializacao.prompt.is_some())
-            || (self.pane == Pane::Aparencia && self.tema_sistema.prompt.is_some());
+            || (matches!(self.pane, Pane::Aparencia | Pane::Telas) && self.tema_sistema.prompt.is_some());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -2587,6 +2671,7 @@ impl App for Prefs {
             let (_, ph) = ui.area_size(Rect::new(x + PANE_PAD.0, y, (iw - 2.0 * PANE_PAD.0).max(100.0), 0.0), |ui| match self.pane {
             Pane::Todos => self.show_all(ui),
             Pane::Aparencia => self.aparencia(ui),
+            Pane::Telas => self.telas(ui),
             Pane::Mesa => self.mesa(ui),
             Pane::Som => self.som(ui),
             Pane::Energia => self.energia(ui),
@@ -2657,7 +2742,7 @@ impl App for Prefs {
                     admin::Answer::Cancel => {}
                     admin::Answer::Password(pw) => self.fw_job = Some(admin::run(args, Some(pw))),
                 }
-            } else if self.pane == Pane::Aparencia {
+            } else if matches!(self.pane, Pane::Aparencia | Pane::Telas) {
                 self.tema_sistema.prompt_sheet(ui);
             } else if self.pane == Pane::Inicializacao {
                 self.inicializacao.prompt_sheet(ui);
@@ -2798,8 +2883,9 @@ pub fn main() {
     // Como administrador (pelo sudo): a aparência na tela de login e na abertura do sistema.
     let args: Vec<String> = std::env::args().collect();
     if let Some(i) = args.iter().position(|a| a == "--tema-sistema") {
-        let tema = args.get(i + 1).cloned().unwrap_or_default();
-        if let Err(e) = tema_sistema::aplicar_como_admin(&tema) {
+        let login = args.get(i + 1).cloned().unwrap_or_default();
+        let abertura = args.get(i + 2).cloned().unwrap_or_else(|| login.clone());
+        if let Err(e) = tema_sistema::aplicar_como_admin(&login, &abertura) {
             eprintln!("{e}");
             std::process::exit(1);
         }

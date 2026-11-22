@@ -117,6 +117,18 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
   search, open in new tab and remove.
 - **Find on page** (Ctrl+F), **Print** (Ctrl+P, through Glove's Print sheet) and **Save as PDF**
   (File menu, to the Downloads folder).
+- **Shields** (the shield at the right of the toolbar, as in Brave): ads and trackers blocked before
+  loading and ad slots hidden, with Brave's blocking engine and the EasyList, EasyPrivacy, Portuguese,
+  Peter Lowe's and uBlock Origin lists. The number on the shield is how much the page had blocked; a
+  click turns shields on or off for the site. Third-party cookies are blocked too. The **Extensions**
+  menu turns Jangada's extensions on and off (Chrome Web Store ones do not work in the windowless
+  engine).
+- **Passwords:** when you sign in to a site, Jangada offers to save the password (in the system
+  keyring, the same one as Keychain Access) and fills it in next time; Preferences ▸ Passwords shows,
+  copies and deletes them.
+- **Import from another browser** (File ▸ Import from Another Browser…): from Chrome, Chromium,
+  Brave, Edge or Vivaldi on this computer come favorites, history, signed-in sessions (you stay signed
+  in) and passwords.
 - **Google account:** Jangada ▸ Sign In to Google… (or Preferences ▸ Accounts) opens Google's
   sign-in; once signed in, Gmail, YouTube, Drive and the other services open with your account.
   Accounts also lets you manage the account and sign out. (Chrome's bookmark and password sync is
@@ -700,6 +712,11 @@ light text. It goes well with the Mide icons (Mide Claro and Mide Escuro). The p
 Appearance, Highlight color and Icons) are flat too, with the arrows in a small square in the
 highlight color. The menu bar logo is flat: black in Modern Light, white in Modern Dark (in the
 period themes, the gel glove).
+
+**Preferences › System Screens** gives each screen its own theme, apart from the window appearance:
+the **session** (session startup, lock screen and log out), the **login screen** and **system
+startup** (power on and off). "Same as Appearance" follows the chosen appearance. Login and startup
+ask for the administrator password; the pane shows what is in effect now.
 
 **Use the appearance everywhere** (right below the appearance choice): session startup, the lock
 screen and the log-out screen follow the appearance (in Modern: flat panels, a flat light or

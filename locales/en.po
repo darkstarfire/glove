@@ -6386,3 +6386,60 @@ msgstr "Done: the login screen and the startup screen now follow the appearance.
 
 msgid "Não deu para trocar o tema de abertura do sistema."
 msgstr "Could not change the system startup theme."
+
+msgid "Abertura da sessão, bloqueio de tela e saída."
+msgstr "Session startup, lock screen and log out."
+
+msgid "Abertura do sistema"
+msgstr "System startup"
+
+msgid "Abertura do sistema agora: {} (de outro sistema; escolher um tema aqui passa para o do Glove)."
+msgstr "System startup now: {} (from another system; choosing a theme here switches to Glove's)."
+
+msgid "Abertura do sistema agora: {}."
+msgstr "System startup now: {}."
+
+msgid "Abertura e desligamento, tela de login, bloqueio e saída. Cada uma pode ter outro tema em Telas do Sistema."
+msgstr "Startup and shutdown, login screen, lock screen and log out. Each one can have another theme in System Screens."
+
+msgid "Antes de entrar (pede a senha de administrador)."
+msgstr "Before signing in (asks for the administrator password)."
+
+msgid "Ao ligar e desligar o computador (pede a senha de administrador)."
+msgstr "When the computer starts and shuts down (asks for the administrator password)."
+
+msgid "Aplicar de Novo ao Sistema…"
+msgstr "Apply to the System Again…"
+
+msgid "Como a aparência"
+msgstr "Same as Appearance"
+
+msgid "Este computador não usa a tela de login do Glove."
+msgstr "This computer does not use the Glove login screen."
+
+msgid "Não deu certo: a tela de login não mudou."
+msgstr "It did not work: the login screen did not change."
+
+msgid "O tema das telas que aparecem fora das janelas. \"Como a aparência\" acompanha o que estiver escolhido em Aparência."
+msgstr "The theme of the screens shown outside windows. \"Same as Appearance\" follows what is chosen in Appearance."
+
+msgid "Os temas de abertura do Glove vêm no pacote glove-os (o Glove OS): sem ele, a abertura do sistema fica como está."
+msgstr "Glove's startup themes come with the glove-os package (Glove OS): without it, system startup stays as it is."
+
+msgid "Pronto: a tela de login e a abertura do sistema foram atualizadas."
+msgstr "Done: the login screen and system startup were updated."
+
+msgid "Sessão"
+msgstr "Session"
+
+msgid "Tela de login"
+msgstr "Login screen"
+
+msgid "Tela de login agora: {} (ainda não é a escolhida: use Aplicar de Novo)."
+msgstr "Login screen now: {} (not the chosen one yet: use Apply Again)."
+
+msgid "Tela de login agora: {}."
+msgstr "Login screen now: {}."
+
+msgid "Telas do Sistema"
+msgstr "System Screens"

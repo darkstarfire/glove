@@ -474,7 +474,7 @@ impl Glove {
         let spin = if l.busy { (l.since.elapsed().as_millis() / 83 % 12) as i32 } else { 0 };
         let key = (l.password.chars().count(), l.message.clone(), l.busy, caret, l.pressed, spin, tgen);
         if l.key.as_ref() != Some(&key) {
-            l.tex = chrome::lock_panel(&self.fonts, &self.theme, &l.name, key.0, l.message.as_deref(), l.busy, caret, l.pressed, spin as f32 / 12.0, sc).map(to_tex);
+            l.tex = chrome::lock_panel(&self.fonts, &self.screen_theme, &l.name, key.0, l.message.as_deref(), l.busy, caret, l.pressed, spin as f32 / 12.0, sc).map(to_tex);
             l.key = Some(key);
         }
         if l.shake_since.is_some_and(|t| t.elapsed() >= SHAKE) {

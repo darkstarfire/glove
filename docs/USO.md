@@ -118,6 +118,17 @@ Moderno.
   (Ctrl+H), uma janela com busca, abrir em nova aba e apagar.
 - **Buscar na página** (Ctrl+F), **Imprimir** (Ctrl+P, pela folha Imprimir do Glove) e **Salvar
   como PDF** (menu Arquivo, na pasta Downloads).
+- **Escudos** (o escudo à direita da barra, como no Brave): anúncios e rastreadores barrados antes
+  de carregar e os espaços de anúncio escondidos, com o motor de bloqueio do Brave e as listas
+  EasyList, EasyPrivacy, a portuguesa, a do Peter Lowe e as do uBlock Origin. O número no escudo é
+  quanto a página teve barrado; o clique liga ou desliga os escudos no site. Também barra os cookies
+  de terceiros. O menu **Extensões** liga e desliga as extensões da Jangada (as da loja do Chrome não
+  funcionam no motor sem janela própria).
+- **Senhas:** ao entrar num site, a Jangada oferece guardar a senha (no chaveiro do sistema, a mesma
+  do Acesso às Chaves) e a preenche da próxima vez; Preferências ▸ Senhas mostra, copia e apaga.
+- **Importar de outro navegador** (Arquivo ▸ Importar de Outro Navegador…): do Chrome, Chromium,
+  Brave, Edge ou Vivaldi deste computador vêm os favoritos, o histórico, as sessões abertas nos sites
+  (continua com as contas abertas) e as senhas.
 - **Conta do Google:** Jangada ▸ Iniciar Sessão no Google… (ou Preferências ▸ Contas) abre o login
   do Google; com a sessão aberta, o Gmail, o YouTube, o Drive e os outros serviços já entram com a
   sua conta. Em Contas também dá para gerenciar a conta e sair. (A sincronização de favoritos e
@@ -706,6 +717,11 @@ janelas em grafite com o texto claro. Combina com os ícones do Mide (Mide Claro
 menus de escolha (como Aparência, Cor de destaque e Ícones) também ficam lisos, com as setas num
 quadradinho na cor de destaque. O logo da barra de menus fica chapado: preto no Moderno Claro,
 branco no Moderno Escuro (nos temas da época, a luva de gel).
+
+**Preferências › Telas do Sistema** dá a cada tela o seu tema, à parte da aparência das janelas: a
+**sessão** (abertura da sessão, bloqueio e saída), a **tela de login** e a **abertura do sistema**
+(ao ligar e desligar). "Como a aparência" acompanha a aparência escolhida. O login e a abertura pedem
+a senha de administrador; o painel mostra o que está valendo agora.
 
 **Usar a aparência em todo o sistema** (logo abaixo da escolha da aparência): a abertura da sessão,
 o bloqueio de tela e a tela de saída passam a seguir a aparência (no Moderno: painéis lisos, fundo
