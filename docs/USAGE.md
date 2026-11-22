@@ -117,6 +117,10 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
   search, open in new tab and remove.
 - **Find on page** (Ctrl+F), **Print** (Ctrl+P, through Glove's Print sheet) and **Save as PDF**
   (File menu, to the Downloads folder).
+- **Google account:** Jangada ▸ Sign In to Google… (or Preferences ▸ Accounts) opens Google's
+  sign-in; once signed in, Gmail, YouTube, Drive and the other services open with your account.
+  Accounts also lets you manage the account and sign out. (Chrome's bookmark and password sync is
+  not available in Jangada's engine.)
 - **Preferences** (Ctrl+,): home page, reopen last time's tabs, page size, the search engine
   (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), block windows pages open by
   themselves, Do Not Track, clear history and cookies, and Jangada's extensions: the **ad and

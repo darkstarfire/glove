@@ -1426,3 +1426,10 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   no Moderno, e, com a senha de administrador, a tela de login (/etc/glove/login) e os temas do
   Plymouth glove-moderno e glove-moderno-escuro (`glove-prefs --tema-sistema`); Monitor com o % de
   CPU dos processos como fatia da máquina inteira (a soma bate com o resumo embaixo).
+- [x] 22.16 (v0.12.96, Jangada 1.3.1) A luva chapada redesenhada em vetor (palma, quatro dedos com
+  os vãos, polegar, punho e a mordida), no lugar da silhueta tirada da imagem de gel; ícone da
+  central como nos sistemas de hoje (de cima só o contorno, bolinha à esquerda; de baixo cheio, com
+  a bolinha vazada à direita); o glove-ui não chama mais o app nas passadas de pintura da janela de
+  alerta (o "Sobre" da Jangada piscava e o OK sumia); Jangada: iniciar a sessão no Google
+  (Preferências ▸ Contas e menu Jangada) com o user agent de um Chrome comum; o atualizador do Glove
+  também atualiza a Jangada.

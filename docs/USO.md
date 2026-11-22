@@ -118,6 +118,10 @@ Moderno.
   (Ctrl+H), uma janela com busca, abrir em nova aba e apagar.
 - **Buscar na página** (Ctrl+F), **Imprimir** (Ctrl+P, pela folha Imprimir do Glove) e **Salvar
   como PDF** (menu Arquivo, na pasta Downloads).
+- **Conta do Google:** Jangada ▸ Iniciar Sessão no Google… (ou Preferências ▸ Contas) abre o login
+  do Google; com a sessão aberta, o Gmail, o YouTube, o Drive e os outros serviços já entram com a
+  sua conta. Em Contas também dá para gerenciar a conta e sair. (A sincronização de favoritos e
+  senhas do Chrome não existe no motor da Jangada.)
 - **Preferências** (Ctrl+,): página inicial, reabrir as abas da última vez, tamanho das páginas, o
   buscador (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), bloquear janelas que as
   páginas abrem sozinhas, Não Rastrear, limpar o histórico e os cookies, e as extensões da Jangada:

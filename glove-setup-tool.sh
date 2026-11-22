@@ -12,7 +12,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=1.3.0
+jangada_version=1.3.1
 mide_icons_repo="https://github.com/fabioaacarneiro/mide-icons"
 mide_icons_commit=11f848417aba8abbb2889439d374803a6c6f0cbf
 mide_icons_version=1.0

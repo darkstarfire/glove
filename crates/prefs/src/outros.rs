@@ -159,7 +159,7 @@ impl Atualizacao {
             Op::Verificar => sh("apt-get update".into()),
             Op::Glove if a::pacote() != a::Pacote::Apt => sh(a::script_atualizar(a::pacote(), versao, &a::repo_url())?),
             Op::Glove => sh(format!(
-                "apt-get update -o Dir::Etc::sourcelist={} -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 && {apt} install --only-upgrade glove glove-os",
+                "apt-get update -o Dir::Etc::sourcelist={} -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 && {apt} install --only-upgrade glove glove-os jangada",
                 crate::atualizar::SOURCES
             )),
             Op::Tudo => match upgrade_all() {
