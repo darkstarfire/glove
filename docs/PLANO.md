@@ -1494,3 +1494,21 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     (`com.canonical.dbusmenu`: GetLayout vira menu do Glove, Event "clicked" no item). Os ícones
     saem quando o app deixa o barramento. Sem a bandeja, o Telegram encerrava ao fechar a janela.
     Conferido com um item de teste e com o `nm-applet` num D-Bus próprio.
+
+## Fase 23 — Jangada com vídeos H.264 e mais fluida (pendências de 23/11/2026)
+
+- [ ] 23.1 Motor com H.264/AAC (G; adiado pelo usuário em 23/11/2026). O CEF pronto
+  (cef-builds.spotifycdn.com) vem sem os codecs com patente: na Jangada 1.14.0, `canPlayType` dá
+  "não" para H.264, AAC e HEVC (VP9, AV1 e Opus funcionam), e parte dos vídeos do Facebook mostra
+  um quadro preto com "a mídia não pode ser carregada". O único jeito é compilar o CEF/Chromium
+  com `proprietary_codecs=true ffmpeg_branding="Chrome"` (opção de compilação: não dá para
+  acrescentar depois). Custo estimado: ~30 GB de código, ~100 GB livres (60-70 GB no modo enxuto:
+  `symbol_level=0`, sem histórico), 3-6 h na primeira vez com 16 núcleos e 32 GB de memória;
+  depois, 20-60 min por correção da mesma versão e quase uma compilação inteira a cada versão
+  nova do Chromium (4 semanas). Onde: no PC de casa do usuário (de noite, uma vez por mês;
+  custo zero) ou num runner pago do GitHub (sempre do zero). Falta o usuário dizer núcleos,
+  memória e disco do PC de casa. Depois: a Jangada passa a baixar esse motor no `preparar.sh`.
+- [ ] 23.2 Página direto da placa para o compositor (G). Hoje cada quadro passa pelo processador
+  (o motor lê da placa, a Jangada troca as cores, o kit copia, compara e troca de novo, e o
+  compositor sobe para a placa): num monitor de 2560×1440 ainda trava. Caminho: `on_accelerated_paint`
+  do CEF (dmabuf) e uma subsuperfície com `zwp_linux_dmabuf_v1` no glove-ui.
