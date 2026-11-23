@@ -414,7 +414,8 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
 - **Preferences ▸ Displays** (with more than one display, in extend mode): *Menu bar on every
   display*, *Dock on every display* and *Dim the menu bar on displays without the active
   window*. When off, the menu bar and the Dock stay on the primary display only, as before.
-- The control center, the volume control and Quick Search open on the primary display.
+- The control center, the volume control and Quick Search open on the display whose menu bar
+  you clicked (from the keyboard shortcut, Quick Search opens on the primary display).
 
 ## When a display is unplugged
 

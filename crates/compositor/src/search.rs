@@ -81,6 +81,8 @@ pub struct Search {
     key: Option<(String, Option<usize>, usize, bool, bool, u64)>,
     pub tex: Option<Tex>,
     pub size: (i32, i32),
+    /// Aberta pela barra de um monitor extra: o monitor (senão, o principal).
+    pub tela: Option<smithay::utils::Rectangle<i32, Logical>>,
 }
 
 /// Minúsculas e sem acentos, para comparar ("Preferências" acha com "preferencias").
@@ -323,6 +325,8 @@ impl Glove {
         self.close_control();
         self.close_grade();
         self.search.open = true;
+        // Pela lupa da barra de um monitor extra: abre nele.
+        self.search.tela = self.chrome_translate(self.pointer_pos).and_then(|_| self.output_rect_at(self.pointer_pos));
         self.search.query.clear();
         self.search.results.clear();
         self.search.selected = None;
@@ -503,11 +507,16 @@ impl Glove {
     /// Canto do conteúdo do painel: encostado à direita, embaixo da lupa; no Moderno,
     /// no centro da tela, um pouco acima do meio.
     pub fn search_origin(&self) -> Point<i32, Logical> {
-        let (w, h) = self.output_size();
-        if self.theme.modern {
-            return (((w as f32 - chrome::qs_w()) / 2.0) as i32, (h as f32 * 0.22) as i32).into();
-        }
-        ((w as f32 - chrome::QS_W - 2.0) as i32, glove_paint::theme::MENUBAR_H).into()
+        let (base, (w, h)) = match self.search.tela {
+            Some(r) => (r.loc, (r.size.w, r.size.h)),
+            None => ((0, 0).into(), self.output_size()),
+        };
+        let o: Point<i32, Logical> = if self.theme.modern {
+            (((w as f32 - chrome::qs_w()) / 2.0) as i32, (h as f32 * 0.22) as i32).into()
+        } else {
+            ((w as f32 - chrome::QS_W - 2.0) as i32, glove_paint::theme::MENUBAR_H).into()
+        };
+        o + base
     }
 
     /// Linha do painel sob o ponto (Some(None) = dentro do painel, fora das linhas).

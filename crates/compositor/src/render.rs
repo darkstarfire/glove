@@ -264,6 +264,28 @@ impl Glove {
         }
         // Bloqueada ou encerrando: só o papel de parede (nada das janelas).
         let covered = self.lock.is_some() || self.greeter || self.ending.as_ref().is_some_and(|e| e.screen_since.is_some()) || self.startup.as_ref().is_some_and(|s| s.covering());
+        // Os painéis da barra abertos neste monitor (Busca Rápida, central de controle,
+        // volume), por cima de tudo menos dos menus.
+        let aqui = |p: Point<i32, Logical>| area.contains(p);
+        if self.search.open {
+            if let Some(t) = &self.search.tex {
+                let o = self.search_origin();
+                if aqui(o) {
+                    let (mx, my) = glove_paint::chrome::quick_search_margin();
+                    out.extend(mem(renderer, (o.x - mx as i32 - origin.x, o.y - my as i32 - origin.y).into(), t, sc));
+                }
+            }
+        }
+        if let Some(cp) = self.control.as_ref().filter(|c| aqui(c.origin)) {
+            if let Some(t) = &cp.tex {
+                out.extend(mem(renderer, (cp.origin.x - glove_paint::chrome::MENU_SHADOW - origin.x, cp.origin.y - origin.y).into(), t, sc));
+            }
+        }
+        if let Some(s) = self.extras.slider.as_ref().filter(|s| aqui(s.origin)) {
+            if let Some(t) = &s.tex {
+                out.extend(mem(renderer, (s.origin.x - glove_paint::chrome::MENU_SHADOW - origin.x, s.origin.y - origin.y).into(), t, sc));
+            }
+        }
         // A barra de menu e o Dock deste monitor (as cópias dos do principal), por cima
         // das janelas; somem com uma janela em tela cheia aqui.
         if !covered && !self.area_fullscreen(area) {

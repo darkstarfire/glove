@@ -153,7 +153,8 @@ impl Glove {
         let right = self.chrome.extra_ranges.get(k).map(|r| r.1).unwrap_or(0.0) as i32;
         let (sw, _) = self.output_size();
         let x = (right - chrome::CONTROL_W as i32).clamp(4, (sw - chrome::CONTROL_W as i32 - 4).max(4));
-        self.control = Some(ControlPanel { origin: (x, glove_paint::theme::MENUBAR_H + 2).into(), info, drag: None, last_set: Instant::now() - Duration::from_secs(1), key: None, tex: None, extra: k, touched: [false; 3] });
+        let origin = self.shift_point((x, glove_paint::theme::MENUBAR_H + 2).into(), chrome::CONTROL_W as i32);
+        self.control = Some(ControlPanel { origin, info, drag: None, last_set: Instant::now() - Duration::from_secs(1), key: None, tex: None, extra: k, touched: [false; 3] });
         self.refresh_control();
         self.dirty = true;
     }

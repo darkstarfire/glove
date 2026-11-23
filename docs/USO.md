@@ -416,7 +416,8 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
 - **Preferências ▸ Monitores** (com mais de um monitor, no modo estender): *Barra de menu em
   todos os monitores*, *Dock em todos os monitores* e *Esmaecer a barra dos monitores sem a
   janela ativa*. Desligados, a barra e o Dock ficam só no principal, como antes.
-- A central de controle, o controle de volume e a Busca Rápida abrem no monitor principal.
+- A central de controle, o controle de volume e a Busca Rápida abrem no monitor em que você
+  clicou na barra (pelo atalho de teclado, a Busca abre no principal).
 
 ## Quando um monitor é desconectado
 

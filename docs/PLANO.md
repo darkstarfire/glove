@@ -1461,7 +1461,8 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   do Chrome (pasta, .zip ou GitHub; linha de comando e Preferências ▸ Instaladas). Jangada 1.12.0:
   ferramentas do desenvolvedor (o inspetor do motor numa aba, pela porta local de depuração,
   desligada por padrão) e um teste que exige tradução para todo texto.
-  - [ ] 22.19.1 A central de controle, o volume e a Busca Rápida ainda abrem no monitor principal.
+  - [x] 22.19.1 (v0.13.1) A central de controle, o volume e a Busca Rápida abrem no monitor da
+    barra em que foram clicados.
 - [x] 22.20 (v0.13.0) Tela de login nos temas modernos com layout próprio: o papel de parede
   desfocado na tela inteira (pintado em 1/4, desfocado em caixa e ampliado), os usuários lado a lado
   com fotos redondas, a senha embaixo da foto escolhida com a seta de entrar e Cancelar, Repouso,

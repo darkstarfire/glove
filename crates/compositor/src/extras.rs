@@ -313,7 +313,8 @@ impl Glove {
                 let x = self.chrome.extra_ranges.get(k).map(|r| r.0).unwrap_or(0.0) as i32;
                 let (sw, _) = self.output_size();
                 let x = x.min(sw - chrome::VOLUME_SLIDER_W as i32);
-                self.extras.slider = Some(VolumeSlider { origin: (x, glove_paint::theme::MENUBAR_H).into(), dragging: false, last_set: Instant::now() - Duration::from_secs(1), key: None, tex: None });
+                let origin = self.shift_point((x, glove_paint::theme::MENUBAR_H).into(), chrome::VOLUME_SLIDER_W as i32);
+                self.extras.slider = Some(VolumeSlider { origin, dragging: false, last_set: Instant::now() - Duration::from_secs(1), key: None, tex: None });
                 self.dirty = true;
             }
             ExtraKind::Battery => {

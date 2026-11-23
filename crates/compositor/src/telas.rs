@@ -195,6 +195,15 @@ impl Glove {
         level.origin = (x, y).into();
     }
 
+    /// Um painel da barra (central de controle, volume) aberto pela barra de um monitor
+    /// extra vai para lá: o deslocamento do clique, com a largura `w` dentro do monitor.
+    pub fn shift_point(&self, p: Point<i32, Logical>, w: i32) -> Point<i32, Logical> {
+        let Some((_, d)) = self.chrome_translate(self.pointer_pos) else { return p };
+        let Some(area) = self.output_rect_at(self.pointer_pos) else { return p };
+        let x = (p.x + d.x).clamp(area.loc.x, (area.loc.x + area.size.w - w).max(area.loc.x));
+        (x, p.y + d.y).into()
+    }
+
     /// A área útil de um monitor: no principal, a de sempre; num extra, sem a barra e o
     /// Dock dele (quando estão lá).
     pub fn work_area_of(&self, rect: Rectangle<i32, Logical>) -> Rectangle<i32, Logical> {
