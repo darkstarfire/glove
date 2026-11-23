@@ -1486,3 +1486,11 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     motor usa o ANGLE sobre o Vulkan, que sobe sem tela, e é atendido na hora em que pede para
     trabalhar (antes esperava tiques de 16 ms fora do compasso da tela: a rolagem dava trancos).
     Kit: a janela entrega o quadro sem copiar a mesma área várias vezes.
+  - [x] 22.20.3 (v0.13.4) Bandeja de ícones na barra de menu: o Glove atende
+    `org.kde.StatusNotifierWatcher` (e se registra como host) no D-Bus da sessão; os ícones dos
+    apps (StatusNotifierItem: IconPixmap ou IconName pelo tema, relidos a cada sinal) viram extras
+    à esquerda dos do sistema (`Extra::Tray` no kit). Clique = `Activate` (ou o menu, se o app só
+    tem menu ou não diz: os da appindicator); botão direito = o menu do app
+    (`com.canonical.dbusmenu`: GetLayout vira menu do Glove, Event "clicked" no item). Os ícones
+    saem quando o app deixa o barramento. Sem a bandeja, o Telegram encerrava ao fechar a janela.
+    Conferido com um item de teste e com o `nm-applet` num D-Bus próprio.

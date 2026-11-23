@@ -11,6 +11,7 @@ mod dockmenu;
 mod ending;
 mod expose;
 mod avisos;
+mod bandeja;
 mod cantos;
 mod gestos;
 mod dmabuf;
@@ -199,6 +200,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Avisos dos apps (notify-send e cia.).
     if !greeter {
         state.start_avisos();
+        // A bandeja de ícones (Telegram, Discord, Steam…) na barra de menu.
+        state.start_bandeja();
         // Cópias de Segurança: confere de hora em hora (o app sai na hora se estiver
         // desligado, sem disco ou com uma cópia recente). A primeira, 10 min depois de entrar.
         event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(600)), |_, _, data| {

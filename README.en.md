@@ -44,7 +44,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 - **X11 apps** through Xwayland, with Glove's title bar
 - Global menu bar: main menu (Recent Items, Force Quit, Sleep, Shut Down…), the app menu, **each
   app's own menus**, submenus and keyboard navigation; Wi-Fi, volume, battery (time left, health and cycles, also for third-party batteries and Chromebooks whose firmware does not recognise the battery: the `glove-bateria` service reads it straight from the EC and shuts the computer down before it runs out) and display extras,
-  clock and user name (fast user switching)
+  clock and user name (fast user switching); **tray icons** (Telegram, Discord, Steam… with each app's menu)
 - Glass **Dock** with magnification, bouncing icons, context menus, auto-hide, bottom/left/right
   position, **Scale** and **Genie** minimize effects (deformation done on the GPU), live
   thumbnails and a Trash that fills up

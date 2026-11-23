@@ -173,6 +173,7 @@ pub struct Glove {
     pub gesto: Option<crate::gestos::Gesto>,
     /// Avisos (notificações) e a central.
     pub avisos: crate::avisos::Avisos,
+    pub bandeja: crate::bandeja::Bandeja,
     /// Mesas virtuais.
     pub mesas: crate::mesas::Mesas,
     /// Exposé em andamento.
@@ -340,6 +341,7 @@ impl Glove {
             control_seen: Default::default(),
             gesto: None,
             avisos: Default::default(),
+            bandeja: Default::default(),
             mesas: Default::default(),
             expose: None,
             corner_armed: true,

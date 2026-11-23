@@ -39,6 +39,8 @@ pub enum ExtraKind {
     /// Gravação em andamento: bolinha piscando e o tempo; clique = Parar.
     Recording,
     User,
+    /// Um ícone da bandeja (a posição na lista da bandeja).
+    Tray(usize),
 }
 
 pub struct VolumeSlider {
@@ -235,6 +237,10 @@ impl Glove {
     /// Extras na ordem da barra (da esquerda para a direita, antes do relógio).
     pub fn extra_kinds(&self) -> Vec<ExtraKind> {
         let mut v = Vec::new();
+        // Os ícones da bandeja, à esquerda dos extras do sistema.
+        if !self.greeter {
+            v.extend(self.bandeja.visiveis().into_iter().map(ExtraKind::Tray));
+        }
         if self.config.keyboard.show_input_menu && !self.config.keyboard.input_menu.is_empty() {
             v.push(ExtraKind::Input);
         }
@@ -294,6 +300,7 @@ impl Glove {
                     Extra::Battery { percent: b.percent, charging: b.charging, show_percent: self.config.battery_percent }
                 }
                 ExtraKind::User => Extra::User { name: crate::shell::user_full_name() },
+                ExtraKind::Tray(i) => Extra::Tray { icon: self.bandeja.icon(i), title: self.bandeja.itens.get(i).map(|t| t.title.clone()).unwrap_or_default() },
                 ExtraKind::Notifications => Extra::Notifications { unread: self.avisos.unread, quiet: self.avisos.quiet },
                 ExtraKind::Recording => {
                     let (tempo, aceso) = self.texto_gravacao();
@@ -348,6 +355,7 @@ impl Glove {
                 self.show_menu(BarTarget::Extra(k), vec![parar]);
             }
             ExtraKind::Control => self.open_control(k),
+            ExtraKind::Tray(i) => self.bandeja_clique(i, k),
         }
     }
 

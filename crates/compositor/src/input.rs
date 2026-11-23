@@ -1217,6 +1217,10 @@ impl Glove {
                 match hit {
                     Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Control(..) | Hit::Search(_) => {}
                     Hit::Dock(Some(i)) if button == BTN_RIGHT => self.open_dock_menu(i),
+                    Hit::MenuBar { target: Some(crate::shell::BarTarget::Extra(k)) } if button == BTN_RIGHT && self.tray_index(k).is_some() => {
+                        self.close_menu();
+                        self.bandeja_menu(self.tray_index(k).unwrap(), k);
+                    }
                     Hit::MenuBar { target: Some(t) } if t != cur => self.open_bar_menu(t),
                     _ => self.close_menu(),
                 }
@@ -1228,8 +1232,13 @@ impl Glove {
                         swallow = true;
                     }
                     Hit::MenuBar { target } => {
-                        if let (Some(t), BTN_LEFT) = (target, button) {
-                            self.open_bar_menu(t);
+                        match (target, button) {
+                            // Botão direito num ícone da bandeja: o menu do app.
+                            (Some(crate::shell::BarTarget::Extra(k)), BTN_RIGHT) if self.tray_index(k).is_some() => {
+                                self.bandeja_menu(self.tray_index(k).unwrap(), k);
+                            }
+                            (Some(t), BTN_LEFT) => self.open_bar_menu(t),
+                            _ => {}
                         }
                         swallow = true;
                     }

@@ -405,6 +405,18 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   abre sempre no centro, e os diálogos também.
 - Um app que lembra que estava em zoom abre em zoom, ocupando a área útil.
 
+## Bandeja de ícones
+
+- Os apps que ficam rodando em segundo plano (Telegram, Discord, Steam, Nextcloud, o
+  `nm-applet` da rede…) põem o ícone na barra de menu, à esquerda dos extras do sistema.
+  Fechar a janela desses apps não encerra mais: eles continuam na bandeja.
+- **Clique** no ícone: abre o app (no Telegram, a janela volta). Nos apps que só têm menu
+  (os da appindicator, como Discord e Steam), o clique abre o menu.
+- **Botão direito**: o menu do app, como um menu do Glove (com submenus, marcas e itens
+  desabilitados).
+- O ícone acompanha o app (por exemplo, a contagem de mensagens não lidas). Quando o app
+  pede para esconder o ícone, ele some da barra.
+
 ## Barra de menu e Dock em vários monitores
 
 - Com a mesa estendida, cada monitor tem a sua barra de menu (na largura dele) e o seu Dock.

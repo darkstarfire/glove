@@ -404,6 +404,18 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   opens centered, and so do dialogs.
 - An app that remembers it was zoomed opens zoomed, filling the usable area.
 
+## Tray icons
+
+- Apps that keep running in the background (Telegram, Discord, Steam, Nextcloud, the network
+  `nm-applet`…) put their icon on the menu bar, to the left of the system extras. Closing these
+  apps' windows no longer quits them: they stay in the tray.
+- **Click** the icon: opens the app (in Telegram, the window comes back). For apps that only
+  have a menu (appindicator ones, like Discord and Steam), the click opens the menu.
+- **Right-click**: the app's menu, as a Glove menu (with submenus, checkmarks and disabled
+  items).
+- The icon follows the app (for example, the unread message count). When the app asks to hide
+  its icon, it leaves the menu bar.
+
 ## Menu bar and Dock on several displays
 
 - With an extended desktop, each display has its own menu bar (at its width) and its own Dock.
