@@ -195,10 +195,26 @@ impl Glove {
     /// O Dock montado na GPU, da frente para o fundo: nome, indicadores, ícones,
     /// divisórias e a prateleira.
     fn dock_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
+        let principal = self.primary().and_then(|o| self.space.output_geometry(o));
+        match self.still_dock_for(principal) {
+            Some(l) => self.dock_elements_at(renderer, sc, self.chrome.dock_pos_layout(l, self.chrome.out_size), true, out),
+            None => self.dock_elements_at(renderer, sc, self.chrome.dock_pos(), false, out),
+        }
+    }
+
+    /// O desenho parado do Dock para o monitor `area`, se outro monitor estiver ampliando
+    /// o dele (None = o Dock de sempre).
+    pub fn still_dock_for(&self, area: Option<Rectangle<i32, Logical>>) -> Option<&glove_paint::chrome::DockLayout> {
+        let l = self.chrome.dock_still_layout.as_ref()?;
+        (self.chrome.dock_zoom_area.is_some() && self.chrome.dock_zoom_area != area).then_some(l)
+    }
+
+    /// O Dock com o canto em `o` (no principal, a posição dele; num monitor extra, a da
+    /// cópia, relativa a esse monitor). `parado`: o desenho sem a ampliação.
+    fn dock_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, o: Point<i32, Logical>, parado: bool, out: &mut Vec<GloveElement>) {
         let c = &self.chrome;
-        let g = &c.dock_gpu;
+        let g = if parado { &c.dock_still } else { &c.dock_gpu };
         let Some(scene) = &g.scene else { return };
-        let o = c.dock_pos();
         let at = |x: f32, y: f32| Point::<i32, Logical>::from((o.x + x.round() as i32, o.y + y.round() as i32));
         if let (Some((_, x, y)), Some(t)) = (scene.label, g.label()) {
             out.extend(mem(renderer, at(x, y), t, sc));
@@ -248,6 +264,26 @@ impl Glove {
         }
         // Bloqueada ou encerrando: só o papel de parede (nada das janelas).
         let covered = self.lock.is_some() || self.greeter || self.ending.as_ref().is_some_and(|e| e.screen_since.is_some()) || self.startup.as_ref().is_some_and(|s| s.covering());
+        // A barra de menu e o Dock deste monitor (as cópias dos do principal), por cima
+        // das janelas; somem com uma janela em tela cheia aqui.
+        if !covered && !self.area_fullscreen(area) {
+            if let Some(t) = self.chrome.extra_bars.iter().find(|b| b.area == area).and_then(|b| b.tex.as_ref()) {
+                out.extend(mem_alpha(renderer, (0, 0).into(), t, sc, self.bar_alpha(Some(area))));
+            }
+            if self.grade.alpha <= 0.0 {
+                match self.still_dock_for(Some(area)) {
+                    Some(l) if self.config.monitor.dock_all => {
+                        let o = self.chrome.dock_pos_layout(l, (area.size.w, area.size.h));
+                        self.dock_elements_at(renderer, sc, o, true, &mut out);
+                    }
+                    _ => {
+                        if let Some(o) = self.extra_dock_origin(area) {
+                            self.dock_elements_at(renderer, sc, o - origin, false, &mut out);
+                        }
+                    }
+                }
+            }
+        }
         if !covered {
             for w in self.x11_overlays.iter().rev() {
                 let Some(x) = w.x11_surface() else { continue };
@@ -621,7 +657,8 @@ impl Glove {
         if let Some(b) = c.menubar.as_ref().filter(|_| !covered) {
             // Em tela cheia, a barra desce do alto (e sobe ao sair).
             let y = if c.fs { -(((1.0 - c.peek) * glove_paint::theme::MENUBAR_H as f32).round() as i32) } else { 0 };
-            out.extend(mem(renderer, (0, y).into(), b, sc));
+            let principal = self.primary().and_then(|o| self.space.output_geometry(o));
+            out.extend(mem_alpha(renderer, (0, y).into(), b, sc, self.bar_alpha(principal)));
         }
         // Menus e dicas de apps X11: por cima das janelas, na posição que o app escolheu.
         for w in self.x11_overlays.iter().rev() {

@@ -404,6 +404,20 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   abre sempre no centro, e os diálogos também.
 - Um app que lembra que estava em zoom abre em zoom, ocupando a área útil.
 
+## Barra de menu e Dock em vários monitores
+
+- Com a mesa estendida, cada monitor tem a sua barra de menu (na largura dele) e o seu Dock.
+  Os menus, os extras (volume, rede, relógio) e os ícones do Dock funcionam em qualquer um:
+  o menu abre no monitor em que você clicou. A ampliação acontece só no Dock que está sob o
+  mouse.
+- A barra dos monitores sem a janela ativa fica esmaecida (sem janela, vale o monitor do
+  mouse). Com um menu aberto, todas ficam normais.
+- Janela em zoom num monitor extra ocupa o espaço entre a barra e o Dock dele.
+- **Preferências ▸ Monitores** (com mais de um monitor, no modo estender): *Barra de menu em
+  todos os monitores*, *Dock em todos os monitores* e *Esmaecer a barra dos monitores sem a
+  janela ativa*. Desligados, a barra e o Dock ficam só no principal, como antes.
+- A central de controle, o controle de volume e a Busca Rápida abrem no monitor principal.
+
 ## Quando um monitor é desconectado
 
 - As janelas que estavam no monitor que saiu vão para o que ficou, no centro dele.

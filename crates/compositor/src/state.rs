@@ -460,6 +460,12 @@ impl Glove {
         if old.desktops != self.config.desktops {
             self.fit_desks();
         }
+        // A barra ou o Dock entraram ou saíram dos outros monitores: as janelas em zoom
+        // de lá acompanham a área útil nova.
+        let (a, b) = (&old.monitor, &self.config.monitor);
+        if (a.menubar_all, a.dock_all) != (b.menubar_all, b.dock_all) {
+            self.refit_zoomed();
+        }
         self.dirty = true;
         // Segundos ou dois-pontos piscando: um relógio de segundo em segundo já agora
         // (o de minuto só passaria a cada segundo na virada do próximo minuto).

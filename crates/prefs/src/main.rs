@@ -1716,7 +1716,27 @@ impl Prefs {
                             self.save();
                         }
                     });
-                    ui.form_note(LW, tr!("A barra de menu e o Dock ficam no principal; arraste janelas para os outros."));
+                    // A barra de menu e o Dock em todos os monitores (ou só no principal), e a
+                    // barra dos monitores sem o foco esmaecida.
+                    let m = &mut self.config.monitor;
+                    let (mut barra, mut dock, mut esmaecer) = (m.menubar_all, m.dock_all, m.dim_inactive);
+                    let mut mudou = false;
+                    ui.form_row("", LW, |ui| {
+                        mudou |= ui.checkbox(&mut barra, tr!("Barra de menu em todos os monitores"));
+                    });
+                    ui.form_row("", LW, |ui| {
+                        mudou |= ui.checkbox(&mut dock, tr!("Dock em todos os monitores"));
+                    });
+                    ui.set_enabled(barra);
+                    ui.form_row("", LW, |ui| {
+                        mudou |= ui.checkbox(&mut esmaecer, tr!("Esmaecer a barra dos monitores sem a janela ativa"));
+                    });
+                    ui.set_enabled(true);
+                    if mudou {
+                        let m = &mut self.config.monitor;
+                        (m.menubar_all, m.dock_all, m.dim_inactive) = (barra, dock, esmaecer);
+                        self.save();
+                    }
                 } else if self.config.monitor.arrangement == "espelhar" {
                     ui.form_note(LW, tr!("Os monitores usam a maior resolução que todos aceitam."));
                 }

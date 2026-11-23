@@ -367,8 +367,8 @@ impl Glove {
         // we will compute that here.
         // Como no Mac: o popup não cobre a barra de menus nem o Dock (a área útil),
         // se o monitor for o da barra; nos outros, o monitor inteiro.
-        let work = self.work_area();
-        let mut target = output_geo.intersection(work).filter(|_| output_geo.contains(work.loc)).unwrap_or(output_geo);
+        let work = self.work_area_of(output_geo);
+        let mut target = output_geo.intersection(work).unwrap_or(output_geo);
         target.loc -= get_popup_toplevel_coords(&PopupKind::Xdg(popup.clone()));
         target.loc -= window_geo.loc;
 

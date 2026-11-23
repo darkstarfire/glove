@@ -12,7 +12,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=1.10.0
+jangada_version=1.12.0
 mide_icons_repo="https://github.com/fabioaacarneiro/mide-icons"
 mide_icons_commit=11f848417aba8abbb2889439d374803a6c6f0cbf
 mide_icons_version=1.0
@@ -310,7 +310,7 @@ install_glove() {
     if [ -z "$sysroot" ]; then
         root sh -c "$post_install_sh"
     fi
-    # O navegador do Glove (Jangada): o pacote da versão fixada, instalado pelo apt.
+    # O navegador do Glove (Jangada): o pacote da versão fixada, pelo gerenciador de pacotes.
     if [ -z "$sysroot" ]; then
         if has jangada; then
             :
@@ -320,8 +320,25 @@ install_glove() {
                 package_jangada
                 root apt-get install -y "$out_dir/jangada_${jangada_version}_amd64.deb" || echo "$(t "Aviso: a Jangada não foi instalada." "Warning: Jangada was not installed.")" >&2
             fi
+        elif jangada_nome "$(distro)" >/dev/null; then
+            # Fedora, Arch e Slackware: o pacote da release da Jangada.
+            echo
+            if ask "$(t "Instalar também a Jangada, o navegador do Glove (~110 MB)?" "Also install Jangada, Glove's browser (~110 MB)?")" y; then
+                n=$(jangada_nome "$(distro)")
+                mkdir -p "$out_dir"
+                if curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jangada_version/$n" -o "$out_dir/$n.parte" && mv "$out_dir/$n.parte" "$out_dir/$n"; then
+                    case "$(distro)" in
+                        fedora) root dnf install -y "$out_dir/$n" ;;
+                        arch) root pacman -U --noconfirm "$out_dir/$n" ;;
+                        slackware) root installpkg "$out_dir/$n" ;;
+                    esac || echo "$(t "Aviso: a Jangada não foi instalada." "Warning: Jangada was not installed.")" >&2
+                else
+                    rm -f "$out_dir/$n.parte"
+                    echo "$(t "Aviso: não deu para baixar a Jangada: $jangada_repo" "Warning: could not download Jangada: $jangada_repo")" >&2
+                fi
+            fi
         else
-            echo "$(t "A Jangada (o navegador do Glove) por enquanto só tem pacote para Debian e Ubuntu: $jangada_repo" "Jangada (Glove's browser) only has a Debian/Ubuntu package for now: $jangada_repo")"
+            echo "$(t "A Jangada (o navegador do Glove) tem pacotes para Debian, Ubuntu, Fedora, Arch e Slackware: $jangada_repo" "Jangada (Glove's browser) has packages for Debian, Ubuntu, Fedora, Arch and Slackware: $jangada_repo")"
         fi
     fi
     echo
@@ -408,9 +425,9 @@ uninstall_glove() {
 deps_deb="libgbm1, libseat1, libudev1, libinput10 | libinput-bin, libxkbcommon0, libdrm2, libegl1, libgles2, libgl1-mesa-dri, fontconfig, fonts-dejavu-core, greetd"
 rec_deb="xdg-user-dirs, polkitd, udisks2, wimtools, exfatprogs, ntfs-3g, xwayland, mpv, ffmpeg, poppler-utils, pipewire-bin, wireplumber, xdg-utils, desktop-file-utils, dbus-bin, libfuse2t64 | libfuse2, glove-mide-icons, jangada"
 deps_rpm="mesa-libEGL mesa-libGLES mesa-dri-drivers fontconfig dejavu-sans-fonts dejavu-sans-mono-fonts greetd"
-rec_rpm="xorg-x11-server-Xwayland mpv ffmpeg poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils"
+rec_rpm="xorg-x11-server-Xwayland mpv ffmpeg poppler-utils pipewire-utils wireplumber xdg-utils desktop-file-utils jangada"
 deps_arch="mesa libinput libxkbcommon seatd systemd-libs libdrm fontconfig ttf-dejavu greetd"
-opt_arch="xorg-xwayland:X11_apps mpv:Video ffmpeg:animated_wallpaper poppler:PDF_in_the_Viewer pipewire:sound wireplumber:volume xdg-utils:Open_With desktop-file-utils:Open_With"
+opt_arch="xorg-xwayland:X11_apps mpv:Video ffmpeg:animated_wallpaper poppler:PDF_in_the_Viewer pipewire:sound wireplumber:volume xdg-utils:Open_With desktop-file-utils:Open_With jangada:the_browser"
 
 package_deb() {
     has dpkg-deb || die "$(t "falta o dpkg-deb (pacote dpkg)" "dpkg-deb is missing (dpkg package)")"
@@ -450,6 +467,15 @@ EOF
 # release not out yet), it is built from the source of that version (downloads the
 # Chromium engine, ~200 MB, and needs cmake). glove-os depends on it.
 jangada_repo="https://github.com/fabioaacarneiro/jangada"
+# The name of Jangada's release package for a distribution (fails for the others).
+jangada_nome() {
+    case "$1" in
+        fedora) echo "jangada-${jangada_version}-1.x86_64.rpm" ;;
+        arch) echo "jangada-${jangada_version}-1-x86_64.pkg.tar.zst" ;;
+        slackware) echo "jangada-${jangada_version}-x86_64-1.tgz" ;;
+        *) return 1 ;;
+    esac
+}
 package_jangada() {
     f="$out_dir/jangada_${jangada_version}_amd64.deb"
     mkdir -p "$out_dir"

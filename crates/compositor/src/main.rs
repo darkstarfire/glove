@@ -33,6 +33,7 @@ mod saver;
 mod startup;
 mod state;
 mod switcher;
+mod telas;
 mod udev;
 mod winit;
 

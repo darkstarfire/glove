@@ -1417,8 +1417,10 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   Glove. Desempenho: a página vai do motor direto para a imagem da aba só nas áreas que mudaram,
   e para a janela em faixas com chave (sem conferir bytes); a janela só é refeita quando algo
   muda (`App::tick_redraw`). Medido na mesma página: ~13% → ~3,5% de CPU no processo da janela.
-  - [ ] 22.14.1 Ainda faltam: senhas e autopreenchimento, entrada de idiomas (IME) e as extensões
-    da loja do Chrome (o motor sem janela não as carrega: estudar o modo com janela do CEF).
+  - [ ] 22.14.1 Ainda falta a entrada de idiomas (IME). Feitos depois: senhas e autopreenchimento
+    (Jangada 1.4.0), extensões no formato do Chrome com scripts nas páginas e armazenamento
+    (1.11.0; as da loja com script de fundo continuam fora: o motor sem janela não as carrega) e as
+    ferramentas do desenvolvedor (1.12.0).
 - [x] 22.15 (v0.12.95) Menus de contexto no monitor do clique (e o submenu no da janela-mãe),
   desenhados também nos monitores extras; ícone da central com a bolinha de cima à esquerda e a de
   baixo à direita; logo da barra de menus chapado no Moderno (preto no claro, branco no escuro);
@@ -1442,3 +1444,21 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   gerenciador de senhas no chaveiro (guardar ao entrar, preencher), importar do Chrome, Chromium,
   Brave, Edge e Vivaldi (favoritos, histórico, cookies, senhas; AES-128-CBC com a chave do
   chaveiro), menu Extensões, passkeys desligadas (travavam o login do Facebook), Contas sem piscar.
+- [x] 22.18 (v0.12.98, Jangada 1.5.0 a 1.10.0) Sliders com um só padrão (botão redondo; o trilho
+  acompanha o moderno) e alça de redimensionar moderna; Teclado ▸ Adicionar Layout (janela com
+  busca no catálogo do sistema); Telas do Sistema com a prévia do bloqueio, da saída e do início no
+  tema escolhido. Jangada: sugestões do histórico e dos favoritos na barra, janela privada (tudo na
+  memória), Ver Código-Fonte, página inicial personalizável, permissões dos sites (câmera,
+  microfone, localização, notificações; guardadas por site) e pacotes para Fedora, Arch e
+  Slackware, cada um conferido instalando na própria distribuição.
+- [x] 22.19 (v0.12.99, Jangada 1.11.0 e 1.12.0) Barra de menu e Dock em todos os monitores (mesa
+  estendida): a barra pintada na largura de cada monitor, o mouse traduzido para o item
+  equivalente do principal e os menus abertos no monitor do clique; só o Dock sob o mouse amplia;
+  a barra dos monitores sem a janela ativa esmaecida; zoom nos extras entre a barra e o Dock deles;
+  Preferências ▸ Monitores liga ou desliga cada um (`[monitor] menubar_all`, `dock_all`,
+  `dim_inactive`). A Jangada entra nos repositórios dnf e pacman do Glove (assinados pela mesma
+  chave) e o instalador a instala no Fedora, Arch e Slackware. Jangada 1.11.0: extensões no formato
+  do Chrome (pasta, .zip ou GitHub; linha de comando e Preferências ▸ Instaladas). Jangada 1.12.0:
+  ferramentas do desenvolvedor (o inspetor do motor numa aba, pela porta local de depuração,
+  desligada por padrão) e um teste que exige tradução para todo texto.
+  - [ ] 22.19.1 A central de controle, o volume e a Busca Rápida ainda abrem no monitor principal.

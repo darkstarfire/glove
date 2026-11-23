@@ -894,11 +894,14 @@ impl Glove {
         }
         self.update_wait_cursor(under.as_ref());
 
-        // Dock (ampliação segue o mouse)
+        // Dock (ampliação segue o mouse); no Dock de um monitor extra, pelo ponto
+        // equivalente no principal.
+        let cpos = self.chrome_translate(pos).map(|t| t.0).unwrap_or(pos);
         match &hit {
             Hit::Dock(i) => {
+                self.chrome.dock_zoom_area = self.output_rect_at(pos);
                 let d = self.chrome.dock_pos();
-                let (lx, ly) = ((pos.x - d.x as f64) as f32, (pos.y - d.y as f64) as f32);
+                let (lx, ly) = ((cpos.x - d.x as f64) as f32, (cpos.y - d.y as f64) as f32);
                 // Ao longo do Dock: x embaixo, y nas laterais.
                 let along = if self.chrome.dock_side.vertical() { ly } else { lx };
                 self.chrome.dock_hover_x = Some(along);
@@ -911,7 +914,7 @@ impl Glove {
                     .chrome
                     .dock_layout
                     .as_ref()
-                    .and_then(|l| chrome::dock_item_at(l, (pos.x - d.x as f64) as f32, (pos.y - d.y as f64) as f32))
+                    .and_then(|l| chrome::dock_item_at(l, (cpos.x - d.x as f64) as f32, (cpos.y - d.y as f64) as f32))
                     .or(*i);
                 self.chrome.dock_hover = idx;
                 self.dirty = true;
@@ -927,11 +930,17 @@ impl Glove {
 
         // Ocultar automaticamente: aparece com o mouse na borda, some ao sair.
         if self.config.dock.autohide {
+            // A borda do monitor do mouse (com o Dock em todos) ou a do principal.
             let (w, h) = self.output_size();
+            let tela = self
+                .output_rect_at(pos)
+                .filter(|_| self.config.monitor.dock_all)
+                .unwrap_or(smithay::utils::Rectangle::new((0, 0).into(), (w, h).into()))
+                .to_f64();
             let at_edge = match self.chrome.dock_side {
-                chrome::DockSide::Bottom => pos.y >= h as f64 - 2.0,
-                chrome::DockSide::Left => pos.x <= 1.0,
-                chrome::DockSide::Right => pos.x >= w as f64 - 2.0,
+                chrome::DockSide::Bottom => pos.y >= tela.loc.y + tela.size.h - 2.0,
+                chrome::DockSide::Left => pos.x <= tela.loc.x + 1.0,
+                chrome::DockSide::Right => pos.x >= tela.loc.x + tela.size.w - 2.0,
             };
             let keep = at_edge || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
             self.chrome.animate_dock_hide(if keep { 0.0 } else { 1.0 });

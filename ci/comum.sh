@@ -33,3 +33,19 @@ conferir() {
     echo "Pacote conferido: instalado, com todas as bibliotecas."
     ls -l pacotes/
 }
+
+# O pacote da Jangada (o navegador, repositório próprio) da versão fixada no
+# glove-setup-tool.sh, baixado da release dela para pacotes/: entra no repositório desta
+# distribuição ao lado do Glove (o dnf e o pacman o acham sem configurar outro).
+#   baixar_jangada NOME   (NOME com {v} no lugar da versão)
+baixar_jangada() {
+    jv=$(sed -n 's/^jangada_version=//p' glove-setup-tool.sh | head -1)
+    nome=$(echo "$1" | sed "s/{v}/$jv/g")
+    url="https://github.com/fabioaacarneiro/jangada/releases/download/v$jv/$nome"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL --retry 3 --max-time 900 "$url" -o "pacotes/$nome"
+    else
+        wget -q -O "pacotes/$nome" "$url"
+    fi
+    ls -l "pacotes/$nome"
+}

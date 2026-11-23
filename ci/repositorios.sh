@@ -7,7 +7,7 @@
 #   ci/repositorios.sh VERSÃO PASTA_DOS_DEB PASTA_DAS_DISTROS SITE
 #
 # PASTA_DAS_DISTROS traz o .rpm, o .pkg.tar.zst e o índice do pacman (glove.db e
-# glove.files, feitos no Arch por ci/arch.sh). Uma distribuição que não gerou pacote
+# glove.files, feitos no Arch por ci/arch.sh), com o pacote da Jangada ao lado. Uma distribuição que não gerou pacote
 # nesta versão continua com o repositório que já está no ar (`manter`), para o dnf e o
 # pacman de quem o usa não darem erro.
 set -e
@@ -112,5 +112,9 @@ sudo dnf install glove</pre>
 sudo pacman-key --lsign-key $impressao
 printf '\\n[glove]\\nServer = $url/arch\\n' | sudo tee -a /etc/pacman.conf
 sudo pacman -Sy glove</pre>
+<h2>A Jangada (o navegador)</h2>
+<p>Vem pelo mesmo repositório: <code>sudo apt install jangada</code>, <code>sudo dnf install jangada</code>
+ou <code>sudo pacman -S jangada</code>. No Slackware, o pacote está na
+<a href="https://github.com/fabioaacarneiro/jangada/releases/latest">release da Jangada</a>.</p>
 EOF2
 find "$r" -type f | sort

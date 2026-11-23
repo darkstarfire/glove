@@ -1266,9 +1266,6 @@ msgstr "With more displays"
 msgid "Os outros ficam"
 msgstr "The others go"
 
-msgid "A barra de menu e o Dock ficam no principal; arraste janelas para os outros."
-msgstr "The menu bar and the Dock stay on the main display; drag windows to the others."
-
 msgid "Os monitores usam a maior resolução que todos aceitam."
 msgstr "The displays use the largest resolution they all accept."
 
@@ -6467,3 +6464,15 @@ msgstr "The system keyboard catalog was not found (xkb-data package)."
 
 msgid "Prévia da sessão"
 msgstr "Session preview"
+
+
+
+
+msgid "Esmaecer a barra dos monitores sem a janela ativa"
+msgstr "Dim the menu bar on displays without the active window"
+
+msgid "Barra de menu em todos os monitores"
+msgstr "Menu bar on every display"
+
+msgid "Dock em todos os monitores"
+msgstr "Dock on every display"

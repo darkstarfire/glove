@@ -515,6 +515,8 @@ pub struct Chrome {
     pub extra_ranges: Vec<(f32, f32)>,
     /// Faixa da lupa da Busca Rápida.
     pub search_range: (f32, f32),
+    /// A barra de cada monitor extra (mesa estendida).
+    pub extra_bars: Vec<crate::telas::ExtraBar>,
 
     pub dock_items: Vec<DockItem>,
     pub dock_actions: Vec<DockAction>,
@@ -541,6 +543,12 @@ pub struct Chrome {
     pub dock_pressed: Option<usize>,
     /// O Dock em peças na GPU: a ampliação só muda posições e tamanhos.
     pub dock_gpu: DockGpu,
+    /// O Dock parado (sem a ampliação), para as cópias dos outros monitores enquanto um
+    /// deles amplia; None = igual ao de cima (nada ampliando).
+    pub dock_still: DockGpu,
+    pub dock_still_layout: Option<DockLayout>,
+    /// O monitor do Dock sob o mouse (o que amplia).
+    pub dock_zoom_area: Option<Rectangle<i32, Logical>>,
     /// Escala usada no último desenho (mudou → refaz tudo).
     pub last_scale: f64,
 
@@ -565,8 +573,19 @@ impl Chrome {
     }
 
     pub fn dock_pos(&self) -> Point<i32, Logical> {
-        let (w, h) = self.out_size;
-        let Some(l) = &self.dock_layout else { return (0, h).into() };
+        self.dock_pos_for(self.out_size)
+    }
+
+    /// Onde fica o Dock numa tela de tamanho (w, h), relativo a ela.
+    pub fn dock_pos_for(&self, size: (i32, i32)) -> Point<i32, Logical> {
+        match &self.dock_layout {
+            Some(l) => self.dock_pos_layout(l, size),
+            None => (0, size.1).into(),
+        }
+    }
+
+    /// Onde fica um Dock com o desenho `l` numa tela de tamanho (w, h).
+    pub fn dock_pos_layout(&self, l: &DockLayout, (w, h): (i32, i32)) -> Point<i32, Logical> {
         // Escondido: desliza para fora pela borda (sobra só a sombra da prateleira). Em
         // tela cheia, entra e sai junto com a barra de menu.
         let hide = if self.fs { self.dock_hide.max(1.0 - self.peek) } else { self.dock_hide };
@@ -632,6 +651,10 @@ impl Glove {
     }
 
     pub fn hit_test(&self, pos: Point<f64, Logical>) -> Hit {
+        // A barra ou o Dock de um monitor extra: vale o ponto equivalente no principal.
+        if let Some((q, _)) = self.chrome_translate(pos) {
+            return self.hit_test(q);
+        }
         let (px, py) = (pos.x, pos.y);
         // Tela de login: só a janela do app de login responde.
         if self.greeter {
@@ -1029,7 +1052,7 @@ impl Glove {
             let center: Point<f64, Logical> = ((g.loc.x + g.size.w / 2) as f64, (g.loc.y + g.size.h / 2) as f64).into();
             if let Some(r) = self.output_rect_at(center) {
                 if Some(r) != primary {
-                    return r;
+                    return self.work_area_of(r);
                 }
             }
         }
@@ -1435,6 +1458,7 @@ impl Glove {
         let x = ((center - level.size.w as f32 / 2.0) as i32).clamp(4, (sw - level.size.w - 4).max(4));
         let y = (top as i32 - level.size.h - 12).max(MENUBAR_H + 4);
         level.origin = (x, y).into();
+        self.shift_menu_level(&mut level);
         self.chrome.menu = Some(OpenMenu { target: BarTarget::Dock(i), levels: vec![level], pointer_x: Some(center - x as f32) });
         self.dirty = true;
     }
@@ -1448,6 +1472,7 @@ impl Glove {
         let x = if self.chrome.dock_side == chrome::DockSide::Left { (ix + s + 12.0) as i32 } else { (ix - 12.0) as i32 - level.size.w };
         let y = ((iy + s / 2.0) as i32 - level.size.h / 2).clamp(MENUBAR_H + 4, (sh - level.size.h - 4).max(MENUBAR_H + 4));
         level.origin = (x.clamp(0, (sw - level.size.w).max(0)), y).into();
+        self.shift_menu_level(&mut level);
         self.chrome.menu = Some(OpenMenu { target: BarTarget::Dock(i), levels: vec![level], pointer_x: None });
         self.dirty = true;
     }
@@ -1463,6 +1488,7 @@ impl Glove {
         // Menus dos extras ficam encostados à direita se não couberem.
         let (sw, _) = self.output_size();
         level.origin.x = level.origin.x.min(sw - level.size.w).max(0);
+        self.shift_menu_level(&mut level);
         self.chrome.menu = Some(OpenMenu { target, levels: vec![level], pointer_x: None });
         self.dirty = true;
     }
@@ -1974,6 +2000,8 @@ impl Glove {
             }
             self.chrome.menubar_key = Some(key);
         }
+        // A mesma barra nos monitores extras (pintada na largura de cada um).
+        self.prepare_extra_bars(&titles, &extras, open, open_extra, search_open, tgen);
 
         // Menu aberto
         if let Some(m) = &mut self.chrome.menu {
@@ -2163,7 +2191,15 @@ impl Glove {
         // Com o menu de um ícone aberto, o nome sob o mouse some (o menu já diz qual é).
         let hover = if self.dock_menu_open() { None } else { self.chrome.dock_hover };
         let zooming = zoom > 0.0 || self.chrome.dock_zoom_anim.is_some();
-        self.prepare_dock_gpu(&items, &layout, hover, zooming);
+        self.prepare_dock_gpu(false, &items, &layout, hover, zooming);
+        // Com o Dock em mais de um monitor, os que não estão sob o mouse ficam parados.
+        if zooming && self.config.monitor.dock_all && !self.extra_areas().is_empty() {
+            let parado = chrome::dock_layout_on(&items, None, 0.0, base, max, self.chrome.dock_side);
+            self.prepare_dock_gpu(true, &items, &parado, None, false);
+            self.chrome.dock_still_layout = Some(parado);
+        } else {
+            self.chrome.dock_still_layout = None;
+        }
         self.chrome.dock_items = items;
         self.chrome.dock_actions = actions;
         self.chrome.dock_layout = Some(layout);
@@ -2177,9 +2213,9 @@ impl Glove {
     }
 
     /// Garante as texturas das peças do Dock e calcula onde vai cada uma.
-    fn prepare_dock_gpu(&mut self, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, zooming: bool) {
+    fn prepare_dock_gpu(&mut self, parado: bool, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, zooming: bool) {
         let sc = self.scale() as f32;
-        let g = &mut self.chrome.dock_gpu;
+        let g = if parado { &mut self.chrome.dock_still } else { &mut self.chrome.dock_gpu };
         let stamp = self.theme_gen ^ ((sc.to_bits() as u64) << 32);
         if g.stamp != stamp {
             *g = DockGpu { stamp, ..DockGpu::default() };

@@ -402,6 +402,20 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   opens centered, and so do dialogs.
 - An app that remembers it was zoomed opens zoomed, filling the usable area.
 
+## Menu bar and Dock on several displays
+
+- With an extended desktop, each display has its own menu bar (at its width) and its own Dock.
+  Menus, the menu bar extras (volume, network, clock) and the Dock icons work on any of them:
+  a menu opens on the display you clicked. Magnification only happens on the Dock under the
+  pointer.
+- The menu bar on displays without the active window is dimmed (with no window, the pointer's
+  display counts). While a menu is open, all of them look normal.
+- A zoomed window on an extra display fills the space between its menu bar and its Dock.
+- **Preferences ▸ Displays** (with more than one display, in extend mode): *Menu bar on every
+  display*, *Dock on every display* and *Dim the menu bar on displays without the active
+  window*. When off, the menu bar and the Dock stay on the primary display only, as before.
+- The control center, the volume control and Quick Search open on the primary display.
+
 ## When a display is unplugged
 
 - Windows that were on the display that went away move to the one that stayed, centered on it.

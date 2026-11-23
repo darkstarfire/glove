@@ -15,3 +15,8 @@ ls pacotes/glove-*.rpm
 # O dnf instala também as dependências do pacote (greetd, Mesa…): confere os nomes.
 dnf install -y --setopt=install_weak_deps=False ./pacotes/glove-*.rpm
 conferir
+# A Jangada vai junto para o repositório dnf (e é conferida: instala e acha as bibliotecas).
+baixar_jangada 'jangada-{v}-1.x86_64.rpm'
+dnf install -y --setopt=install_weak_deps=False ./pacotes/jangada-*.rpm
+falta=$(ldd /usr/lib/jangada/jangada | grep "not found" || true)
+[ -z "$falta" ] || { echo "ERRO: a Jangada não acha:"; echo "$falta"; exit 1; }

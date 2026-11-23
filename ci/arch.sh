@@ -19,8 +19,13 @@ conferir
 # O índice do repositório do pacman (glove.db e glove.files), que o ci/repositorios.sh
 # publica no GitHub Pages ao lado do pacote. Como arquivos de verdade, sem os atalhos
 # que o repo-add cria.
+# A Jangada entra no mesmo repositório (e é conferida: instala e acha as bibliotecas).
+baixar_jangada 'jangada-{v}-1-x86_64.pkg.tar.zst'
+pacman -U --noconfirm pacotes/jangada-*.pkg.tar.zst
+falta=$(ldd /usr/lib/jangada/jangada | grep "not found" || true)
+[ -z "$falta" ] || { echo "ERRO: a Jangada não acha:"; echo "$falta"; exit 1; }
 mkdir -p pacotes/repo-arch
-(cd pacotes && repo-add -q repo-arch/glove.db.tar.gz glove-*.pkg.tar.zst)
+(cd pacotes && repo-add -q repo-arch/glove.db.tar.gz glove-*.pkg.tar.zst jangada-*.pkg.tar.zst)
 for f in glove.db glove.files; do
     cp -L "pacotes/repo-arch/$f" "pacotes/repo-arch/$f.tmp"
     mv -f "pacotes/repo-arch/$f.tmp" "pacotes/repo-arch/$f"
