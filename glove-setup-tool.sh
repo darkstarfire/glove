@@ -6,6 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 root_dir=$(pwd)
+# The tool itself by its full path, to run again as root: "sh glove-setup-tool.sh", a
+# call from another folder or a copy without the execute bit all work this way.
+self="$root_dir/$(basename "$0")"
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 arch=$(uname -m)
 out_dir="$root_dir/pacotes"
@@ -833,7 +836,12 @@ EOF
 # remove" brings it back. Same as: sudo systemctl enable --force glove-login
 login() {
     if [ "$(id -u)" != 0 ]; then
-        exec sudo "$0" login "$@"
+        # Full path and through sh: works however the tool was started
+        # ("sh glove-setup-tool.sh" gives a bare name that sudo can't find).
+        [ -f "$self" ] || die "$(t "rode a ferramenta da pasta dela (./glove-setup-tool.sh login)" "run the tool from its folder (./glove-setup-tool.sh login)")"
+        if has sudo; then exec sudo sh "$self" login "$@"
+        elif has doas; then exec doas sh "$self" login "$@"
+        else die "$(t "precisa de root (sudo ou doas)" "root is needed (sudo or doas)")"; fi
     fi
     state_dir=/etc/glove/login
     # Old versions of this tool replaced greetd's own configuration: put the original
@@ -869,14 +877,20 @@ login() {
     fi
     mkdir -p "$state_dir"
     # The login screen uses the settings of whoever installed it (display, scale, keyboard and theme).
-    if [ -n "${SUDO_USER:-}" ]; then
-        home_dir=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    # (sudo says who called it in SUDO_USER; doas, in DOAS_USER.)
+    by=${SUDO_USER:-${DOAS_USER:-}}
+    if [ -n "$by" ]; then
+        home_dir=$(getent passwd "$by" | cut -d: -f6)
         if [ -f "$home_dir/.config/glove/config.toml" ]; then
             install -m 644 "$home_dir/.config/glove/config.toml" "$state_dir/config.toml"
-            echo "$(t "Tela de login com os ajustes de $SUDO_USER (monitor, escala, teclado e tema)." "Login screen with $SUDO_USER’s settings (display, scale, keyboard and theme).")"
+            echo "$(t "Tela de login com os ajustes de $by (monitor, escala, teclado e tema)." "Login screen with $by’s settings (display, scale, keyboard and theme).")"
         fi
     fi
-    current=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
+    # No login manager enabled: no link (readlink -f would still answer "display-manager").
+    current=""
+    if [ -L /etc/systemd/system/display-manager.service ]; then
+        current=$(basename "$(readlink -f /etc/systemd/system/display-manager.service)" .service)
+    fi
     if [ "$current" = glove-login ]; then
         echo "$(t "A tela de login do Glove já é a principal." "The Glove login screen is already the main one.")"
         return
@@ -910,7 +924,7 @@ grub_dir() {
 # "grub yes" does not ask (used right after the question at the end of "install").
 grub_screen() {
     if [ "$(id -u)" != 0 ] && [ -z "$sysroot" ]; then
-        root "$root_dir/glove-setup-tool.sh" grub "$@"
+        root sh "$self" grub "$@"
         return
     fi
     gdir=$(grub_dir)
