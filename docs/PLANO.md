@@ -1494,6 +1494,13 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     (`com.canonical.dbusmenu`: GetLayout vira menu do Glove, Event "clicked" no item). Os ícones
     saem quando o app deixa o barramento. Sem a bandeja, o Telegram encerrava ao fechar a janela.
     Conferido com um item de teste e com o `nm-applet` num D-Bus próprio.
+  - [x] 22.20.4 (v0.13.5, Jangada 1.15.0) Feeds longos sem travar: os scripts de página da Jangada
+    liam a página inteira a cada 0,7 s (escudos genéricos) e regravavam a folha de estilo toda a cada
+    resposta; o de senhas procurava o campo de senha a cada mudança. Agora só o que chegou, quando o
+    navegador está livre, cada resposta numa folha nova, e senhas no máximo 1×/s. Num feed simulado
+    (45 s): de 43 tarefas longas (6,9 s travado) para nenhuma. Com as Jangadas de verdade e os
+    escudos ligados (página servida num domínio falso): 1.14 com 7,9 s travado e pior quadro de
+    317 ms; 1.15 com 0,17 s e 83 ms.
 
 ## Fase 23 — Jangada com vídeos H.264 e mais fluida (pendências de 23/11/2026)
 
