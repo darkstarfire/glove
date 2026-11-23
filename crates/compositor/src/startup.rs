@@ -24,7 +24,9 @@ const DONE: f32 = 1.4;
 const FADE: f32 = 0.35;
 
 pub struct Startup {
-    since: Instant,
+    /// Começa no primeiro quadro com o painel (não na abertura do Glove): o primeiro
+    /// quadro pode demorar, e antes o painel passava inteiro com a tela ainda preta.
+    since: Option<Instant>,
     /// Comandos a abrir no último passo.
     commands: Vec<String>,
     launched: bool,
@@ -34,7 +36,16 @@ pub struct Startup {
 
 impl Startup {
     fn t(&self) -> f32 {
-        self.since.elapsed().as_secs_f32()
+        self.since.map_or(0.0, |s| s.elapsed().as_secs_f32())
+    }
+    /// O passo atual (0 enquanto o painel ainda não apareceu).
+    pub fn step(&self) -> usize {
+        let t = self.t();
+        STEPS.iter().rposition(|(start, _)| t >= *start).unwrap_or(0)
+    }
+    /// O painel ainda não foi desenhado nenhuma vez.
+    pub fn first_frame(&self) -> bool {
+        self.since.is_none()
     }
     /// Opacidade do painel (1 até o fim da barra; some depois).
     pub fn alpha(&self) -> f32 {
@@ -49,7 +60,7 @@ impl Startup {
 impl Glove {
     /// Começa a abertura. `commands` abrem no passo "Abrindo os itens de início".
     pub fn start_session_panel(&mut self, commands: Vec<String>) {
-        self.startup = Some(Startup { since: Instant::now(), commands, launched: false, key: None, tex: None });
+        self.startup = Some(Startup { since: None, commands, launched: false, key: None, tex: None });
         self.dirty = true;
         self.loop_handle
             .insert_source(Timer::from_duration(Duration::from_millis(33)), |_, _, data| {
@@ -104,7 +115,7 @@ impl Glove {
         let tgen = self.theme_gen;
         let Some(s) = &mut self.startup else { return };
         let t = s.t();
-        let step = STEPS.iter().rposition(|(start, _)| t >= *start).unwrap_or(0);
+        let step = s.step();
         // Progresso suave dentro de cada passo.
         let progress = (t / DONE).clamp(0.0, 1.0);
         let key = (step, (progress * 200.0) as u32, tgen);
@@ -112,6 +123,17 @@ impl Glove {
             s.tex = chrome::startup_panel(&self.fonts, &self.screen_theme, &glove_config::tr_dyn(STEPS[step].1), progress, sc).map(to_tex);
             s.key = Some(key);
         }
+        if s.since.is_none() && s.tex.is_some() {
+            s.since = Some(Instant::now());
+        }
+    }
+
+    /// Enquanto o painel cobre a tela, a mesa é preparada aos poucos, um pedaço por
+    /// passo: no 1º quadro só o painel, depois o papel de parede, a barra de menu e,
+    /// do passo do Dock em diante, tudo. `None` = sem abertura (prepara tudo).
+    pub fn startup_stage(&self) -> Option<usize> {
+        let s = self.startup.as_ref().filter(|s| s.covering())?;
+        Some(if s.first_frame() { 0 } else { s.step() + 1 })
     }
 
     /// Canto do painel (sem a sombra).

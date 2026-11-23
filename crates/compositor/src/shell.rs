@@ -549,6 +549,9 @@ pub struct Chrome {
     pub dock_still_layout: Option<DockLayout>,
     /// O monitor do Dock sob o mouse (o que amplia).
     pub dock_zoom_area: Option<Rectangle<i32, Logical>>,
+    /// Ocultar automaticamente, com o Dock em todos os monitores: o monitor em que ele foi
+    /// revelado (só lá ele aparece e responde ao mouse). None = o principal.
+    pub dock_reveal: Option<Rectangle<i32, Logical>>,
     /// Escala usada no último desenho (mudou → refaz tudo).
     pub last_scale: f64,
 
@@ -705,7 +708,8 @@ impl Glove {
             let t = self.chrome.title_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64);
             return Hit::MenuBar { target: t.map(BarTarget::Title) };
         }
-        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| self.chrome.dock_hide < 0.5 && !covered && !(self.chrome.fs && self.chrome.peek < 0.5)) {
+        let dock_aqui = self.dock_shown_on(self.output_rect_at(self.pointer_pos));
+        if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| dock_aqui && self.chrome.dock_hide < 0.5 && !covered && !(self.chrome.fs && self.chrome.peek < 0.5)) {
             let d = self.chrome.dock_pos();
             let (lx, ly) = ((px - d.x as f64) as f32, (py - d.y as f64) as f32);
             if chrome::dock_contains(l, lx, ly) {
@@ -1983,6 +1987,12 @@ impl Glove {
         let (w, h) = self.output_size();
         self.chrome.out_size = (w, h);
         let tgen = self.theme_gen;
+        // Abertura: o painel primeiro, e a mesa por etapas (ver `startup_stage`).
+        let stage = self.startup_stage();
+        if stage == Some(0) {
+            self.prepare_startup();
+            return;
+        }
 
         // Papel de parede
         let key = (w, h, tgen);
@@ -1992,6 +2002,10 @@ impl Glove {
         }
         // O papel de cada monitor (o modo, o ajuste e os animados).
         self.prepare_wallpapers();
+        if stage == Some(1) {
+            self.prepare_startup();
+            return;
+        }
 
         // Barra de menu (nome do app + menus dele)
         let titles = self.bar_titles();
@@ -2007,8 +2021,15 @@ impl Glove {
             _ => self.control.as_ref().map(|c| c.extra).or(self.extras.slider.as_ref().and(self.volume_extra_index())),
         };
         let extras = self.extras_for_bar();
-        let open_t = self.chrome.menu.as_ref().map(|m| m.target);
         let search_open = self.search.open;
+        // O item aceso (menu, central, Busca Rápida) só na barra do monitor em que foi
+        // aberto: as outras ficam paradas (antes todas acendiam juntas e piscavam).
+        let dona = self.bar_owner();
+        let principal_area = self.primary().and_then(|o| self.space.output_geometry(o));
+        let nesta = dona.is_none() || dona == principal_area;
+        let (open_p, open_extra_p, search_p) = if nesta { (open, open_extra, search_open) } else { (None, None, false) };
+        let open_t = self.chrome.menu.as_ref().map(|m| m.target).filter(|_| nesta);
+        let (open, open_extra, search_open) = (open_p, open_extra_p, search_p);
         let key = (w, titles.clone(), extras.clone(), clock.clone(), open_t, open_extra, search_open, tgen);
         if self.chrome.menubar_key.as_ref() != Some(&key) {
             if let Some((pm, layout)) = chrome::menubar(&self.fonts, &self.theme, w as f32, &titles, &extras, &clock, open, open_extra, search_open, sc) {
@@ -2021,7 +2042,11 @@ impl Glove {
             self.chrome.menubar_key = Some(key);
         }
         // A mesma barra nos monitores extras (pintada na largura de cada um).
-        self.prepare_extra_bars(&titles, &extras, open, open_extra, search_open, tgen);
+        self.prepare_extra_bars(&titles, &extras, tgen);
+        if stage == Some(2) {
+            self.prepare_startup();
+            return;
+        }
 
         // Menu aberto
         if let Some(m) = &mut self.chrome.menu {

@@ -152,9 +152,11 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
   arrow at the right of the toolbar) shows the progress and lets you open, show in folder and cancel.
 - **Page notices** (alert and confirm) show as Glove alerts, in their own window.
 - **About Jangada**, in the menu with its name, shows the version and the engine.
-- **Light:** no GPU process, few page processes and nothing running in the background; only the
-  parts of the page that changed go to the screen, and when idle the window is not redrawn. To use the
-  graphics card: `JANGADA_GPU=1 jangada`.
+- **Light:** the graphics card draws the pages (heavy feeds stay smooth), few page processes and
+  nothing running in the background; only the parts of the page that changed go to the screen, and
+  when idle the window is not redrawn. If the graphics card misbehaves, uncheck *Use the graphics
+  card* in Preferences ▸ Advanced (or open it with `JANGADA_SEM_GPU=1 jangada`): the processor
+  draws everything.
 - Opening it again (from the Dock or `jangada address`) opens a tab in the window already open. On
   Glove OS it is the system's default browser.
 - Without the package, the icon opens Firefox or another installed browser. The choice in
@@ -408,8 +410,11 @@ another program. New documents save as **RTF** (opens in Word, LibreOffice and T
   Menus, the menu bar extras (volume, network, clock) and the Dock icons work on any of them:
   a menu opens on the display you clicked. Magnification only happens on the Dock under the
   pointer.
-- The menu bar on displays without the active window is dimmed (with no window, the pointer's
-  display counts). While a menu is open, all of them look normal.
+- The menu bar and the Dock on displays without the active window are dimmed (with no window,
+  the pointer's display counts; while a menu is open, the menu's display counts). Each menu bar is
+  independent: opening a menu or an extra on one doesn't light up or flicker the others.
+- With an auto-hiding Dock, pushing the pointer against a display's edge shows only that
+  display's Dock.
 - A zoomed window on an extra display fills the space between its menu bar and its Dock.
 - **Preferences ▸ Displays** (with more than one display, in extend mode): *Menu bar on every
   display*, *Dock on every display* and *Dim the menu bar on displays without the active

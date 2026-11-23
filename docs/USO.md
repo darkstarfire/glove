@@ -152,9 +152,10 @@ Moderno.
   direita da barra) mostra o andamento e deixa abrir, mostrar na pasta e cancelar.
 - **Avisos das páginas** (alert e confirm) aparecem como alertas do Glove, em janela própria.
 - **Sobre a Jangada**, no menu com o nome dela, mostra a versão e o motor.
-- **Leve:** sem o processo da placa de vídeo, poucos processos de página e nada rodando de fundo;
-  só as partes da página que mudaram vão para a tela, e parada a janela não é refeita.
-  Para usar a placa de vídeo: `JANGADA_GPU=1 jangada`.
+- **Leve:** a placa de vídeo desenha as páginas (feeds pesados ficam fluidos), poucos processos
+  de página e nada rodando de fundo; só as partes da página que mudaram vão para a tela, e parada
+  a janela não é refeita. Se a placa der problema, desmarque *Usar a placa de vídeo* em
+  Preferências ▸ Avançado (ou abra com `JANGADA_SEM_GPU=1 jangada`): o processador desenha tudo.
 - Abrir de novo (pelo Dock ou `jangada endereço`) abre uma aba na janela que já está aberta. No
   Glove OS ela é o navegador padrão do sistema.
 - Sem o pacote, o ícone abre o Firefox ou outro navegador instalado. A escolha das Preferências
@@ -410,8 +411,10 @@ faculdade, formulário e relatório sem outro programa. Documento novo salva em 
   Os menus, os extras (volume, rede, relógio) e os ícones do Dock funcionam em qualquer um:
   o menu abre no monitor em que você clicou. A ampliação acontece só no Dock que está sob o
   mouse.
-- A barra dos monitores sem a janela ativa fica esmaecida (sem janela, vale o monitor do
-  mouse). Com um menu aberto, todas ficam normais.
+- A barra e o Dock dos monitores sem a janela ativa ficam esmaecidos (sem janela, vale o
+  monitor do mouse; com um menu aberto, vale o monitor do menu). Cada barra é independente:
+  abrir um menu ou um extra numa delas não acende nem pisca as outras.
+- Com o Dock que some sozinho, encostar o mouse na borda de um monitor mostra só o Dock dele.
 - Janela em zoom num monitor extra ocupa o espaço entre a barra e o Dock dele.
 - **Preferências ▸ Monitores** (com mais de um monitor, no modo estender): *Barra de menu em
   todos os monitores*, *Dock em todos os monitores* e *Esmaecer a barra dos monitores sem a

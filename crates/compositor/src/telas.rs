@@ -33,6 +33,8 @@ type BarKey = (Rectangle<i32, Logical>, Vec<String>, Vec<chrome::Extra>, Option<
 
 /// O quanto a barra de um monitor sem o foco aparece (o resto é o papel de parede).
 const ALPHA_SEM_FOCO: f32 = 0.55;
+/// O mesmo para o Dock (ele tem os ícones: apagar tanto quanto a barra some com eles).
+const DOCK_SEM_FOCO: f32 = 0.7;
 
 /// Em qual faixa da barra está `x` e o ponto equivalente na outra (pelo item: o mesmo
 /// deslocamento dentro dele). Fora dos itens: a parte da esquerda fica onde está; a da
@@ -83,16 +85,29 @@ impl Glove {
 
     /// Pinta (ou reaproveita) a barra de cada monitor extra. Chamado depois da barra do
     /// principal, com os mesmos títulos, extras e menu aberto.
-    pub fn prepare_extra_bars(&mut self, titles: &[String], extras: &[chrome::Extra], open: Option<usize>, open_extra: Option<usize>, search_open: bool, tgen: u64) {
+    pub fn prepare_extra_bars(&mut self, titles: &[String], extras: &[chrome::Extra], tgen: u64) {
         if !self.config.monitor.menubar_all {
             self.chrome.extra_bars.clear();
             return;
         }
         let areas = self.extra_areas();
-        let open_t = self.chrome.menu.as_ref().map(|m| m.target);
+        let dona = self.bar_owner();
+        let open_all = self.chrome.menu.as_ref().and_then(|m| match m.target {
+            BarTarget::Logo => Some(0),
+            BarTarget::Title(i) => Some(i + 1),
+            _ => None,
+        });
+        let open_extra_all = match self.chrome.menu.as_ref().map(|m| m.target) {
+            Some(BarTarget::Extra(k)) => Some(k),
+            _ => self.control.as_ref().map(|c| c.extra).or(self.extras.slider.as_ref().and(self.volume_extra_index())),
+        };
         let mut velhas = std::mem::take(&mut self.chrome.extra_bars);
         let mut novas = Vec::new();
         for (area, escala) in areas {
+            // O item aceso só na barra do monitor em que o menu ou painel foi aberto.
+            let nesta = dona == Some(area);
+            let (open, open_extra, search_open) = if nesta { (open_all, open_extra_all, self.search.open) } else { (None, None, false) };
+            let open_t = self.chrome.menu.as_ref().map(|m| m.target).filter(|_| nesta);
             let key: BarKey = (area, titles.to_vec(), extras.to_vec(), open_t, open_extra, search_open, tgen, escala.to_bits());
             let mut barra = match velhas.iter().position(|b| b.area == area) {
                 Some(i) => velhas.remove(i),
@@ -124,13 +139,60 @@ impl Glove {
         self.output_rect_at(self.pointer_pos)
     }
 
+    /// O monitor em que está aberto um menu ou painel da barra (menu, central de
+    /// controle, volume, Busca Rápida); None sem nenhum aberto.
+    pub fn bar_owner(&self) -> Option<Rectangle<i32, Logical>> {
+        let ponto = |p: Point<i32, Logical>| self.output_rect_at(p.to_f64());
+        if let Some(m) = &self.chrome.menu {
+            return m.levels.first().and_then(|l| ponto(l.origin));
+        }
+        if let Some(c) = &self.control {
+            return ponto(c.origin);
+        }
+        if let Some(s) = &self.extras.slider {
+            return ponto(s.origin);
+        }
+        if self.search.open {
+            return ponto(self.search_origin());
+        }
+        None
+    }
+
+    /// O monitor que está "em uso": o do menu ou painel aberto; sem nenhum, o da janela
+    /// ativa ou do mouse.
+    fn foco_area(&self) -> Option<Rectangle<i32, Logical>> {
+        self.bar_owner().or_else(|| self.active_area())
+    }
+
     /// A transparência da barra do monitor `area`: esmaecida se ele não tem o foco (com
-    /// mais de um monitor e a opção ligada); None = normal.
+    /// mais de um monitor e a opção ligada); None = normal. Com um menu aberto, vale o
+    /// monitor dele (antes todas voltavam ao normal e piscavam).
     pub fn bar_alpha(&self, area: Option<Rectangle<i32, Logical>>) -> Option<f32> {
-        if !self.config.monitor.dim_inactive || !self.config.monitor.menubar_all || self.extra_areas().is_empty() || self.chrome.menu.is_some() {
+        if !self.config.monitor.dim_inactive || !self.config.monitor.menubar_all || self.extra_areas().is_empty() {
             return None;
         }
-        (area.is_some() && self.active_area() != area).then_some(ALPHA_SEM_FOCO)
+        (area.is_some() && self.foco_area() != area).then_some(ALPHA_SEM_FOCO)
+    }
+
+    /// O mesmo para o Dock do monitor `area` (com o Dock em todos os monitores): um pouco
+    /// menos apagado que a barra, mas o de um monitor sem o foco fica para trás.
+    pub fn dock_alpha(&self, area: Option<Rectangle<i32, Logical>>) -> Option<f32> {
+        if !self.config.monitor.dim_inactive || !self.config.monitor.dock_all || self.extra_areas().is_empty() {
+            return None;
+        }
+        (area.is_some() && self.foco_area() != area && self.chrome.dock_zoom_area != area).then_some(DOCK_SEM_FOCO)
+    }
+
+    /// O Dock aparece neste monitor? Sem ocultar automaticamente, sempre (onde ele
+    /// existe); ocultando, só no monitor em que foi revelado.
+    pub fn dock_shown_on(&self, area: Option<Rectangle<i32, Logical>>) -> bool {
+        if !self.config.dock.autohide {
+            return true;
+        }
+        match self.chrome.dock_reveal {
+            Some(r) => Some(r) == area,
+            None => area.is_none() || area == self.primary_rect(),
+        }
     }
 
     /// Onde fica o Dock no monitor extra `area` (coordenadas globais), ou None sem o Dock
@@ -174,7 +236,7 @@ impl Glove {
             let d = pos - q;
             return Some((q, (d.x.round() as i32, d.y.round() as i32).into()));
         }
-        if let (Some(o), Some(l)) = (self.extra_dock_origin(area), self.chrome.dock_layout.as_ref()) {
+        if let (Some(o), Some(l)) = (self.extra_dock_origin(area).filter(|_| self.dock_shown_on(Some(area))), self.chrome.dock_layout.as_ref()) {
             let r = Rectangle::<i32, Logical>::new(o, (l.width as i32, l.height as i32).into());
             if r.to_f64().contains(pos) {
                 let p = self.chrome.dock_pos();

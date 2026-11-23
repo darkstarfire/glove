@@ -99,7 +99,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 | Terminal | Alacritty core: truecolor, nvim/htop, mouse, OSC 52, themes, Nerd Font |
 | Text Editor | RTF documents (open in Word and LibreOffice): fonts, paragraphs and ruler, styles, lists, tables, pictures, pages with header, footer and footnotes, ABNT template, PDF export; plain text too; Find/Replace |
 | Viewer | Pictures (PNG, JPEG, WebP) and PDF, thumbnails, zoom, rotate; drawing on screenshots |
-| Jangada | The Glove OS browser ([its own repository](https://github.com/fabioaacarneiro/jangada)): the Chromium engine in a Glove window, a Safari-like address bar, tabs with site icons, its own start and error pages, a floating context menu, downloads; light (no GPU process) |
+| Jangada | The Glove OS browser ([its own repository](https://github.com/fabioaacarneiro/jangada)): the Chromium engine in a Glove window, a Safari-like address bar, tabs with site icons, its own start and error pages, a floating context menu, downloads; light (the GPU draws the pages, nothing running in the background) |
 | Mail | IMAP and SMTP with TLS, mailboxes, compose, reply and forward |
 | Calendar and Contacts | Month grid with events (.ics) and cards (vCard) |
 | Music | Library (the Music folder and any you add), Artists and Albums, playlists (M3U), shuffle and repeat; light pure-Rust player |

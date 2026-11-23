@@ -121,9 +121,18 @@ uniform vec4 fr;
 uniform vec4 sl;
 uniform vec2 anim;
 uniform vec2 bx;
+// Lado do Dock: 0 embaixo, 1 à esquerda, 2 à direita. Nas laterais a conta é a mesma, num
+// espaço girado em que o Dock fica embaixo (fr e sl já chegam nesse espaço).
+uniform float dir;
 
 void main() {
-    vec2 p = v_coords * bx;
+    vec2 s = v_coords * bx;
+    vec2 p = s;
+    if (dir > 1.5) {
+        p = vec2(s.y, s.x);
+    } else if (dir > 0.5) {
+        p = vec2(s.y, bx.x - s.x);
+    }
     float bottom = sl.y + sl.w;
     // Duas etapas, como no Mac. anim.x: a parte de baixo da janela estica até o ícone e
     // afina no funil (a lâmpada), com o topo parado. anim.y: o topo desce até o ícone e a
@@ -146,7 +155,14 @@ void main() {
         gl_FragColor = vec4(0.0);
         return;
     }
-    gl_FragColor = texture2D(tex, vec2(u, v)) * alpha * edge;
+    // De volta ao espaço da janela para pegar o pixel certo dela.
+    vec2 uv = vec2(u, v);
+    if (dir > 1.5) {
+        uv = vec2(v, u);
+    } else if (dir > 0.5) {
+        uv = vec2(1.0 - v, u);
+    }
+    gl_FragColor = texture2D(tex, uv) * alpha * edge;
 }
 "#;
 
@@ -182,13 +198,14 @@ fn mem_part(renderer: &mut GlesRenderer, loc: (f32, f32), tex: &Tex, scale: f64,
     Some(GloveElement::Texture(TextureRenderElement::from_texture_buffer((p.x.round(), p.y.round()), &buf, Some(alpha), Some(src), Some(size), Kind::Unspecified)))
 }
 
-/// Textura esticada para um retângulo lógico (os ícones do Dock na ampliação).
-fn mem_scaled(renderer: &mut GlesRenderer, loc: (f64, f64), size: (f64, f64), tex: &Tex, scale: f64) -> Option<GloveElement> {
+/// Textura esticada para um retângulo lógico (os ícones do Dock na ampliação), com a
+/// transparência (o Dock de um monitor sem o foco).
+fn mem_scaled_alpha(renderer: &mut GlesRenderer, loc: (f64, f64), size: (f64, f64), tex: &Tex, scale: f64, alpha: Option<f32>) -> Option<GloveElement> {
     let buf = tex.upload(renderer)?;
     let src = Rectangle::from_size((tex.px.0 as f64, tex.px.1 as f64).into());
     let p = Point::<f64, Logical>::from(loc).to_physical(scale);
     let size = smithay::utils::Size::<i32, Logical>::from((size.0.round().max(1.0) as i32, size.1.round().max(1.0) as i32));
-    Some(GloveElement::Texture(TextureRenderElement::from_texture_buffer((p.x.round(), p.y.round()), &buf, None, Some(src), Some(size), Kind::Unspecified)))
+    Some(GloveElement::Texture(TextureRenderElement::from_texture_buffer((p.x.round(), p.y.round()), &buf, alpha, Some(src), Some(size), Kind::Unspecified)))
 }
 
 impl Glove {
@@ -196,9 +213,14 @@ impl Glove {
     /// divisórias e a prateleira.
     fn dock_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
         let principal = self.primary().and_then(|o| self.space.output_geometry(o));
+        // Ocultando automaticamente: só no monitor em que foi revelado.
+        if !self.dock_shown_on(principal) {
+            return;
+        }
+        let alpha = self.dock_alpha(principal);
         match self.still_dock_for(principal) {
-            Some(l) => self.dock_elements_at(renderer, sc, self.chrome.dock_pos_layout(l, self.chrome.out_size), true, out),
-            None => self.dock_elements_at(renderer, sc, self.chrome.dock_pos(), false, out),
+            Some(l) => self.dock_elements_at(renderer, sc, self.chrome.dock_pos_layout(l, self.chrome.out_size), true, alpha, out),
+            None => self.dock_elements_at(renderer, sc, self.chrome.dock_pos(), false, alpha, out),
         }
     }
 
@@ -211,25 +233,25 @@ impl Glove {
 
     /// O Dock com o canto em `o` (no principal, a posição dele; num monitor extra, a da
     /// cópia, relativa a esse monitor). `parado`: o desenho sem a ampliação.
-    fn dock_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, o: Point<i32, Logical>, parado: bool, out: &mut Vec<GloveElement>) {
+    fn dock_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, o: Point<i32, Logical>, parado: bool, alpha: Option<f32>, out: &mut Vec<GloveElement>) {
         let c = &self.chrome;
         let g = if parado { &c.dock_still } else { &c.dock_gpu };
         let Some(scene) = &g.scene else { return };
         let at = |x: f32, y: f32| Point::<i32, Logical>::from((o.x + x.round() as i32, o.y + y.round() as i32));
         if let (Some((_, x, y)), Some(t)) = (scene.label, g.label()) {
-            out.extend(mem(renderer, at(x, y), t, sc));
+            out.extend(mem_alpha(renderer, at(x, y), t, sc, alpha));
         }
         for (&(x, y), t) in scene.indicators.iter().zip(g.inds()) {
-            out.extend(mem(renderer, at(x, y), t, sc));
+            out.extend(mem_alpha(renderer, at(x, y), t, sc, alpha));
         }
         for (t, x, y, w, h) in &g.icon_places {
-            out.extend(mem_scaled(renderer, (o.x as f64 + x, o.y as f64 + y), (*w, *h), t, sc));
+            out.extend(mem_scaled_alpha(renderer, (o.x as f64 + x, o.y as f64 + y), (*w, *h), t, sc, alpha));
         }
         for (&(x, y), t) in scene.separators.iter().zip(g.seps()) {
-            out.extend(mem(renderer, at(x, y), t, sc));
+            out.extend(mem_alpha(renderer, at(x, y), t, sc, alpha));
         }
         if let Some(t) = g.shelf() {
-            out.extend(mem(renderer, at(scene.shelf.0, scene.shelf.1), t, sc));
+            out.extend(mem_alpha(renderer, at(scene.shelf.0, scene.shelf.1), t, sc, alpha));
         }
     }
 
@@ -292,15 +314,16 @@ impl Glove {
             if let Some(t) = self.chrome.extra_bars.iter().find(|b| b.area == area).and_then(|b| b.tex.as_ref()) {
                 out.extend(mem_alpha(renderer, (0, 0).into(), t, sc, self.bar_alpha(Some(area))));
             }
-            if self.grade.alpha <= 0.0 {
+            if self.grade.alpha <= 0.0 && self.dock_shown_on(Some(area)) {
+                let alpha = self.dock_alpha(Some(area));
                 match self.still_dock_for(Some(area)) {
                     Some(l) if self.config.monitor.dock_all => {
                         let o = self.chrome.dock_pos_layout(l, (area.size.w, area.size.h));
-                        self.dock_elements_at(renderer, sc, o, true, &mut out);
+                        self.dock_elements_at(renderer, sc, o, true, alpha, &mut out);
                     }
                     _ => {
                         if let Some(o) = self.extra_dock_origin(area) {
-                            self.dock_elements_at(renderer, sc, o - origin, false, &mut out);
+                            self.dock_elements_at(renderer, sc, o - origin, false, alpha, &mut out);
                         }
                     }
                 }
@@ -908,6 +931,7 @@ impl Glove {
                 UniformName::new("sl", UniformType::_4f),
                 UniformName::new("anim", UniformType::_2f),
                 UniformName::new("bx", UniformType::_2f),
+                UniformName::new("dir", UniformType::_1f),
             ];
             match renderer.compile_custom_texture_shader(GENIE_SHADER, &names) {
                 Ok(pr) => cache.genie = Some(pr),
@@ -933,8 +957,16 @@ impl Glove {
         let bb = frame.merge(slot);
         let bb = Rectangle::new((bb.loc.x.floor() - 2.0, bb.loc.y.floor() - 2.0).into(), (bb.size.w.ceil() + 4.0, bb.size.h.ceil() + 4.0).into());
         let rel = |r: Rectangle<f64, Logical>| ((r.loc.x - bb.loc.x) as f32, (r.loc.y - bb.loc.y) as f32, r.size.w as f32, r.size.h as f32);
-        let (fx, fy, fw, fh) = rel(frame);
-        let (sx, sy, sw, sh) = rel(slot);
+        // Dock nas laterais: a janela e o ícone no espaço girado em que o Dock fica embaixo
+        // (à direita, x e y trocados; à esquerda, também espelhado).
+        let bw = bb.size.w as f32;
+        let (dir, girar): (f32, Box<dyn Fn((f32, f32, f32, f32)) -> (f32, f32, f32, f32)>) = match self.chrome.dock_side {
+            glove_paint::chrome::DockSide::Bottom => (0.0, Box::new(|r| r)),
+            glove_paint::chrome::DockSide::Left => (1.0, Box::new(move |(x, y, w, h)| (y, bw - (x + w), h, w))),
+            glove_paint::chrome::DockSide::Right => (2.0, Box::new(|(x, y, w, h)| (y, x, h, w))),
+        };
+        let (fx, fy, fw, fh) = girar(rel(frame));
+        let (sx, sy, sw, sh) = girar(rel(slot));
         let size = smithay::backend::renderer::Texture::size(&tex);
         let src = Rectangle::from_size((size.w as f64, size.h as f64).into());
         let el = TextureRenderElement::from_static_texture(
@@ -955,6 +987,7 @@ impl Glove {
             Uniform::new("sl", [sx, sy, sw, sh]),
             Uniform::new("anim", [bend as f32, slide as f32]),
             Uniform::new("bx", [bb.size.w as f32, bb.size.h as f32]),
+            Uniform::new("dir", dir),
         ];
         out.push(GloveElement::Shader(TextureShaderElement::new(el, program, uniforms)));
     }

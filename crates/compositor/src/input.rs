@@ -932,16 +932,25 @@ impl Glove {
         if self.config.dock.autohide {
             // A borda do monitor do mouse (com o Dock em todos) ou a do principal.
             let (w, h) = self.output_size();
-            let tela = self
+            let principal = self.primary().and_then(|o| self.space.output_geometry(o));
+            let tela_area = self
                 .output_rect_at(pos)
                 .filter(|_| self.config.monitor.dock_all)
-                .unwrap_or(smithay::utils::Rectangle::new((0, 0).into(), (w, h).into()))
-                .to_f64();
+                .or(principal)
+                .unwrap_or(smithay::utils::Rectangle::new((0, 0).into(), (w, h).into()));
+            let tela = tela_area.to_f64();
             let at_edge = match self.chrome.dock_side {
                 chrome::DockSide::Bottom => pos.y >= tela.loc.y + tela.size.h - 2.0,
                 chrome::DockSide::Left => pos.x <= tela.loc.x + 1.0,
                 chrome::DockSide::Right => pos.x >= tela.loc.x + tela.size.w - 2.0,
             };
+            // Revelado na borda de outro monitor: passa para lá (sobe só ali, do zero).
+            let reveal = (Some(tela_area) != principal).then_some(tela_area);
+            if at_edge && reveal != self.chrome.dock_reveal {
+                self.chrome.dock_reveal = reveal;
+                self.chrome.dock_hide = 1.0;
+                self.chrome.dock_hide_anim = None;
+            }
             let keep = at_edge || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
             self.chrome.animate_dock_hide(if keep { 0.0 } else { 1.0 });
             self.dirty = true;

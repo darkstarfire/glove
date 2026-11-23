@@ -96,7 +96,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 | Terminal | Núcleo do Alacritty: truecolor, nvim/htop, mouse, OSC 52, temas, Nerd Font; arrastar um arquivo escreve o caminho |
 | Editor de Texto | Documentos em RTF (abre no Word e no LibreOffice): fontes, parágrafos e régua, estilos, listas, tabelas, imagens, páginas com cabeçalho, rodapé e notas, modelo ABNT, exportar PDF; também texto simples; Localizar/Substituir |
 | Visualizador | Imagens (PNG, JPEG, WebP) e PDF, miniaturas, zoom, girar; desenhar sobre as capturas de tela |
-| Jangada | O navegador do Glove OS ([repositório próprio](https://github.com/fabioaacarneiro/jangada)): o motor do Chromium numa janela do Glove, barra de endereço como a do Safari, abas com o ícone dos sites, página inicial e de erro próprias, menu de contexto solto, downloads; leve (sem o processo da placa de vídeo) |
+| Jangada | O navegador do Glove OS ([repositório próprio](https://github.com/fabioaacarneiro/jangada)): o motor do Chromium numa janela do Glove, barra de endereço como a do Safari, abas com o ícone dos sites, página inicial e de erro próprias, menu de contexto solto, downloads; leve (a placa de vídeo desenha as páginas, nada rodando de fundo) |
 | Correio | IMAP e SMTP com TLS, caixas, escrever, responder e encaminhar |
 | Agenda e Contatos | Mês em grade com eventos (.ics) e fichas (vCard) |
 | Música | Biblioteca (a pasta Música e as que você juntar), Artistas e Álbuns, listas (M3U), aleatório e repetir; tocador leve em Rust puro |

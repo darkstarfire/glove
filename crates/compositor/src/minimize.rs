@@ -162,8 +162,8 @@ impl Glove {
         Some(lerp_rect(a.frame, slot, a.progress()))
     }
 
-    /// Lâmpada Mágica (Dock embaixo): a moldura na tela, o lugar no Dock e o
-    /// andamento. None = efeito Escala (ou Dock nas laterais).
+    /// Lâmpada Mágica: a moldura na tela, o lugar no Dock e o andamento. None = efeito
+    /// Escala.
     pub fn genie_params(&self, w: &Window) -> Option<(Rectangle<f64, Logical>, Rectangle<f64, Logical>, f64)> {
         if !self.genie_on() {
             return None;
@@ -173,9 +173,10 @@ impl Glove {
         Some((a.frame, slot, a.genie_progress()))
     }
 
-    /// O efeito de minimizar é a Lâmpada Mágica (com o Dock embaixo).
+    /// O efeito de minimizar é a Lâmpada Mágica (com o Dock em qualquer lado: o shader
+    /// gira a conta para o lado dele).
     fn genie_on(&self) -> bool {
-        self.config.dock.minimize_effect == "genio" && glove_paint::chrome::DockSide::from_config(&self.config.dock.position) == glove_paint::chrome::DockSide::Bottom
+        self.config.dock.minimize_effect == "genio"
     }
 
     pub fn min_animating(&self, w: &Window) -> bool {

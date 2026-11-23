@@ -305,14 +305,24 @@ impl Login {
         for (k, (label, verb)) in labels.iter().enumerate() {
             let bx = w / 2.0 + (k as f32 - 1.0) * 110.0;
             let resp = ui.hit(Rect::new(bx - 44.0, by - r, 88.0, r * 2.0 + 26.0));
-            let fundo = if resp.down { rgba(214, 214, 220, 255) } else if resp.hover { rgba(255, 255, 255, 255) } else { rgba(238, 238, 242, 255) };
+            // No tema escuro o botão é grafite com o ícone branco; as cores já vêm
+            // certas, então o remapeamento do escuro fica desligado aqui.
+            let escuro = glove_ui::paint::theme::dark();
+            let (fundo, tinta) = if escuro {
+                let f = if resp.down { rgba(46, 46, 52, 255) } else if resp.hover { rgba(84, 84, 92, 255) } else { rgba(64, 64, 70, 255) };
+                (f, rgba(255, 255, 255, 255))
+            } else {
+                let f = if resp.down { rgba(214, 214, 220, 255) } else if resp.hover { rgba(255, 255, 255, 255) } else { rgba(238, 238, 242, 255) };
+                (f, rgba(54, 54, 60, 255))
+            };
+            let remap = std::mem::replace(&mut ui.c.dark_remap, false);
             ui.c.fill(circle(bx, by, r), &solid(fundo));
-            let tinta = rgba(54, 54, 60, 255);
             if k == 0 {
                 ui.c.fill_rule(lua(bx, by, 8.0), &solid(tinta), FillRule::Winding);
             } else {
                 power_glyph(ui, k, bx, by, tinta, fundo);
             }
+            ui.c.dark_remap = remap;
             texto(ui, label, bx, by + r + 20.0, 12.0, false);
             if resp.clicked && !busy {
                 if self.fake {

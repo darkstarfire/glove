@@ -1471,3 +1471,12 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   em modo de teste e no tema escolhido (`glove-login --fake --tema TEMA`). Internacional ▸ **Instalar
   Este Idioma…** (pela senha de administrador; `glove-prefs --instalar-idioma`), conferido no Debian,
   Ubuntu, Arch e Fedora.
+  - [x] 22.20.1 (v0.13.2, Jangada 1.13.0) O painel "Iniciando sessão" aparece de verdade: o relógio
+    dele começa no primeiro quadro desenhado e a mesa é preparada por etapas enquanto ele cobre a
+    tela (antes o primeiro quadro preparava tudo e o painel passava com a tela preta). Com o Dock em
+    todos os monitores, o que some sozinho sobe só no monitor do mouse, o Dock dos monitores sem
+    foco fica esmaecido como a barra, e cada barra acende o próprio menu (as outras não piscam). A
+    Lâmpada Mágica também com o Dock à esquerda ou à direita (o shader gira o funil). Login escuro:
+    bolinhas da senha e ícones de Repouso, Reiniciar e Desligar brancos (o kit desenha as bolinhas
+    sem o remapeamento do escuro, o que vale para todo campo de senha). Jangada 1.13.0: a placa de
+    vídeo desenha as páginas por padrão (se não subir, o motor volta ao processador sozinho).
