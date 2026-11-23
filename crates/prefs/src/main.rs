@@ -883,6 +883,16 @@ impl Prefs {
             ui.c.draw_canvas(&c, x, y - 10.0);
         }
         ui.space(8.0);
+        ui.horizontal(|ui| {
+            // A tela de login de verdade, numa janela e em modo de teste (não entra nem
+            // desliga), no tema escolhido para ela.
+            if ui.button(tr!("Ver a Tela de Login…")) {
+                let tema = self.config.screen_theme(Screen::Login);
+                let _ = std::process::Command::new("glove-login").args(["--fake", "--tema", &tema]).spawn();
+            }
+            ui.small(tr!("Numa janela, sem entrar nem desligar."));
+        });
+        ui.space(8.0);
         if ui.button(tr!("Aplicar de Novo ao Sistema…")) {
             self.aplicar_telas();
         }
@@ -2763,7 +2773,8 @@ impl App for Prefs {
             || (self.pane == Pane::Seguranca && self.fw_ask.is_some())
             || (self.pane == Pane::Atualizacao && self.atualizacao.prompt.is_some())
             || (self.pane == Pane::Inicializacao && self.inicializacao.prompt.is_some())
-            || (matches!(self.pane, Pane::Aparencia | Pane::Telas) && self.tema_sistema.prompt.is_some());
+            || (matches!(self.pane, Pane::Aparencia | Pane::Telas) && self.tema_sistema.prompt.is_some())
+            || (self.pane == Pane::Internacional && self.internacional.prompt.is_some());
         if sheet {
             ui.set_enabled(false);
         } else {
@@ -2876,6 +2887,8 @@ impl App for Prefs {
                 }
             } else if matches!(self.pane, Pane::Aparencia | Pane::Telas) {
                 self.tema_sistema.prompt_sheet(ui);
+            } else if self.pane == Pane::Internacional {
+                self.internacional.prompt_sheet(ui);
             } else if self.pane == Pane::Inicializacao {
                 self.inicializacao.prompt_sheet(ui);
             } else if self.pane == Pane::Atualizacao {
@@ -3014,6 +3027,13 @@ pub fn main() {
     }
     // Como administrador (pelo sudo): a aparência na tela de login e na abertura do sistema.
     let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--instalar-idioma") {
+        if let Err(e) = internacional::instalar_como_admin(args.get(i + 1).map(String::as_str).unwrap_or("")) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+        return;
+    }
     if let Some(i) = args.iter().position(|a| a == "--tema-sistema") {
         let login = args.get(i + 1).cloned().unwrap_or_default();
         let abertura = args.get(i + 2).cloned().unwrap_or_else(|| login.clone());

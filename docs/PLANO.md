@@ -1462,3 +1462,11 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   ferramentas do desenvolvedor (o inspetor do motor numa aba, pela porta local de depuração,
   desligada por padrão) e um teste que exige tradução para todo texto.
   - [ ] 22.19.1 A central de controle, o volume e a Busca Rápida ainda abrem no monitor principal.
+- [x] 22.20 (v0.13.0) Tela de login nos temas modernos com layout próprio: o papel de parede
+  desfocado na tela inteira (pintado em 1/4, desfocado em caixa e ampliado), os usuários lado a lado
+  com fotos redondas, a senha embaixo da foto escolhida com a seta de entrar e Cancelar, Repouso,
+  Reiniciar e Desligar no pé da tela; o Glove da tela de login estica na tela toda a janela que não
+  é de tamanho fixo. Telas do Sistema ▸ **Ver a Tela de Login…** abre o login de verdade numa janela,
+  em modo de teste e no tema escolhido (`glove-login --fake --tema TEMA`). Internacional ▸ **Instalar
+  Este Idioma…** (pela senha de administrador; `glove-prefs --instalar-idioma`), conferido no Debian,
+  Ubuntu, Arch e Fedora.

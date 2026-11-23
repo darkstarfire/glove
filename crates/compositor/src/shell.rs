@@ -1319,6 +1319,26 @@ impl Glove {
 
     /// Posiciona uma janela nova no centro da área útil.
     pub fn place_new_window(&mut self, w: &Window) {
+        // Tela de login com uma janela que pode crescer (o login dos temas modernos): a
+        // tela inteira.
+        if self.greeter && !fixed_size(w) {
+            if let Some(t) = w.toplevel() {
+                let area = self.work_area();
+                if w.geometry().size != area.size {
+                    t.with_pending_state(|s| {
+                        s.states.set(xdg_toplevel::State::Fullscreen);
+                        s.size = Some(area.size);
+                    });
+                    t.send_pending_configure();
+                }
+                if self.space.element_location(w) != Some(area.loc) {
+                    self.space.map_element(w.clone(), area.loc, false);
+                    self.dirty = true;
+                }
+                w.user_data().insert_if_missing(|| Placed(std::cell::Cell::new(None)));
+                return;
+            }
+        }
         if w.user_data().get::<Placed>().is_some() {
             self.recenter_if_fresh(w);
             return;

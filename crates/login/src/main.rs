@@ -7,6 +7,7 @@
 
 use glove_config::tr;
 mod greetd;
+mod moderno;
 mod sessoes;
 mod users;
 
@@ -51,6 +52,12 @@ struct Login {
     /// Ambientes gráficos instalados e o escolhido.
     sessions: Vec<sessoes::Session>,
     session_idx: usize,
+    /// Tema moderno: a tela inteira (papel desfocado, usuários lado a lado), em vez do
+    /// painel da época.
+    moderno: bool,
+    /// O papel de parede (da configuração da tela de login) e o fundo pronto, pelo tamanho.
+    wallpaper: String,
+    fundo: Option<((u32, u32), Pixmap)>,
 }
 
 impl Login {
@@ -135,6 +142,10 @@ fn center_text(ui: &mut Ui, t: &str, cx: f32, y: f32, px: f32, bold: bool, c: gl
 }
 
 impl App for Login {
+    fn paints_background(&self) -> bool {
+        self.moderno
+    }
+
     fn ui(&mut self, ui: &mut Ui) {
         // Resposta do greetd.
         if let Some(rx) = &self.pending {
@@ -156,6 +167,9 @@ impl App for Login {
         }
         if self.shake.is_some_and(|t| t.elapsed() < SHAKE) {
             ui.wake_after(Duration::from_millis(16));
+        }
+        if self.moderno {
+            return self.ui_moderno(ui);
         }
         let busy = self.pending.is_some();
         let dx = self.shake_offset();
@@ -285,7 +299,7 @@ impl App for Login {
             let resp = ui.hit(r);
             let base = if resp.down { darken(rgba(236, 236, 240, 255), 0.2) } else { rgba(236, 236, 240, 255) };
             gel_circle(ui.c, bx, by + 17.0, 17.0, base);
-            power_glyph(ui, k, bx, by + 17.0);
+            power_glyph(ui, k, bx, by + 17.0, rgba(60, 60, 66, 255), rgba(236, 236, 240, 255));
             center_text(ui, label, bx, by + 50.0, 11.0, false, ink);
             if resp.clicked && !busy {
                 if self.fake {
@@ -299,14 +313,13 @@ impl App for Login {
 }
 
 /// Símbolos dos botões de energia: lua (repouso), seta circular (reiniciar), liga/desliga.
-fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32) {
-    let col = rgba(60, 60, 66, 255);
+fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32, col: glove_ui::paint::Color, bg: glove_ui::paint::Color) {
     let mut pb = glove_ui::paint::tiny_skia::PathBuilder::new();
     match k {
         0 => {
             // Lua: dois círculos (o de cima apaga parte do outro).
             ui.c.fill(circle(cx, cy, 7.0), &solid(col));
-            ui.c.fill(circle(cx + 3.5, cy - 2.5, 6.0), &solid(rgba(236, 236, 240, 255)));
+            ui.c.fill(circle(cx + 3.5, cy - 2.5, 6.0), &solid(bg));
             return;
         }
         1 => {
@@ -351,18 +364,70 @@ fn power_glyph(ui: &mut Ui, k: usize, cx: f32, cy: f32) {
     }
 }
 
+/// A configuração com outro tema (`theme = …` antes da primeira seção).
+fn com_tema(texto: &str, tema: &str) -> String {
+    let mut feito = false;
+    let mut secao = false;
+    let mut out: Vec<String> = Vec::new();
+    for l in texto.lines() {
+        secao |= l.trim_start().starts_with('[');
+        if !secao && !feito && l.trim_start().starts_with("theme") && l.contains('=') {
+            out.push(format!("theme = \"{tema}\""));
+            feito = true;
+        } else {
+            out.push(l.to_string());
+        }
+    }
+    if !feito {
+        out.insert(0, format!("theme = \"{tema}\""));
+    }
+    out.join("\n") + "\n"
+}
+
 pub fn main() {
     let fake = std::env::args().any(|a| a == "--fake");
+    // Prévia (Preferências ▸ Telas do Sistema): `--fake --tema TEMA` abre com uma cópia da
+    // configuração neste tema, sem mexer na de verdade.
+    let args: Vec<String> = std::env::args().collect();
+    if let (true, Some(tema)) = (fake, args.iter().position(|a| a == "--tema").and_then(|i| args.get(i + 1))) {
+        let base = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir);
+        let dir = base.join(format!("glove-login-previa-{}", std::process::id()));
+        let texto = std::fs::read_to_string(glove_config::path()).unwrap_or_default();
+        if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join("config.toml"), com_tema(&texto, tema)).is_ok() {
+            // Ainda sem outras linhas de execução: mudar o ambiente aqui é seguro.
+            unsafe { std::env::set_var("GLOVE_CONFIG_DIR", &dir) };
+        }
+    }
     let users = users::list();
     let photos = users.iter().map(|u| u.photo.as_ref().and_then(|p| Pixmap::load_png(p).ok())).collect();
     let host = std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()).unwrap_or_default();
     let session: Vec<String> = std::env::var("GLOVE_SESSION").unwrap_or_else(|_| "glove-session".into()).split_whitespace().map(str::to_string).collect();
     let sessions = sessoes::list(&session);
     let session_idx = sessoes::last().and_then(|(id, x11)| sessions.iter().position(|s| s.id == id && s.x11 == x11)).unwrap_or(0);
-    let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session, sessions, session_idx };
-    let opts = WindowOptions { title: tr!("Entrar").into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
-    if let Err(e) = run(opts, app) {
+    let config = glove_config::Config::load();
+    let moderno = glove_ui::paint::theme::Variant::from_config(&config.theme).modern();
+    let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session, sessions, session_idx, moderno, wallpaper: config.wallpaper.clone(), fundo: None };
+    // Moderno: a janela pode crescer, e o Glove da tela de login a estica na tela toda.
+    let opts = if moderno {
+        WindowOptions { title: tr!("Entrar").into(), app_id: "glove.Login".into(), size: (1024, 700), fixed: false, min_size: Some((640, 480)) }
+    } else {
+        WindowOptions { title: tr!("Entrar").into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true, min_size: None }
+    };
+    let r = run(opts, app);
+    if let Some(d) = std::env::var_os("GLOVE_CONFIG_DIR").filter(|d| d.to_string_lossy().contains("glove-login-previa-")) {
+        let _ = std::fs::remove_dir_all(d);
+    }
+    if let Err(e) = r {
         eprintln!("glove-login: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn troca_o_tema_da_copia() {
+        assert_eq!(super::com_tema("theme = \"claro\"\nx = 1\n[a]\ntheme = 2\n", "moderno"), "theme = \"moderno\"\nx = 1\n[a]\ntheme = 2\n");
+        assert_eq!(super::com_tema("x = 1\n", "moderno-escuro"), "theme = \"moderno-escuro\"\nx = 1\n");
     }
 }

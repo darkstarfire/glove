@@ -699,6 +699,15 @@ Notes:
   `glove-instalador --simular` shows every page and the commands it would run, without changing
   anything.
 
+## Language and formats (Preferences ▸ International)
+
+- **Language:** the one for Glove and the other apps, in a list. Those the system doesn't have yet
+  show as "not installed"; picking one of them, **Install This Language…** asks for the
+  administrator password and installs it (on Debian, Ubuntu and Arch, through `locale-gen`; on
+  Fedora, through the `glibc-langpack` package). The pane then checks that the language showed up.
+- **Formats:** the region for dates, times, numbers, currency and measurements, with examples.
+- Both take effect for apps opened after the next login to Glove.
+
 ## New shortcuts
 
 | Shortcut | What it does |
@@ -736,6 +745,14 @@ period themes, the gel glove).
 the **session** (session startup, lock screen and log out), the **login screen** and **system
 startup** (power on and off). "Same as Appearance" follows the chosen appearance. Login and startup
 ask for the administrator password; the pane shows what is in effect now.
+
+The **login screen in the modern themes** fills the whole screen: the blurred wallpaper, the users
+side by side in the middle (round picture with the name below; "Other…" at the end), and Sleep,
+Restart and Shut Down at the bottom. Clicking a user makes their picture bigger, with the password
+field and the arrow to log in below it (and the desktop session, if there is more than one); a wrong
+password shakes and says so; **Cancel** (or Esc) goes back to the list. The period themes keep the
+panel with the list. **Show the Login Screen…** (below the preview) opens the real login screen in a
+window, in the theme chosen for it, in test mode: it neither logs in nor shuts down.
 
 **Use the appearance everywhere** (right below the appearance choice): session startup, the lock
 screen and the log-out screen follow the appearance (in Modern: flat panels, a flat light or

@@ -21,6 +21,37 @@ pub const LOCALES: [(&str, &str, &str); 10] = [
     ("ja_JP", "Japonês", "Japão"),
 ];
 
+/// Gera um idioma no sistema (como administrador): no Debian, Ubuntu e Arch, habilita a
+/// linha em /etc/locale.gen e roda o locale-gen; no Fedora, instala o glibc-langpack.
+/// `$1` = o locale (ll_CC).
+const INSTALAR: &str = r#"set -e
+l="$1"
+lang=${l%%_*}
+if [ -f /etc/locale.gen ] && command -v locale-gen >/dev/null 2>&1; then
+    linha="$l.UTF-8 UTF-8"
+    if grep -q "^[# ]*$linha *\$" /etc/locale.gen; then
+        sed -i "0,/^[# ]*$linha *\$/s//$linha/" /etc/locale.gen
+    else
+        echo "$linha" >> /etc/locale.gen
+    fi
+    if [ -f /etc/arch-release ]; then locale-gen; else locale-gen --keep-existing; fi
+elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y "glibc-langpack-$lang"
+else
+    echo "Este sistema não tem o locale-gen nem o dnf." >&2
+    exit 1
+fi
+"#;
+
+/// Como administrador (`glove-prefs --instalar-idioma ll_CC`): só os idiomas da lista.
+pub fn instalar_como_admin(loc: &str) -> Result<(), String> {
+    if !LOCALES.iter().any(|l| l.0 == loc) {
+        return Err(tr!("Idioma desconhecido: {}", loc));
+    }
+    let ok = std::process::Command::new("sh").args(["-c", INSTALAR, "sh", loc]).status().map_err(|e| e.to_string())?;
+    if ok.success() { Ok(()) } else { Err(tr!("Não deu para instalar o idioma {}.", loc)) }
+}
+
 fn file() -> PathBuf {
     glove_config::dir().join("ambiente.conf")
 }
@@ -114,6 +145,9 @@ pub struct Internacional {
     installed: Vec<String>,
     loaded: bool,
     message: Option<String>,
+    /// Instalando um idioma no sistema: o pedido de senha e o trabalho.
+    pub prompt: Option<(Vec<String>, crate::admin::Prompt)>,
+    job: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
 }
 
 impl Internacional {
@@ -151,7 +185,19 @@ impl Internacional {
             }
         }
         ui.space(6.0);
-        ui.small(tr!("Idiomas marcados “não instalado” precisam do pacote de idioma do sistema."));
+        // O escolhido ainda não está no sistema: dá para instalar (pede a senha).
+        let escolhido = LOCALES.iter().position(|l| l.0 == self.lang).unwrap_or(0);
+        let id = LOCALES[escolhido].0;
+        if !self.installed.iter().any(|i| i == id) {
+            ui.set_enabled(self.job.is_none());
+            if ui.button(tr!("Instalar Este Idioma…")) {
+                self.instalar(id);
+            }
+            ui.set_enabled(true);
+            ui.space(4.0);
+        }
+        self.andamento(ui);
+        ui.small(tr!("Idiomas marcados “não instalado” precisam ser instalados no sistema (pede a senha de administrador)."));
         ui.small(tr!("Vale para os apps abertos depois da próxima entrada no Glove."));
         if let Some(m) = &self.message {
             let m = m.clone();
@@ -183,6 +229,56 @@ impl Internacional {
         ui.form_row(tr!("Medidas"), 120.0, |ui| ui.label(if matches!(r, "en_US") { tr!("Americanas (polegadas, libras)") } else { tr!("Métricas (centímetros, quilos)") }));
         ui.space(8.0);
         ui.small(tr!("Exemplos de como os apps vão mostrar. Vale depois da próxima entrada."));
+    }
+
+    /// Instala o idioma `loc` no sistema pelo próprio glove-prefs, como administrador.
+    fn instalar(&mut self, loc: &str) {
+        self.message = None;
+        let exe = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("glove-prefs")))
+            .filter(|p| p.exists())
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "glove-prefs".into());
+        let args = vec![exe, "--instalar-idioma".into(), loc.to_string()];
+        match crate::admin::sudo_state() {
+            crate::admin::Sudo::Free => self.job = Some(crate::admin::run(args, None)),
+            crate::admin::Sudo::No => self.message = Some(tr!("Instalar um idioma pede uma conta de administrador.").into()),
+            crate::admin::Sudo::Password => self.prompt = Some((args, crate::admin::Prompt::new(tr!("Instalar um idioma no sistema.").into()))),
+        }
+    }
+
+    /// A janela de senha (chamada pelo painel).
+    pub fn prompt_sheet(&mut self, ui: &mut Ui) {
+        if let Some((args, mut p)) = self.prompt.take() {
+            match p.sheet(ui) {
+                crate::admin::Answer::Waiting => self.prompt = Some((args, p)),
+                crate::admin::Answer::Cancel => {}
+                crate::admin::Answer::Password(pw) => self.job = Some(crate::admin::run(args, Some(pw))),
+            }
+        }
+    }
+
+    /// O fim da instalação: confere de verdade (`locale -a`) e avisa.
+    fn andamento(&mut self, ui: &mut Ui) {
+        let Some(rx) = &self.job else { return };
+        match rx.try_recv() {
+            Ok(r) => {
+                self.job = None;
+                self.installed = installed();
+                let id = self.lang.clone();
+                self.message = Some(match r {
+                    Ok(()) if self.installed.iter().any(|i| *i == id) => tr!("Pronto: o idioma foi instalado. Vale depois da próxima entrada.").into(),
+                    Ok(()) => tr!("O sistema terminou, mas o idioma ainda não aparece instalado.").into(),
+                    Err(e) => tr!("Não deu certo: {}", e),
+                });
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                ui.small(tr!("Instalando o idioma… (pode levar um minuto)"));
+                ui.wake_after(std::time::Duration::from_millis(250));
+            }
+            Err(_) => self.job = None,
+        }
     }
 
     fn write(&mut self) {

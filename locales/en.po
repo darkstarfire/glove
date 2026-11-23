@@ -1920,9 +1920,6 @@ msgstr " — busy"
 msgid "Idioma do Glove e dos outros apps:"
 msgstr "Language for Glove and other apps:"
 
-msgid "Idiomas marcados “não instalado” precisam do pacote de idioma do sistema."
-msgstr "Languages marked “not installed” need the system’s language package."
-
 msgid "Pôr na Barra"
 msgstr "Add to Toolbar"
 
@@ -6476,3 +6473,42 @@ msgstr "Menu bar on every display"
 
 msgid "Dock em todos os monitores"
 msgstr "Dock on every display"
+
+msgid "Digite a senha"
+msgstr "Enter password"
+
+msgid "Cancelar"
+msgstr "Cancel"
+
+msgid "Ver a Tela de Login…"
+msgstr "Show the Login Screen…"
+
+msgid "Numa janela, sem entrar nem desligar."
+msgstr "In a window, without logging in or shutting down."
+
+msgid "Idioma desconhecido: {}"
+msgstr "Unknown language: {}"
+
+msgid "Não deu para instalar o idioma {}."
+msgstr "Couldn't install the language {}."
+
+msgid "Instalar Este Idioma…"
+msgstr "Install This Language…"
+
+msgid "Idiomas marcados “não instalado” precisam ser instalados no sistema (pede a senha de administrador)."
+msgstr "Languages marked “not installed” must be installed on the system (asks for the administrator password)."
+
+msgid "Instalar um idioma pede uma conta de administrador."
+msgstr "Installing a language needs an administrator account."
+
+msgid "Instalar um idioma no sistema."
+msgstr "Install a language on the system."
+
+msgid "Pronto: o idioma foi instalado. Vale depois da próxima entrada."
+msgstr "Done: the language was installed. It takes effect at the next login."
+
+msgid "O sistema terminou, mas o idioma ainda não aparece instalado."
+msgstr "The system finished, but the language still doesn't show as installed."
+
+msgid "Instalando o idioma… (pode levar um minuto)"
+msgstr "Installing the language… (may take a minute)"

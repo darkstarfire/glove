@@ -704,6 +704,15 @@ Observações:
 - O instalador só instala no Glove ao vivo. Em outro sistema, `glove-instalador --simular` mostra
   todas as páginas e os comandos que seriam executados, sem mexer em nada.
 
+## Idioma e formatos (Preferências ▸ Internacional)
+
+- **Idioma:** o do Glove e dos outros apps, numa lista. Os que o sistema ainda não tem aparecem
+  como "não instalado"; escolhendo um deles, **Instalar Este Idioma…** pede a senha de
+  administrador e o instala (no Debian, Ubuntu e Arch, pelo `locale-gen`; no Fedora, pelo pacote
+  `glibc-langpack`). O painel confere depois se o idioma apareceu.
+- **Formatos:** a região da data, da hora, dos números, da moeda e das medidas, com exemplos.
+- Os dois valem para os apps abertos depois da próxima entrada no Glove.
+
 ## Atalhos novos
 
 | Atalho | O que faz |
@@ -741,6 +750,14 @@ branco no Moderno Escuro (nos temas da época, a luva de gel).
 **sessão** (abertura da sessão, bloqueio e saída), a **tela de login** e a **abertura do sistema**
 (ao ligar e desligar). "Como a aparência" acompanha a aparência escolhida. O login e a abertura pedem
 a senha de administrador; o painel mostra o que está valendo agora.
+
+A **tela de login nos temas modernos** ocupa a tela inteira: o papel de parede desfocado, os
+usuários lado a lado no meio (foto redonda e o nome embaixo; "Outro…" no fim), e Repouso, Reiniciar e
+Desligar no pé da tela. Clicando num usuário, a foto dele fica maior, com o campo da senha e a seta
+de entrar embaixo (e o ambiente gráfico, se houver mais de um); senha errada balança e avisa;
+**Cancelar** (ou Esc) volta à lista. Nos temas da época continua o painel com a lista. **Ver a Tela
+de Login…** (embaixo da prévia) abre a tela de login de verdade numa janela, no tema escolhido para
+ela, em modo de teste: não entra nem desliga.
 
 **Usar a aparência em todo o sistema** (logo abaixo da escolha da aparência): a abertura da sessão,
 o bloqueio de tela e a tela de saída passam a seguir a aparência (no Moderno: painéis lisos, fundo
