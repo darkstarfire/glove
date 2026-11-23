@@ -1501,6 +1501,11 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     (45 s): de 43 tarefas longas (6,9 s travado) para nenhuma. Com as Jangadas de verdade e os
     escudos ligados (página servida num domínio falso): 1.14 com 7,9 s travado e pior quadro de
     317 ms; 1.15 com 0,17 s e 83 ms.
+  - [x] 22.20.5 (v0.13.6, Jangada 1.15.1) Clicar numa sugestão da barra de endereço abre o site.
+    O campo da barra perdia o foco no apertar do botão (fora dele), a lista sumia no mesmo quadro e
+    o soltar não achava mais a sugestão; o clique ia para a página. Agora a escolha vale no apertar
+    e a página não recebe esse clique até o botão subir. Conferido na sessão oculta: 1.15.0 deixa o
+    clique na página, 1.15.1 abre a sugestão.
 
 ## Fase 23 — Jangada com vídeos H.264 e mais fluida (pendências de 23/11/2026)
 
