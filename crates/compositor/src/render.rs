@@ -719,14 +719,16 @@ impl Glove {
                 self.push_scaled_window(renderer, &a.window, r, sc, &mut out);
             }
         }
-        // Miniaturas vivas das minimizadas, com o ícone do app no canto.
+        // Miniaturas vivas das minimizadas, com o ícone do app no canto. Ficam no Dock do
+        // principal: com o Dock que some sozinho revelado em outro monitor, não sobem aqui.
+        let dock_aqui = self.dock_shown_on(self.primary().and_then(|o| self.space.output_geometry(o)));
         for (w, (x, y), t) in &self.badge_places {
-            if !self.min_animating(w) {
+            if dock_aqui && !self.min_animating(w) {
                 out.extend(mem(renderer, (*x, *y).into(), t, sc));
             }
         }
         for (w, _) in &self.minimized {
-            if self.min_animating(w) {
+            if !dock_aqui || self.min_animating(w) {
                 continue;
             }
             if let Some(r) = self.thumbnail_rect(w) {

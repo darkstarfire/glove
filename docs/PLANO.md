@@ -1480,3 +1480,9 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     bolinhas da senha e ícones de Repouso, Reiniciar e Desligar brancos (o kit desenha as bolinhas
     sem o remapeamento do escuro, o que vale para todo campo de senha). Jangada 1.13.0: a placa de
     vídeo desenha as páginas por padrão (se não subir, o motor volta ao processador sozinho).
+  - [x] 22.20.2 (v0.13.3, Jangada 1.14.0) A miniatura das minimizadas não sobe no Dock do principal
+    quando o Dock que some sozinho é revelado em outro monitor. Jangada 1.14.0: na sessão Wayland
+    (sem DISPLAY) a placa de vídeo nunca subia (o EGL sem tela não acha configuração); agora o
+    motor usa o ANGLE sobre o Vulkan, que sobe sem tela, e é atendido na hora em que pede para
+    trabalhar (antes esperava tiques de 16 ms fora do compasso da tela: a rolagem dava trancos).
+    Kit: a janela entrega o quadro sem copiar a mesma área várias vezes.
