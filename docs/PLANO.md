@@ -1532,3 +1532,14 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   do GStreamer da distribuição. Slackware -current: o WebKitGTK compilado no CI vai junto no
   pacote (o Slackware não o tem). Slackware 15.0: fica na Jangada 1.15.1 (GTK 4 e compilador
   velhos demais para o WebKitGTK atual); o instalador escolhe sozinho.
+- [x] 23.6 (v0.14.1, Jangada 2.0.1) A janela da Jangada com a sombra e os quatro cantos
+  arredondados do Glove também fora do zoom. O GTK guarda em volta das janelas sem barra uma
+  margem invisível (para redimensionar), e o Glove não as reconhecia como janelas sem moldura. Agora
+  o app pede a moldura do Glove pelo canal dos menus (MOLDURA glove), e o arredondamento aceita a
+  superfície que contém a janela. A janela privada se vê de longe (grafite e o selo Privada), e o
+  endereço se edita: o primeiro clique escolhe o endereço inteiro, o segundo põe o cursor.
+- [x] 23.7 (v0.14.1) A aparência no instalador (página Aparência, depois de Conta): vale para o
+  sistema inteiro: janelas, ícones, tela de login, abertura e desligamento. A regra dos ícones é
+  uma só (`glove_config::icones_da_aparencia`): Mide no Moderno Claro, Mide Escuro no Moderno Escuro
+  e os do Glove nas clássicas. Nas Preferências, com "Usar a aparência em todo o sistema", trocar
+  a aparência troca os ícones, e a tela de login ganha os mesmos ícones.

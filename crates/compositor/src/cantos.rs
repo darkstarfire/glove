@@ -119,8 +119,11 @@ impl Rounded {
         let g = inner.geometry(Scale::from(scale));
         let radius = (raio * scale).round();
         let inside = g.loc.x >= win.loc.x - 1 && g.loc.y >= win.loc.y - 1 && g.loc.x + g.size.w <= win.loc.x + win.size.w + 1 && g.loc.y + g.size.h <= win.loc.y + win.size.h + 1;
+        // A superfície que contém a janela inteira (as do GTK guardam em volta uma margem
+        // transparente para redimensionar): os cantos são os da janela, dentro dela.
+        let contains = g.loc.x <= win.loc.x && g.loc.y <= win.loc.y && g.loc.x + g.size.w >= win.loc.x + win.size.w && g.loc.y + g.size.h >= win.loc.y + win.size.h;
         let corners = quadrados(win.loc.x, win.loc.y, win.size.w, win.size.h, radius as i32, cantos);
-        if !inside || !corners.iter().any(|c| c.overlaps(g)) {
+        if !(inside || contains) || !corners.iter().any(|c| c.overlaps(g)) {
             return Err(inner);
         }
         Ok(Self { inner, program: program.clone(), win, radius, cantos })

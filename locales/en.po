@@ -6512,3 +6512,21 @@ msgstr "The system finished, but the language still doesn't show as installed."
 
 msgid "Instalando o idioma… (pode levar um minuto)"
 msgstr "Installing the language… (may take a minute)"
+
+msgid "Aparência:"
+msgstr "Appearance:"
+
+msgid "Glove"
+msgstr "Glove"
+
+msgid "Mide"
+msgstr "Mide"
+
+msgid "Mide Escuro"
+msgstr "Mide Dark"
+
+msgid "O visual do sistema inteiro. Dá para mudar depois nas Preferências."
+msgstr "The look of the whole system. You can change it later in Preferences."
+
+msgid "Ícones: {}. Vale também para a tela de login, a abertura e o desligamento do sistema, o bloqueio e a saída."
+msgstr "Icons: {}. It also applies to the login screen, system startup and shutdown, the lock screen and log out."

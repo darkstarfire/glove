@@ -50,6 +50,8 @@ pub struct Escolhas {
     pub senha: String,
     pub computador: String,
     pub uefi: bool,
+    /// A aparência escolhida (o id: "claro", "moderno-escuro"…): vale em todo o sistema.
+    pub tema: String,
 }
 
 #[derive(Clone, Debug)]
@@ -176,7 +178,13 @@ pub fn plano(e: &Escolhas) -> Vec<Passo> {
     // As preferências do Glove já com o teclado e o idioma (sem o assistente de boas-vindas).
     let home = format!("/home/{u}");
     cfg.push(rodar(&["mkdir", "-p", &format!("{ALVO}{home}/.config/glove")]));
-    cfg.push(escrever(&format!("{home}/.config/glove/config.toml"), format!("welcome_done = true\n\n[keyboard]\nlayout = \"{}\"\nvariant = \"{}\"\n", e.layout, e.variante)));
+    // A aparência em todo o sistema, com os ícones dela (Mide nas modernas, Glove nas
+    // clássicas): as janelas, a abertura da sessão, o bloqueio e a saída.
+    let icones = glove_config::icones_da_aparencia(&e.tema);
+    cfg.push(escrever(
+        &format!("{home}/.config/glove/config.toml"),
+        format!("theme = \"{}\"\nwelcome_done = true\n\n[appearance]\nicon_theme = \"{icones}\"\nsystem_theme = true\n\n[keyboard]\nlayout = \"{}\"\nvariant = \"{}\"\n", e.tema, e.layout, e.variante),
+    ));
     cfg.push(escrever(&format!("{home}/.config/glove/ambiente.conf"), format!("LANG={}\n", e.idioma)));
     cfg.push(chroot(&["chown", "-R", &format!("{u}:{u}"), &format!("{home}/.config")]));
     passos.push(Passo { nome: tr!("Configurando o sistema").into(), peso: 0.08, acoes: cfg });
@@ -187,6 +195,9 @@ pub fn plano(e: &Escolhas) -> Vec<Passo> {
         boot.push(rodar(&["mount", "--rbind", &format!("/{d}"), &format!("{ALVO}/{d}")]));
         boot.push(opcional(&["mount", "--make-rslave", &format!("{ALVO}/{d}")]));
     }
+    // A tela de login e a abertura do sistema na mesma aparência (o Plymouth entra no
+    // initramfs logo abaixo).
+    boot.push(chroot_opcional(&["glove-prefs", "--tema-sistema", &e.tema, &e.tema]));
     boot.push(escrever("/etc/default/grub", "GRUB_DEFAULT=0\nGRUB_TIMEOUT=3\nGRUB_DISTRIBUTOR=\"Glove OS\"\nGRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"\nGRUB_CMDLINE_LINUX=\"\"\nGRUB_DISABLE_OS_PROBER=false\n".into()));
     boot.push(chroot(&["update-initramfs", "-u", "-k", "all"]));
     if e.uefi {
@@ -416,7 +427,7 @@ mod tests {
             livre: Some((1050624, 400_000_000)),
             ao_vivo: false,
         };
-        Escolhas { idioma: "pt_BR.UTF-8".into(), layout: "br".into(), variante: String::new(), fuso: "America/Sao_Paulo".into(), disco, modo, nome: "Ana".into(), usuario: "ana".into(), senha: "segredo".into(), computador: "pc-ana".into(), uefi }
+        Escolhas { idioma: "pt_BR.UTF-8".into(), layout: "br".into(), variante: String::new(), fuso: "America/Sao_Paulo".into(), disco, modo, nome: "Ana".into(), usuario: "ana".into(), senha: "segredo".into(), computador: "pc-ana".into(), uefi, tema: "moderno".into() }
     }
 
     fn cmds(p: &[Passo]) -> Vec<String> {

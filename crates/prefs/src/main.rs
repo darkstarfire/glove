@@ -783,6 +783,16 @@ impl Prefs {
     }
 
     /// Leva os temas da tela de login e da abertura do sistema (pede a senha).
+    /// Os ícones da aparência escolhida (a regra de `icones_da_aparencia`), se o tema de
+    /// ícones estiver instalado; senão ficam os que estão.
+    fn icones_pela_aparencia(&mut self) {
+        let id = glove_config::icones_da_aparencia(&self.config.theme);
+        if id.is_empty() || glove_ui::paint::sysicons::has_theme(id) {
+            self.config.appearance.icon_theme = id.to_string();
+            glove_ui::paint::icons::set_theme(id);
+        }
+    }
+
     fn aplicar_telas(&mut self) {
         let login = self.config.screen_theme(glove_config::Screen::Login);
         let abertura = self.config.screen_theme(glove_config::Screen::Boot);
@@ -914,6 +924,11 @@ impl Prefs {
             ui.horizontal(|ui| {
                 if ui.popup(&mut v, &names, 160.0) {
                     self.config.theme = Variant::ALL[v].id().into();
+                    // Em todo o sistema, os ícones acompanham (Mide nas modernas, Glove nas
+                    // clássicas).
+                    if self.config.appearance.system_theme {
+                        self.icones_pela_aparencia();
+                    }
                     self.save();
                     // As telas do sistema que seguem a aparência mudam junto.
                     self.aplicar_telas_se_seguem();
@@ -930,6 +945,9 @@ impl Prefs {
                 // Telas do Sistema). Desligada, voltam ao clássico.
                 for w in [glove_config::Screen::Session, glove_config::Screen::Login, glove_config::Screen::Boot] {
                     self.config.set_screen_choice(w, "");
+                }
+                if sistema {
+                    self.icones_pela_aparencia();
                 }
                 self.save();
                 self.aplicar_telas();

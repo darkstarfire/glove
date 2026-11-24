@@ -442,12 +442,15 @@ impl Glove {
         // Moderno: os cantos de baixo (os de cima vêm da barra de título) ou os quatro
         // (janela sem barra). Clássico: só as janelas sem barra, nos cantos de cima (como
         // a barra de título clássica; embaixo ela é reta).
-        let bare = !self.greeter && crate::shell::bare_dialog(w);
+        let bare = !self.greeter && self.bare_window(w);
         let cheia = crate::shell::is_fullscreen(w);
         let modo = if cheia {
             None
         } else if self.theme.modern {
             Some((if bare { crate::cantos::Cantos::Todos } else { crate::cantos::Cantos::Baixo }, crate::cantos::RAIO))
+        } else if bare && self.pede_moldura(w) {
+            // A janela inteira de um app com moldura própria (a Jangada): os quatro cantos.
+            Some((crate::cantos::Cantos::Todos, 6.0))
         } else if bare && w.toplevel().is_some_and(|t| t.parent().is_none()) {
             Some((crate::cantos::Cantos::Cima, 6.0))
         } else {

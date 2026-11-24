@@ -36,6 +36,38 @@ impl Glove {
         client.get_credentials(&self.display_handle).ok().map(|c| c.pid as u32)
     }
 
+    /// A janela não tem moldura de ninguém e o Glove dá a sombra e os cantos: os alertas e
+    /// as janelas sem barra (`bare_dialog`), e as janelas sem a barra do Glove de um app que
+    /// pediu a moldura dele pelo canal dos menus (MOLDURA glove: as do GTK, que guardam em
+    /// volta uma margem invisível para redimensionar, como a Jangada).
+    pub fn bare_window(&self, w: &Window) -> bool {
+        crate::shell::bare_dialog(w) || self.pede_moldura(w)
+    }
+
+    /// A janela é de um app que pediu a moldura do Glove (MOLDURA glove) e não tem a barra
+    /// do Glove: ganha a sombra e os quatro cantos arredondados (é a janela inteira do app,
+    /// como a da Jangada, não um alerta).
+    pub fn pede_moldura(&self, w: &Window) -> bool {
+        if w.toplevel().is_none() || crate::shell::is_ssd(w) || crate::shell::is_fullscreen(w) {
+            return false;
+        }
+        let pedidos = self.menu_clients.iter().filter(|c| c.moldura_glove).count() as u64;
+        if pedidos == 0 {
+            return false;
+        }
+        // O pid de cada janela se lê uma vez por mudança na lista dos que pediram.
+        w.user_data().insert_if_missing(|| crate::shell::MolduraGlove(std::cell::Cell::new(None)));
+        let Some(m) = w.user_data().get::<crate::shell::MolduraGlove>() else { return false };
+        if let Some((n, r)) = m.0.get() {
+            if n == pedidos {
+                return r;
+            }
+        }
+        let r = self.window_pid(w).is_some_and(|pid| self.menu_clients.iter().any(|c| c.moldura_glove && c.pid == pid));
+        m.0.set(Some((pedidos, r)));
+        r
+    }
+
     /// Menus da barra depois do nome do app: os do app e, por último, Janela.
     pub fn bar_menus(&self) -> Vec<BarMenu> {
         if self.desk_active() {

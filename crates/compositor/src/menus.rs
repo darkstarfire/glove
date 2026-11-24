@@ -66,6 +66,9 @@ pub struct MenuClient {
     pub edited: bool,
     /// Arquivo aberto (ícone no título).
     pub doc: Option<PathBuf>,
+    /// O app pediu a moldura do Glove nas janelas sem barra de título dele (as do GTK
+    /// guardam em volta uma margem invisível para redimensionar): a sombra e os cantos.
+    pub moldura_glove: bool,
     /// Menu de contexto sendo recebido e o pronto para abrir: (x, y na janela, itens).
     ctx_pending: Option<(f64, f64, Vec<Entry>)>,
     pub ctx: Option<(f64, f64, Vec<Entry>)>,
@@ -91,6 +94,7 @@ impl MenuClient {
         let f: Vec<&str> = line.split('\t').collect();
         match f[0] {
             "HELLO" => self.pid = f.get(1).and_then(|p| p.parse().ok()).unwrap_or(0),
+            "MOLDURA" => self.moldura_glove = f.get(1) == Some(&"glove"),
             "BEGIN" => {
                 self.pending.clear();
                 self.open_subs.clear();
@@ -188,7 +192,7 @@ pub fn listen(handle: &LoopHandle<'static, CalloopData>, path: &PathBuf) -> std:
                 let Ok(reader) = stream.try_clone() else { continue };
                 data.state.menu_seq += 1;
                 let key = data.state.menu_seq;
-                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, ctx_pending: None, ctx: None });
+                data.state.menu_clients.push(MenuClient { key, pid: 0, stream, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, moldura_glove: false, ctx_pending: None, ctx: None });
                 let h2 = h.clone();
                 let _ = h.insert_source(Generic::new(reader, Interest::READ, Mode::Level), move |_, s, data| {
                     let mut tmp = [0u8; 4096];
@@ -283,7 +287,7 @@ mod tests {
     #[test]
     fn le_submenus() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, ctx_pending: None, ctx: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, moldura_glove: false, ctx_pending: None, ctx: None };
         let text = "BEGIN\nMENU\tArquivo\nITEM\tnovo\tNovo\tCtrl+N\t\nSUB\tRecentes\t\nITEM\tr1\ta.txt\t\t\nSUB\tMais\td\nENDSUB\nENDSUB\nSEP\nEND";
         let done = text.lines().fold(false, |d, l| c.line(l) || d);
         assert!(done);
@@ -298,7 +302,7 @@ mod tests {
     #[test]
     fn le_menu_de_contexto() {
         let (a, _b) = UnixStream::pair().unwrap();
-        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, ctx_pending: None, ctx: None };
+        let mut c = MenuClient { key: 0, pid: 0, stream: a, buf: Vec::new(), pending: Vec::new(), open_subs: Vec::new(), menus: Vec::new(), shot: None, gravar: None, copy: None, end: None, saver: None, edited: false, doc: None, moldura_glove: false, ctx_pending: None, ctx: None };
         for l in "CTX\t12.5\t40\nITEM\topen\tAbrir\t\t\nSUB\tRótulo\t\nITEM\tlabel:0\tNenhum\t\tc\nENDSUB\nCTXEND".lines() {
             c.line(l);
         }

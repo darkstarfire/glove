@@ -1,6 +1,6 @@
 //! Instalador do Glove: do Glove ao vivo (a ISO) para o disco do computador.
 //! Um assistente em páginas: Introdução, Idioma e Teclado, Fuso Horário, Disco,
-//! Conta, Resumo e Instalação (o motor está em `motor.rs`).
+//! Conta, Aparência, Resumo e Instalação (o motor está em `motor.rs`).
 //!
 //! Só instala de verdade no Glove ao vivo. Em qualquer outro sistema abre apenas
 //! com `--simular`, que percorre tudo e mostra os comandos sem executar nenhum.
@@ -13,14 +13,18 @@ use std::time::Duration;
 
 use discos::Disco;
 use glove_ui::{
-    paint::draw::*,
+    paint::{draw::*, Variant},
     run, AlertKind, App, Rect, Ui, WindowOptions,
 };
 use motor::{Escolhas, Modo, Shared};
 
 const SIDE_W: f32 = 210.0;
 const BOTTOM_H: f32 = 52.0;
-const PAGINAS: [&str; 7] = ["Introdução", "Idioma e Teclado", "Fuso Horário", "Disco", "Conta", "Resumo", "Instalação"];
+const PAGINAS: [&str; 8] = ["Introdução", "Idioma e Teclado", "Fuso Horário", "Disco", "Conta", "Aparência", "Resumo", "Instalação"];
+/// As páginas com regra própria (o resumo instala; a última mostra o andamento).
+const APARENCIA: usize = 5;
+const RESUMO: usize = 6;
+const INSTALANDO: usize = 7;
 
 const IDIOMAS: [(&str, &str); 8] = [
     ("pt_BR.UTF-8", "Português (Brasil)"),
@@ -110,6 +114,9 @@ struct Instalador {
     computador: String,
     computador_tocado: bool,
     confirmar: bool,
+    /// A aparência escolhida (índice em `Variant::ALL`) e a dos ícones já aplicados.
+    tema: usize,
+    icones_vistos: Option<usize>,
     trabalho: Option<Shared>,
     /// Senha de administrador para o sudo (fora do Glove ao vivo).
     senha_admin: Option<String>,
@@ -162,6 +169,8 @@ impl Instalador {
             computador: String::new(),
             computador_tocado: false,
             confirmar: false,
+            tema: Variant::ALL.iter().position(|v| v.id() == glove_config::Config::load().theme).unwrap_or(0),
+            icones_vistos: None,
             trabalho: None,
             senha_admin: None,
             pedir_admin: false,
@@ -212,6 +221,7 @@ impl Instalador {
             senha: self.senha.clone(),
             computador: self.computador.trim().into(),
             uefi: self.uefi,
+            tema: Variant::ALL[self.tema].id().into(),
         })
     }
 
@@ -221,7 +231,7 @@ impl Instalador {
             2 => self.fuso.is_some(),
             3 => !self.discos.is_empty(),
             4 => !self.nome.trim().is_empty() && usuario_valido(self.usuario.trim()) && self.senha.len() >= 4 && self.senha == self.senha2 && computador_valido(self.computador.trim()),
-            5 => self.confirmar,
+            RESUMO => self.confirmar,
             _ => true,
         }
     }
@@ -234,7 +244,7 @@ impl Instalador {
         }
         let plano = motor::plano(&e);
         self.trabalho = Some(motor::instalar(plano, self.senha_admin.clone(), self.simular));
-        self.pagina = 6;
+        self.pagina = INSTALANDO;
     }
 
     fn lateral(&self, ui: &mut Ui) {
@@ -441,7 +451,8 @@ impl Instalador {
                     }
                 }
             }
-            5 => {
+            APARENCIA => self.aparencia(ui, area),
+            RESUMO => {
                 Self::titulo(ui, tr!("Resumo"), tr!("Confira antes de instalar."));
                 let Some(e) = self.escolhas() else { return };
                 ui.area(area, |ui| {
@@ -461,6 +472,7 @@ impl Instalador {
                     linha(ui, tr!("Como:"), &como);
                     linha(ui, tr!("Conta:"), &format!("{} ({})", e.nome, e.usuario));
                     linha(ui, tr!("Computador:"), &e.computador);
+                    linha(ui, tr!("Aparência:"), Variant::ALL[self.tema].label());
                     ui.space(12.0);
                     match e.modo {
                         Modo::Inteiro => ui.label_ex(&tr!("Tudo o que está em {} será apagado.", e.disco.nome), 12.5, true, rgba(190, 30, 30, 255)),
@@ -471,6 +483,50 @@ impl Instalador {
                 });
             }
             _ => self.instalando(ui, area),
+        }
+    }
+
+    /// A aparência do sistema: as janelas, os ícones (Mide nas modernas, Glove nas
+    /// clássicas), a tela de login e a abertura e o desligamento. No Glove ao vivo ela já
+    /// vale nesta sessão (a escolha se vê na hora).
+    fn aparencia(&mut self, ui: &mut Ui, area: Rect) {
+        Self::titulo(ui, tr!("Aparência"), tr!("O visual do sistema inteiro. Dá para mudar depois nas Preferências."));
+        let antes = self.tema;
+        ui.area(area, |ui| {
+            let nomes: Vec<&str> = Variant::ALL.iter().map(|v| v.label()).collect();
+            ui.radio_group(&mut self.tema, &nomes);
+            ui.space(12.0);
+            let icones = match glove_config::icones_da_aparencia(Variant::ALL[self.tema].id()) {
+                "mide" => tr!("Mide"),
+                "mide-dark" => tr!("Mide Escuro"),
+                _ => tr!("Glove"),
+            };
+            ui.paragraph(&tr!("Ícones: {}. Vale também para a tela de login, a abertura e o desligamento do sistema, o bloqueio e a saída.", icones));
+            ui.space(10.0);
+            // Os ícones na aparência escolhida.
+            use glove_ui::paint::icons::{FolderKind, Icon};
+            let amostra = [Icon::Folder, Icon::SpecialFolder(FolderKind::Documents), Icon::Terminal, Icon::TextEditor, Icon::Calculator, Icon::Settings, Icon::Trash];
+            let (x, y) = ui.cursor();
+            ui.alloc(7.0 * 44.0, 40.0);
+            for (k, ic) in amostra.iter().enumerate() {
+                glove_ui::paint::icons::draw_bare(ui.c, ui.fonts, *ic, x + k as f32 * 44.0, y, 36.0, None);
+            }
+        });
+        // Os ícones da amostra (e da sessão ao vivo) seguem a escolha desde a primeira vez
+        // que a página aparece.
+        if self.tema != antes || self.icones_vistos != Some(self.tema) {
+            self.icones_vistos = Some(self.tema);
+            let v = Variant::ALL[self.tema];
+            let icones = glove_config::icones_da_aparencia(v.id());
+            let icones = if icones.is_empty() || glove_ui::paint::sysicons::has_theme(icones) { icones } else { "" };
+            glove_ui::paint::icons::set_theme(icones);
+            // No Glove ao vivo, a sessão já muda (a simulação não mexe em nada).
+            if !self.simular {
+                let mut c = glove_config::Config::load();
+                c.theme = v.id().into();
+                c.appearance.icon_theme = icones.into();
+                let _ = c.save();
+            }
         }
     }
 
@@ -509,7 +565,7 @@ impl Instalador {
         let mut act = None;
         // Continuar sempre no mesmo lugar (à direita); Voltar à esquerda dele.
         ui.area(Rect::new(w - 130.0, y + 13.0, 116.0, 28.0), |ui| {
-            if self.pagina == 6 {
+            if self.pagina == INSTALANDO {
                 if let Some(r) = &fim {
                     if r.is_ok() && !self.simular {
                         if ui.default_button(tr!("Reiniciar")) {
@@ -522,13 +578,13 @@ impl Instalador {
                 return;
             }
             ui.set_enabled(pronta && !self.pedir_admin);
-            let rotulo = if self.pagina == 5 { tr!("Instalar") } else { tr!("Continuar") };
+            let rotulo = if self.pagina == RESUMO { tr!("Instalar") } else { tr!("Continuar") };
             if ui.default_button(rotulo) {
                 act = Some("seguir");
             }
             ui.set_enabled(true);
         });
-        if self.pagina > 0 && self.pagina < 6 {
+        if self.pagina > 0 && self.pagina < INSTALANDO {
             ui.area(Rect::new(w - 250.0, y + 13.0, 110.0, 28.0), |ui| {
                 if ui.button(tr!("Voltar|Instalador")) {
                     act = Some("voltar");
@@ -537,7 +593,7 @@ impl Instalador {
         }
         match act {
             Some("voltar") => self.pagina -= 1,
-            Some("seguir") if self.pagina == 5 => self.comecar(),
+            Some("seguir") if self.pagina == RESUMO => self.comecar(),
             Some("seguir") => self.pagina += 1,
             Some("reiniciar") => {
                 let _ = std::process::Command::new("systemctl").arg("reboot").spawn();

@@ -168,6 +168,10 @@ pub fn bare_dialog(w: &Window) -> bool {
     !is_ssd(w) && !is_fullscreen(w) && w.geometry().loc == (0, 0).into() && w.bbox().size == w.geometry().size
 }
 
+/// O que se sabe de uma janela: se ela é de um app que pediu a moldura do Glove (o
+/// número da vez em que se conferiu, o resultado).
+pub struct MolduraGlove(pub std::cell::Cell<Option<(u64, bool)>>);
+
 /// A janela dona de um diálogo (a do mesmo app que o abriu).
 pub fn parent_of<'a>(space: &'a smithay::desktop::Space<Window>, w: &Window) -> Option<&'a Window> {
     let parent = w.toplevel()?.parent()?;
@@ -2356,7 +2360,7 @@ impl Glove {
             w.user_data().insert_if_missing(|| RefCell::new(Deco::default()));
             let mut deco = w.user_data().get::<RefCell<Deco>>().unwrap().borrow_mut();
             // Diálogo sem moldura (alerta): só a sombra, colada na própria janela.
-            if !self.greeter && bare_dialog(w) {
+            if !self.greeter && self.bare_window(w) {
                 deco.title = None;
                 let size = w.geometry().size;
                 let active = focused.as_ref() == Some(w);

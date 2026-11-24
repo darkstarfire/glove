@@ -54,12 +54,62 @@ pub fn trocar_tema(texto: &str, tema: &str) -> String {
     s
 }
 
+/// Troca (ou põe) `icon_theme` na seção [appearance] de um config.toml. Vazio: os ícones
+/// do Glove (o padrão).
+pub fn trocar_icones(texto: &str, icones: &str) -> String {
+    let nova = format!("icon_theme = \"{icones}\"");
+    let mut out: Vec<String> = Vec::new();
+    let (mut na_secao, mut achou_secao, mut feito) = (false, false, false);
+    for l in texto.lines() {
+        let t = l.trim_start();
+        if t.starts_with('[') {
+            // Saindo da [appearance] sem a linha: entra no fim dela.
+            if na_secao && !feito {
+                while out.last().is_some_and(|x| x.trim().is_empty()) {
+                    out.pop();
+                }
+                out.push(nova.clone());
+                out.push(String::new());
+                feito = true;
+            }
+            na_secao = t.starts_with("[appearance]");
+            achou_secao |= na_secao;
+        }
+        if na_secao && !feito && t.starts_with("icon_theme") && t.contains('=') {
+            out.push(nova.clone());
+            feito = true;
+        } else {
+            out.push(l.to_string());
+        }
+    }
+    if na_secao && !feito {
+        out.push(nova.clone());
+        feito = true;
+    }
+    if !achou_secao && !feito {
+        if out.last().is_some_and(|x| !x.trim().is_empty()) {
+            out.push(String::new());
+        }
+        out.push("[appearance]".into());
+        out.push(nova);
+    }
+    let mut s = out.join("\n");
+    s.push('\n');
+    s
+}
+
 /// Como administrador (`glove-prefs --tema-sistema LOGIN ABERTURA`): a tela de login e o
 /// Plymouth (os temas do Glove, se instalados).
 pub fn aplicar_como_admin(login: &str, abertura: &str) -> Result<(), String> {
     let mut feito = Vec::new();
     if let Ok(t) = std::fs::read_to_string(LOGIN) {
-        std::fs::write(LOGIN, trocar_tema(&t, login)).map_err(|e| format!("{LOGIN}: {e}"))?;
+        // O tema e os ícones dele (Mide nas modernas, Glove nas clássicas), se instalados.
+        let mut novo = trocar_tema(&t, login);
+        let icones = glove_config::icones_da_aparencia(login);
+        if icones.is_empty() || glove_ui::paint::sysicons::has_theme(icones) {
+            novo = trocar_icones(&novo, icones);
+        }
+        std::fs::write(LOGIN, novo).map_err(|e| format!("{LOGIN}: {e}"))?;
         feito.push("login");
     }
     let nome = plymouth_de(abertura);
@@ -199,5 +249,19 @@ mod tests {
         assert_eq!(trocar_tema("wallpaper = \"x\"\n", "moderno-escuro"), "theme = \"moderno-escuro\"\nwallpaper = \"x\"\n");
         assert_eq!(plymouth_de("moderno"), "glove-moderno");
         assert_eq!(plymouth_de("metal"), "glove");
+    }
+
+    #[test]
+    fn troca_os_icones_do_login() {
+        // Na seção que já existe, no lugar da linha antiga.
+        let t = "theme = \"moderno\"\n\n[appearance]\nicon_theme = \"\"\nhighlight = \"azul\"\n\n[keyboard]\nlayout = \"br\"\n";
+        assert_eq!(trocar_icones(t, "mide"), "theme = \"moderno\"\n\n[appearance]\nicon_theme = \"mide\"\nhighlight = \"azul\"\n\n[keyboard]\nlayout = \"br\"\n");
+        // Na seção sem a linha (e com outra seção depois).
+        let t = "theme = \"claro\"\n\n[appearance]\nhighlight = \"azul\"\n\n[keyboard]\nlayout = \"br\"\n";
+        assert_eq!(trocar_icones(t, "mide-dark"), "theme = \"claro\"\n\n[appearance]\nhighlight = \"azul\"\nicon_theme = \"mide-dark\"\n\n[keyboard]\nlayout = \"br\"\n");
+        // Sem a seção.
+        assert_eq!(trocar_icones("theme = \"metal\"\n", ""), "theme = \"metal\"\n\n[appearance]\nicon_theme = \"\"\n");
+        assert_eq!(glove_config::icones_da_aparencia("moderno-escuro"), "mide-dark");
+        assert_eq!(glove_config::icones_da_aparencia("grafite"), "");
     }
 }

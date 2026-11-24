@@ -710,11 +710,15 @@ The installer asks for:
     there; the disk's other partitions stay as they are. Needs UEFI and an EFI partition on the disk
     (Windows', for example). Good for reusing an old Linux partition, or one made first in Disks.
 - **Account:** name, user name, password and computer name. The account is an administrator (`sudo`).
+- **Appearance:** Light, Stripes, Metal, Graphite, Modern Light or Modern Dark. It applies to the whole
+  system: the windows, the icons (Mide on Modern Light, Mide Dark on Modern Dark, Glove's on the
+  others), the login screen, system startup and shutdown, the lock screen and log out. On the live
+  system the choice shows right away. You can change it later in Preferences.
 - **Summary:** check it and tick "I understand. Install."
 
 The installation shows its progress and the command log. At the end, **Restart** and remove the
-stick. The installed system already has the chosen language, keyboard and time zone, without the
-welcome assistant.
+stick. The installed system already has the chosen language, keyboard, time zone and appearance,
+without the welcome assistant.
 
 Notes:
 
@@ -780,7 +784,10 @@ window, in the theme chosen for it, in test mode: it neither logs in nor shuts d
 
 **Use the appearance everywhere** (right below the appearance choice): session startup, the lock
 screen and the log-out screen follow the appearance (in Modern: flat panels, a flat light or
-graphite background and the flat glove). The login screen and system startup and shutdown
+graphite background and the flat glove), and the icons follow the appearance: Mide on Modern
+Light, Mide Dark on Modern Dark and Glove's on the classic ones (changing the appearance changes the
+icons; you can pick others later under Icons). The login screen (with the same icons) and system
+startup and shutdown
 (Plymouth) change too: they ask for the administrator password and can take a minute (the system
 rebuilds its boot image). Turned off, these screens go back to the classic look.
 

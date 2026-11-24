@@ -713,11 +713,15 @@ O instalador pergunta:
     disco (a do Windows, por exemplo). Boa para reaproveitar a partição de um Linux antigo, ou uma
     criada antes no Discos.
 - **Conta:** nome, nome de usuário, senha e nome do computador. A conta é de administrador (`sudo`).
+- **Aparência:** Claro, Listras, Metal, Grafite, Moderno Claro ou Moderno Escuro. Vale para o sistema
+  inteiro: as janelas, os ícones (os do Mide no Moderno Claro, os do Mide Escuro no Moderno Escuro,
+  os do Glove nas outras), a tela de login, a abertura e o desligamento do sistema, o bloqueio e a
+  saída. No Glove ao vivo, a escolha já aparece na hora. Dá para mudar depois nas Preferências.
 - **Resumo:** confira e marque "Entendi. Pode instalar".
 
 A instalação mostra o andamento e o registro dos comandos. No fim, **Reiniciar**: tire o pendrive.
-O sistema instalado já vem com o idioma, o teclado e o fuso escolhidos, sem o assistente de
-boas-vindas.
+O sistema instalado já vem com o idioma, o teclado, o fuso e a aparência escolhidos, sem o
+assistente de boas-vindas.
 
 Observações:
 
@@ -782,7 +786,9 @@ ela, em modo de teste: não entra nem desliga.
 
 **Usar a aparência em todo o sistema** (logo abaixo da escolha da aparência): a abertura da sessão,
 o bloqueio de tela e a tela de saída passam a seguir a aparência (no Moderno: painéis lisos, fundo
-liso claro ou grafite e a luva chapada). A tela de login e a abertura e o desligamento do sistema
+liso claro ou grafite e a luva chapada), e os ícones acompanham a aparência: os do Mide no Moderno
+Claro, os do Mide Escuro no Moderno Escuro e os do Glove nas clássicas (trocar a aparência troca os
+ícones; dá para escolher outros depois em Ícones). A tela de login (com os mesmos ícones) e a abertura e o desligamento do sistema
 (o Plymouth) também mudam: pedem a senha de administrador e podem levar um minuto (o sistema refaz
 a imagem de início). Desligada, essas telas voltam ao visual clássico.
 
