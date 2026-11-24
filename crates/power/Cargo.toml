@@ -1,0 +1,10 @@
+[package]
+name = "glove-power"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+libc = "0.2"
+serde_json = "1"

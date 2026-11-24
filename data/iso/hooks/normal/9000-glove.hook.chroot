@@ -13,7 +13,7 @@ systemctl enable --force glove-login.service
     exit 1
 }
 # Sem os atalhos dos apps, nada abre (nem o instalador).
-[ -x /usr/bin/glove-instalador ] || { echo "glove: falta /usr/bin/glove-instalador no pacote" >&2; exit 1; }
+[ -x /usr/bin/glove-installer ] || { echo "glove: falta /usr/bin/glove-installer no pacote" >&2; exit 1; }
 mkdir -p /etc/glove
 echo glove > /etc/glove/autologin
 
@@ -29,20 +29,20 @@ locale-gen
 
 # O instalador abre sozinho ao entrar e fica na Busca Rápida.
 mkdir -p /etc/xdg/autostart /usr/share/applications
-cat > /etc/xdg/autostart/glove-instalador.desktop <<FIM
+cat > /etc/xdg/autostart/glove-installer.desktop <<FIM
 [Desktop Entry]
 Type=Application
 Name=Instalar o Glove OS
 Name[en]=Install Glove OS
-Exec=glove-instalador
+Exec=glove-installer
 OnlyShowIn=Glove;
 FIM
-cat > /usr/share/applications/glove-instalador.desktop <<FIM
+cat > /usr/share/applications/glove-installer.desktop <<FIM
 [Desktop Entry]
 Type=Application
 Name=Instalar o Glove OS
 Name[en]=Install Glove OS
-Exec=glove-instalador
+Exec=glove-installer
 Icon=drive-harddisk
 Categories=System;
 FIM

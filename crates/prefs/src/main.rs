@@ -87,73 +87,34 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
-/// Os nomes dos painéis na linha de comando (`glove-prefs network`): em inglês. O segundo
-/// é o nome de dentro (o `id` do painel, que também fica guardado nos favoritos) e
-/// continua aceito na linha de comando. Os que são iguais nas duas línguas (dock, mouse,
-/// trackpad, bluetooth, terminal, expose) não precisam estar aqui.
-const NOMES_CLI: [(&str, &str); 26] = [
-    ("desktop", "mesa"),
-    ("screensaver", "protetor"),
-    ("system-screens", "telas"),
-    ("appearance", "aparencia"),
-    ("displays", "monitor"),
-    ("sound", "som"),
-    ("energy", "energia"),
-    ("keyboard", "teclado"),
-    ("shortcuts", "atalhos"),
-    ("input-menu", "entrada"),
-    ("network", "rede"),
-    ("date-time", "datahora"),
-    ("accounts", "contas"),
-    ("login-items", "inicio"),
-    ("services", "servicos"),
-    ("international", "internacional"),
-    ("accessibility", "acesso"),
-    ("removable-media", "midia"),
-    ("sharing", "compartilhamento"),
-    ("default-apps", "padrao"),
-    ("printing", "impressao"),
-    ("software-update", "atualizacao"),
-    ("startup-disk", "inicializacao"),
-    ("speech", "fala"),
-    ("security", "seguranca"),
-    ("search", "busca"),
-];
-
-/// O nome de dentro do painel pedido na linha de comando (o primeiro argumento), ou "".
-fn painel_pedido() -> String {
-    let a = std::env::args().nth(1).unwrap_or_default();
-    NOMES_CLI.iter().find(|(ingles, _)| *ingles == a).map_or(a, |(_, id)| id.to_string())
-}
-
 const PANES: [PaneInfo; 28] = [
-    PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
-    PaneInfo { pane: Pane::Telas, id: "telas", icon: Icon::Pref(PrefKind::LoginScreen), name: "Telas do Sistema", category: 3, keywords: "login entrar bloqueio bloquear tela saída sair abertura splash plymouth boot desligar tema moderno clássico" },
-    PaneInfo { pane: Pane::Aparencia, id: "aparencia", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
+    PaneInfo { pane: Pane::Mesa, id: "desktop", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
+    PaneInfo { pane: Pane::Telas, id: "system-screens", icon: Icon::Pref(PrefKind::LoginScreen), name: "Telas do Sistema", category: 3, keywords: "login entrar bloqueio bloquear tela saída sair abertura splash plymouth boot desligar tema moderno clássico" },
+    PaneInfo { pane: Pane::Aparencia, id: "appearance", icon: Icon::Pref(PrefKind::Appearance), name: "Aparência", category: 0, keywords: "cor destaque tema seleção barra de rolagem grafite azul itens recentes minimizar clique duplo título" },
     PaneInfo { pane: Pane::Dock, id: "dock", icon: Icon::Pref(PrefKind::Dock), name: "Dock", category: 0, keywords: "tamanho ampliação ocultar automaticamente posição esquerda direita minimizar efeito" },
-    PaneInfo { pane: Pane::Monitor, id: "monitor", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
-    PaneInfo { pane: Pane::Som, id: "som", icon: Icon::Pref(PrefKind::Sound), name: "Som", category: 1, keywords: "volume mudo alto-falante fone saída entrada microfone alerta efeitos sonoros" },
-    PaneInfo { pane: Pane::Energia, id: "energia", icon: Icon::Pref(PrefKind::Energy), name: "Economizador de Energia", category: 1, keywords: "repouso dormir suspender tela apagar bateria tomada adaptador brilho senha energia" },
-    PaneInfo { pane: Pane::Teclado, id: "teclado", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear" },
+    PaneInfo { pane: Pane::Monitor, id: "displays", icon: Icon::Display, name: "Monitores", category: 1, keywords: "tela resolução escala tamanho hz frequência monitores" },
+    PaneInfo { pane: Pane::Som, id: "sound", icon: Icon::Pref(PrefKind::Sound), name: "Som", category: 1, keywords: "volume mudo alto-falante fone saída entrada microfone alerta efeitos sonoros" },
+    PaneInfo { pane: Pane::Energia, id: "energy", icon: Icon::Pref(PrefKind::Energy), name: "Economizador de Energia", category: 1, keywords: "repouso dormir suspender tela apagar bateria tomada adaptador brilho senha energia" },
+    PaneInfo { pane: Pane::Teclado, id: "keyboard", icon: Icon::Pref(PrefKind::Keyboard), name: "Teclado", category: 1, keywords: "layout idioma repetição de teclas abnt2 digitação atalhos de teclado combinação exposé captura bloquear" },
     PaneInfo { pane: Pane::Mouse, id: "mouse", icon: Icon::Mouse, name: "Mouse", category: 1, keywords: "velocidade rastreamento ponteiro rolagem clique duplo botão principal canhoto" },
     PaneInfo { pane: Pane::Trackpad, id: "trackpad", icon: Icon::Trackpad, name: "Trackpad", category: 1, keywords: "toque tocar para clicar rolagem natural dois dedos touchpad" },
-    PaneInfo { pane: Pane::Rede, id: "rede", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
-    PaneInfo { pane: Pane::DataHora, id: "datahora", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
-    PaneInfo { pane: Pane::Contas, id: "contas", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart serviços systemd memória desempenho" },
-    PaneInfo { pane: Pane::Inicio, id: "inicio", icon: Icon::Pref(PrefKind::LoginItems), name: "Itens de Início", category: 3, keywords: "abrir ao entrar inicialização iniciar junto autostart programas aplicativos serviços systemd memória desempenho" },
-    PaneInfo { pane: Pane::Internacional, id: "internacional", icon: Icon::Pref(PrefKind::International), name: "Internacional", category: 0, keywords: "idioma língua formatos data número moeda região menu de entrada layout teclado" },
-    PaneInfo { pane: Pane::Acesso, id: "acesso", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
-    PaneInfo { pane: Pane::Midia, id: "midia", icon: Icon::Pref(PrefKind::Removable), name: "Mídia Removível", category: 1, keywords: "pendrive usb disco externo cartão cd dvd abrir automaticamente" },
+    PaneInfo { pane: Pane::Rede, id: "network", icon: Icon::Pref(PrefKind::Network), name: "Rede", category: 2, keywords: "wi-fi wifi internet sem fio ethernet cabo ip dhcp dns roteador senha conectar" },
+    PaneInfo { pane: Pane::DataHora, id: "date-time", icon: Icon::Pref(PrefKind::DateTime), name: "Data e Hora", category: 3, keywords: "relógio hora fuso horário calendário ntp automático segundos 24 horas barra de menu" },
+    PaneInfo { pane: Pane::Contas, id: "accounts", icon: Icon::Pref(PrefKind::Accounts), name: "Contas", category: 3, keywords: "usuário conta senha nome imagem retrato foto itens de início abrir ao entrar autostart serviços systemd memória desempenho" },
+    PaneInfo { pane: Pane::Inicio, id: "login-items", icon: Icon::Pref(PrefKind::LoginItems), name: "Itens de Início", category: 3, keywords: "abrir ao entrar inicialização iniciar junto autostart programas aplicativos serviços systemd memória desempenho" },
+    PaneInfo { pane: Pane::Internacional, id: "international", icon: Icon::Pref(PrefKind::International), name: "Internacional", category: 0, keywords: "idioma língua formatos data número moeda região menu de entrada layout teclado" },
+    PaneInfo { pane: Pane::Acesso, id: "accessibility", icon: Icon::Pref(PrefKind::Access), name: "Acesso Universal", category: 3, keywords: "zoom ampliar lupa inverter cores branco no preto cinza contraste cursor grande visão acessibilidade" },
+    PaneInfo { pane: Pane::Midia, id: "removable-media", icon: Icon::Pref(PrefKind::Removable), name: "Mídia Removível", category: 1, keywords: "pendrive usb disco externo cartão cd dvd abrir automaticamente" },
     PaneInfo { pane: Pane::Bluetooth, id: "bluetooth", icon: Icon::Pref(PrefKind::Wireless), name: "Bluetooth", category: 2, keywords: "fone teclado mouse sem fio parear conectar aparelho" },
-    PaneInfo { pane: Pane::Compart, id: "compartilhamento", icon: Icon::Pref(PrefKind::Sharing), name: "Compartilhamento", category: 2, keywords: "nome do computador ssh sessão remota samba arquivos impressoras rede" },
-    PaneInfo { pane: Pane::Padrao, id: "padrao", icon: Icon::Pref(PrefKind::DefaultApps), name: "Aplicativos Padrão", category: 3, keywords: "navegador e-mail abrir com texto imagens pdf música vídeo padrão" },
-    PaneInfo { pane: Pane::Impressao, id: "impressao", icon: Icon::Pref(PrefKind::Printer), name: "Impressão", category: 1, keywords: "impressora imprimir cups fila padrão" },
-    PaneInfo { pane: Pane::Atualizacao, id: "atualizacao", icon: Icon::Pref(PrefKind::Update), name: "Atualização de Software", category: 3, keywords: "atualizar pacotes apt sistema versão upgrade" },
-    PaneInfo { pane: Pane::Inicializacao, id: "inicializacao", icon: Icon::Pref(PrefKind::StartupDisk), name: "Disco de Inicialização", category: 3, keywords: "boot iniciar sistema operacional uefi reiniciar disco" },
-    PaneInfo { pane: Pane::Fala, id: "fala", icon: Icon::Pref(PrefKind::Speech), name: "Fala", category: 3, keywords: "voz ler em voz alta falar sintetizador" },
+    PaneInfo { pane: Pane::Compart, id: "sharing", icon: Icon::Pref(PrefKind::Sharing), name: "Compartilhamento", category: 2, keywords: "nome do computador ssh sessão remota samba arquivos impressoras rede" },
+    PaneInfo { pane: Pane::Padrao, id: "default-apps", icon: Icon::Pref(PrefKind::DefaultApps), name: "Aplicativos Padrão", category: 3, keywords: "navegador e-mail abrir com texto imagens pdf música vídeo padrão" },
+    PaneInfo { pane: Pane::Impressao, id: "printing", icon: Icon::Pref(PrefKind::Printer), name: "Impressão", category: 1, keywords: "impressora imprimir cups fila padrão" },
+    PaneInfo { pane: Pane::Atualizacao, id: "software-update", icon: Icon::Pref(PrefKind::Update), name: "Atualização de Software", category: 3, keywords: "atualizar pacotes apt sistema versão upgrade" },
+    PaneInfo { pane: Pane::Inicializacao, id: "startup-disk", icon: Icon::Pref(PrefKind::StartupDisk), name: "Disco de Inicialização", category: 3, keywords: "boot iniciar sistema operacional uefi reiniciar disco" },
+    PaneInfo { pane: Pane::Fala, id: "speech", icon: Icon::Pref(PrefKind::Speech), name: "Fala", category: 3, keywords: "voz ler em voz alta falar sintetizador" },
     PaneInfo { pane: Pane::Terminal, id: "terminal", icon: Icon::Terminal, name: "Terminal", category: 3, keywords: "fonte shell linha de comando" },
-    PaneInfo { pane: Pane::Seguranca, id: "seguranca", icon: Icon::Pref(PrefKind::Security), name: "Segurança", category: 0, keywords: "senha bloquear repouso protetor sair encerrar sessão inatividade firewall ufw proteção" },
-    PaneInfo { pane: Pane::Busca, id: "busca", icon: Icon::Search, name: "Busca Rápida", category: 0, keywords: "spotlight buscar procurar categorias privacidade pastas excluir resultados" },
+    PaneInfo { pane: Pane::Seguranca, id: "security", icon: Icon::Pref(PrefKind::Security), name: "Segurança", category: 0, keywords: "senha bloquear repouso protetor sair encerrar sessão inatividade firewall ufw proteção" },
+    PaneInfo { pane: Pane::Busca, id: "search", icon: Icon::Search, name: "Busca Rápida", category: 0, keywords: "spotlight buscar procurar categorias privacidade pastas excluir resultados" },
     PaneInfo { pane: Pane::Expose, id: "expose", icon: Icon::Pref(PrefKind::Expose), name: "Exposé e Painel", category: 0, keywords: "exposé expose cantos ativos janelas mesa painel de widgets dashboard f9 f10 f11 f12 mesas virtuais desktops workspaces" },
 ];
 
@@ -436,11 +397,11 @@ const SHORTCUT_GROUPS: [(&str, &[&str]); 4] = [
 impl Prefs {
     fn new() -> Self {
         let mut p = Self::build();
-        let pedido = painel_pedido();
-        if pedido == "protetor" {
+        let pedido = std::env::args().nth(1).unwrap_or_default();
+        if pedido == "screensaver" {
             p.desk_tab = 1;
         }
-        if pedido == "servicos" {
+        if pedido == "services" {
             p.inicio.view = 1;
         }
         if p.pane == Pane::Contas {
@@ -458,7 +419,7 @@ impl Prefs {
         }
         // "glove-prefs network --join REDE" (do menu Wi-Fi): já pede a senha dela.
         let args: Vec<String> = std::env::args().collect();
-        if let Some(ssid) = args.iter().position(|a| a == "--join" || a == "--entrar").and_then(|i| args.get(i + 1)) {
+        if let Some(ssid) = args.iter().position(|a| a == "--join").and_then(|i| args.get(i + 1)) {
             p.rede.show = 1 + rede_wifi_index();
             p.rede.prompt = Some((ssid.clone(), String::new()));
         }
@@ -487,13 +448,13 @@ impl Prefs {
         images.dedup();
         videos.sort();
         videos.dedup();
-        let arg = painel_pedido();
-        // "atalhos" é a segunda aba do Teclado (como no 10.4).
+        let arg = std::env::args().nth(1).unwrap_or_default();
+        // "shortcuts" é a segunda aba do Teclado (como no 10.4).
         let (pane, kbd_tab) = match arg.as_str() {
-            "atalhos" => (Pane::Teclado, 1),
-            "entrada" => (Pane::Teclado, 2),
-            "protetor" => (Pane::Mesa, 0),
-            "servicos" => (Pane::Inicio, 0),
+            "shortcuts" => (Pane::Teclado, 1),
+            "input-menu" => (Pane::Teclado, 2),
+            "screensaver" => (Pane::Mesa, 0),
+            "services" => (Pane::Inicio, 0),
             a => (PANES.iter().find(|i| i.id == a).map_or(Pane::Todos, |i| i.pane), 0),
         };
         Self {
@@ -2159,12 +2120,12 @@ fn minutes_label(m: u32) -> String {
 
 /// Tem bateria? (como o compositor: kernel, ou o EC do Chromebook.)
 fn has_battery() -> bool {
-    glove_energia::read().is_some()
+    glove_power::read().is_some()
 }
 
 /// Está na bateria agora (há bateria e não está na tomada)?
 fn on_battery() -> bool {
-    glove_energia::read().is_some_and(|b| !b.on_ac)
+    glove_power::read().is_some_and(|b| !b.on_ac)
 }
 
 impl Prefs {
@@ -3078,20 +3039,20 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
 
 pub fn main() {
     // O verificador de atualizações do Glove (a sessão o inicia; sem janela).
-    if std::env::args().any(|a| a == "--check-updates" || a == "--verificar-atualizacao") {
+    if std::env::args().any(|a| a == "--check-updates") {
         atualizar::verificar_em_segundo_plano();
         return;
     }
     // Como administrador (pelo sudo): a aparência na tela de login e na abertura do sistema.
     let args: Vec<String> = std::env::args().collect();
-    if let Some(i) = args.iter().position(|a| a == "--install-language" || a == "--instalar-idioma") {
+    if let Some(i) = args.iter().position(|a| a == "--install-language") {
         if let Err(e) = internacional::instalar_como_admin(args.get(i + 1).map(String::as_str).unwrap_or("")) {
             eprintln!("{e}");
             std::process::exit(1);
         }
         return;
     }
-    if let Some(i) = args.iter().position(|a| a == "--system-theme" || a == "--tema-sistema") {
+    if let Some(i) = args.iter().position(|a| a == "--system-theme") {
         let login = args.get(i + 1).cloned().unwrap_or_default();
         let abertura = args.get(i + 2).cloned().unwrap_or_else(|| login.clone());
         if let Err(e) = tema_sistema::aplicar_como_admin(&login, &abertura) {
@@ -3133,23 +3094,6 @@ mod tests {
     fn grupos_cobrem_todos_os_atalhos() {
         for (action, _) in glove_config::ACTIONS {
             assert!(super::SHORTCUT_GROUPS.iter().any(|(_, a)| a.contains(action)), "{action} sem grupo");
-        }
-    }
-}
-
-#[cfg(test)]
-mod testes_da_linha_de_comando {
-    use super::*;
-
-    /// Cada nome em inglês leva a um painel que existe (ou a uma das abas com nome
-    /// próprio), e nenhum se repete.
-    #[test]
-    fn nomes_dos_paineis_em_ingles() {
-        let abas = ["atalhos", "entrada", "protetor", "servicos"];
-        for (i, (ingles, id)) in NOMES_CLI.iter().enumerate() {
-            assert!(PANES.iter().any(|p| p.id == *id) || abas.contains(id), "{ingles} leva a {id}, que não existe");
-            assert!(NOMES_CLI.iter().skip(i + 1).all(|(outro, _)| outro != ingles), "{ingles} repetido");
-            assert!(!PANES.iter().any(|p| p.id == *ingles), "{ingles} já é o nome de dentro de outro painel");
         }
     }
 }

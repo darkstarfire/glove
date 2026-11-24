@@ -457,8 +457,7 @@ impl App for Notes {
 
 pub fn main() {
     let req = match std::env::args().nth(1).as_deref() {
-        // Na linha de comando, em inglês (`new`); o de antes continua aceito.
-        Some("new" | "novo") => "novo".to_string(),
+        Some("new") => "novo".to_string(),
         Some(n) if n.parse::<u32>().is_ok() => n.to_string(),
         _ => "todos".to_string(),
     };

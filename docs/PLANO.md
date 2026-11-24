@@ -1628,3 +1628,47 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     icons|preview`.
   - `glove-setup-tool.sh`: os textos em português também mostram os comandos em inglês
     (`install`, `uninstall`, `deps`, `all`, `iso test`, `login remove`, `grub remove`, `help`).
+
+## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
+
+Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
+serviços, variáveis de ambiente, arquivos de dados e o código por dentro), sem manter os nomes
+antigos ("corte limpo"); a interface continua traduzida e segue o idioma do sistema. São cerca de
+104 mil linhas de Rust (72 mil no Glove, 25 mil no kit, 6 mil na Jangada), então vai em etapas,
+cada uma compilada e conferida na sessão oculta antes da seguinte.
+
+Os nomes novos dos programas (todos com `glove-`): agenda→calendar, ajuda→help, arquivo→archive,
+arte→art, bateria→battery, boasvindas→welcome, central→appcenter, chaves→keychain,
+contatos→contacts, copias→backup, correio→mail, dicionario→dictionary, escolher→chooser,
+fontes→fonts, fotos→photos, gravacao→screenrec, gravador→voicerec, instalador→installer,
+mensagens→messages, musica→music, navegador→browser, registros→console, sair→logout, senha→auth,
+utilrede→netutil.
+
+- [x] 24.1 (v0.15.0, Jangada 2.1.0) Linha de comando sem os apelidos em português (os que a
+  0.14.5 e a Jangada 2.0.4 ainda aceitavam). Os painéis do `glove-prefs` têm só o nome em inglês.
+- [x] 24.2 (v0.15.0, glove-ui 0.2.70, Jangada 2.1.0) Programas: os 25 executáveis, os pacotes e
+  as pastas dos crates deles (`crates/senha` → `crates/auth`…) e os identificadores das janelas
+  (`glove.Sair` → `glove.Logout`…, a Jangada é `glove.Browser`). O que a configuração de quem já
+  usa guardou com os nomes de antes (os apps do Dock, os painéis favoritos) passa para os de agora
+  ao ser lida (`Config::rename_old_names`).
+- [x] 24.3 (v0.15.0) Serviços e variáveis: `glove-battery.service` (a pós-instalação desliga o
+  `glove-bateria` que uma versão anterior deixou ligado), `GLOVE_SCALE`, `GLOVE_AUTH_*`,
+  `GLOVE_NO_X11`, `GLOVE_TEST*`, `GLOVE_USE_PACKAGES`, `GLOVE_NO_REPOSITORY`, `JANGADA_NO_GPU`…
+- [ ] 24.4 Arquivos de dados e chaves de configuração, com migração do que já existe no
+  computador de quem usa.
+  - [x] Jangada 2.1.0: `settings.conf` (chaves e valores em inglês), `bookmarks.tsv`,
+    `history.tsv`, `session.tsv`, `permissions.tsv`, `passwords-never.txt`, `shields-off.txt`,
+    as pastas `extensions/` e `shields/`.
+  - [ ] Glove: os valores em português do `config.toml` (`position = "embaixo"`, `highlight =
+    "azul"`, os nomes das aparências…), `sessao.log` e os arquivos de dados de cada app.
+  - [ ] Pastas de saída e scripts: `pacotes/`, e na Jangada `preparar.sh`, `empacotar*.sh`,
+    `exemplos/`, o caminho do motor no Slackware (`/usr/lib/jangada/motor`).
+- [ ] 24.5 Código por dentro: primeiro a API pública do kit, depois cada crate (módulos,
+  funções, campos, comentários). O que nasce novo já nasce em inglês.
+- [ ] 24.6 Textos de interface: o texto de origem passa a ser o inglês (um `pt.po` no lugar do
+  `en.po`), sem mudar o que a pessoa vê.
+
+Atenção (decisão do usuário, "corte limpo mesmo"): depois de atualizar para a 0.15.0, a sessão
+que já estava aberta ainda roda o compositor antigo, que chama os programas pelos nomes de antes.
+Até sair e entrar de novo, o menu Reiniciar / Desligar / Encerrar Sessão não abre e abrir arquivos
+pela mesa não funciona: reinicie pelo terminal (`systemctl reboot`) ou saia com Ctrl+Alt+Backspace.

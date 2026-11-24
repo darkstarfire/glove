@@ -1280,7 +1280,7 @@ impl Glove {
                 }
             }
             DeskCmd::Duplicate if !files.is_empty() => self.spawn(&format!("glove-files --duplicate {}", args(&files))),
-            DeskCmd::Compress if !files.is_empty() => self.spawn(&format!("glove-arquivo compress {}", args(&files))),
+            DeskCmd::Compress if !files.is_empty() => self.spawn(&format!("glove-archive compress {}", args(&files))),
             DeskCmd::Trash if !files.is_empty() => self.spawn(&format!("glove-files --trash {}", args(&files))),
             DeskCmd::Alias => {
                 if let [it] = chosen.as_slice() {

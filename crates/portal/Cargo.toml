@@ -15,5 +15,5 @@ name = "glove-portal"
 path = "src/main.rs"
 
 [[bin]]
-name = "glove-escolher"
-path = "src/bin/escolher.rs"
+name = "glove-chooser"
+path = "src/bin/chooser.rs"

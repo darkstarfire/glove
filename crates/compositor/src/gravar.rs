@@ -2,7 +2,7 @@
 //! `glove-recorder` a cada quadro renderizado. O ffmpeg sobe e para em threads
 //! próprias, para a renderização nunca esperar por ele.
 //!
-//! Fluxo: ⇧⌘5 abre o painel (`glove-gravacao`). Ao clicar em Gravar, o app manda
+//! Fluxo: ⇧⌘5 abre o painel (`glove-screenrec`). Ao clicar em Gravar, o app manda
 //! `GRAVAR` e o compositor começa (tela cheia ou seleção de área/janela). Enquanto
 //! grava, a barra mostra a bolinha e o tempo; clicando nela, "Parar Gravação".
 //!
@@ -81,9 +81,9 @@ impl Glove {
         if self.locked() || self.greeter || self.gravacao.is_some() || self.gravacao_iniciando {
             return;
         }
-        let aberto = self.space.elements().any(|w| window_info(w).1.eq_ignore_ascii_case("glove.Gravacao"));
+        let aberto = self.space.elements().any(|w| window_info(w).1.eq_ignore_ascii_case("glove.ScreenRec"));
         if !aberto {
-            self.spawn("glove-gravacao");
+            self.spawn("glove-screenrec");
         }
     }
 

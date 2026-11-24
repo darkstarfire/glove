@@ -1,6 +1,6 @@
 //! O udisks2 (o serviço de discos do sistema) pelo D-Bus: lê os discos, as
 //! partições e os sistemas de arquivos, e pede as operações. As que mudam o
-//! disco passam pelo polkit (a janela de senha do Glove, `glove-senha`).
+//! disco passam pelo polkit (a janela de senha do Glove, `glove-auth`).
 
 use std::collections::HashMap;
 

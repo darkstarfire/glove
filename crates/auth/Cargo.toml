@@ -1,0 +1,18 @@
+[package]
+name = "glove-auth"
+# Vira biblioteca: o executável é o glove-apps (um só para todos os apps).
+autobins = false
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/main.rs"
+
+[dependencies]
+glove-config = { path = "../../ui/crates/config" }
+glove-ui = { path = "../../ui/crates/ui" }
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+async-io = "2"
+libc = "0.2"

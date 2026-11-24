@@ -1,6 +1,6 @@
-//! Senha de administrador: a janela de senha do sistema (o `glove-senha --sudo`, a mesma
+//! Senha de administrador: a janela de senha do sistema (o `glove-auth --sudo`, a mesma
 //! do polkit) e o comando pelo `sudo -S` (a senha vai só para a entrada do sudo, nunca
-//! para a linha de comando). Sem o glove-senha instalado, uma folha na própria janela.
+//! para a linha de comando). Sem o glove-auth instalado, uma folha na própria janela.
 
 use glove_config::tr;
 use glove_ui::{paint::draw::*, Rect, Ui};

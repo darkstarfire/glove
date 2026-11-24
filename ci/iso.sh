@@ -10,9 +10,9 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 # Glove build dependencies (the same list as ./glove-setup-tool.sh deps), plus what
 # live-build and debootstrap need on the host.
-# O que o live-build e o debootstrap precisam no sistema; com GLOVE_USAR_PACOTES, os
+# O que o live-build e o debootstrap precisam no sistema; com GLOVE_USE_PACKAGES, os
 # .deb já vêm prontos (ci/pacotes.sh) e não é preciso compilar.
-if [ -n "${GLOVE_USAR_PACOTES:-}" ]; then
+if [ -n "${GLOVE_USE_PACKAGES:-}" ]; then
     apt-get install -y --no-install-recommends \
         ca-certificates curl git sudo dpkg-dev debian-archive-keyring gpgv xz-utils zstd \
         debootstrap cpio file rsync xorriso squashfs-tools mtools dosfstools

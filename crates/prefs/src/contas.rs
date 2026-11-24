@@ -163,7 +163,7 @@ pub struct Contas {
     /// Folha da senha: (atual, nova, confirmação).
     pw: Option<[String; 3]>,
     /// A janela que pede as senhas (None = ainda não aberta; Some(None) = sem o
-    /// glove-senha, a folha) e o aviso para mostrar nela ao abrir de novo.
+    /// glove-auth, a folha) e o aviso para mostrar nela ao abrir de novo.
     pw_win: Option<Option<glove_config::senha::Pedido>>,
     pw_error: Option<String>,
     file: Option<FileBrowser>,
@@ -406,7 +406,7 @@ impl Contas {
             return;
         }
         let Some(mut f) = self.pw.take() else { return };
-        // A janela de senha do sistema; sem ela (glove-senha ausente), a folha.
+        // A janela de senha do sistema; sem ela (glove-auth ausente), a folha.
         use glove_config::senha::{Formulario, Pedido, Valores};
         if self.pw_win.is_none() {
             let err = self.pw_error.take();

@@ -35,7 +35,7 @@ fn find(state: &Glove, x: &X11Surface) -> Option<Window> {
 impl Glove {
     /// Liga o Xwayland (se existir). Os apps abertos depois recebem o DISPLAY.
     pub fn start_xwayland(&mut self) {
-        if self.greeter || std::env::var_os("GLOVE_SEM_X11").is_some() || !self.config.x11_apps {
+        if self.greeter || std::env::var_os("GLOVE_NO_X11").is_some() || !self.config.x11_apps {
             return;
         }
         let spawned = XWayland::spawn(

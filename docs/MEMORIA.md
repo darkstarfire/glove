@@ -31,7 +31,7 @@ heap quase não tem memória livre retida.
    `glove-prefs` e os outros 30 são atalhos para ele, e ele abre o app pelo nome com que
    foi chamado. Cada app continua um processo separado (o mesmo comportamento), mas as
    páginas de código são divididas entre todos. Os atalhos são criados pelo `build.rs` do
-   `glove-apps` ao lado do executável. O compositor (`glove`), o portal e o `glove-arte`
+   `glove-apps` ao lado do executável. O compositor (`glove`), o portal e o `glove-art`
    continuam separados.
 2. **Fontes mapeadas do arquivo** em vez de copiadas: as páginas vêm do cache de disco do
    sistema e são as mesmas para todos os processos.

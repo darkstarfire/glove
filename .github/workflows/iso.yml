@@ -179,7 +179,7 @@ jobs:
       # Inside Debian trixie (the ISO's base) and privileged (live-build mounts /proc
       # and /dev in the image's chroot).
       - name: Montar a ISO (Debian trixie)
-        run: docker run --rm --privileged -e GLOVE_USAR_PACOTES=1 -e GLOVE_SEM_REPOSITORIO=${{ steps.repo.outputs.sem }} -v "$PWD:/src" -w /src debian:trixie sh ci/iso.sh
+        run: docker run --rm --privileged -e GLOVE_USE_PACKAGES=1 -e GLOVE_NO_REPOSITORY=${{ steps.repo.outputs.sem }} -v "$PWD:/src" -w /src debian:trixie sh ci/iso.sh
 
       - name: Preparar os arquivos
         run: |

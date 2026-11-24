@@ -51,7 +51,7 @@ pub struct App {
 
 /// Apps do Glove que são utilitários (a mesma lista do Arquivos).
 pub fn glove_utility(app_id: &str) -> bool {
-    matches!(app_id, "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Registros" | "glove.Info" | "glove.Chaves" | "glove.UtilRede" | "glove.Copias")
+    matches!(app_id, "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Console" | "glove.Info" | "glove.Keychain" | "glove.NetUtil" | "glove.Backup")
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -389,7 +389,7 @@ pub fn main() {
     // Prévia (Preferências ▸ Telas do Sistema): `--fake --theme TEMA` abre com uma cópia da
     // configuração neste tema, sem mexer na de verdade.
     let args: Vec<String> = std::env::args().collect();
-    if let (true, Some(tema)) = (fake, args.iter().position(|a| a == "--theme" || a == "--tema").and_then(|i| args.get(i + 1))) {
+    if let (true, Some(tema)) = (fake, args.iter().position(|a| a == "--theme").and_then(|i| args.get(i + 1))) {
         let base = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir);
         let dir = base.join(format!("glove-login-previa-{}", std::process::id()));
         let texto = std::fs::read_to_string(glove_config::path()).unwrap_or_default();

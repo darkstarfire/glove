@@ -34,8 +34,8 @@ pub fn init(
     );
     let _global = output.create_global::<Glove>(dh);
     // Usa a mesma escala do desktop por baixo (ex.: 1.5 em telas HiDPI).
-    // GLOVE_ESCALA=1.5: outra escala (testar telas HiDPI numa tela comum).
-    let forcada = std::env::var("GLOVE_ESCALA").ok().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v >= 1.0 && *v <= 4.0);
+    // GLOVE_SCALE=1.5: outra escala (testar telas HiDPI numa tela comum).
+    let forcada = std::env::var("GLOVE_SCALE").ok().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v >= 1.0 && *v <= 4.0);
     let scale = forcada.unwrap_or_else(|| backend.window().scale_factor());
     output.change_current_state(Some(mode), Some(Transform::Flipped180), Some(Scale::Fractional(scale)), Some((0, 0).into()));
     output.set_preferred(mode);

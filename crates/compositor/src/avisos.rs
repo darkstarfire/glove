@@ -486,7 +486,7 @@ fn icon_of(a: &Aviso) -> Icon {
     if !name.is_empty() {
         return Icon::from_name(&name);
     }
-    // Apps do Glove: pelo nome mostrado ou pelo app_id ("Correio", "glove.Correio").
+    // Apps do Glove: pelo nome mostrado ou pelo app_id ("Correio", "glove.Mail").
     let n = crate::search::normalize(&a.app);
     let glove = glove_config::default_dock_apps().into_iter().chain(glove_config::extra_apps()).find(|d| {
         let id = crate::search::normalize(&d.app_id);

@@ -20,13 +20,13 @@ instalar_rust() {
 # todas as bibliotecas de que precisam (um pacote com dependência errada falha aqui, e
 # não no computador de quem baixou).
 conferir() {
-    for f in /usr/bin/glove /usr/bin/glove-apps /usr/bin/glove-portal /usr/bin/glove-escolher \
+    for f in /usr/bin/glove /usr/bin/glove-apps /usr/bin/glove-portal /usr/bin/glove-chooser \
              /usr/bin/glove-session /usr/bin/glove-files /usr/share/wayland-sessions/glove.desktop \
              /usr/share/icons/Glove/index.theme /usr/share/glove/papeis/glove-os.png \
              /usr/share/glove/glove-os-repositorio.asc /etc/pam.d/glove; do
         [ -e "$f" ] || { echo "ERRO: o pacote não instalou $f"; exit 1; }
     done
-    for b in glove glove-apps glove-portal glove-escolher; do
+    for b in glove glove-apps glove-portal glove-chooser; do
         falta=$(ldd "/usr/bin/$b" | grep "not found" || true)
         [ -z "$falta" ] || { echo "ERRO: /usr/bin/$b não acha:"; echo "$falta"; exit 1; }
     done

@@ -124,7 +124,7 @@ if has plymouth; then
     say "3) Tela de início e desligamento (Plymouth) com a arte do Glove." \
         "3) Boot and shutdown screen (Plymouth) with the Glove artwork."
     if ask "$(t 'Instalar o tema do Plymouth (refaz o initramfs)?' 'Install the Plymouth theme (rebuilds the initramfs)?')" n; then
-        [ -d data/plymouth/glove ] || ./target/release/glove-arte plymouth data/plymouth/glove
+        [ -d data/plymouth/glove ] || ./target/release/glove-art plymouth data/plymouth/glove
         sudo ./data/install-plymouth.sh
     fi
 fi

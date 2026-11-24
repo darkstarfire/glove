@@ -377,7 +377,7 @@ impl Atualizacao {
             ui.paragraph(m);
         }
         if self.atualizado && ui.button(tr!("Encerrar Sessão…")) {
-            let _ = Command::new(sibling("glove-sair")).arg("encerrar").spawn();
+            let _ = Command::new(sibling("glove-logout")).arg("encerrar").spawn();
         }
         ui.space(8.0);
         match &self.list {
@@ -533,7 +533,7 @@ impl Inicializacao {
         }
     }
 
-    /// A janela de senha aberta (ou a folha, sem o glove-senha).
+    /// A janela de senha aberta (ou a folha, sem o glove-auth).
     pub fn prompt_sheet(&mut self, ui: &mut Ui) {
         if let Some((args, reboot, mut p)) = self.prompt.take() {
             match p.sheet(ui) {

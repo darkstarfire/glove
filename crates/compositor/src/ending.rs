@@ -86,7 +86,7 @@ impl Glove {
         self.ending.as_ref().is_some_and(|e| e.screen_since.is_some())
     }
 
-    /// Começa o fim de sessão pedido pelo glove-sair ("encerrar", "reiniciar", "desligar").
+    /// Começa o fim de sessão pedido pelo glove-logout ("encerrar", "reiniciar", "desligar").
     pub fn end_session(&mut self, word: &str) {
         let Some(kind) = EndKind::from_word(word) else { return };
         if self.ending.is_some() {
@@ -150,7 +150,7 @@ impl Glove {
                 self.ending = None;
                 tracing::info!("fim de sessão cancelado: {app} não fechou");
                 let word = if kind == EndKind::LogOut && self.nested { "sair" } else { kind.word() };
-                self.spawn(&format!("glove-sair cancelled {word} {}", shell_quote(&app)));
+                self.spawn(&format!("glove-logout cancelled {word} {}", shell_quote(&app)));
                 return false;
             }
             return true;
@@ -175,7 +175,7 @@ impl Glove {
                 tracing::warn!("systemctl {cmd} falhou");
                 self.ending = None;
                 self.dirty = true;
-                self.spawn(&format!("glove-sair failed {}", kind.word()));
+                self.spawn(&format!("glove-logout failed {}", kind.word()));
                 return false;
             }
         }

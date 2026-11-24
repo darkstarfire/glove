@@ -89,13 +89,13 @@ impl Glove {
             // O agente do polkit (a janela de senha do sistema). Dentro de outro desktop,
             // o agente de lá já atende.
             if !self.greeter && !self.nested {
-                self.spawn("glove-senha");
+                self.spawn("glove-auth");
                 // O verificador de atualizações do Glove (avisa quando sai versão nova).
                 self.spawn("glove-prefs --check-updates");
             }
             // Primeira vez: o assistente de boas-vindas.
             if !self.config.welcome_done {
-                self.spawn("glove-boasvindas");
+                self.spawn("glove-welcome");
             }
         }
         if t >= DONE + FADE {

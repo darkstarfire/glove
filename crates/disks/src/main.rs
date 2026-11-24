@@ -3,7 +3,7 @@
 //! mapa dos volumes (partições e espaço livre) e o volume escolhido.
 //!
 //! Tudo pelo udisks2 (`udisks.rs`); o que muda o disco pede a senha pelo polkit
-//! (a janela do `glove-senha`). As operações rodam numa linha à parte, para a
+//! (a janela do `glove-auth`). As operações rodam numa linha à parte, para a
 //! janela não travar enquanto a senha é pedida.
 
 mod dialogos;
@@ -1192,7 +1192,7 @@ fn write_cli(iso: &str, device: &str) -> i32 {
 
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if matches!(args.get(1).map(String::as_str), Some("--write" | "--gravar")) {
+    if args.get(1).map(String::as_str) == Some("--write") {
         let (Some(iso), Some(dev)) = (args.get(2), args.get(3)) else {
             eprintln!("usage: glove-disks --write <image.iso> <device>");
             std::process::exit(2);
@@ -1203,7 +1203,7 @@ pub fn main() {
     // tudo o que pede administrador (gravar o pendrive, formatar um disco interno).
     // A sessão do Glove já a inicia; numa sessão antiga ou noutro desktop sem agente,
     // o Discos a inicia. Com outro agente registrado, ela simplesmente sai.
-    if let Ok(mut c) = std::process::Command::new(sibling("glove-senha")).spawn() {
+    if let Ok(mut c) = std::process::Command::new(sibling("glove-auth")).spawn() {
         std::thread::spawn(move || c.wait());
     }
     let mut app = Disks { conn: None, model: Model::default(), disk: None, pick: None, message: None, job: None, iso_fb: None, confirm: None, progress: None, dialog: None, delete_confirm: None, usage: Default::default(), img_save_fb: None, img_open_fb: None, restore_confirm: None };

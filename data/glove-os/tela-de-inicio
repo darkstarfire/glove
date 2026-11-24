@@ -10,7 +10,7 @@
 # depois de instalar o Plymouth num Glove OS que não o tinha): sudo /usr/share/glove-os/tela-de-inicio
 #   --sem-initramfs   só escolhe o tema (na ISO, o live-build refaz o initramfs no fim)
 set -e
-raiz=${GLOVE_OS_RAIZ:-}
+raiz=${GLOVE_OS_ROOT:-}
 feito="$raiz/var/lib/glove-os/plymouth"
 [ -e "$feito" ] && exit 0
 [ -f "$raiz/usr/share/plymouth/themes/glove/glove.plymouth" ] || exit 0

@@ -1,4 +1,4 @@
-# Tema do Plymouth do Glove (gerado por glove-arte).
+# Tema do Plymouth do Glove (gerado por glove-art).
 Window.SetBackgroundTopColor(0.949, 0.949, 0.957);
 Window.SetBackgroundBottomColor(0.902, 0.902, 0.918);
 

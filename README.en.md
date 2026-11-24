@@ -43,7 +43,7 @@ and the installer and ISO still need testing on real computers. How to use each 
   HiDPI and fractional scaling
 - **X11 apps** through Xwayland, with Glove's title bar
 - Global menu bar: main menu (Recent Items, Force Quit, Sleep, Shut Down…), the app menu, **each
-  app's own menus**, submenus and keyboard navigation; Wi-Fi, volume, battery (time left, health and cycles, also for third-party batteries and Chromebooks whose firmware does not recognise the battery: the `glove-bateria` service reads it straight from the EC and shuts the computer down before it runs out) and display extras,
+  app's own menus**, submenus and keyboard navigation; Wi-Fi, volume, battery (time left, health and cycles, also for third-party batteries and Chromebooks whose firmware does not recognise the battery: the `glove-battery` service reads it straight from the EC and shuts the computer down before it runs out) and display extras,
   clock and user name (fast user switching); **tray icons** (Telegram, Discord, Steam… with each app's menu)
 - Glass **Dock** with magnification, bouncing icons, context menus, auto-hide, bottom/left/right
   position, **Scale** and **Genie** minimize effects (deformation done on the GPU), live
@@ -69,7 +69,7 @@ and the installer and ISO still need testing on real computers. How to use each 
 - **Screenshots** of the whole screen, an area or a window, on any display
 - Force Quit that detects unresponsive apps; screen lock (PAM), screen blanking, laptop lid,
   volume and brightness keys
-- **System password** (`glove-senha`, the polkit agent): any program that asks for administrator
+- **System password** (`glove-auth`, the polkit agent): any program that asks for administrator
   permission through polkit (Disks, gnome-disks, Flatpak, NetworkManager, `pkexec`) shows Glove's
   password window
 - Accessibility: zoom, inverted colors, large cursor
@@ -371,12 +371,12 @@ ui/                glove-ui submodule: glove-ui (toolkit), glove-paint (drawing,
                    glove-config (shared settings) and glove-i18n (translations)
 crates/compositor  the compositor (`glove`)
 crates/apps        `glove-apps`: one executable for every app
-crates/portal      `glove-portal` (FileChooser portal) and `glove-escolher`
+crates/portal      `glove-portal` (FileChooser portal) and `glove-chooser`
 crates/login       login screen (`glove-login`, on greetd; `--fake` to try it)
-crates/arte        `glove-arte`: Plymouth theme, the "Glove" icon theme and its preview sheet
-crates/energia     battery (library used by the compositor and Preferences)
-crates/instalador  Install Glove OS (`glove-instalador`)
-crates/senha       system password: the polkit agent (`glove-senha`)
+crates/art        `glove-art`: Plymouth theme, the "Glove" icon theme and its preview sheet
+crates/power     battery (library used by the compositor and Preferences)
+crates/installer  Install Glove OS (`glove-installer`)
+crates/auth       system password: the polkit agent (`glove-auth`)
 crates/…           one folder per app (files, prefs, term, editor, viewer, correio, agenda…)
 data/              session, greetd, Plymouth, GRUB, wallpapers, the Glove OS identity and the ISO
 ci/iso.sh          builds the ISO in continuous integration (.github/workflows/iso.yml)

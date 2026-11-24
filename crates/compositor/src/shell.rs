@@ -116,11 +116,11 @@ pub fn jangada_instalada() -> bool {
     })
 }
 
-/// Sem a Jangada, os navegadores que o glove-navegador abre no lugar dela contam como
+/// Sem a Jangada, os navegadores que o glove-browser abre no lugar dela contam como
 /// o "Navegador" do Dock. Com ela, o Firefox (se alguém instalar) é um app como outro.
 pub fn canonical_app_id(id: String) -> String {
     match id.to_ascii_lowercase().as_str() {
-        "firefox" | "firefox_firefox" | "org.mozilla.firefox" | "netsurf" | "netsurf-gtk" | "netsurf-gtk3" if !jangada_instalada() => "glove.Navegador".into(),
+        "firefox" | "firefox_firefox" | "org.mozilla.firefox" | "netsurf" | "netsurf-gtk" | "netsurf-gtk3" if !jangada_instalada() => "glove.Browser".into(),
         _ => id,
     }
 }
@@ -219,19 +219,19 @@ pub(crate) fn pretty_app_name(app_id: &str) -> String {
         "glove.Find" => return tr!("Busca").into(),
         "glove.Disks" => return tr!("Discos").into(),
         "glove.Chess" => return tr!("Xadrez").into(),
-        "glove.Arquivo" => return tr!("Utilitário de Arquivo").into(),
-        "glove.Senha" => return tr!("Autenticação").into(),
-        "glove.Navegador" => return if jangada_instalada() { "Jangada".into() } else { tr!("Navegador").into() },
-        "glove.Musica" => return tr!("Música").into(),
-        "glove.Contatos" => return tr!("Contatos").into(),
-        "glove.Agenda" => return tr!("Agenda").into(),
+        "glove.Archive" => return tr!("Utilitário de Arquivo").into(),
+        "glove.Auth" => return tr!("Autenticação").into(),
+        "glove.Browser" => return if jangada_instalada() { "Jangada".into() } else { tr!("Navegador").into() },
+        "glove.Music" => return tr!("Música").into(),
+        "glove.Contacts" => return tr!("Contatos").into(),
+        "glove.Calendar" => return tr!("Agenda").into(),
         "glove.Video" => return tr!("Vídeo").into(),
-        "glove.Registros" => return tr!("Registros").into(),
+        "glove.Console" => return tr!("Registros").into(),
         "glove.Info" => return tr!("Informações do Sistema").into(),
-        "glove.Ajuda" => return tr!("Ajuda").into(),
-        "glove.Dicionario" => return tr!("Dicionário").into(),
-        "glove.Fontes" => return tr!("Livro de Fontes").into(),
-        "glove.Correio" => return tr!("Correio").into(),
+        "glove.Help" => return tr!("Ajuda").into(),
+        "glove.Dictionary" => return tr!("Dicionário").into(),
+        "glove.Fonts" => return tr!("Livro de Fontes").into(),
+        "glove.Mail" => return tr!("Correio").into(),
         id if id.starts_with("glove.") => return "Glove".into(),
         _ => {}
     }
@@ -1761,7 +1761,7 @@ impl Glove {
             MenuAction::Bandeja(key, id) => self.bandeja_evento(key, id),
             MenuAction::StopRecording => self.parar_gravacao(),
             MenuAction::Preferences => self.open_preferences(),
-            MenuAction::Help => self.spawn("glove-ajuda"),
+            MenuAction::Help => self.spawn("glove-help"),
             MenuAction::DockMagnification => {
                 self.config.dock.magnification = !self.config.dock.magnification;
                 let _ = self.config.save();
@@ -1793,9 +1793,9 @@ impl Glove {
             MenuAction::ForceQuit => self.open_force_quit(),
             MenuAction::Lock => self.lock_screen(),
             MenuAction::Sleep => self.sleep(),
-            MenuAction::Restart => self.spawn("glove-sair restart"),
-            MenuAction::ShutDown => self.spawn("glove-sair shutdown"),
-            MenuAction::LogOut => self.spawn(if self.nested { "glove-sair quit" } else { "glove-sair logout" }),
+            MenuAction::Restart => self.spawn("glove-logout restart"),
+            MenuAction::ShutDown => self.spawn("glove-logout shutdown"),
+            MenuAction::LogOut => self.spawn(if self.nested { "glove-logout quit" } else { "glove-logout logout" }),
             MenuAction::AboutApp(id, name) => self.spawn(&format!("glove-about --app {id} '{}'", name.replace('\'', ""))),
             MenuAction::HideApp(pid) => self.hide_pid(pid),
             MenuAction::HideOthers(pid) => self.hide_others(pid),

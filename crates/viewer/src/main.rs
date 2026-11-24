@@ -1429,7 +1429,7 @@ impl App for Viewer {
 pub fn main() {
     // "--draw ARQUIVO" (a captura de tela abre assim): já com a caneta na mão.
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
-    let draw = args.first().is_some_and(|a| a == "--draw" || a == "--desenhar");
+    let draw = args.first().is_some_and(|a| a == "--draw");
     if draw {
         args.remove(0);
     }

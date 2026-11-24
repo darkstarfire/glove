@@ -56,7 +56,7 @@ fn extensions(o: &HashMap<String, OwnedValue>) -> Vec<String> {
 
 /// Abre a janela do Glove e espera a escolha.
 fn choose(mode: &str, title: &str, name: Option<String>, dir: Option<PathBuf>, types: &[String]) -> Option<PathBuf> {
-    let mut cmd = std::process::Command::new(sibling("glove-escolher"));
+    let mut cmd = std::process::Command::new(sibling("glove-chooser"));
     cmd.arg(mode).arg("--title").arg(title);
     if let Some(n) = name {
         cmd.arg("--name").arg(n);

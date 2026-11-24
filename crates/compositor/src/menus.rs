@@ -58,7 +58,7 @@ pub struct MenuClient {
     pub gravar: Option<(usize, bool, bool)>,
     /// Arquivo que o app pediu para pôr na área de transferência.
     pub copy: Option<PathBuf>,
-    /// Pedido de fim de sessão ("encerrar", "reiniciar", "desligar"), vindo do glove-sair.
+    /// Pedido de fim de sessão ("encerrar", "reiniciar", "desligar"), vindo do glove-logout.
     pub end: Option<String>,
     /// Pedido de testar um protetor de tela (botão Testar das Preferências).
     pub saver: Option<String>,

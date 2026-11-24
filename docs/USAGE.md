@@ -161,7 +161,7 @@ it. Video (H.264, VP9, AV1) comes through GStreamer.
   smooth), Jangada's bars are redrawn only when they change and nothing runs in the background. The
   package is about 4 MB: the engine comes from the distribution. If the graphics card misbehaves,
   uncheck *Use the graphics card* in Preferences ▸ Advanced (or open it with
-  `JANGADA_SEM_GPU=1 jangada`): the processor draws everything.
+  `JANGADA_NO_GPU=1 jangada`): the processor draws everything.
 - **Slackware:** on -current the engine ships inside the package; on 15.0 (GTK 4 too old for the
   engine), the installer sets up Jangada 1.15, the Chromium-engine one.
 - Opening it again (from the Dock or `jangada address`) opens a tab in the window already open. On
@@ -725,7 +725,7 @@ Notes:
 
 - **Secure Boot:** the installed GRUB is not signed. Turn Secure Boot off on the computer.
 - The installer only installs from the Glove live system. On any other system,
-  `glove-instalador --dry-run` shows every page and the commands it would run, without changing
+  `glove-installer --dry-run` shows every page and the commands it would run, without changing
   anything.
 
 ## Language and formats (Preferences ▸ International)

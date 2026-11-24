@@ -161,7 +161,7 @@ mesmo motor): o WhatsApp Web e os bancos aceitam. Os vídeos (H.264, VP9, AV1) v
 - **Leve:** a página é desenhada pela placa de vídeo direto na tela (feeds longos e vídeos ficam
   fluidos), as barras da Jangada só são refeitas quando mudam e nada roda de fundo. O pacote tem uns
   4 MB: o motor vem da distribuição. Se a placa der problema, desmarque *Usar a placa de vídeo* em
-  Preferências ▸ Avançado (ou abra com `JANGADA_SEM_GPU=1 jangada`): o processador desenha tudo.
+  Preferências ▸ Avançado (ou abra com `JANGADA_NO_GPU=1 jangada`): o processador desenha tudo.
 - **Slackware:** no -current o motor vem junto no pacote; no 15.0 (GTK 4 velho para o motor), o
   instalador põe a Jangada 1.15, a do motor do Chromium.
 - Abrir de novo (pelo Dock ou `jangada endereço`) abre uma aba na janela que já está aberta. No
@@ -729,7 +729,7 @@ assistente de boas-vindas.
 Observações:
 
 - **Secure Boot:** o GRUB instalado não é assinado. Desligue o Secure Boot no computador.
-- O instalador só instala no Glove ao vivo. Em outro sistema, `glove-instalador --dry-run` mostra
+- O instalador só instala no Glove ao vivo. Em outro sistema, `glove-installer --dry-run` mostra
   todas as páginas e os comandos que seriam executados, sem mexer em nada.
 
 ## Idioma e formatos (Preferências ▸ Internacional)

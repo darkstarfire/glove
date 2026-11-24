@@ -772,7 +772,7 @@ impl Glove {
                 DeskKeyKind::Enter if !w.text.trim().is_empty() => {
                     let word = w.text.trim().replace('\'', "'\\''");
                     self.close_dashboard();
-                    self.spawn(&format!("glove-dicionario '{word}'"));
+                    self.spawn(&format!("glove-dictionary '{word}'"));
                 }
                 _ => {}
             },

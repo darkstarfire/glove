@@ -15,7 +15,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=2.0.4
+jangada_version=2.1.0
 # Slackware 15.0: o GTK 4 e o compilador dele são velhos para o WebKitGTK atual; nele a
 # Jangada fica na 1.15 (a do motor do Chromium).
 jangada_version_slack15=1.15.1
@@ -163,13 +163,13 @@ stage() {
     # with a partial build, it staged old programs, or stopped on a missing one.
     # stage_no_build: the Arch recipe calls this right after its own build.
     [ -n "${stage_no_build:-}" ] || compile
-    for b in glove glove-apps glove-portal glove-escolher glove-bateria glove-arte; do
+    for b in glove glove-apps glove-portal glove-chooser glove-battery glove-art; do
         [ -x "target/release/$b" ] || die "$(t "falta o programa target/release/$b; compile com: cargo build --release" "the program target/release/$b is missing; build with: cargo build --release")"
     done
     [ "$(app_links | wc -l)" -ge 30 ] || die "$(t "não achei a lista de apps em crates/apps/src/main.rs" "could not find the app list in crates/apps/src/main.rs")"
     bin="$dest$prefix/bin"
     mkdir -p "$bin"
-    for b in glove glove-apps glove-portal glove-escolher glove-bateria; do
+    for b in glove glove-apps glove-portal glove-chooser glove-battery; do
         install -m 755 "target/release/$b" "$bin/$b"
     done
     for a in $(app_links); do
@@ -182,14 +182,14 @@ stage() {
     install -m 755 data/glove-login-greetd "$dest$prefix/lib/glove/glove-login-greetd"
     sed "s|@PREFIXO@|$prefix|" data/glove-login.service > "$dest$prefix/lib/systemd/system/glove-login.service"
     chmod 644 "$dest$prefix/lib/systemd/system/glove-login.service"
-    # Chromebook battery the firmware does not recognise: glove-bateria reads it from
+    # Chromebook battery the firmware does not recognise: glove-battery reads it from
     # the EC as root (the service only runs on Chromebooks) and a sleep hook checks it
     # while suspended.
-    sed "s|@PREFIXO@|$prefix|" data/glove-bateria.service > "$dest$prefix/lib/systemd/system/glove-bateria.service"
-    chmod 644 "$dest$prefix/lib/systemd/system/glove-bateria.service"
+    sed "s|@PREFIXO@|$prefix|" data/glove-battery.service > "$dest$prefix/lib/systemd/system/glove-battery.service"
+    chmod 644 "$dest$prefix/lib/systemd/system/glove-battery.service"
     mkdir -p "$dest$prefix/lib/systemd/system-sleep"
-    sed "s|@PREFIXO@|$prefix|" data/glove-bateria.sleep > "$dest$prefix/lib/systemd/system-sleep/glove-bateria"
-    chmod 755 "$dest$prefix/lib/systemd/system-sleep/glove-bateria"
+    sed "s|@PREFIXO@|$prefix|" data/glove-battery.sleep > "$dest$prefix/lib/systemd/system-sleep/glove-battery"
+    chmod 755 "$dest$prefix/lib/systemd/system-sleep/glove-battery"
     # Session entry (every login screen reads /usr/share/wayland-sessions).
     mkdir -p "$dest/usr/share/wayland-sessions"
     sed "s|^Exec=.*|Exec=$prefix/bin/glove-session|" data/glove.desktop > "$dest/usr/share/wayland-sessions/glove.desktop"
@@ -203,7 +203,7 @@ stage() {
     fi
     chmod 644 "$dest/etc/pam.d/glove"
     # Icon theme (drawn by code, the same as the glove-icons repository).
-    target/release/glove-arte icons "$dest$prefix/share/icons/Glove" >/dev/null
+    target/release/glove-art icons "$dest$prefix/share/icons/Glove" >/dev/null
     # Wallpapers (the Glove OS one is the default).
     mkdir -p "$dest$prefix/share/glove/papeis"
     install -m 644 data/papeis/*.png "$dest$prefix/share/glove/papeis/"
@@ -222,10 +222,13 @@ stage() {
 # After installing (packages and "install"): systemd sees the login screen service
 # and the icon theme gets indexed.
 post_install_sh='command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true
-# Chromebook battery (the service skips itself on other computers).
+# Chromebook battery (the service skips itself on other computers). Up to 0.14 the service
+# was called glove-bateria: what an older install left enabled goes away.
 if command -v systemctl >/dev/null 2>&1; then
-  systemctl enable glove-bateria.service 2>/dev/null || true
-  systemctl start glove-bateria.service 2>/dev/null || true
+  systemctl disable --now glove-bateria.service 2>/dev/null || true
+  rm -f /etc/systemd/system/multi-user.target.wants/glove-bateria.service
+  systemctl enable glove-battery.service 2>/dev/null || true
+  systemctl start glove-battery.service 2>/dev/null || true
 fi
 for t in /usr/share/icons/Glove /usr/local/share/icons/Glove; do
   [ -d "$t" ] && command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -f "$t" 2>/dev/null || true
@@ -236,7 +239,7 @@ echo "To go back to the previous one (e.g. GDM): sudo systemctl enable --force g
 # Before removing: if the Glove login screen is the main one, go back to the previous
 # one (the one saved by "glove-setup-tool.sh login", or the first one installed), so
 # the computer is not left without a login screen.
-pre_remove_sh='command -v systemctl >/dev/null 2>&1 && systemctl disable --now glove-bateria.service 2>/dev/null || true
+pre_remove_sh='command -v systemctl >/dev/null 2>&1 && systemctl disable --now glove-battery.service 2>/dev/null || true
 if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled glove-login >/dev/null 2>&1; then
   systemctl disable glove-login 2>/dev/null || true
   previous=$(cat /etc/glove/login/gerenciador-anterior 2>/dev/null || true)
@@ -609,9 +612,9 @@ package_glove_os() {
     chmod 644 "$tmp/etc/apt/sources.list.d/glove-os.sources"
     # O tema do Glove para o Firefox (metal escovado, como o Safari clássico), instalado
     # e ligado para todos pelas políticas; sem assinatura da Mozilla, por isso a pref.
-    if [ -x target/release/glove-arte ] && has zip; then
+    if [ -x target/release/glove-art ] && has zip; then
         fx="$tmp/fx"
-        target/release/glove-arte firefox "$fx" >/dev/null
+        target/release/glove-art firefox "$fx" >/dev/null
         mkdir -p "$o/firefox" "$tmp/etc/firefox/policies" "$tmp/etc/firefox-esr"
         (cd "$fx" && zip -qX9 "$o/firefox/glove-tema.xpi" manifest.json metal.png)
         rm -rf "$fx"
@@ -634,7 +637,7 @@ FIM
         printf '// Glove OS: o tema do Glove não passa pela assinatura da Mozilla.\npref("xpinstall.signatures.required", false);\n' > "$tmp/etc/firefox-esr/glove-os.js"
         chmod 644 "$tmp/etc/firefox/policies/policies.json" "$tmp/etc/firefox-esr/glove-os.js"
     else
-        echo "$(t "aviso: sem o glove-arte compilado ou o zip, o pacote sai sem o tema do Firefox" "warning: no built glove-arte or zip, the package goes without the Firefox theme")" >&2
+        echo "$(t "aviso: sem o glove-art compilado ou o zip, o pacote sai sem o tema do Firefox" "warning: no built glove-art or zip, the package goes without the Firefox theme")" >&2
     fi
     install -m 755 "$d/postinst" "$d/postrm" "$tmp/DEBIAN/"
     (cd "$tmp" && find etc -type f | sed 's|^|/|') > "$tmp/DEBIAN/conffiles"
@@ -795,9 +798,9 @@ package() {
   ./glove-setup-tool.sh _stage "\$pkgdir" /usr other
 }
 EOF
-    # GLOVE_SEM_MAKEPKG (the CI): build the package directly from this tree even on Arch
+    # GLOVE_NO_MAKEPKG (the CI): build the package directly from this tree even on Arch
     # (makepkg does not run as root, and the recipe would fetch the code again by tag).
-    if has makepkg && [ -z "${GLOVE_SEM_MAKEPKG:-}" ]; then
+    if has makepkg && [ -z "${GLOVE_NO_MAKEPKG:-}" ]; then
         (cd "$out_dir" && makepkg -f)
         msg "$(t "Pacote Arch: $(ls "$out_dir"/glove-*.pkg.tar.zst | tail -1)" "Arch package: $(ls "$out_dir"/glove-*.pkg.tar.zst | tail -1)")"
         return
@@ -868,7 +871,7 @@ login() {
         mv /etc/greetd/config.toml.antes-do-glove /etc/greetd/config.toml
         systemctl disable greetd 2>/dev/null || true
     fi
-    if [ "${1:-}" = remove ] || [ "${1:-}" = remover ]; then
+    if [ "${1:-}" = remove ]; then
         previous=$(cat "$state_dir/gerenciador-anterior" 2>/dev/null || true)
         systemctl disable glove-login 2>/dev/null || true
         for d in $previous gdm gdm3 lightdm sddm lxdm greetd; do
@@ -961,7 +964,7 @@ grub_screen() {
         else die "$(t "não achei o update-grub nem o grub-mkconfig" "neither update-grub nor grub-mkconfig was found")"; fi
     }
     case "${1:-}" in
-        remove|remover)
+        remove)
             rm -f "$sysroot$img" "$sysroot$dropin" "$sysroot$colors"
             if [ -f "$sysroot$main" ]; then sed -i "/$mark\$/d" "$sysroot$main"; fi
             refresh
@@ -1018,8 +1021,8 @@ GRUB_TERMINAL_OUTPUT=\"gfxterm\""
 # iso/build and leaves the ISO in iso/. The iso/ folder stays out of Git.
 
 debian_suite=${GLOVE_DEBIAN:-trixie}
-# Debian mirror: GLOVE_MIRROR (GLOVE_ESPELHO, the old name, still works).
-mirror=${GLOVE_MIRROR:-${GLOVE_ESPELHO:-http://deb.debian.org/debian}}
+# Debian mirror: GLOVE_MIRROR.
+mirror=${GLOVE_MIRROR:-http://deb.debian.org/debian}
 
 download() {
     if has curl; then curl -fsSL "$1" -o "$2"; elif has wget; then wget -q "$1" -O "$2"; else die "$(t "falta o curl ou o wget" "curl or wget is missing")"; fi
@@ -1048,8 +1051,8 @@ build_iso() {
     has sudo || die "$(t "falta o sudo" "sudo is missing")"
     # live-build checks for the system's debootstrap even when it uses the downloaded one.
     [ -x /usr/sbin/debootstrap ] || die "$(t "falta o debootstrap (sudo apt install debootstrap)" "debootstrap is missing (sudo apt install debootstrap)")"
-    # GLOVE_USAR_PACOTES: the .deb files of this version are already in pacotes/ (CI).
-    if [ -n "${GLOVE_USAR_PACOTES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ] && [ -f "$out_dir/glove-mide-icons_${mide_icons_version}_all.deb" ]; then
+    # GLOVE_USE_PACKAGES: the .deb files of this version are already in pacotes/ (CI).
+    if [ -n "${GLOVE_USE_PACKAGES:-}" ] && [ -f "$out_dir/glove_${version}_amd64.deb" ] && [ -f "$out_dir/glove-os_${version}_all.deb" ] && [ -f "$out_dir/glove-mide-icons_${mide_icons_version}_all.deb" ]; then
         msg "$(t "Usando os pacotes prontos em $out_dir" "Using the ready packages in $out_dir")"
     else
         package_deb
@@ -1104,9 +1107,9 @@ build_iso() {
     cp -r "$root_dir/data/iso/package-lists/." config/package-lists/
     mkdir -p config/hooks/normal config/packages.chroot
     cp -r "$root_dir/data/iso/hooks/normal/." config/hooks/normal/
-    # GLOVE_SEM_REPOSITORIO: the Glove apt repository is not online (a fork without the
+    # GLOVE_NO_REPOSITORY: the Glove apt repository is not online (a fork without the
     # signing key, Pages off): the image goes without it, or apt would stop the build.
-    if [ -n "${GLOVE_SEM_REPOSITORIO:-}" ]; then
+    if [ -n "${GLOVE_NO_REPOSITORY:-}" ]; then
         printf '#!/bin/sh\n# The Glove repository was offline when this ISO was built.\nrm -f /etc/apt/sources.list.d/glove-os.sources\n' > config/hooks/normal/0050-sem-repositorio.hook.chroot
         chmod +x config/hooks/normal/0050-sem-repositorio.hook.chroot
     fi
@@ -1236,22 +1239,21 @@ menu() {
 
 case "${1:-}" in
     "") menu ;;
-    # English commands; the Portuguese names keep working.
-    install|instalar) install_glove "$2" ;;
-    uninstall|remove|desinstalar|remover) uninstall_glove "$2" ;;
+    install) install_glove "$2" ;;
+    uninstall|remove) uninstall_glove "$2" ;;
     deb) package_deb ;;
     glove-os) package_glove_os ;;
     mide-icons) package_mide_icons ;;
-    jangada|web|navegador) package_jangada ;;
+    jangada|web|browser) package_jangada ;;
     slackware|slack|tgz) package_slackware ;;
     rpm|fedora) package_rpm ;;
     arch|pacman) package_arch ;;
-    all|packages|todos|pacotes) package_deb; package_slackware; package_rpm; package_arch ;;
-    deps|dependencies|dependencias) install_deps ;;
+    all|packages) package_deb; package_slackware; package_rpm; package_arch ;;
+    deps|dependencies) install_deps ;;
     login) shift; login "$@" ;;
     grub|bootloader) shift; grub_screen "$@" ;;
-    iso) case "${2:-}" in test|testar) test_iso ;; *) build_iso ;; esac ;;
-    _stage|_montar) stage_no_build=1; stage "$2" "$3" "$4" ;;
-    -h|--help|help|ajuda) show_help ;;
+    iso) case "${2:-}" in test) test_iso ;; *) build_iso ;; esac ;;
+    _stage) stage_no_build=1; stage "$2" "$3" "$4" ;;
+    -h|--help|help) show_help ;;
     *) die "$(t "opção desconhecida: $1 (veja ./glove-setup-tool.sh help)" "unknown option: $1 (see ./glove-setup-tool.sh help)")" ;;
 esac

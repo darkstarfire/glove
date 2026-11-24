@@ -65,10 +65,10 @@ pub struct Osd {
 pub struct Extras {
     /// (nível 0 a 1, sem som). None = sem PipeWire.
     pub volume: Option<(f32, bool)>,
-    pub battery: Option<glove_energia::Battery>,
+    pub battery: Option<glove_power::Battery>,
     /// Tempos da bateria (até acabar, até carregar), em segundos.
     pub battery_times: (Option<u64>, Option<u64>),
-    battery_estimate: glove_energia::Estimate,
+    battery_estimate: glove_power::Estimate,
     pub slider: Option<VolumeSlider>,
     pub osd: Option<Osd>,
     osd_timer: bool,
@@ -210,7 +210,7 @@ impl Glove {
     /// Relê volume e bateria (na partida e uma vez por minuto).
     pub fn refresh_extras(&mut self) {
         let vol = read_volume();
-        let bat = glove_energia::read();
+        let bat = glove_power::read();
         self.extras.battery_times = match &bat {
             Some(b) => self.extras.battery_estimate.update(b, Instant::now()),
             None => (None, None),
@@ -424,7 +424,7 @@ impl Glove {
     fn battery_menu(&self) -> Vec<MenuNode> {
         let Some(b) = self.extras.battery.clone() else { return Vec::new() };
         let info = |t: String| MenuNode::new(MenuItem::item(t).disabled(), None);
-        use glove_energia::State;
+        use glove_power::State;
         let mut v = vec![match b.state {
             State::Full => info(tr!("Bateria carregada").into()),
             State::Charging => info(tr!("Carregando: {}%", b.percent)),
@@ -782,7 +782,7 @@ mod tests {
 
     #[test]
     fn bateria() {
-        // A leitura e a estimativa têm testes no glove-energia; aqui, só o texto.
+        // A leitura e a estimativa têm testes no glove-power; aqui, só o texto.
         assert!(format_left(125 * 60).contains("2:05"));
         assert!(format_until_full(70 * 60 + 10).contains("1:10"));
         let w = format_watts(8.46);

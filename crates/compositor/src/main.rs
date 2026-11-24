@@ -76,11 +76,10 @@ pub struct WinitBackend {
 /// Sessão própria (direto na tela) ou janela dentro do desktop atual.
 fn want_drm() -> bool {
     let args: Vec<String> = std::env::args().collect();
-    // (As opções são em inglês; as de antes, em português, continuam aceitas.)
-    if args.iter().any(|a| a == "--window" || a == "--winit" || a == "--janela") {
+    if args.iter().any(|a| a == "--window" || a == "--winit") {
         return false;
     }
-    if args.iter().any(|a| a == "--session" || a == "--drm" || a == "--sessao") {
+    if args.iter().any(|a| a == "--session" || a == "--drm") {
         return true;
     }
     match std::env::var("GLOVE_BACKEND").as_deref() {
@@ -144,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     glove_config::tune_memory();
 
-    if std::env::args().any(|a| a == "--displays" || a == "--monitores") {
+    if std::env::args().any(|a| a == "--displays") {
         return udev::probe(&glove_config::Config::load());
     }
 
@@ -206,7 +205,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Cópias de Segurança: confere de hora em hora (o app sai na hora se estiver
         // desligado, sem disco ou com uma cópia recente). A primeira, 10 min depois de entrar.
         event_loop.handle().insert_source(Timer::from_duration(Duration::from_secs(600)), |_, _, data| {
-            data.state.spawn("glove-copias --auto");
+            data.state.spawn("glove-backup --auto");
             TimeoutAction::ToDuration(Duration::from_secs(3600))
         }).ok();
     }

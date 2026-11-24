@@ -274,7 +274,7 @@ fn avisar(titulo: String, texto: String) {
         let escolha = out.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
         if escolha == "ver" || escolha == "default" {
             let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-prefs"))).filter(|p| p.exists()).unwrap_or_else(|| "glove-prefs".into());
-            let _ = Command::new(exe).arg("atualizacao").spawn();
+            let _ = Command::new(exe).arg("software-update").spawn();
         }
     });
 }
@@ -397,7 +397,7 @@ mod tests {
     #[ignore]
     fn imprime_comandos() {
         let repo = repo_url();
-        let v = std::env::var("GLOVE_VERSAO_TESTE").unwrap_or_else(|_| "0.12.74".into());
+        let v = std::env::var("GLOVE_TEST_VERSION").unwrap_or_else(|_| "0.12.74".into());
         println!("### repo-dnf\n{}### repo-pacman\n{}", script_repo_dnf(&repo), script_repo_pacman(&repo));
         for (n, p) in [("dnf", Pacote::Dnf), ("pacman", Pacote::Pacman), ("slackware", Pacote::Slackware)] {
             println!("### atualizar-{n}\n{}", script_atualizar(p, &v, &repo).unwrap());

@@ -29,7 +29,7 @@ pub struct Rede {
     /// Pedido de senha: (rede, senha).
     pub prompt: Option<(String, String)>,
     /// A janela que pede a senha da rede (None = ainda não aberta; Some(None) = sem o
-    /// glove-senha, a folha dentro do painel).
+    /// glove-auth, a folha dentro do painel).
     prompt_win: Option<Option<glove_config::senha::Pedido>>,
     /// Trabalho em andamento ("Conectando a “X”…") e a resposta dele.
     busy: Option<String>,
@@ -396,7 +396,7 @@ impl Rede {
     /// Folha pedindo a senha da rede (por cima do painel).
     pub fn prompt_sheet(&mut self, ui: &mut Ui) {
         let Some((ssid, mut pw)) = self.prompt.clone() else { return };
-        // A janela de senha do sistema; sem ela (glove-senha ausente), a folha.
+        // A janela de senha do sistema; sem ela (glove-auth ausente), a folha.
         use glove_config::senha::{Formulario, Pedido, Valores};
         if self.prompt_win.is_none() {
             let title = tr!("A rede “{}” pede uma senha.", ssid);

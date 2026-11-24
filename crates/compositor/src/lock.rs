@@ -157,7 +157,7 @@ impl Glove {
                 next = next.min(timeout - idle);
             }
         }
-        // Segurança: sair da sessão depois de tanto tempo parado (o glove-sair mostra
+        // Segurança: sair da sessão depois de tanto tempo parado (o glove-logout mostra
         // o aviso com a contagem; mexer no mouse cancela).
         let lm = self.config.security.logout_minutes;
         if lm > 0 && !self.greeter {
@@ -166,7 +166,7 @@ impl Glove {
                 if !self.idle.logout_asked {
                     tracing::info!("parado há {lm} min: encerrando a sessão");
                     self.idle.logout_asked = true;
-                    self.spawn(if self.nested { "glove-sair quit" } else { "glove-sair logout" });
+                    self.spawn(if self.nested { "glove-logout quit" } else { "glove-logout logout" });
                 }
             } else {
                 next = next.min(timeout - idle);

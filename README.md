@@ -39,7 +39,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - **Apps X11** pelo Xwayland, com barra de título do Glove
 - Barra de menu global: menu principal (Itens Recentes, Forçar Encerrar, Repouso, Desligar…),
   menu do app, os **menus de cada app**, submenus e navegação pelo teclado; extras de Wi-Fi,
-  volume, bateria (com tempo restante, saúde e ciclos, também em baterias paralelas e Chromebooks em que o firmware não reconhece a bateria: o serviço `glove-bateria` a lê direto do EC e desliga o computador antes de ela zerar) e monitor, relógio e nome do usuário (troca rápida de usuário); **bandeja de ícones** (Telegram, Discord, Steam… com o menu de cada app)
+  volume, bateria (com tempo restante, saúde e ciclos, também em baterias paralelas e Chromebooks em que o firmware não reconhece a bateria: o serviço `glove-battery` a lê direto do EC e desliga o computador antes de ela zerar) e monitor, relógio e nome do usuário (troca rápida de usuário); **bandeja de ícones** (Telegram, Discord, Steam… com o menu de cada app)
 - **Dock** de vidro com ampliação, ícones que pulam ao abrir, menu de contexto com bico, ocultar
   sozinho, posição embaixo/esquerda/direita, efeitos de minimizar **Escala** e **Lâmpada Mágica**
   (deformação feita na placa de vídeo), miniaturas vivas e Lixo cheio/vazio
@@ -66,7 +66,7 @@ cada recurso: [docs/USO.md](docs/USO.md).
 - **Captura** de tela inteira, área ou uma janela (clique), em qualquer monitor
 - Forçar Encerrar com detecção de app que não responde; bloqueio de tela (PAM), tela que apaga,
   tampa do notebook, teclas de volume e brilho; troca rápida de usuário
-- **Senha do sistema** (`glove-senha`, o agente do polkit): qualquer programa que pede permissão de
+- **Senha do sistema** (`glove-auth`, o agente do polkit): qualquer programa que pede permissão de
   administrador pelo polkit (Discos, gnome-disks, Flatpak, NetworkManager, `pkexec`) mostra a janela
   de senha do Glove
 - Acesso Universal: zoom, cores invertidas, cursor grande
@@ -374,10 +374,10 @@ isso já vem feito: no menu de boot do pendrive e no GRUB do sistema instalado.
 
 ## Tela de início do sistema (opcional, Plymouth)
 
-Tema com fundo cinza claro, a luva do Glove e o giratório, gerado por código (`glove-arte`):
+Tema com fundo cinza claro, a luva do Glove e o giratório, gerado por código (`glove-art`):
 
 ```sh
-./target/release/glove-arte plymouth data/plymouth/glove   # (re)gera a arte
+./target/release/glove-art plymouth data/plymouth/glove   # (re)gera a arte
 sudo ./data/install-plymouth.sh           # instala e ativa (refaz o initramfs)
 sudo ./data/install-plymouth.sh --remove  # volta ao tema anterior
 ```
@@ -425,31 +425,31 @@ O desbloqueio confere a senha pelo PAM. `data/install-session.sh` instala o serv
 ui/ (glove-ui)     submódulo: glove-ui (o antigo glove-kit), glove-paint, glove-config e glove-i18n
 crates/compositor  o compositor (`glove`; udev.rs = sessão própria, winit.rs = janela, `--greeter` = login)
 crates/apps        `glove-apps`: um executável só para todos os apps (glove-files, glove-prefs… são atalhos para ele; ver docs/MEMORIA.md)
-crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`
+crates/portal      `glove-portal` (portal FileChooser) e `glove-chooser`
 crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
-crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`)
-crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
-crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-arte icons <pasta>` e a amostra dele com `glove-arte previa <arquivo.png>`)
-crates/energia     bateria (biblioteca usada pelo compositor e pelas Preferências)
-crates/instalador  Instalar o Glove OS (`glove-instalador`)
-crates/senha       senha do sistema: o agente do polkit (`glove-senha`)
+crates/welcome  assistente de primeiro uso (`glove-welcome`)
+crates/logout        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-logout`)
+crates/art        `glove-art`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-art icons <pasta>` e a amostra dele com `glove-art previa <arquivo.png>`)
+crates/power     bateria (biblioteca usada pelo compositor e pelas Preferências)
+crates/installer  Instalar o Glove OS (`glove-installer`)
+crates/auth       senha do sistema: o agente do polkit (`glove-auth`)
 crates/files       Arquivos (`glove-files`)          crates/prefs      Preferências (`glove-prefs`)
 crates/term        Terminal (`glove-term`)           crates/editor     Editor de Texto (`glove-edit`)
-crates/viewer      Visualizador (`glove-view`)       crates/navegador  Navegador (`glove-navegador`)
-crates/correio     Correio (`glove-correio`)         crates/agenda     Agenda (`glove-agenda`)
-crates/contatos    Contatos (`glove-contatos`)       crates/musica     Música (`glove-musica`)
+crates/viewer      Visualizador (`glove-view`)       crates/browser  Navegador (`glove-browser`)
+crates/mail     Correio (`glove-mail`)         crates/calendar     Agenda (`glove-calendar`)
+crates/contacts    Contatos (`glove-contacts`)       crates/music     Música (`glove-music`)
 crates/video       Vídeo (`glove-video`)             crates/notes      Lembretes (`glove-notes`)
-crates/dicionario  Dicionário (`glove-dicionario`)   crates/fontes     Livro de Fontes (`glove-fontes`)
+crates/dictionary  Dicionário (`glove-dictionary`)   crates/fonts     Livro de Fontes (`glove-fonts`)
 crates/chars       Caracteres (`glove-chars`)        crates/monitor    Monitor (`glove-monitor`)
-crates/registros   Registros (`glove-registros`)     crates/info       Informações do Sistema (`glove-info`)
+crates/console   Registros (`glove-console`)     crates/info       Informações do Sistema (`glove-info`)
 crates/disks       Discos (`glove-disks`)            crates/find       Busca (`glove-find`)
-crates/shot        Captura (`glove-shot`)            crates/arquivo    Utilitário de Arquivo (`glove-arquivo`)
+crates/shot        Captura (`glove-shot`)            crates/archive    Utilitário de Arquivo (`glove-archive`)
 crates/calc        Calculadora (`glove-calc`)        crates/clock      Relógio (`glove-clock`)
-crates/chess       Xadrez (`glove-chess`)            crates/ajuda      Ajuda (`glove-ajuda`)
-crates/about       Sobre o Glove (`glove-about`)       crates/chaves     Acesso às Chaves (`glove-chaves`)
-crates/utilrede    Utilitário de Rede (`glove-utilrede`) crates/copias      Cópias de Segurança (`glove-copias`)
-crates/central     Central de Apps (`glove-central`)  crates/fotos       Fotos (`glove-fotos`)
-crates/gravador    Gravador (`glove-gravador`)        crates/mensagens   Mensagens (`glove-mensagens`)
+crates/chess       Xadrez (`glove-chess`)            crates/help      Ajuda (`glove-help`)
+crates/about       Sobre o Glove (`glove-about`)       crates/keychain     Acesso às Chaves (`glove-keychain`)
+crates/netutil    Utilitário de Rede (`glove-netutil`) crates/backup      Cópias de Segurança (`glove-backup`)
+crates/appcenter     Central de Apps (`glove-appcenter`)  crates/photos       Fotos (`glove-photos`)
+crates/voicerec    Gravador (`glove-voicerec`)        crates/messages   Mensagens (`glove-messages`)
 data/              sessão, greetd, Plymouth, GRUB, papéis de parede, a identidade do Glove OS e a ISO
 ci/iso.sh          monta a ISO na integração contínua (.github/workflows/iso.yml)
 ```
