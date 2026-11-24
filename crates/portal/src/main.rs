@@ -57,15 +57,15 @@ fn extensions(o: &HashMap<String, OwnedValue>) -> Vec<String> {
 /// Abre a janela do Glove e espera a escolha.
 fn choose(mode: &str, title: &str, name: Option<String>, dir: Option<PathBuf>, types: &[String]) -> Option<PathBuf> {
     let mut cmd = std::process::Command::new(sibling("glove-escolher"));
-    cmd.arg(mode).arg("--titulo").arg(title);
+    cmd.arg(mode).arg("--title").arg(title);
     if let Some(n) = name {
-        cmd.arg("--nome").arg(n);
+        cmd.arg("--name").arg(n);
     }
     if let Some(d) = dir {
-        cmd.arg("--em").arg(d);
+        cmd.arg("--in").arg(d);
     }
     if !types.is_empty() {
-        cmd.arg("--tipos").arg(types.join(","));
+        cmd.arg("--types").arg(types.join(","));
     }
     let out = cmd.stderr(std::process::Stdio::inherit()).output().ok()?;
     if !out.status.success() {
@@ -94,7 +94,7 @@ fn reply(paths: Option<Vec<PathBuf>>) -> (u32, HashMap<String, OwnedValue>) {
 impl FileChooser {
     #[zbus(name = "OpenFile")]
     fn open_file(&self, _handle: ObjectPath<'_>, _app_id: &str, _parent: &str, title: &str, options: HashMap<String, OwnedValue>) -> (u32, HashMap<String, OwnedValue>) {
-        let mode = if boolean(&options, "directory") { "pasta" } else { "abrir" };
+        let mode = if boolean(&options, "directory") { "folder" } else { "open" };
         let dir = bytes_path(&options, "current_folder");
         reply(choose(mode, title, None, dir, &extensions(&options)).map(|p| vec![p]))
     }
@@ -104,7 +104,7 @@ impl FileChooser {
         let name = string(&options, "current_name");
         // Sem pasta pedida: Downloads (onde os navegadores costumam salvar).
         let dir = bytes_path(&options, "current_folder").or_else(|| bytes_path(&options, "current_file").and_then(|f| f.parent().map(Path::to_path_buf))).or_else(downloads);
-        reply(choose("salvar", title, name, dir, &[]).map(|p| vec![p]))
+        reply(choose("save", title, name, dir, &[]).map(|p| vec![p]))
     }
 
     /// Vários arquivos de uma vez: escolhe a pasta e devolve pasta/nome de cada um.
@@ -112,7 +112,7 @@ impl FileChooser {
     fn save_files(&self, _handle: ObjectPath<'_>, _app_id: &str, _parent: &str, title: &str, options: HashMap<String, OwnedValue>) -> (u32, HashMap<String, OwnedValue>) {
         let names: Vec<Vec<u8>> = options.get("files").and_then(|v| <Vec<Vec<u8>>>::try_from(v.try_clone().ok()?).ok()).unwrap_or_default();
         let dir = bytes_path(&options, "current_folder").or_else(downloads);
-        reply(choose("pasta", title, None, dir, &[]).map(|d| {
+        reply(choose("folder", title, None, dir, &[]).map(|d| {
             use std::os::unix::ffi::OsStringExt;
             names.into_iter().map(|n| d.join(std::ffi::OsString::from_vec(n.into_iter().take_while(|b| *b != 0).collect()))).collect()
         }))
@@ -169,7 +169,7 @@ impl FileManager {
     #[zbus(name = "ShowItems")]
     fn show_items(&self, uris: Vec<String>, _startup_id: &str) {
         for p in uris.iter().filter_map(|u| uri_path(u)) {
-            files(&[std::ffi::OsStr::new("--mostrar"), p.as_os_str()]);
+            files(&[std::ffi::OsStr::new("--show"), p.as_os_str()]);
         }
     }
 

@@ -1143,7 +1143,7 @@ impl App for Disks {
     }
 }
 
-/// `glove-disks --gravar <imagem> <dispositivo>`: cria o disco inicializável sem a
+/// `glove-disks --write <imagem> <dispositivo>`: cria o disco inicializável sem a
 /// janela (para scripts e testes), com o andamento no terminal.
 fn write_cli(iso: &str, device: &str) -> i32 {
     let Ok(conn) = zbus::blocking::Connection::system() else {
@@ -1192,9 +1192,9 @@ fn write_cli(iso: &str, device: &str) -> i32 {
 
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.get(1).map(String::as_str) == Some("--gravar") {
+    if matches!(args.get(1).map(String::as_str), Some("--write" | "--gravar")) {
         let (Some(iso), Some(dev)) = (args.get(2), args.get(3)) else {
-            eprintln!("uso: glove-disks --gravar <imagem.iso> <dispositivo>");
+            eprintln!("usage: glove-disks --write <image.iso> <device>");
             std::process::exit(2);
         };
         std::process::exit(write_cli(iso, dev));

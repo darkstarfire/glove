@@ -300,7 +300,7 @@ publishes it, with the `.deb` packages and `SHA256SUMS`, on the [Releases](https
 ```sh
 cargo build --release
 ./install.sh                         # step by step: session, login screen, Plymouth
-./target/release/glove --monitores    # shows the display, resolution and scale the session will use
+./target/release/glove --displays     # shows the display, resolution and scale the session will use
 ```
 
 `./install.sh` points the session at the project's own programs, so rebuilding updates it.

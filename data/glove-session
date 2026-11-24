@@ -49,4 +49,4 @@ if command -v systemctl >/dev/null; then
     systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_TYPE 2>/dev/null
 fi
 
-exec "$glove" --sessao >"$log" 2>&1
+exec "$glove" --session >"$log" 2>&1

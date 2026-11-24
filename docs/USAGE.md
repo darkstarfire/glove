@@ -561,7 +561,7 @@ Disks recognises the image by itself:
   on**, without WoeUSB. Computers with only an old BIOS will not start this stick.
 
 The system disk in use (with `/`, `/boot`, `/home`…) is never offered for erasing. For scripts:
-`glove-disks --gravar image.iso /dev/sdX` does the same in the terminal.
+`glove-disks --write image.iso /dev/sdX` does the same in the terminal.
 
 ## Glove OS updates
 
@@ -725,7 +725,7 @@ Notes:
 
 - **Secure Boot:** the installed GRUB is not signed. Turn Secure Boot off on the computer.
 - The installer only installs from the Glove live system. On any other system,
-  `glove-instalador --simular` shows every page and the commands it would run, without changing
+  `glove-instalador --dry-run` shows every page and the commands it would run, without changing
   anything.
 
 ## Language and formats (Preferences ▸ International)

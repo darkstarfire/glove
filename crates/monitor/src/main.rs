@@ -571,7 +571,7 @@ impl App for Monitor {
                 "startup" | "services" => {
                     // As Preferências mostram o que abre sozinho e quanto gasta.
                     let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-prefs"))).filter(|p| p.is_file());
-                    let arg = if a == "startup" { "inicio" } else { "servicos" };
+                    let arg = if a == "startup" { "login-items" } else { "services" };
                     let _ = std::process::Command::new(exe.unwrap_or_else(|| "glove-prefs".into())).arg(arg).spawn();
                 }
                 _ => {}

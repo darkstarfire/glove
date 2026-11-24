@@ -591,7 +591,7 @@ O Discos reconhece a imagem sozinho:
   iniciam esse pendrive.
 
 O disco do sistema em uso (com `/`, `/boot`, `/home`…) nunca aparece como opção para apagar. Para
-scripts: `glove-disks --gravar imagem.iso /dev/sdX` faz o mesmo no terminal.
+scripts: `glove-disks --write imagem.iso /dev/sdX` faz o mesmo no terminal.
 
 ## Atualizações do Glove OS
 
@@ -623,7 +623,7 @@ o `glove-os` num **repositório apt do Glove OS** (assinado), que o Glove OS já
   pela chave do Glove, que vem no pacote.
 - **Glove no Slackware:** não há repositório; **Atualizar o Glove** baixa o pacote da versão nova da
   página de releases, confere a soma (`SHA256SUMS`) e instala com o `upgradepkg`.
-- **Glove instalado pelo código** (`./glove-setup-tool.sh instalar`): o painel avisa da versão nova e
+- **Glove instalado pelo código** (`./glove-setup-tool.sh install`): o painel avisa da versão nova e
   diz como atualizar (`git pull` e instalar de novo).
 - Fora do apt, a atualização mostra um giratório no lugar da barra de progresso.
 
@@ -685,7 +685,7 @@ ligado:
    versão; confira com `sha256sum -c SHA256SUMS`) **ou montar** (no computador onde está o código):
    `./glove-setup-tool.sh iso`. Ela fica em `iso/glove-os-VERSÃO-amd64.iso`.
 2. **Testar numa máquina virtual** antes de usar num computador de verdade:
-   `./glove-setup-tool.sh iso testar` (precisa do QEMU: `sudo apt install qemu-system-x86 ovmf`). O
+   `./glove-setup-tool.sh iso test` (precisa do QEMU: `sudo apt install qemu-system-x86 ovmf`). O
    disco virtual de 32 GB fica em `iso/disco-teste.qcow2`. GNOME Boxes e VirtualBox também abrem a ISO.
 3. **Gravar num pendrive** (apaga o pendrive): `sudo dd if=iso/glove-os-VERSÃO-amd64.iso of=/dev/sdX
    bs=4M status=progress oflag=sync`, trocando `sdX` pelo pendrive (confira com `lsblk`).
@@ -729,7 +729,7 @@ assistente de boas-vindas.
 Observações:
 
 - **Secure Boot:** o GRUB instalado não é assinado. Desligue o Secure Boot no computador.
-- O instalador só instala no Glove ao vivo. Em outro sistema, `glove-instalador --simular` mostra
+- O instalador só instala no Glove ao vivo. Em outro sistema, `glove-instalador --dry-run` mostra
   todas as páginas e os comandos que seriam executados, sem mexer em nada.
 
 ## Idioma e formatos (Preferências ▸ Internacional)

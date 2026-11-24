@@ -1,9 +1,9 @@
 //! Utilitário de Arquivo (como o do 10.3): compacta e expande arquivos com uma
 //! janelinha de progresso e o botão Parar. Aberto pelo Arquivos:
 //!
-//! - `glove-arquivo compactar <item>...`: cria "<item>.zip" (ou "Arquivo.zip"
+//! - `glove-arquivo compress <item>...`: cria "<item>.zip" (ou "Arquivo.zip"
 //!   com vários itens) na pasta do primeiro item.
-//! - `glove-arquivo expandir <arquivo>`: expande .zip/.tar.*/.gz/.xz/.bz2 ao
+//! - `glove-arquivo expand <arquivo>`: expande .zip/.tar.*/.gz/.xz/.bz2 ao
 //!   lado dele. Com um só item dentro, ele fica direto na pasta; com vários,
 //!   vão para uma pasta com o nome do arquivo.
 //!
@@ -278,10 +278,10 @@ impl App for Arquivo {
 pub fn main() {
     let mut args = std::env::args_os().skip(1);
     let op = match args.next().and_then(|a| a.into_string().ok()).as_deref() {
-        Some("compactar") => Op::Compress,
-        Some("expandir") => Op::Expand,
+        Some("compress" | "compactar") => Op::Compress,
+        Some("expand" | "expandir") => Op::Expand,
         _ => {
-            eprintln!("uso: glove-arquivo compactar <item>...\n      glove-arquivo expandir <arquivo>");
+            eprintln!("usage: glove-arquivo compress <item>...\n       glove-arquivo expand <archive>");
             std::process::exit(2);
         }
     };

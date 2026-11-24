@@ -6,7 +6,7 @@
 //!
 //! O compositor desenha e guarda as posições; o que precisa de janela (copiar
 //! com progresso, Obter Informações, Opções de Visualização) fica com o
-//! `glove-files`, chamado com `--abrir`, `--transferir`, `--info`…
+//! `glove-files`, chamado com `--open`, `--transfer`, `--info`…
 
 use glove_config::tr;
 use std::collections::{HashMap, HashSet};
@@ -423,7 +423,7 @@ impl Glove {
         // Sumiu um pendrive e o aparelho não existe mais, sem o Glove ter ejetado: arrancado.
         for m in &self.desk.removable_prev {
             if !removable_now.iter().any(|n| n.path == m.path) && !Path::new(&m.dev).exists() && !glove_config::discos::take_ejected(&m.dev) {
-                self.spawn(&format!("glove-files --aviso-ejetar {}", quote(Path::new(&m.name))));
+                self.spawn(&format!("glove-files --eject-warning {}", quote(Path::new(&m.name))));
             }
         }
         self.desk.removable_prev = removable_now.clone();
@@ -906,11 +906,11 @@ impl Glove {
                 // Pendrives arrastados para o Lixo são ejetados (como no Tiger); o disco do sistema fica.
                 let mounts: Vec<PathBuf> = self.desk.mounts.iter().map(|m| m.1.clone()).collect();
                 for p in files.iter().filter(|p| mounts.contains(p)) {
-                    self.spawn(&format!("glove-files --ejetar {}", quote(p)));
+                    self.spawn(&format!("glove-files --eject {}", quote(p)));
                 }
                 let files: Vec<String> = files.iter().filter(|p| !mounts.contains(p)).map(|p| quote(p)).collect();
                 if !files.is_empty() {
-                    self.spawn(&format!("glove-files --lixo {}", files.join(" ")));
+                    self.spawn(&format!("glove-files --trash {}", files.join(" ")));
                 }
                 self.desk.selected.clear();
             }
@@ -936,7 +936,7 @@ impl Glove {
             return;
         }
         let args = paths.iter().map(|p| quote(p)).collect::<Vec<_>>().join(" ");
-        self.spawn(&format!("glove-files --transferir {} {} {args}", if mv { "mover" } else { "copiar" }, quote(dest)));
+        self.spawn(&format!("glove-files --transfer {} {} {args}", if mv { "move" } else { "copy" }, quote(dest)));
     }
 
     /// Arquivos de um app soltos na mesa (a lista chegou ou já estava aqui).
@@ -1261,7 +1261,7 @@ impl Glove {
             DeskCmd::Open => {
                 let all: Vec<PathBuf> = chosen.iter().map(|i| i.path.clone()).collect();
                 if !all.is_empty() {
-                    self.spawn(&format!("glove-files --abrir {}", args(&all)));
+                    self.spawn(&format!("glove-files --open {}", args(&all)));
                 }
             }
             DeskCmd::Info => {
@@ -1279,9 +1279,9 @@ impl Glove {
                     }
                 }
             }
-            DeskCmd::Duplicate if !files.is_empty() => self.spawn(&format!("glove-files --duplicar {}", args(&files))),
-            DeskCmd::Compress if !files.is_empty() => self.spawn(&format!("glove-arquivo compactar {}", args(&files))),
-            DeskCmd::Trash if !files.is_empty() => self.spawn(&format!("glove-files --lixo {}", args(&files))),
+            DeskCmd::Duplicate if !files.is_empty() => self.spawn(&format!("glove-files --duplicate {}", args(&files))),
+            DeskCmd::Compress if !files.is_empty() => self.spawn(&format!("glove-arquivo compress {}", args(&files))),
+            DeskCmd::Trash if !files.is_empty() => self.spawn(&format!("glove-files --trash {}", args(&files))),
             DeskCmd::Alias => {
                 if let [it] = chosen.as_slice() {
                     let name = it.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| it.name.clone());
@@ -1323,13 +1323,13 @@ impl Glove {
                     self.dirty = true;
                 }
             }
-            DeskCmd::ViewOptions => self.spawn("glove-files --opcoes-mesa"),
+            DeskCmd::ViewOptions => self.spawn("glove-files --desktop-view-options"),
             DeskCmd::NewWindow => self.spawn("glove-files"),
             DeskCmd::Go(p) => self.spawn(&format!("glove-files {}", quote(&p))),
-            DeskCmd::Background => self.run_menu_action(MenuAction::OpenPrefs("mesa".into())),
+            DeskCmd::Background => self.run_menu_action(MenuAction::OpenPrefs("desktop".into())),
             DeskCmd::Eject => {
                 for it in chosen.iter().filter(|i| i.kind == DeskKind::Removable) {
-                    self.spawn(&format!("glove-files --ejetar {}", quote(&it.path)));
+                    self.spawn(&format!("glove-files --eject {}", quote(&it.path)));
                 }
                 self.desk.selected.clear();
                 self.dirty = true;

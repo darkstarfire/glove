@@ -1,9 +1,9 @@
 //! Ajudantes que a mesa (desenhada pelo compositor) chama no Arquivos:
 //!
-//! - `glove-files --abrir CAMINHO…`: abre como o clique duplo do Arquivos;
-//! - `glove-files --transferir mover|copiar DESTINO ORIGEM…`: copia ou move com a
+//! - `glove-files --open CAMINHO…`: abre como o clique duplo do Arquivos;
+//! - `glove-files --transfer move|copy DESTINO ORIGEM…`: copia ou move com a
 //!   janela de progresso e o alerta de nome repetido (só aparece se demorar);
-//! - `glove-files --opcoes-mesa`: Opções de Visualização da mesa (Ctrl+J).
+//! - `glove-files --desktop-view-options`: Opções de Visualização da mesa (Ctrl+J).
 
 use glove_config::tr;
 use std::path::{Path, PathBuf};

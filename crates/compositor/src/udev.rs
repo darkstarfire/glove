@@ -255,7 +255,7 @@ fn plan(list: &[Connected], cfg: &glove_config::Monitor, keep: &[(connector::Han
     (plans, false)
 }
 
-/// `glove --monitores`: mostra o que a sessão escolheria, sem tocar na tela.
+/// `glove --displays`: mostra o que a sessão escolheria, sem tocar na tela.
 pub fn probe(config: &glove_config::Config) -> Result<(), Box<dyn std::error::Error>> {
     let path = udev::primary_gpu("seat0")?.or_else(|| udev::all_gpus("seat0").ok()?.into_iter().next()).ok_or("nenhuma placa de vídeo encontrada")?;
     let file = std::fs::File::open(&path)?;

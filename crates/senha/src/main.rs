@@ -6,14 +6,14 @@
 //!
 //!   glove-senha            o serviço: registra-se no polkit para esta sessão e fica
 //!                          esperando pedidos (a sessão do Glove o inicia)
-//!   glove-senha --pedir    a janela de um pedido (aberta pelo serviço; os dados
+//!   glove-senha --ask    a janela de um pedido (aberta pelo serviço; os dados
 //!                          vêm pelo ambiente)
 //!   glove-senha --sudo     a janela de senha para os apps do Glove que rodam um
 //!                          comando com o sudo (Atualização de Software, Central de
 //!                          Apps…): confere a senha com o próprio sudo e, certa, a
 //!                          escreve na saída para o app (glove_config::senha). O que
 //!                          vai ser feito vem em GLOVE_SENHA_MENSAGEM.
-//!   glove-senha --campos   um formulário de senha (a senha de uma rede Wi-Fi, trocar a
+//!   glove-senha --fields   um formulário de senha (a senha de uma rede Wi-Fi, trocar a
 //!                          senha da conta ou do chaveiro): os campos vêm do ambiente
 //!                          (glove_config::senha::Formulario) e os valores saem na
 //!                          saída, um por linha. Quem pediu confere e usa.
@@ -39,13 +39,14 @@ use zbus::zvariant::{OwnedValue, Value};
 const PATH: &str = "/org/glove/PolkitAgent";
 
 pub fn main() {
-    if std::env::args().any(|a| a == "--pedir") {
+    // (As opções são em inglês; as de antes, em português, continuam aceitas.)
+    if std::env::args().any(|a| a == "--ask" || a == "--pedir") {
         std::process::exit(ask());
     }
     if std::env::args().any(|a| a == "--sudo") {
         std::process::exit(ask_sudo());
     }
-    if std::env::args().any(|a| a == "--campos") {
+    if std::env::args().any(|a| a == "--fields" || a == "--campos") {
         std::process::exit(ask_fields());
     }
     if let Err(e) = serve() {
@@ -86,7 +87,7 @@ impl Agent {
         let exe = std::env::current_exe().map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
         let child = Command::new(exe)
             .arg0("glove-senha")
-            .arg("--pedir")
+            .arg("--ask")
             .env("GLOVE_SENHA_MENSAGEM", &message)
             .env("GLOVE_SENHA_ACAO", &action_id)
             .env("GLOVE_SENHA_USUARIO", &user)
@@ -385,7 +386,7 @@ fn ask_sudo() -> i32 {
     code
 }
 
-// --- o formulário (--campos) --------------------------------------------------------
+// --- o formulário (--fields) --------------------------------------------------------
 
 /// Um formulário de senha: título, explicação, os campos e o botão. Os valores saem na
 /// saída, um por linha, quando o botão é apertado (os campos não aceitam quebra de linha).
@@ -465,7 +466,7 @@ impl App for Fields {
     }
 }
 
-/// `--campos`: sai com 0 e os valores na saída (um por linha), ou com 1 se cancelado.
+/// `--fields`: sai com 0 e os valores na saída (um por linha), ou com 1 se cancelado.
 fn ask_fields() -> i32 {
     let env = |k: &str| std::env::var(k).unwrap_or_default();
     // "*Senha:" = campo que esconde o que é digitado; os rótulos vêm um por linha.

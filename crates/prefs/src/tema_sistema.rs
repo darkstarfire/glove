@@ -3,7 +3,7 @@
 //! aparência escolhida. A sessão (abertura, bloqueio e saída) o Glove já segue sozinho
 //! pela configuração; estas duas são do sistema e pedem a senha de administrador.
 //!
-//! O trabalho de administrador é o próprio glove-prefs: `glove-prefs --tema-sistema LOGIN
+//! O trabalho de administrador é o próprio glove-prefs: `glove-prefs --system-theme LOGIN
 //! ABERTURA` (rodado pelo sudo) grava o tema da tela de login e troca o tema do Plymouth.
 //! O glove-prefs é um atalho para o glove-apps (um programa só para todos os apps): o
 //! comando tem de usar o nome do atalho, senão o glove-apps não sabe quem é.
@@ -98,7 +98,7 @@ pub fn trocar_icones(texto: &str, icones: &str) -> String {
     s
 }
 
-/// Como administrador (`glove-prefs --tema-sistema LOGIN ABERTURA`): a tela de login e o
+/// Como administrador (`glove-prefs --system-theme LOGIN ABERTURA`): a tela de login e o
 /// Plymouth (os temas do Glove, se instalados).
 pub fn aplicar_como_admin(login: &str, abertura: &str) -> Result<(), String> {
     let mut feito = Vec::new();
@@ -190,7 +190,7 @@ impl TemaSistema {
             .filter(|p| p.exists())
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|| "glove-prefs".into());
-        let args = vec![exe, "--tema-sistema".into(), login.to_string(), abertura.to_string()];
+        let args = vec![exe, "--system-theme".into(), login.to_string(), abertura.to_string()];
         self.esperado = Path::new(LOGIN).exists().then(|| login.to_string());
         match crate::admin::sudo_state() {
             crate::admin::Sudo::Free => self.job = Some(crate::admin::run(args, None)),

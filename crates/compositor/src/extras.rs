@@ -384,7 +384,7 @@ impl Glove {
         let login = MenuItem::item(tr!("Janela de Login…"));
         v.push(MenuNode::new(if self.nested { login.disabled() } else { login }, (!self.nested).then_some(MenuAction::LoginWindow)));
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Contas…")), Some(MenuAction::OpenPrefs("contas".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Contas…")), Some(MenuAction::OpenPrefs("accounts".into()))));
         v
     }
 
@@ -455,7 +455,7 @@ impl Glove {
         v.push(MenuNode::sep());
         v.push(MenuNode::new(MenuItem::check(tr!("Mostrar porcentagem"), self.config.battery_percent), Some(MenuAction::ToggleBatteryPercent)));
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Economizador de Energia…")), Some(MenuAction::OpenPrefs("energia".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Economizador de Energia…")), Some(MenuAction::OpenPrefs("energy".into()))));
         v
     }
 
@@ -473,7 +473,7 @@ impl Glove {
             })
             .collect();
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Teclado…")), Some(MenuAction::OpenPrefs("entrada".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Teclado…")), Some(MenuAction::OpenPrefs("input-menu".into()))));
         v
     }
 
@@ -505,7 +505,7 @@ impl Glove {
             MenuNode::new(MenuItem::check(tr!("Ver como Digital"), !analog), Some(MenuAction::ClockAnalog(false))),
             MenuNode::new(MenuItem::check(tr!("Ver como Analógico"), analog), Some(MenuAction::ClockAnalog(true))),
             MenuNode::sep(),
-            MenuNode::new(MenuItem::item(tr!("Abrir Data e Hora…")), Some(MenuAction::OpenPrefs("datahora".into()))),
+            MenuNode::new(MenuItem::item(tr!("Abrir Data e Hora…")), Some(MenuAction::OpenPrefs("date-time".into()))),
         ]
     }
 
@@ -525,10 +525,10 @@ impl Glove {
                 v.push(MenuNode::new(MenuItem::check(n.ssid.clone(), n.in_use), Some(MenuAction::JoinWifi(n.ssid, n.secure))));
             }
             v.push(MenuNode::sep());
-            v.push(MenuNode::new(MenuItem::item(tr!("Entrar em Outra Rede…")), Some(MenuAction::OpenPrefs("rede".into()))));
+            v.push(MenuNode::new(MenuItem::item(tr!("Entrar em Outra Rede…")), Some(MenuAction::OpenPrefs("network".into()))));
         }
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Rede…")), Some(MenuAction::OpenPrefs("rede".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Rede…")), Some(MenuAction::OpenPrefs("network".into()))));
         v
     }
 
@@ -546,7 +546,7 @@ impl Glove {
     pub fn join_wifi(&mut self, ssid: &str, secure: bool) {
         if secure && !glove_config::rede::saved_connections().iter().any(|c| c == ssid) {
             let quoted = format!("'{}'", ssid.replace('\'', "'\\''"));
-            self.spawn(&format!("glove-prefs rede --entrar {quoted}"));
+            self.spawn(&format!("glove-prefs network --join {quoted}"));
         } else {
             // Rede salva que agora pede a senha (trocou, ou não ficou guardada): sem o
             // ícone de rede do GNOME, quem pergunta é a folha de senha das Preferências.
@@ -554,7 +554,7 @@ impl Glove {
             let prefs = crate::shell::sibling_binary("glove-prefs");
             std::thread::spawn(move || {
                 if glove_config::rede::connect(&ssid, None).is_err() && secure {
-                    let _ = std::process::Command::new(prefs).args(["rede", "--entrar", &ssid]).spawn().map(|mut c| c.wait());
+                    let _ = std::process::Command::new(prefs).args(["network", "--join", &ssid]).spawn().map(|mut c| c.wait());
                 }
             });
         }
@@ -591,7 +591,7 @@ impl Glove {
             None => v.push(MenuNode::new(MenuItem::item(tr!("Nenhum monitor")).disabled(), None)),
         }
         v.push(MenuNode::sep());
-        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Monitor…")), Some(MenuAction::OpenPrefs("monitor".into()))));
+        v.push(MenuNode::new(MenuItem::item(tr!("Abrir Preferências de Monitor…")), Some(MenuAction::OpenPrefs("displays".into()))));
         v
     }
 

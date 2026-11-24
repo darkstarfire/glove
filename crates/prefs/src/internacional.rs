@@ -43,7 +43,7 @@ else
 fi
 "#;
 
-/// Como administrador (`glove-prefs --instalar-idioma ll_CC`): só os idiomas da lista.
+/// Como administrador (`glove-prefs --install-language ll_CC`): só os idiomas da lista.
 pub fn instalar_como_admin(loc: &str) -> Result<(), String> {
     if !LOCALES.iter().any(|l| l.0 == loc) {
         return Err(tr!("Idioma desconhecido: {}", loc));
@@ -240,7 +240,7 @@ impl Internacional {
             .filter(|p| p.exists())
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|| "glove-prefs".into());
-        let args = vec![exe, "--instalar-idioma".into(), loc.to_string()];
+        let args = vec![exe, "--install-language".into(), loc.to_string()];
         match crate::admin::sudo_state() {
             crate::admin::Sudo::Free => self.job = Some(crate::admin::run(args, None)),
             crate::admin::Sudo::No => self.message = Some(tr!("Instalar um idioma pede uma conta de administrador.").into()),

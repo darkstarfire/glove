@@ -76,10 +76,11 @@ pub struct WinitBackend {
 /// Sessão própria (direto na tela) ou janela dentro do desktop atual.
 fn want_drm() -> bool {
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| a == "--janela" || a == "--winit") {
+    // (As opções são em inglês; as de antes, em português, continuam aceitas.)
+    if args.iter().any(|a| a == "--window" || a == "--winit" || a == "--janela") {
         return false;
     }
-    if args.iter().any(|a| a == "--sessao" || a == "--drm") {
+    if args.iter().any(|a| a == "--session" || a == "--drm" || a == "--sessao") {
         return true;
     }
     match std::env::var("GLOVE_BACKEND").as_deref() {
@@ -143,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     glove_config::tune_memory();
 
-    if std::env::args().any(|a| a == "--monitores") {
+    if std::env::args().any(|a| a == "--displays" || a == "--monitores") {
         return udev::probe(&glove_config::Config::load());
     }
 

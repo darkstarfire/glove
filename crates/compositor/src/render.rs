@@ -1158,7 +1158,7 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
                 state.copy_file_to_clipboard(&path);
                 if std::mem::take(&mut state.open_after_shot) {
                     // Abre pronta para desenhar por cima.
-                    state.spawn(&format!("glove-view --desenhar '{}'", path.display().to_string().replace('\'', "'\\''")));
+                    state.spawn(&format!("glove-view --draw '{}'", path.display().to_string().replace('\'', "'\\''")));
                 }
             }
             Err(e) => tracing::warn!("captura falhou: {e}"),

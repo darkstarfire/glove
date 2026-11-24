@@ -87,6 +87,45 @@ struct PaneInfo {
     keywords: &'static str,
 }
 
+/// Os nomes dos painéis na linha de comando (`glove-prefs network`): em inglês. O segundo
+/// é o nome de dentro (o `id` do painel, que também fica guardado nos favoritos) e
+/// continua aceito na linha de comando. Os que são iguais nas duas línguas (dock, mouse,
+/// trackpad, bluetooth, terminal, expose) não precisam estar aqui.
+const NOMES_CLI: [(&str, &str); 26] = [
+    ("desktop", "mesa"),
+    ("screensaver", "protetor"),
+    ("system-screens", "telas"),
+    ("appearance", "aparencia"),
+    ("displays", "monitor"),
+    ("sound", "som"),
+    ("energy", "energia"),
+    ("keyboard", "teclado"),
+    ("shortcuts", "atalhos"),
+    ("input-menu", "entrada"),
+    ("network", "rede"),
+    ("date-time", "datahora"),
+    ("accounts", "contas"),
+    ("login-items", "inicio"),
+    ("services", "servicos"),
+    ("international", "internacional"),
+    ("accessibility", "acesso"),
+    ("removable-media", "midia"),
+    ("sharing", "compartilhamento"),
+    ("default-apps", "padrao"),
+    ("printing", "impressao"),
+    ("software-update", "atualizacao"),
+    ("startup-disk", "inicializacao"),
+    ("speech", "fala"),
+    ("security", "seguranca"),
+    ("search", "busca"),
+];
+
+/// O nome de dentro do painel pedido na linha de comando (o primeiro argumento), ou "".
+fn painel_pedido() -> String {
+    let a = std::env::args().nth(1).unwrap_or_default();
+    NOMES_CLI.iter().find(|(ingles, _)| *ingles == a).map_or(a, |(_, id)| id.to_string())
+}
+
 const PANES: [PaneInfo; 28] = [
     PaneInfo { pane: Pane::Mesa, id: "mesa", icon: Icon::Pref(PrefKind::Desktop), name: "Mesa e Protetor de Tela", category: 0, keywords: "papel de parede fundo imagem cor sólida foto protetor de tela cantos ativos aurora estrelas bolhas" },
     PaneInfo { pane: Pane::Telas, id: "telas", icon: Icon::Pref(PrefKind::LoginScreen), name: "Telas do Sistema", category: 3, keywords: "login entrar bloqueio bloquear tela saída sair abertura splash plymouth boot desligar tema moderno clássico" },
@@ -397,10 +436,11 @@ const SHORTCUT_GROUPS: [(&str, &[&str]); 4] = [
 impl Prefs {
     fn new() -> Self {
         let mut p = Self::build();
-        if std::env::args().nth(1).as_deref() == Some("protetor") {
+        let pedido = painel_pedido();
+        if pedido == "protetor" {
             p.desk_tab = 1;
         }
-        if std::env::args().nth(1).as_deref() == Some("servicos") {
+        if pedido == "servicos" {
             p.inicio.view = 1;
         }
         if p.pane == Pane::Contas {
@@ -416,9 +456,9 @@ impl Prefs {
         if p.pane == Pane::Inicio {
             p.inicio.refresh();
         }
-        // "glove-prefs rede --entrar REDE" (do menu Wi-Fi): já pede a senha dela.
+        // "glove-prefs network --join REDE" (do menu Wi-Fi): já pede a senha dela.
         let args: Vec<String> = std::env::args().collect();
-        if let Some(ssid) = args.iter().position(|a| a == "--entrar").and_then(|i| args.get(i + 1)) {
+        if let Some(ssid) = args.iter().position(|a| a == "--join" || a == "--entrar").and_then(|i| args.get(i + 1)) {
             p.rede.show = 1 + rede_wifi_index();
             p.rede.prompt = Some((ssid.clone(), String::new()));
         }
@@ -447,8 +487,7 @@ impl Prefs {
         images.dedup();
         videos.sort();
         videos.dedup();
-        let args: Vec<String> = std::env::args().skip(1).collect();
-        let arg = args.first().cloned().unwrap_or_default();
+        let arg = painel_pedido();
         // "atalhos" é a segunda aba do Teclado (como no 10.4).
         let (pane, kbd_tab) = match arg.as_str() {
             "atalhos" => (Pane::Teclado, 1),
@@ -898,7 +937,7 @@ impl Prefs {
             // desliga), no tema escolhido para ela.
             if ui.button(tr!("Ver a Tela de Login…")) {
                 let tema = self.config.screen_theme(Screen::Login);
-                let _ = std::process::Command::new("glove-login").args(["--fake", "--tema", &tema]).spawn();
+                let _ = std::process::Command::new("glove-login").args(["--fake", "--theme", &tema]).spawn();
             }
             ui.small(tr!("Numa janela, sem entrar nem desligar."));
         });
@@ -3039,20 +3078,20 @@ fn wrap2(ui: &Ui, t: &str, max: f32) -> Vec<String> {
 
 pub fn main() {
     // O verificador de atualizações do Glove (a sessão o inicia; sem janela).
-    if std::env::args().any(|a| a == "--verificar-atualizacao") {
+    if std::env::args().any(|a| a == "--check-updates" || a == "--verificar-atualizacao") {
         atualizar::verificar_em_segundo_plano();
         return;
     }
     // Como administrador (pelo sudo): a aparência na tela de login e na abertura do sistema.
     let args: Vec<String> = std::env::args().collect();
-    if let Some(i) = args.iter().position(|a| a == "--instalar-idioma") {
+    if let Some(i) = args.iter().position(|a| a == "--install-language" || a == "--instalar-idioma") {
         if let Err(e) = internacional::instalar_como_admin(args.get(i + 1).map(String::as_str).unwrap_or("")) {
             eprintln!("{e}");
             std::process::exit(1);
         }
         return;
     }
-    if let Some(i) = args.iter().position(|a| a == "--tema-sistema") {
+    if let Some(i) = args.iter().position(|a| a == "--system-theme" || a == "--tema-sistema") {
         let login = args.get(i + 1).cloned().unwrap_or_default();
         let abertura = args.get(i + 2).cloned().unwrap_or_else(|| login.clone());
         if let Err(e) = tema_sistema::aplicar_como_admin(&login, &abertura) {
@@ -3094,6 +3133,23 @@ mod tests {
     fn grupos_cobrem_todos_os_atalhos() {
         for (action, _) in glove_config::ACTIONS {
             assert!(super::SHORTCUT_GROUPS.iter().any(|(_, a)| a.contains(action)), "{action} sem grupo");
+        }
+    }
+}
+
+#[cfg(test)]
+mod testes_da_linha_de_comando {
+    use super::*;
+
+    /// Cada nome em inglês leva a um painel que existe (ou a uma das abas com nome
+    /// próprio), e nenhum se repete.
+    #[test]
+    fn nomes_dos_paineis_em_ingles() {
+        let abas = ["atalhos", "entrada", "protetor", "servicos"];
+        for (i, (ingles, id)) in NOMES_CLI.iter().enumerate() {
+            assert!(PANES.iter().any(|p| p.id == *id) || abas.contains(id), "{ingles} leva a {id}, que não existe");
+            assert!(NOMES_CLI.iter().skip(i + 1).all(|(outro, _)| outro != ingles), "{ingles} repetido");
+            assert!(!PANES.iter().any(|p| p.id == *ingles), "{ingles} já é o nome de dentro de outro painel");
         }
     }
 }

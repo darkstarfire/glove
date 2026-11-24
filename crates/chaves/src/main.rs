@@ -370,7 +370,7 @@ impl App for Chaves {
 pub fn main() {
     let mut backend = Backend::new();
     // Diagnóstico sem mostrar nada pessoal: só quantos chaveiros e itens o serviço tem.
-    if std::env::args().any(|a| a == "--contar") {
+    if std::env::args().any(|a| a == "--count" || a == "--contar") {
         match backend.keyrings() {
             Ok(r) => println!("{} chaveiros, {} itens", r.len(), r.iter().map(|k| k.items.len()).sum::<usize>()),
             Err(e) => println!("erro: {e}"),

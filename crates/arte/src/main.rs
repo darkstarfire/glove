@@ -3,11 +3,11 @@
 //!   glove-arte plymouth <pasta> [tema]  tema do Plymouth (início e desligamento do sistema):
 //!                                 logo (a luva), 12 quadros do giratório, .plymouth e .script;
 //!                                 tema: claro (o "glove"), moderno ou moderno-escuro
-//!   glove-arte icones <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
+//!   glove-arte icons <pasta>     tema de ícones "Glove" (freedesktop): PNGs de 16 a 256
 //!                                 pixels (1× e 2×), index.theme e os nomes comuns como atalhos
 //!   glove-arte firefox <pasta>    tema do Glove para o Firefox (metal escovado, como o
 //!                                 Safari clássico): manifest.json e metal.png
-//!   glove-arte previa <arquivo>   folha de amostra do tema de ícones (PNG): todos os ícones
+//!   glove-arte preview <arquivo>   folha de amostra do tema de ícones (PNG): todos os ícones
 //!                                 a 128 px com o nome freedesktop embaixo (preview do glove-icons)
 
 use std::path::Path;
@@ -339,19 +339,19 @@ fn main() {
     glove_paint::icons::fix_calendar_date(7, 17);
     let r = match args.first().map(String::as_str) {
         Some("plymouth") => plymouth(Path::new(args.get(1).map(String::as_str).unwrap_or("data/plymouth/glove")), args.get(2).map(String::as_str).unwrap_or("claro")),
-        Some("icones") => match args.get(1) {
+        Some("icons" | "icones") => match args.get(1) {
             Some(d) => icones(Path::new(d)).map(|n| println!("{n} imagens em {d}")),
-            None => Err("uso: glove-arte icones <pasta>".into()),
+            None => Err("usage: glove-arte icons <folder>".into()),
         },
         Some("firefox") => match args.get(1) {
             Some(d) => firefox(Path::new(d)).map(|_| println!("tema do Firefox em {d}")),
-            None => Err("uso: glove-arte firefox <pasta>".into()),
+            None => Err("usage: glove-arte firefox <folder>".into()),
         },
-        Some("previa") => match args.get(1) {
+        Some("preview" | "previa") => match args.get(1) {
             Some(f) => previa(Path::new(f)).map(|n| println!("{n} ícones em {f}")),
-            None => Err("uso: glove-arte previa <arquivo.png>".into()),
+            None => Err("usage: glove-arte preview <file.png>".into()),
         },
-        _ => Err("uso: glove-arte plymouth <pasta> | glove-arte icones <pasta> | glove-arte previa <arquivo.png>".into()),
+        _ => Err("usage: glove-arte plymouth <folder> | glove-arte icons <folder> | glove-arte firefox <folder> | glove-arte preview <file.png>".into()),
     };
     if let Err(e) = r {
         eprintln!("glove-arte: {e}");

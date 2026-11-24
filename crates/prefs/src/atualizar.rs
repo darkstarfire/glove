@@ -9,7 +9,7 @@
 //!   pelo `SHA256SUMS` dela;
 //! - instalado pelo código: o painel diz como atualizar.
 //!
-//!   glove-prefs --verificar-atualizacao   fica de fundo na sessão: confere de tempos
+//!   glove-prefs --check-updates   fica de fundo na sessão: confere de tempos
 //!                                         em tempos o Glove e o resto do sistema e
 //!                                         avisa (balão e central de avisos da barra
 //!                                         de menu); "Ver" abre o painel

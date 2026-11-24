@@ -27,9 +27,9 @@ impl EndKind {
     }
     fn word(self) -> &'static str {
         match self {
-            Self::LogOut => "encerrar",
-            Self::Restart => "reiniciar",
-            Self::ShutDown => "desligar",
+            Self::LogOut => "logout",
+            Self::Restart => "restart",
+            Self::ShutDown => "shutdown",
         }
     }
     pub fn label(self, nested: bool) -> &'static str {
@@ -150,7 +150,7 @@ impl Glove {
                 self.ending = None;
                 tracing::info!("fim de sessão cancelado: {app} não fechou");
                 let word = if kind == EndKind::LogOut && self.nested { "sair" } else { kind.word() };
-                self.spawn(&format!("glove-sair cancelado {word} {}", shell_quote(&app)));
+                self.spawn(&format!("glove-sair cancelled {word} {}", shell_quote(&app)));
                 return false;
             }
             return true;
@@ -175,7 +175,7 @@ impl Glove {
                 tracing::warn!("systemctl {cmd} falhou");
                 self.ending = None;
                 self.dirty = true;
-                self.spawn(&format!("glove-sair falhou {}", kind.word()));
+                self.spawn(&format!("glove-sair failed {}", kind.word()));
                 return false;
             }
         }

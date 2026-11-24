@@ -189,7 +189,7 @@ própria distribuição:
 
 O navegador do Glove, a [Jangada](https://github.com/fabioaacarneiro/jangada), tem pacote próprio para
 Debian e Ubuntu (`jangada_VERSÃO_amd64.deb`, na release dela). O pacote `glove` a recomenda (o apt a
-instala junto pelo repositório do Glove); instalando pelo código, o `./glove-setup-tool.sh instalar`
+instala junto pelo repositório do Glove); instalando pelo código, o `./glove-setup-tool.sh install`
 pergunta se instala a Jangada também. O Glove OS já vem com ela.
 
 No Slackware, o Glove precisa do `seatd` e do `greetd`, do SlackBuilds.org.
@@ -210,11 +210,11 @@ tudo: os programas, a sessão "Glove" na tela de login, a tela de login do Glove
 ./glove-setup-tool.sh rpm             # Fedora/openSUSE (precisa do rpmbuild; sem ele, deixa o .spec)
 ./glove-setup-tool.sh arch            # Arch (.pkg.tar.zst e o PKGBUILD para o makepkg)
 ./glove-setup-tool.sh slackware       # Slackware (.tgz)
-./glove-setup-tool.sh todos           # os quatro (em inglês: all)
-./glove-setup-tool.sh instalar        # sem pacote: compila e instala em /usr/local
-./glove-setup-tool.sh desinstalar     # o inverso do "instalar" (ou chama o gerenciador de pacotes)
-./glove-setup-tool.sh dependencias    # o que falta para compilar (apt, dnf, pacman, zypper, xbps, apk)
-./glove-setup-tool.sh grub            # papel de parede do Glove OS na tela do GRUB ("grub remover" desfaz)
+./glove-setup-tool.sh all             # os quatro
+./glove-setup-tool.sh install         # sem pacote: compila e instala em /usr/local
+./glove-setup-tool.sh uninstall       # o inverso do "install" (ou chama o gerenciador de pacotes)
+./glove-setup-tool.sh deps            # o que falta para compilar (apt, dnf, pacman, zypper, xbps, apk)
+./glove-setup-tool.sh grub            # papel de parede do Glove OS na tela do GRUB ("grub remove" desfaz)
 ```
 
 Instalar o pacote (exemplo no Debian/Ubuntu/Zorin):
@@ -234,7 +234,7 @@ sudo systemctl enable --force gdm           # volta ao GDM (ou lightdm, sddm…)
 
 `./glove-setup-tool.sh login` faz o mesmo que o primeiro comando, mas guarda qual era a tela de
 login de antes e leva para a tela do Glove os seus ajustes de monitor, escala, teclado e
-tema; `./glove-setup-tool.sh login remover` volta à de antes. O serviço usa uma configuração
+tema; `./glove-setup-tool.sh login remove` volta à de antes. O serviço usa uma configuração
 própria do greetd (não mexe em `/etc/greetd/config.toml`); para usar uma sua, crie
 `/etc/glove/greetd.toml`.
 
@@ -261,7 +261,7 @@ sistema para o disco (inteiro ou ao lado de outro sistema). Como usar o instalad
 
 ```sh
 ./glove-setup-tool.sh iso          # monta a ISO em iso/ (pede a senha do sudo; 15 a 40 min)
-./glove-setup-tool.sh iso testar   # liga a ISO numa máquina virtual (QEMU) com um disco de teste
+./glove-setup-tool.sh iso test     # liga a ISO numa máquina virtual (QEMU) com um disco de teste
 ```
 
 Para montar a ISO: um sistema da família Debian (Debian, Ubuntu…) em x86_64, com `dpkg-deb`, `sudo`,
@@ -288,11 +288,11 @@ com os pacotes `.deb` e o `SHA256SUMS`, na página de [Releases](https://github.
 cargo build --release
 ./install.sh                          # pergunta passo a passo: sessão, tela de login, Plymouth
 sudo ./data/install-session.sh        # põe "Glove" na lista de sessões (usa os arquivos do projeto)
-./target/release/glove --monitores    # mostra qual tela, resolução e escala a sessão vai usar
+./target/release/glove --displays     # mostra qual tela, resolução e escala a sessão vai usar
 ```
 
 Na tela de login, escolha **Glove** no ícone de engrenagem. Para testar antes sem sair da sessão
-atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/release/glove --sessao`.
+atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/release/glove --session`.
 
 - Sair: menu principal → **Encerrar Sessão…** ou Ctrl+Alt+Backspace
 - Ctrl+Alt+F1…F12 trocam de console (e voltam ao Glove)
@@ -341,7 +341,7 @@ Dentro de outro desktop, Alt vale como Super (o desktop por baixo costuma captur
 
 O Glove tem tela de login própria (`glove --greeter` + `glove-login`), feita para o
 [greetd](https://sr.ht/~kennylevinsen/greetd/). Com o Glove instalado (pacote ou
-`./glove-setup-tool.sh instalar`), ela é o serviço `glove-login`: veja "Instalar no sistema" acima
+`./glove-setup-tool.sh install`), ela é o serviço `glove-login`: veja "Instalar no sistema" acima
 (`sudo systemctl enable --force glove-login`).
 
 No modo de desenvolvimento (a sessão usa os programas do projeto):
@@ -357,13 +357,13 @@ teste: `glove`).
 
 ## Tela do GRUB (opcional)
 
-O `./glove-setup-tool.sh instalar` pergunta, no fim, se você quer trocar também a tela do GRUB (o
+O `./glove-setup-tool.sh install` pergunta, no fim, se você quer trocar também a tela do GRUB (o
 menu que aparece ao ligar o computador) pelo papel de parede do Glove OS, com o texto do menu em
 branco. Dá para fazer depois, ou desfazer:
 
 ```sh
 ./glove-setup-tool.sh grub            # pergunta e troca (refaz o menu do GRUB)
-./glove-setup-tool.sh grub remover    # volta à tela de antes
+./glove-setup-tool.sh grub remove     # volta à tela de antes
 ```
 
 Ele copia a imagem para `/boot/grub/glove-os.png`, aponta o `GRUB_BACKGROUND` para ela (em
@@ -429,7 +429,7 @@ crates/portal      `glove-portal` (portal FileChooser) e `glove-escolher`
 crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
 crates/boasvindas  assistente de primeiro uso (`glove-boasvindas`)
 crates/sair        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-sair`)
-crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-arte icones <pasta>` e a amostra dele com `glove-arte previa <arquivo.png>`)
+crates/arte        `glove-arte`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-arte icons <pasta>` e a amostra dele com `glove-arte previa <arquivo.png>`)
 crates/energia     bateria (biblioteca usada pelo compositor e pelas Preferências)
 crates/instalador  Instalar o Glove OS (`glove-instalador`)
 crates/senha       senha do sistema: o agente do polkit (`glove-senha`)

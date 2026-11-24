@@ -458,7 +458,7 @@ fn empty_trash_in(t: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Janela de confirmação de "Esvaziar Lixeira…" (glove-files --esvaziar-lixeira).
+/// Janela de confirmação de "Esvaziar Lixeira…" (glove-files --empty-trash).
 struct EmptyTrash {
     count: usize,
     error: Option<String>,
@@ -502,7 +502,7 @@ fn open_file(e: &Entry) {
     let out = |args: &[&str]| Command::new("xdg-mime").args(args).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
     let ext = e.path.extension().and_then(|x| x.to_str()).map(|x| x.to_ascii_lowercase()).unwrap_or_default();
     if e.kind == Kind::Archive && expandable(&e.path) {
-        let _ = launch(Command::new(sibling("glove-arquivo")).arg("expandir").arg(&e.path));
+        let _ = launch(Command::new(sibling("glove-arquivo")).arg("expand").arg(&e.path));
         return;
     }
     // AppImage: a janela de abrir ou instalar (arrastando para Aplicativos).
@@ -710,7 +710,7 @@ impl Files {
             self.go(home());
         }
         self.mounts.0 = None;
-        let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--ejetar").arg(mount));
+        let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--eject").arg(mount));
     }
 
     /// Colar/soltar `srcs` em `dir`: pergunta antes se algum nome já existe lá.
@@ -1156,7 +1156,7 @@ impl Files {
         } else if e.kind == Kind::Server {
             // Conectar (pede a senha, se o servidor quiser) e abrir numa janela.
             if let Some(uri) = rede::uri_of(&e.path) {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).args(["--conectar", &uri, "--ja"]));
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).args(["--connect", &uri, "--now"]));
             }
         } else {
             // Achar o app padrão chama o xdg-mime (lento): fora da janela.
@@ -2469,7 +2469,7 @@ impl Files {
             "compress" => {
                 let items = self.all_selected();
                 if !items.is_empty() {
-                    if let Err(e) = launch(std::process::Command::new(sibling("glove-arquivo")).arg("compactar").args(&items)) {
+                    if let Err(e) = launch(std::process::Command::new(sibling("glove-arquivo")).arg("compress").args(&items)) {
                         self.message = Some(tr!("Não foi possível abrir o Utilitário de Arquivo: {}", e));
                     }
                 }
@@ -2521,7 +2521,7 @@ impl Files {
             "empty-trash" => {
                 // Sem o aviso (Preferências ▸ Avançado): esvazia direto.
                 if self.cfg.warn_empty_trash {
-                    let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--esvaziar-lixeira"));
+                    let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--empty-trash"));
                 } else if let Err(e) = empty_trash() {
                     self.message = Some(e);
                 }
@@ -2542,7 +2542,7 @@ impl Files {
             "next-tab" => self.step_tab(1),
             "prev-tab" => self.step_tab(-1),
             "connect" => {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--conectar"));
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--connect"));
             }
             "go-network" => self.go(PathBuf::from(rede::ROOT)),
             "toggle-toolbar" => {
@@ -2555,10 +2555,10 @@ impl Files {
                 }
             }
             "view-options" => {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--opcoes"));
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--view-options"));
             }
             "prefs" => {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--preferencias"));
+                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--preferences"));
             }
             a if a.starts_with("openwith:") => {
                 let all = self.all_selected();
@@ -2902,20 +2902,21 @@ pub fn main() {
         }
         return;
     }
-    // Pedidos da mesa (o compositor desenha a mesa e chama o Arquivos para o resto).
+    // Pedidos da mesa (o compositor desenha a mesa e chama o Arquivos para o resto). As
+    // opções são em inglês; as de antes, em português, continuam aceitas.
     match args.get(1).map(String::as_str) {
-        Some("--abrir") => return mesa::open_paths(&args[2..].iter().map(PathBuf::from).collect::<Vec<_>>()),
-        Some("--transferir") if args.len() > 4 => {
-            return mesa::transfer(args[2] == "mover", PathBuf::from(&args[3]), args[4..].iter().map(PathBuf::from).collect());
+        Some("--open" | "--abrir") => return mesa::open_paths(&args[2..].iter().map(PathBuf::from).collect::<Vec<_>>()),
+        Some("--transfer" | "--transferir") if args.len() > 4 => {
+            return mesa::transfer(matches!(args[2].as_str(), "move" | "mover"), PathBuf::from(&args[3]), args[4..].iter().map(PathBuf::from).collect());
         }
-        Some("--opcoes-mesa") => return mesa::view_options(),
-        Some("--opcoes") => return preferencias::view_options(),
-        Some("--preferencias") => return preferencias::preferences(),
-        Some("--conectar") => return rede::connect_window(args.get(2).filter(|a| !a.starts_with("--")).cloned(), args.iter().any(|a| a == "--ja")),
-        Some("--ejetar") if args.len() > 2 => return mesa::eject(PathBuf::from(&args[2])),
-        Some("--aviso-ejetar") if args.len() > 2 => return mesa::eject_warning(args[2].clone()),
-        Some("--duplicar") => return mesa::duplicate(args[2..].iter().map(PathBuf::from).collect()),
-        Some("--lixo") => {
+        Some("--desktop-view-options" | "--opcoes-mesa") => return mesa::view_options(),
+        Some("--view-options" | "--opcoes") => return preferencias::view_options(),
+        Some("--preferences" | "--preferencias") => return preferencias::preferences(),
+        Some("--connect" | "--conectar") => return rede::connect_window(args.get(2).filter(|a| !a.starts_with("--")).cloned(), args.iter().any(|a| a == "--now" || a == "--ja")),
+        Some("--eject" | "--ejetar") if args.len() > 2 => return mesa::eject(PathBuf::from(&args[2])),
+        Some("--eject-warning" | "--aviso-ejetar") if args.len() > 2 => return mesa::eject_warning(args[2].clone()),
+        Some("--duplicate" | "--duplicar") => return mesa::duplicate(args[2..].iter().map(PathBuf::from).collect()),
+        Some("--trash" | "--lixo") => {
             for p in &args[2..] {
                 if let Err(e) = move_to_trash(Path::new(p)) {
                     eprintln!("glove-files: {p}: {e}");
@@ -2925,7 +2926,7 @@ pub fn main() {
         }
         _ => {}
     }
-    if std::env::args().any(|a| a == "--esvaziar-lixeira") {
+    if args.iter().any(|a| a == "--empty-trash" || a == "--esvaziar-lixeira") {
         let count = std::fs::read_dir(trash_dir().join("files")).map(|d| d.count()).unwrap_or(0);
         if count == 0 {
             return;
@@ -2943,9 +2944,9 @@ pub fn main() {
         }
         return;
     }
-    // "--mostrar ARQUIVO" (Mostrar na pasta, do Firefox e outros, pelo FileManager1): a
+    // "--show ARQUIVO" (Mostrar na pasta, do Firefox e outros, pelo FileManager1): a
     // pasta dele, com ele já escolhido.
-    let show = args.iter().position(|a| a == "--mostrar").and_then(|i| args.get(i + 1)).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok());
+    let show = args.iter().position(|a| a == "--show" || a == "--mostrar").and_then(|i| args.get(i + 1)).map(PathBuf::from).filter(|p| std::fs::symlink_metadata(p).is_ok());
     let start = match &show {
         Some(p) if !p.is_dir() => p.parent().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/")),
         Some(p) => p.clone(),

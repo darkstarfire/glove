@@ -166,7 +166,7 @@ impl Glove {
                 if !self.idle.logout_asked {
                     tracing::info!("parado há {lm} min: encerrando a sessão");
                     self.idle.logout_asked = true;
-                    self.spawn(if self.nested { "glove-sair sair" } else { "glove-sair encerrar" });
+                    self.spawn(if self.nested { "glove-sair quit" } else { "glove-sair logout" });
                 }
             } else {
                 next = next.min(timeout - idle);

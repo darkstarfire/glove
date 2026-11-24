@@ -1,7 +1,7 @@
 //! glove-escolher: a janela Abrir/Salvar do Glove sozinha, para outros apps (o
 //! navegador, pelo portal). Escreve o caminho escolhido na saída e sai com 0;
 //! cancelar ou fechar sai com 1.
-//!   glove-escolher abrir|salvar|pasta [--titulo T] [--nome N] [--em PASTA] [--tipos png,jpg]
+//!   glove-escolher open|save|folder [--title T] [--name N] [--in PASTA] [--types png,jpg]
 
 use glove_config::tr;
 use std::path::PathBuf;
@@ -26,23 +26,28 @@ impl App for Escolher {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let val = |k: &str| args.iter().position(|a| a == k).and_then(|i| args.get(i + 1)).cloned();
-    let mode = args.first().map(String::as_str).unwrap_or("abrir");
-    let dir = val("--em").map(PathBuf::from);
-    let types: Vec<String> = val("--tipos").map(|t| t.split(',').map(str::to_string).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
+    // As opções e os modos são em inglês; os de antes, em português, continuam aceitos.
+    let val = |k: &str, antigo: &str| args.iter().position(|a| a == k || a == antigo).and_then(|i| args.get(i + 1)).cloned();
+    let mode = match args.first().map(String::as_str).unwrap_or("open") {
+        "save" | "salvar" => "save",
+        "folder" | "pasta" => "folder",
+        _ => "open",
+    };
+    let dir = val("--in", "--em").map(PathBuf::from);
+    let types: Vec<String> = val("--types", "--tipos").map(|t| t.split(',').map(str::to_string).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
     let refs: Vec<&str> = types.iter().map(String::as_str).collect();
     let mut fb = match mode {
-        "salvar" => FileBrowser::save(dir, &val("--nome").unwrap_or_default()),
-        "pasta" => FileBrowser::folder(dir),
+        "save" => FileBrowser::save(dir, &val("--name", "--nome").unwrap_or_default()),
+        "folder" => FileBrowser::folder(dir),
         _ => FileBrowser::open(dir, &refs),
     };
     fb.whole_window = true;
     let default_title = match mode {
-        "salvar" => tr!("Salvar"),
-        "pasta" => tr!("Escolher uma pasta"),
+        "save" => tr!("Salvar"),
+        "folder" => tr!("Escolher uma pasta"),
         _ => tr!("Abrir"),
     };
-    let title = val("--titulo").filter(|t| !t.is_empty()).unwrap_or_else(|| default_title.into());
+    let title = val("--title", "--titulo").filter(|t| !t.is_empty()).unwrap_or_else(|| default_title.into());
     let opts = WindowOptions { title, app_id: "glove.Escolher".into(), size: (640, 410), fixed: false, min_size: Some((480, 300)) };
     if let Err(e) = run(opts, Escolher { fb }) {
         eprintln!("glove-escolher: {e}");

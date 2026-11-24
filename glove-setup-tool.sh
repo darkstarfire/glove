@@ -135,7 +135,7 @@ compile() {
     if ! has cargo && [ "$(id -u)" = 0 ] && [ -n "${SUDO_USER:-}" ]; then
         die "$(t "rode sem o sudo: ./glove-setup-tool.sh install (o Rust é da sua conta, e o script pede a senha só nos passos que precisam)" "run it without sudo: ./glove-setup-tool.sh install (Rust belongs to your account, and the script asks for the password only where needed)")"
     fi
-    has cargo || die "$(t "falta o Rust (cargo). Rode: ./glove-setup-tool.sh dependencias" "Rust (cargo) is missing. Run: ./glove-setup-tool.sh deps")"
+    has cargo || die "$(t "falta o Rust (cargo). Rode: ./glove-setup-tool.sh deps" "Rust (cargo) is missing. Run: ./glove-setup-tool.sh deps")"
     # The Rust of some distributions (Debian 13 has 1.85) is older than the one the
     # dependencies need: say so plainly instead of letting the build fail.
     need=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -1)
@@ -203,7 +203,7 @@ stage() {
     fi
     chmod 644 "$dest/etc/pam.d/glove"
     # Icon theme (drawn by code, the same as the glove-icons repository).
-    target/release/glove-arte icones "$dest$prefix/share/icons/Glove" >/dev/null
+    target/release/glove-arte icons "$dest$prefix/share/icons/Glove" >/dev/null
     # Wallpapers (the Glove OS one is the default).
     mkdir -p "$dest$prefix/share/glove/papeis"
     install -m 644 data/papeis/*.png "$dest$prefix/share/glove/papeis/"
@@ -880,7 +880,7 @@ login() {
         rm -f "$state_dir/gerenciador-anterior"
         return
     fi
-    systemctl cat glove-login.service >/dev/null 2>&1 || die "$(t "o Glove não está instalado (instale o pacote ou rode: ./glove-setup-tool.sh instalar)" "Glove isn’t installed (install the package or run: ./glove-setup-tool.sh install)")"
+    systemctl cat glove-login.service >/dev/null 2>&1 || die "$(t "o Glove não está instalado (instale o pacote ou rode: ./glove-setup-tool.sh install)" "Glove isn’t installed (install the package or run: ./glove-setup-tool.sh install)")"
     if ! has greetd; then
         msg "$(t "Instalando o greetd" "Installing greetd")"
         case $(distro) in
@@ -918,7 +918,7 @@ login() {
         [ -n "$current" ] && echo "$current" > "$state_dir/gerenciador-anterior"
         systemctl enable --force glove-login
         echo "$(t "Pronto: reinicie para ver a tela de login do Glove." "Done: restart to see the Glove login screen.")"
-        echo "$(t "Para voltar à do ${current:-sistema}: ./glove-setup-tool.sh login remover" "To go back to ${current:-the system’s}: ./glove-setup-tool.sh login remove")"
+        echo "$(t "Para voltar à do ${current:-sistema}: ./glove-setup-tool.sh login remove" "To go back to ${current:-the system’s}: ./glove-setup-tool.sh login remove")"
     fi
 }
 
@@ -1009,7 +1009,7 @@ GRUB_TERMINAL_OUTPUT=\"gfxterm\""
     fi
     refresh
     echo "$(t "Pronto: o papel de parede do Glove OS aparece no menu do GRUB no próximo início." "Done: the Glove OS wallpaper shows in the GRUB menu on the next boot.")"
-    echo "$(t "Para desfazer: ./glove-setup-tool.sh grub remover" "To undo: ./glove-setup-tool.sh grub remove")"
+    echo "$(t "Para desfazer: ./glove-setup-tool.sh grub remove" "To undo: ./glove-setup-tool.sh grub remove")"
 }
 
 # --- Glove live ISO (Debian) ----------------------------------------------------------
@@ -1129,7 +1129,7 @@ build_iso() {
     sudo chown "$(id -u):$(id -g)" "$final"
     cd "$root_dir"
     msg "$(t "ISO pronta: $final" "ISO ready: $final")"
-    echo "$(t "Para testar numa máquina virtual: ./glove-setup-tool.sh iso testar" "To try it in a virtual machine: ./glove-setup-tool.sh iso test")"
+    echo "$(t "Para testar numa máquina virtual: ./glove-setup-tool.sh iso test" "To try it in a virtual machine: ./glove-setup-tool.sh iso test")"
     echo "$(t "Para gravar num pendrive (apaga o pendrive!): sudo dd if=$final of=/dev/sdX bs=4M status=progress oflag=sync" "To write it to a USB stick (erases the stick!): sudo dd if=$final of=/dev/sdX bs=4M status=progress oflag=sync")"
 }
 
@@ -1161,19 +1161,19 @@ show_help() {
 Ferramenta de instalação do Glove (qualquer Linux)
 
   ./glove-setup-tool.sh                      menu
-  ./glove-setup-tool.sh instalar [PREFIXO]   compila e instala (padrão: /usr/local)
-  ./glove-setup-tool.sh desinstalar          o inverso de instalar
-  ./glove-setup-tool.sh deb|slackware|rpm|arch|todos   gera os pacotes em pacotes/
+  ./glove-setup-tool.sh install [PREFIXO]    compila e instala (padrão: /usr/local)
+  ./glove-setup-tool.sh uninstall            o inverso de install
+  ./glove-setup-tool.sh deb|slackware|rpm|arch|all   gera os pacotes em pacotes/
   ./glove-setup-tool.sh jangada              baixa (ou compila) o pacote do navegador, a Jangada
-  ./glove-setup-tool.sh dependencias         instala o que falta para compilar
-  ./glove-setup-tool.sh login [remover]      torna a tela de login do Glove a principal
+  ./glove-setup-tool.sh deps                 instala o que falta para compilar
+  ./glove-setup-tool.sh login [remove]       torna a tela de login do Glove a principal
                                              (= sudo systemctl enable --force glove-login)
-  ./glove-setup-tool.sh grub [remover]       põe o papel de parede do Glove OS na tela do GRUB
+  ./glove-setup-tool.sh grub [remove]        põe o papel de parede do Glove OS na tela do GRUB
                                              (o menu que aparece ao ligar o computador)
   ./glove-setup-tool.sh iso                  monta a ISO do Glove ao vivo (Debian) em iso/
-  ./glove-setup-tool.sh iso testar           liga a ISO numa máquina virtual (QEMU)
+  ./glove-setup-tool.sh iso test             liga a ISO numa máquina virtual (QEMU)
 
-O pacote e o "instalar" trazem tudo, inclusive a tela de login (serviço glove-login,
+O pacote e o "install" trazem tudo, inclusive a tela de login (serviço glove-login,
 sobre o greetd). Detalhes: README.md, seção "Instalar no sistema".
 Para testar sem instalar nada: ./install.sh (usa os programas do projeto).
 END
@@ -1253,5 +1253,5 @@ case "${1:-}" in
     iso) case "${2:-}" in test|testar) test_iso ;; *) build_iso ;; esac ;;
     _stage|_montar) stage_no_build=1; stage "$2" "$3" "$4" ;;
     -h|--help|help|ajuda) show_help ;;
-    *) die "$(t "opção desconhecida: $1 (veja ./glove-setup-tool.sh ajuda)" "unknown option: $1 (see ./glove-setup-tool.sh help)")" ;;
+    *) die "$(t "opção desconhecida: $1 (veja ./glove-setup-tool.sh help)" "unknown option: $1 (see ./glove-setup-tool.sh help)")" ;;
 esac

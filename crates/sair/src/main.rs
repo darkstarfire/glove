@@ -1,9 +1,9 @@
 //! Alertas do fim de sessão (abertos pelo Glove):
 //!
-//! - `glove-sair desligar|reiniciar|encerrar|sair`: confirma, com contagem de 120 s
+//! - `glove-sair shutdown|restart|logout|quit`: confirma, com contagem de 120 s
 //!   (sem resposta, a ação acontece sozinha), e pede ao Glove para executar.
-//! - `glove-sair cancelado <ação> <app>`: um app não fechou e o encerramento parou.
-//! - `glove-sair falhou <ação>`: o sistema recusou desligar ou reiniciar.
+//! - `glove-sair cancelled <ação> <app>`: um app não fechou e o encerramento parou.
+//! - `glove-sair failed <ação>`: o sistema recusou desligar ou reiniciar.
 
 use glove_config::tr;
 use std::time::{Duration, Instant};
@@ -102,8 +102,17 @@ impl App for Sair {
     }
 }
 
+/// A ação pedida na linha de comando: em inglês (`shutdown`, `restart`, `logout`, `quit`);
+/// os nomes de antes, em português, continuam aceitos. (Por dentro, os de antes.)
 fn kind_arg(s: Option<String>) -> Option<&'static str> {
     let s = s?;
+    let s = match s.as_str() {
+        "shutdown" => "desligar",
+        "restart" => "reiniciar",
+        "logout" => "encerrar",
+        "quit" => "sair",
+        outro => outro,
+    };
     KINDS.into_iter().find(|k| *k == s)
 }
 
@@ -111,12 +120,12 @@ pub fn main() {
     let mut args = std::env::args().skip(1);
     let first = args.next();
     let mode = match first.as_deref() {
-        Some("cancelado") => kind_arg(args.next()).map(|kind| Mode::Cancelled { kind, app: args.next().unwrap_or_else(|| tr!("Um aplicativo").into()) }),
-        Some("falhou") => kind_arg(args.next()).map(|kind| Mode::Failed { kind }),
+        Some("cancelled" | "cancelado") => kind_arg(args.next()).map(|kind| Mode::Cancelled { kind, app: args.next().unwrap_or_else(|| tr!("Um aplicativo").into()) }),
+        Some("failed" | "falhou") => kind_arg(args.next()).map(|kind| Mode::Failed { kind }),
         _ => kind_arg(first).map(|kind| Mode::Confirm { kind, started: Instant::now() }),
     };
     let Some(mode) = mode else {
-        eprintln!("uso: glove-sair desligar|reiniciar|encerrar|sair\n      glove-sair cancelado <ação> <app>\n      glove-sair falhou <ação>");
+        eprintln!("usage: glove-sair shutdown|restart|logout|quit\n       glove-sair cancelled <action> <app>\n       glove-sair failed <action>");
         std::process::exit(2);
     };
     let title = match &mode {
@@ -132,6 +141,17 @@ pub fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn acoes_da_linha_de_comando() {
+        // Em inglês, e as de antes continuam aceitas.
+        assert_eq!(kind_arg(Some("shutdown".into())), Some("desligar"));
+        assert_eq!(kind_arg(Some("restart".into())), Some("reiniciar"));
+        assert_eq!(kind_arg(Some("logout".into())), Some("encerrar"));
+        assert_eq!(kind_arg(Some("quit".into())), Some("sair"));
+        assert_eq!(kind_arg(Some("desligar".into())), Some("desligar"));
+        assert_eq!(kind_arg(Some("outra".into())), None);
+    }
 
     #[test]
     fn contagem() {

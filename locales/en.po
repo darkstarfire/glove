@@ -4396,8 +4396,8 @@ msgstr "Language and Keyboard"
 msgid "Idioma:"
 msgstr "Language:"
 
-msgid "Inicie o computador pelo pendrive ou DVD do Glove OS para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."
-msgstr "Start the computer from the Glove OS USB stick or DVD to install. To see the installer without changing anything, use glove-instalador --simular."
+msgid "Inicie o computador pelo pendrive ou DVD do Glove OS para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --dry-run."
+msgstr "Start the computer from the Glove OS USB stick or DVD to install. To see the installer without changing anything, use glove-instalador --dry-run."
 
 msgid "Instalando o carregador de boot"
 msgstr "Installing the boot loader"

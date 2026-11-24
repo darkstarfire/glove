@@ -1605,6 +1605,26 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     escala fracionária no motor.
   - (P) O desenho do kit ocupa a janela inteira (transparente sobre a página): em 4K são dezenas
     de MB; limitar às barras.
-  - (M) As ferramentas do Glove ainda têm opções de linha de comando em português
-    (`--tema-sistema`, `--conectar`, `--esvaziar-lixeira`, `--instalar-idioma`…): passar para o
-    inglês, aceitando as de antes.
+  - (P) O kit ainda chama `glove-senha --campos` e `glove-prefs impressao` pelos nomes de antes
+    (que continuam aceitos): trocar na próxima versão do kit.
+  - (decisão) Os nomes dos próprios programas em português (`glove-senha`, `glove-chaves`,
+    `glove-sair`, `glove-arquivo`, `glove-instalador`, `glove-escolher`… uns 25): passar para o
+    inglês mexe nos pacotes, nos atalhos, no Dock de quem já usa e nos identificadores das
+    janelas; só com a decisão do usuário, e com atalhos de compatibilidade.
+- [x] 23.12 (v0.14.5) A linha de comando em inglês em todas as ferramentas do Glove (regra do
+  projeto: comandos e opções sempre em inglês). Os nomes de antes, em português, continuam aceitos
+  em silêncio (atalhos e scripts antigos), e as chamadas entre os componentes já usam os novos.
+  - `glove`: `--session`, `--window`, `--displays` (eram `--sessao`, `--janela`, `--monitores`).
+  - `glove-files`: `--open`, `--transfer move|copy`, `--view-options`, `--desktop-view-options`,
+    `--preferences`, `--connect [--now]`, `--eject`, `--eject-warning`, `--duplicate`, `--trash`,
+    `--empty-trash`, `--show`.
+  - `glove-prefs`: `--join`, `--install-language`, `--system-theme`, `--check-updates`, e os
+    painéis pelo nome em inglês (`glove-prefs network`, `sound`, `displays`, `date-time`,
+    `login-items`, `software-update`…; o nome de dentro, guardado nos favoritos, não mudou).
+  - `glove-sair shutdown|restart|logout|quit` (e `cancelled`, `failed`); `glove-arquivo
+    compress|expand`; `glove-notes new`; `glove-escolher open|save|folder --title --name --in
+    --types`; `glove-senha --ask|--fields`; `glove-chaves --count`; `glove-disks --write`;
+    `glove-instalador --dry-run`; `glove-login --theme`; `glove-view --draw`; `glove-arte
+    icons|preview`.
+  - `glove-setup-tool.sh`: os textos em português também mostram os comandos em inglês
+    (`install`, `uninstall`, `deps`, `all`, `iso test`, `login remove`, `grub remove`, `help`).

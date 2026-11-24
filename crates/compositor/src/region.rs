@@ -90,7 +90,7 @@ impl Glove {
                 tracing::info!("captura salva em {}", path.display());
                 self.copy_file_to_clipboard(&path);
                 if open {
-                    self.spawn(&format!("glove-view --desenhar '{}'", path.display().to_string().replace('\'', "'\\''")));
+                    self.spawn(&format!("glove-view --draw '{}'", path.display().to_string().replace('\'', "'\\''")));
                 }
             }
             Err(e) => tracing::warn!("captura falhou: {e}"),

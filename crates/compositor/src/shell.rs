@@ -1793,9 +1793,9 @@ impl Glove {
             MenuAction::ForceQuit => self.open_force_quit(),
             MenuAction::Lock => self.lock_screen(),
             MenuAction::Sleep => self.sleep(),
-            MenuAction::Restart => self.spawn("glove-sair reiniciar"),
-            MenuAction::ShutDown => self.spawn("glove-sair desligar"),
-            MenuAction::LogOut => self.spawn(if self.nested { "glove-sair sair" } else { "glove-sair encerrar" }),
+            MenuAction::Restart => self.spawn("glove-sair restart"),
+            MenuAction::ShutDown => self.spawn("glove-sair shutdown"),
+            MenuAction::LogOut => self.spawn(if self.nested { "glove-sair quit" } else { "glove-sair logout" }),
             MenuAction::AboutApp(id, name) => self.spawn(&format!("glove-about --app {id} '{}'", name.replace('\'', ""))),
             MenuAction::HideApp(pid) => self.hide_pid(pid),
             MenuAction::HideOthers(pid) => self.hide_others(pid),
@@ -1817,7 +1817,7 @@ impl Glove {
             MenuAction::ShowInFiles(cmd) => self.show_in_files(&cmd),
             MenuAction::DockRun(a) => self.run_dock_action(a),
             MenuAction::EmptyTrash => {
-                self.spawn("glove-files --esvaziar-lixeira");
+                self.spawn("glove-files --empty-trash");
                 self.chrome.trash_full.1 = None;
             }
             MenuAction::SetMode(output, mode) => {

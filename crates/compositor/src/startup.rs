@@ -91,7 +91,7 @@ impl Glove {
             if !self.greeter && !self.nested {
                 self.spawn("glove-senha");
                 // O verificador de atualizações do Glove (avisa quando sai versão nova).
-                self.spawn("glove-prefs --verificar-atualizacao");
+                self.spawn("glove-prefs --check-updates");
             }
             // Primeira vez: o assistente de boas-vindas.
             if !self.config.welcome_done {

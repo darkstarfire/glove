@@ -3,7 +3,7 @@
 //! Conta, Aparência, Resumo e Instalação (o motor está em `motor.rs`).
 //!
 //! Só instala de verdade no Glove ao vivo. Em qualquer outro sistema abre apenas
-//! com `--simular`, que percorre tudo e mostra os comandos sem executar nenhum.
+//! com `--dry-run`, que percorre tudo e mostra os comandos sem executar nenhum.
 
 mod discos;
 mod motor;
@@ -685,19 +685,19 @@ impl App for Instalador {
     }
 }
 
-/// Fora do Glove ao vivo (e sem --simular): só explica e sai.
+/// Fora do Glove ao vivo (e sem --dry-run): só explica e sai.
 struct SoAoVivo;
 
 impl App for SoAoVivo {
     fn ui(&mut self, ui: &mut Ui) {
-        if ui.alert_window(AlertKind::Caution, tr!("O instalador funciona só no Glove OS ao vivo."), tr!("Inicie o computador pelo pendrive ou DVD do Glove OS para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --simular."), &["OK"]).is_some() {
+        if ui.alert_window(AlertKind::Caution, tr!("O instalador funciona só no Glove OS ao vivo."), tr!("Inicie o computador pelo pendrive ou DVD do Glove OS para instalar. Para ver o instalador sem mexer em nada, use glove-instalador --dry-run."), &["OK"]).is_some() {
             ui.close = true;
         }
     }
 }
 
 pub fn main() {
-    let simular = std::env::args().any(|a| a == "--simular");
+    let simular = std::env::args().any(|a| a == "--dry-run" || a == "--simular");
     if !simular && !motor::ao_vivo() {
         let opts = WindowOptions { title: tr!("Instalar o Glove OS").into(), app_id: "glove.Instalador".into(), size: (460, 160), fixed: true, min_size: None };
         let _ = run(opts, SoAoVivo);

@@ -10,7 +10,7 @@
 //!    o instalador no início, os pacotes live-*).
 //! 5. Carregador de boot (GRUB, UEFI ou BIOS), initramfs e desmonta.
 //!
-//! No modo simulação (`--simular`) nada é executado: cada comando vai para o
+//! No modo simulação (`--dry-run`) nada é executado: cada comando vai para o
 //! registro, para conferir o que seria feito.
 
 use std::io::{BufRead, BufReader, Write};
@@ -197,7 +197,7 @@ pub fn plano(e: &Escolhas) -> Vec<Passo> {
     }
     // A tela de login e a abertura do sistema na mesma aparência (o Plymouth entra no
     // initramfs logo abaixo).
-    boot.push(chroot_opcional(&["glove-prefs", "--tema-sistema", &e.tema, &e.tema]));
+    boot.push(chroot_opcional(&["glove-prefs", "--system-theme", &e.tema, &e.tema]));
     boot.push(escrever("/etc/default/grub", "GRUB_DEFAULT=0\nGRUB_TIMEOUT=3\nGRUB_DISTRIBUTOR=\"Glove OS\"\nGRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"\nGRUB_CMDLINE_LINUX=\"\"\nGRUB_DISABLE_OS_PROBER=false\n".into()));
     boot.push(chroot(&["update-initramfs", "-u", "-k", "all"]));
     if e.uefi {
