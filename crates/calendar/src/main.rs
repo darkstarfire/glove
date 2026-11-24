@@ -1,11 +1,11 @@
 //! Agenda (como o iCal da era, no essencial): o mês em grade com os eventos,
 //! o dia escolhido ao lado e a folha de evento. Fica em
-//! ~/.local/share/glove/agenda/agenda.ics; importa outros .ics.
+//! ~/.local/share/glove/calendar/calendar.ics; importa outros .ics.
 
 use glove_config::tr;
 mod ics;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use glove_ui::{
     paint::{draw::*, Color},
@@ -18,9 +18,27 @@ const SIDE_W: f32 = 230.0;
 const MESES: [&str; 12] = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const DIAS: [&str; 7] = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
 
+/// The user's data folder (`~/.local/share`).
+fn data_home() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"))
+}
+
 fn file() -> PathBuf {
-    let base = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"));
-    base.join("glove/agenda/agenda.ics")
+    data_home().join("glove/calendar/calendar.ics")
+}
+
+/// Moves the calendar an older version kept as `glove/agenda/agenda.ics` (under `data`, the
+/// data folder) to today's `glove/calendar/calendar.ics`. Runs once: afterwards nothing is left
+/// under the old names. When today's file already exists the old one is left alone.
+fn migrate_old_names(data: &Path) {
+    let (old_dir, new_dir) = (data.join("glove/agenda"), data.join("glove/calendar"));
+    let new_file = new_dir.join("calendar.ics");
+    glove_config::move_stored(&old_dir, &new_dir);
+    glove_config::move_stored(&new_dir.join("agenda.ics"), &new_file);
+    // The new folder was already there (empty, say): only the file moves.
+    if glove_config::move_stored(&old_dir.join("agenda.ics"), &new_file) {
+        let _ = std::fs::remove_dir(&old_dir);
+    }
 }
 
 pub fn days_in(month: u32, year: i32) -> u32 {
@@ -448,6 +466,7 @@ impl App for Agenda {
 
 pub fn main() {
     let (y, m, d, ..) = glove_ui::local_time();
+    migrate_old_names(&data_home());
     let events = std::fs::read_to_string(file()).map(|t| ics::parse(&t)).unwrap_or_default();
     let app = Agenda { events, month: (y, m), day: (y, m, d), today: (y, m, d), sheet: None, import: None, message: None };
     let opts = WindowOptions { title: tr!("Agenda").into(), app_id: "glove.Calendar".into(), size: (860, 560), fixed: false, min_size: None };
@@ -470,5 +489,59 @@ mod tests {
         assert!(on_day(&e, (2026, 11, 15)) && !on_day(&e, (2026, 11, 16)));
         assert_eq!(parse_hm("14:30"), Some((14, 30)));
         assert_eq!(parse_date("31/02/2026"), None);
+    }
+
+    /// An empty folder for one test, under the system's temporary folder.
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-calendar-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn old_calendar_is_moved_once() {
+        let data = temp("moved");
+        std::fs::create_dir_all(data.join("glove/agenda")).unwrap();
+        std::fs::write(data.join("glove/agenda/agenda.ics"), "old").unwrap();
+        migrate_old_names(&data);
+        assert!(!data.join("glove/agenda").exists());
+        assert!(!data.join("glove/calendar/agenda.ics").exists());
+        assert_eq!(std::fs::read_to_string(data.join("glove/calendar/calendar.ics")).unwrap(), "old");
+        // A second run finds nothing to do.
+        migrate_old_names(&data);
+        assert_eq!(std::fs::read_to_string(data.join("glove/calendar/calendar.ics")).unwrap(), "old");
+        assert_eq!(std::fs::read_dir(data.join("glove/calendar")).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn old_calendar_goes_into_an_existing_new_folder() {
+        let data = temp("existing");
+        std::fs::create_dir_all(data.join("glove/agenda")).unwrap();
+        std::fs::create_dir_all(data.join("glove/calendar")).unwrap();
+        std::fs::write(data.join("glove/agenda/agenda.ics"), "old").unwrap();
+        migrate_old_names(&data);
+        assert_eq!(std::fs::read_to_string(data.join("glove/calendar/calendar.ics")).unwrap(), "old");
+        assert!(!data.join("glove/agenda").exists());
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn new_calendar_is_left_untouched() {
+        let data = temp("untouched");
+        std::fs::create_dir_all(data.join("glove/agenda")).unwrap();
+        std::fs::create_dir_all(data.join("glove/calendar")).unwrap();
+        std::fs::write(data.join("glove/agenda/agenda.ics"), "old").unwrap();
+        std::fs::write(data.join("glove/calendar/calendar.ics"), "new").unwrap();
+        migrate_old_names(&data);
+        assert_eq!(std::fs::read_to_string(data.join("glove/calendar/calendar.ics")).unwrap(), "new");
+        assert_eq!(std::fs::read_to_string(data.join("glove/agenda/agenda.ics")).unwrap(), "old");
+        // Nothing stored at all: nothing is created.
+        let empty = temp("empty");
+        migrate_old_names(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

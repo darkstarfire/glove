@@ -202,15 +202,15 @@ impl Settings {
         for l in text.lines() {
             let Some((k, v)) = l.split_once('=') else { continue };
             let (k, v) = (k.trim(), v.trim());
-            let on = v == "sim" || v == "true";
+            let on = v == "yes" || v == "true";
             match k {
                 "volume" => s.volume = v.parse::<f32>().unwrap_or(s.volume).clamp(0.0, 1.0),
-                "continuar" => s.resume = on,
-                "placa_de_video" => s.hwdec = on,
-                "legendas_da_pasta" => s.auto_subs = on,
-                "proximo_ao_terminar" => s.auto_next = on,
-                "idiomas_legenda" => s.sub_lang = v.to_string(),
-                "idiomas_audio" => s.audio_lang = v.to_string(),
+                "resume" => s.resume = on,
+                "hardware_decoding" => s.hwdec = on,
+                "folder_subtitles" => s.auto_subs = on,
+                "play_next" => s.auto_next = on,
+                "subtitle_languages" => s.sub_lang = v.to_string(),
+                "audio_languages" => s.audio_lang = v.to_string(),
                 _ => {}
             }
         }
@@ -218,9 +218,9 @@ impl Settings {
     }
 
     fn text(&self) -> String {
-        let b = |v: bool| if v { "sim" } else { "nao" };
+        let b = |v: bool| if v { "yes" } else { "no" };
         format!(
-            "# Preferências do Vídeo (o Glove reescreve este arquivo)\nvolume = {:.2}\ncontinuar = {}\nplaca_de_video = {}\nlegendas_da_pasta = {}\nproximo_ao_terminar = {}\nidiomas_legenda = {}\nidiomas_audio = {}\n",
+            "{CONF_HEADER}\nvolume = {:.2}\nresume = {}\nhardware_decoding = {}\nfolder_subtitles = {}\nplay_next = {}\nsubtitle_languages = {}\naudio_languages = {}\n",
             self.volume,
             b(self.resume),
             b(self.hwdec),
@@ -244,9 +244,8 @@ impl Settings {
     fn mpv_args(&self) -> Vec<String> {
         let mut a = vec![format!("--volume={}", (self.volume * 100.0).round() as i32)];
         if self.resume {
-            let state = std::env::var_os("XDG_STATE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/state"));
             a.push("--save-position-on-quit".into());
-            a.push(format!("--watch-later-dir={}", state.join("glove/video-posicoes").display()));
+            a.push(format!("--watch-later-dir={}", state_dir().join("video-positions").display()));
         }
         a.push(format!("--hwdec={}", if self.hwdec { "auto-safe" } else { "no" }));
         a.push(format!("--sub-auto={}", if self.auto_subs { "fuzzy" } else { "exact" }));
@@ -261,7 +260,12 @@ impl Settings {
 }
 
 fn recents_path() -> PathBuf {
-    glove_config::dir().join("video-recentes")
+    glove_config::dir().join("video-recent")
+}
+
+/// The Glove folder of what the apps remember (`~/.local/state/glove`).
+fn state_dir() -> PathBuf {
+    std::env::var_os("XDG_STATE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/state")).join("glove")
 }
 
 fn load_recents() -> Vec<String> {
@@ -271,6 +275,72 @@ fn load_recents() -> Vec<String> {
 fn save_recents(r: &[String]) {
     let _ = std::fs::create_dir_all(glove_config::dir());
     let _ = std::fs::write(recents_path(), r.join("\n") + "\n");
+}
+
+// ---------------------------------------------------------------------------
+// What an older version stored under Portuguese names
+// ---------------------------------------------------------------------------
+
+/// First line of `video.conf`, and the one an older version wrote.
+const CONF_HEADER: &str = "# Video preferences (Glove rewrites this file)";
+const OLD_CONF_HEADER: &str = "# Preferências do Vídeo (o Glove reescreve este arquivo)";
+
+/// The keys of the preferences an older version wrote, the ones of today, and whether the
+/// value is a yes or no.
+const OLD_CONF_KEYS: [(&str, &str, bool); 6] = [
+    ("continuar", "resume", true),
+    ("placa_de_video", "hardware_decoding", true),
+    ("legendas_da_pasta", "folder_subtitles", true),
+    ("proximo_ao_terminar", "play_next", true),
+    ("idiomas_legenda", "subtitle_languages", false),
+    ("idiomas_audio", "audio_languages", false),
+];
+
+/// One line of the old preferences in today's words; None when it already is.
+fn convert_old_conf_line(line: &str) -> Option<String> {
+    if line.trim() == OLD_CONF_HEADER {
+        return Some(CONF_HEADER.to_string());
+    }
+    let (k, v) = line.split_once('=')?;
+    let (k, v) = (k.trim(), v.trim());
+    let &(_, new, yes_no) = OLD_CONF_KEYS.iter().find(|(old, ..)| *old == k)?;
+    let v = match (yes_no, v) {
+        (true, "sim") => "yes",
+        (true, "nao") => "no",
+        _ => v,
+    };
+    Some(format!("{new} = {v}"))
+}
+
+/// The preferences an older version wrote, with the keys and values of today.
+/// None when there is nothing to convert.
+fn convert_old_conf(text: &str) -> Option<String> {
+    let mut changed = false;
+    let mut out = String::new();
+    for l in text.lines() {
+        let new = convert_old_conf_line(l);
+        changed |= new.is_some();
+        out.push_str(new.as_deref().unwrap_or(l));
+        out.push('\n');
+    }
+    changed.then_some(out)
+}
+
+/// Gives today's names to what an older version stored: in `config` (the Glove
+/// configuration folder) the keys and values of the preferences and the list of recent
+/// videos; in `state` (the Glove state folder) the positions mpv keeps to resume each
+/// video. With nothing old there, nothing is touched.
+fn migrate_old_names_in(config: &Path, state: &Path) {
+    let conf = config.join("video.conf");
+    if let Some(new) = std::fs::read_to_string(&conf).ok().and_then(|t| convert_old_conf(&t)) {
+        let _ = std::fs::write(&conf, new);
+    }
+    glove_config::move_stored(&config.join("video-recentes"), &config.join("video-recent"));
+    glove_config::move_stored(&state.join("video-posicoes"), &state.join("video-positions"));
+}
+
+fn migrate_old_names() {
+    migrate_old_names_in(&glove_config::dir(), &state_dir());
 }
 
 /// Nome curto para mostrar (o arquivo, ou o endereço).
@@ -917,6 +987,7 @@ impl App for Video {
 }
 
 pub fn main() {
+    migrate_old_names();
     let mpv = has_mpv();
     let mut app = Video { mpv, player: None, state: Arc::default(), target: None, settings: Settings::load(), recents: load_recents(), open_fb: None, sub_fb: None, url: None, aspect: 0, note: None };
     if let Some(f) = std::env::args().nth(1) {
@@ -964,6 +1035,90 @@ mod tests {
         let args = p.mpv_args();
         assert!(args.contains(&"--volume=42".to_string()) && args.contains(&"--slang=en".to_string()));
         assert!(!args.iter().any(|a| a == "--save-position-on-quit"));
+    }
+
+    /// What an older version wrote in `video.conf`.
+    const OLD_CONF: &str = "# Preferências do Vídeo (o Glove reescreve este arquivo)\nvolume = 0.42\ncontinuar = nao\nplaca_de_video = sim\nlegendas_da_pasta = nao\nproximo_ao_terminar = sim\nidiomas_legenda = pt,en\nidiomas_audio = \n";
+
+    fn old_conf_settings() -> Settings {
+        Settings { volume: 0.42, resume: false, hwdec: true, auto_subs: false, auto_next: true, sub_lang: "pt,en".into(), audio_lang: String::new() }
+    }
+
+    /// An empty folder for one test (never the real configuration).
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("glove-video-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn old_conf_becomes_todays() {
+        let new = convert_old_conf(OLD_CONF).unwrap();
+        // Exactly what the app writes today, so the old words are gone.
+        assert_eq!(new, old_conf_settings().text());
+        assert_eq!(Settings::parse(&new), old_conf_settings());
+        // A language list is not a yes or no, and other lines stay as they are.
+        assert_eq!(convert_old_conf("idiomas_legenda = sim\n# nota\ncontinuar = true").unwrap(), "subtitle_languages = sim\n# nota\nresume = true\n");
+        // Today's format has nothing to convert (and so does a converted text).
+        assert_eq!(convert_old_conf(&new), None);
+        assert_eq!(convert_old_conf(&Settings::default().text()), None);
+        assert_eq!(convert_old_conf(""), None);
+    }
+
+    #[test]
+    fn old_names_are_moved_once() {
+        let dir = temp_dir("old-names");
+        let (config, state) = (dir.join("config"), dir.join("state"));
+        std::fs::create_dir_all(state.join("video-posicoes")).unwrap();
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::write(state.join("video-posicoes/0A1B"), "start=12.5\n").unwrap();
+        std::fs::write(config.join("video.conf"), OLD_CONF).unwrap();
+        std::fs::write(config.join("video-recentes"), "/v/Filme.mkv\nhttps://x/y\n").unwrap();
+        migrate_old_names_in(&config, &state);
+        assert!(!config.join("video-recentes").exists() && !state.join("video-posicoes").exists());
+        let conf = std::fs::read_to_string(config.join("video.conf")).unwrap();
+        assert_eq!(Settings::parse(&conf), old_conf_settings());
+        assert_eq!(std::fs::read_to_string(config.join("video-recent")).unwrap(), "/v/Filme.mkv\nhttps://x/y\n");
+        assert_eq!(std::fs::read_to_string(state.join("video-positions/0A1B")).unwrap(), "start=12.5\n");
+        // A second run finds nothing to do.
+        migrate_old_names_in(&config, &state);
+        assert_eq!(std::fs::read_to_string(config.join("video.conf")).unwrap(), conf);
+        assert_eq!(std::fs::read_to_string(config.join("video-recent")).unwrap(), "/v/Filme.mkv\nhttps://x/y\n");
+        assert_eq!(std::fs::read_to_string(state.join("video-positions/0A1B")).unwrap(), "start=12.5\n");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn todays_names_are_left_alone() {
+        let dir = temp_dir("todays-names");
+        let (config, state) = (dir.join("config"), dir.join("state"));
+        std::fs::create_dir_all(state.join("video-positions")).unwrap();
+        std::fs::create_dir_all(&config).unwrap();
+        let conf = old_conf_settings().text();
+        std::fs::write(config.join("video.conf"), &conf).unwrap();
+        std::fs::write(config.join("video-recent"), "/novo.mkv\n").unwrap();
+        // Something old beside the new: the new is the one in use, and nothing is touched.
+        std::fs::write(config.join("video-recentes"), "/velho.mkv\n").unwrap();
+        std::fs::create_dir_all(state.join("video-posicoes")).unwrap();
+        migrate_old_names_in(&config, &state);
+        assert_eq!(std::fs::read_to_string(config.join("video.conf")).unwrap(), conf);
+        assert_eq!(std::fs::read_to_string(config.join("video-recent")).unwrap(), "/novo.mkv\n");
+        assert_eq!(std::fs::read_to_string(config.join("video-recentes")).unwrap(), "/velho.mkv\n");
+        assert!(state.join("video-posicoes").exists() && state.join("video-positions").exists());
+        // Nothing stored at all: nothing is created.
+        let empty = temp_dir("nothing-stored");
+        migrate_old_names_in(&empty.join("config"), &empty.join("state"));
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
+    }
+
+    #[test]
+    fn positions_go_to_the_state_folder() {
+        let args = Settings::default().mpv_args();
+        let dir = args.iter().find_map(|a| a.strip_prefix("--watch-later-dir=")).unwrap();
+        assert!(dir.ends_with("/glove/video-positions"), "{dir}");
     }
 
     #[test]

@@ -15,19 +15,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Conta {
-    pub servidor: String,
-    pub porta: u16,
+    pub server: String,
+    pub port: u16,
     pub tls: bool,
-    pub apelido: String,
-    pub nome: String,
+    pub nick: String,
+    pub name: String,
     /// Canais para entrar ao conectar.
-    pub canais: Vec<String>,
+    pub channels: Vec<String>,
 }
 
 impl Default for Conta {
     fn default() -> Self {
         let user = std::env::var("USER").unwrap_or_else(|_| "glove".into());
-        Self { servidor: "irc.libera.chat".into(), porta: 6697, tls: true, apelido: user.clone(), nome: user, canais: vec!["#glove".into()] }
+        Self { server: "irc.libera.chat".into(), port: 6697, tls: true, nick: user.clone(), name: user, channels: vec!["#glove".into()] }
     }
 }
 
@@ -86,14 +86,14 @@ fn tls_config() -> Arc<ClientConfig> {
 fn connect(c: &Conta) -> std::io::Result<Stream> {
     use std::net::ToSocketAddrs;
     let mut last = std::io::Error::other("endereço não encontrado");
-    for addr in (c.servidor.as_str(), c.porta).to_socket_addrs()? {
+    for addr in (c.server.as_str(), c.port).to_socket_addrs()? {
         match TcpStream::connect_timeout(&addr, Duration::from_secs(15)) {
             Ok(t) => {
                 t.set_read_timeout(Some(Duration::from_millis(200)))?;
                 if !c.tls {
                     return Ok(Stream::Plain(t));
                 }
-                let name = ServerName::try_from(c.servidor.clone()).map_err(|_| std::io::Error::other("nome de servidor inválido"))?;
+                let name = ServerName::try_from(c.server.clone()).map_err(|_| std::io::Error::other("nome de servidor inválido"))?;
                 let conn = ClientConnection::new(tls_config(), name).map_err(std::io::Error::other)?;
                 let mut s = StreamOwned::new(conn, t);
                 s.sock.set_read_timeout(Some(Duration::from_secs(15)))?;
@@ -149,9 +149,9 @@ pub fn start(conta: Conta) -> (Sender<String>, Receiver<Ev>) {
                 return;
             }
         };
-        let mut nick = conta.apelido.clone();
+        let mut nick = conta.nick.clone();
         let _ = s.send(&format!("NICK {nick}"));
-        let _ = s.send(&format!("USER {} 0 * :{}", conta.apelido, if conta.nome.is_empty() { &conta.apelido } else { &conta.nome }));
+        let _ = s.send(&format!("USER {} 0 * :{}", conta.nick, if conta.name.is_empty() { &conta.nick } else { &conta.name }));
         let mut buf: Vec<u8> = Vec::new();
         let mut tmp = [0u8; 4096];
         let mut nomes: std::collections::HashMap<String, Vec<String>> = Default::default();
@@ -192,7 +192,7 @@ pub fn start(conta: Conta) -> (Sender<String>, Receiver<Ev>) {
                     }
                     "001" => {
                         nick = p.first().cloned().unwrap_or(nick);
-                        for c in &conta.canais {
+                        for c in &conta.channels {
                             let _ = s.send(&format!("JOIN {c}"));
                         }
                         Some(Ev::Pronto(nick.clone()))
@@ -212,7 +212,7 @@ pub fn start(conta: Conta) -> (Sender<String>, Receiver<Ev>) {
                         if texto.starts_with('\u{1}') {
                             // Outros pedidos CTCP: a versão responde; o resto, ignora.
                             if texto.starts_with("\u{1}VERSION") {
-                                let _ = s.send(&format!("NOTICE {from} :\u{1}VERSION Glove Mensagens\u{1}"));
+                                let _ = s.send(&format!("NOTICE {from} :\u{1}VERSION Glove Messages\u{1}"));
                             }
                             None
                         } else if cmd == "NOTICE" && (from.is_empty() || from.contains('.') || target == "*") {

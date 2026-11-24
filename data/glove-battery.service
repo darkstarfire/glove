@@ -9,7 +9,7 @@ ConditionPathExists=!/etc/systemd/system/multi-user.target.wants/cros-ec-battery
 After=systemd-modules-load.service
 
 [Service]
-ExecStart=@PREFIXO@/bin/glove-battery --daemon
+ExecStart=@PREFIX@/bin/glove-battery --daemon
 Restart=always
 RestartSec=5
 

@@ -1,0 +1,43 @@
+#!/bin/sh
+# Glove OS: the boot and shutdown screen of the system (Plymouth) with the Glove theme.
+#
+# Picks the "glove" theme the first time it finds Plymouth installed and rebuilds the
+# initramfs (the theme goes inside it). After that it leaves things alone: whoever changes
+# the theme keeps the one they chose. The theme that was there before is noted in
+# /var/lib/glove-os/plymouth (a removed glove-os goes back to it).
+#
+# Runs when glove-os is installed and when the ISO is built. To apply it by hand (for
+# instance after installing Plymouth on a Glove OS that did not have it):
+#   sudo /usr/share/glove-os/boot-screen
+#   --no-initramfs   only picks the theme (on the ISO, live-build rebuilds the initramfs at the end)
+set -e
+root=${GLOVE_OS_ROOT:-}
+done_file="$root/var/lib/glove-os/plymouth"
+# Up to 0.15.0 the Modern themes were called glove-moderno and glove-moderno-escuro, and
+# their folders left with the update: a system that boots with one of them moves to the
+# new name (and the initramfs, which carries the theme, is rebuilt).
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    case "$(plymouth-set-default-theme 2>/dev/null || true)" in
+        glove-moderno) renamed=glove-modern ;;
+        glove-moderno-escuro) renamed=glove-modern-dark ;;
+        *) renamed= ;;
+    esac
+    if [ -n "$renamed" ] && [ -f "$root/usr/share/plymouth/themes/$renamed/$renamed.plymouth" ]; then
+        plymouth-set-default-theme "$renamed"
+        if [ "${1:-}" != --no-initramfs ] && command -v update-initramfs >/dev/null 2>&1; then
+            update-initramfs -u || true
+        fi
+    fi
+fi
+[ -e "$done_file" ] && exit 0
+[ -f "$root/usr/share/plymouth/themes/glove/glove.plymouth" ] || exit 0
+command -v plymouth-set-default-theme >/dev/null 2>&1 || exit 0
+# Only with Plymouth already configured: its configuration file belongs to its package.
+[ "$(dpkg-query -W -f='${db:Status-Status}' plymouth 2>/dev/null)" = installed ] || exit 0
+mkdir -p "$root/var/lib/glove-os"
+plymouth-set-default-theme 2>/dev/null > "$done_file" || true
+plymouth-set-default-theme glove
+if [ "${1:-}" != --no-initramfs ] && command -v update-initramfs >/dev/null 2>&1; then
+    update-initramfs -u || true
+fi
+exit 0

@@ -8,8 +8,8 @@
 //! - Aleatório e Repetir (nada, todas ou uma), no rodapé e no menu Controles.
 //! - Preferências: as pastas da biblioteca e o aviso de troca de música.
 //!
-//! Guarda tudo em `~/.config/glove`: `musica.conf` (preferências), `musica/listas/*.m3u`
-//! e `musica/recentes.m3u`.
+//! Guarda tudo em `~/.config/glove`: `music.conf` (preferências), `music/playlists/*.m3u`
+//! e `music/recent.m3u`.
 
 use glove_config::tr;
 mod player;
@@ -131,7 +131,7 @@ impl Default for Settings {
 
 impl Settings {
     fn path() -> PathBuf {
-        glove_config::dir().join("musica.conf")
+        glove_config::dir().join("music.conf")
     }
 
     fn parse(text: &str) -> Self {
@@ -139,14 +139,14 @@ impl Settings {
         for l in text.lines() {
             let Some((k, v)) = l.split_once('=') else { continue };
             let (k, v) = (k.trim(), v.trim());
-            let on = v == "sim";
+            let on = v == "yes";
             match k {
                 "volume" => s.volume = v.parse::<f32>().unwrap_or(s.volume).clamp(0.0, 1.0),
-                "aleatorio" => s.shuffle = on,
-                "repetir" => s.repeat = match v { "todas" => Repeat::All, "uma" => Repeat::One, _ => Repeat::Off },
-                "navegador" => s.browser = on,
-                "avisar" => s.notify = on,
-                "pasta" => s.folders.push(PathBuf::from(v)),
+                "shuffle" => s.shuffle = on,
+                "repeat" => s.repeat = match v { "all" => Repeat::All, "one" => Repeat::One, _ => Repeat::Off },
+                "browser" => s.browser = on,
+                "notify" => s.notify = on,
+                "folder" => s.folders.push(PathBuf::from(v)),
                 _ => {}
             }
         }
@@ -154,11 +154,11 @@ impl Settings {
     }
 
     fn text(&self) -> String {
-        let b = |v: bool| if v { "sim" } else { "nao" };
-        let rep = match self.repeat { Repeat::Off => "nao", Repeat::All => "todas", Repeat::One => "uma" };
-        let mut t = format!("# Preferências da Música (o Glove reescreve este arquivo)\nvolume = {:.2}\naleatorio = {}\nrepetir = {rep}\nnavegador = {}\navisar = {}\n", self.volume, b(self.shuffle), b(self.browser), b(self.notify));
+        let b = |v: bool| if v { "yes" } else { "no" };
+        let rep = match self.repeat { Repeat::Off => "off", Repeat::All => "all", Repeat::One => "one" };
+        let mut t = format!("{CONF_HEADER}\nvolume = {:.2}\nshuffle = {}\nrepeat = {rep}\nbrowser = {}\nnotify = {}\n", self.volume, b(self.shuffle), b(self.browser), b(self.notify));
         for f in &self.folders {
-            t.push_str(&format!("pasta = {}\n", f.display()));
+            t.push_str(&format!("folder = {}\n", f.display()));
         }
         t
     }
@@ -180,11 +180,11 @@ struct Playlist {
 }
 
 fn data_dir() -> PathBuf {
-    glove_config::dir().join("musica")
+    glove_config::dir().join("music")
 }
 
 fn lists_dir() -> PathBuf {
-    data_dir().join("listas")
+    data_dir().join("playlists")
 }
 
 fn read_m3u(p: &Path) -> Vec<PathBuf> {
@@ -222,6 +222,70 @@ fn list_path(name: &str) -> PathBuf {
 /// Um nome livre: "Lista sem título", "Lista sem título 2"...
 fn free_name(lists: &[Playlist], base: &str) -> String {
     (1..).map(|i| if i == 1 { base.to_string() } else { format!("{base} {i}") }).find(|n| !lists.iter().any(|l| l.name.eq_ignore_ascii_case(n))).unwrap()
+}
+
+// ---------------------------------------------------------------------------
+// What an older version stored under Portuguese names
+// ---------------------------------------------------------------------------
+
+/// First line of `music.conf`, and the one an older version wrote.
+const CONF_HEADER: &str = "# Music preferences (Glove rewrites this file)";
+const OLD_CONF_HEADER: &str = "# Preferências da Música (o Glove reescreve este arquivo)";
+
+/// The keys of the preferences an older version wrote, and the ones of today.
+const OLD_CONF_KEYS: [(&str, &str); 5] = [("aleatorio", "shuffle"), ("repetir", "repeat"), ("navegador", "browser"), ("avisar", "notify"), ("pasta", "folder")];
+
+/// One line of the old preferences in today's words; None when it already is.
+fn convert_old_conf_line(line: &str) -> Option<String> {
+    if line.trim() == OLD_CONF_HEADER {
+        return Some(CONF_HEADER.to_string());
+    }
+    let (k, v) = line.split_once('=')?;
+    let (k, v) = (k.trim(), v.trim());
+    let new = OLD_CONF_KEYS.iter().find(|(old, _)| *old == k)?.1;
+    let v = match (new, v) {
+        ("folder", _) => v,
+        ("repeat", "todas") => "all",
+        ("repeat", "uma") => "one",
+        ("repeat", "nao") => "off",
+        (_, "sim") => "yes",
+        (_, "nao") => "no",
+        _ => v,
+    };
+    Some(format!("{new} = {v}"))
+}
+
+/// The preferences an older version wrote, with the keys and values of today.
+/// None when there is nothing to convert.
+fn convert_old_conf(text: &str) -> Option<String> {
+    let mut changed = false;
+    let mut out = String::new();
+    for l in text.lines() {
+        let new = convert_old_conf_line(l);
+        changed |= new.is_some();
+        out.push_str(new.as_deref().unwrap_or(l));
+        out.push('\n');
+    }
+    changed.then_some(out)
+}
+
+/// Gives today's names to what an older version stored in `dir` (the Glove configuration
+/// folder): the preferences (name, keys and values), the folder of the app, the playlists
+/// and the recently played. With nothing old there, nothing is touched.
+fn migrate_old_names_in(dir: &Path) {
+    let conf = dir.join("music.conf");
+    glove_config::move_stored(&dir.join("musica.conf"), &conf);
+    if let Some(new) = std::fs::read_to_string(&conf).ok().and_then(|t| convert_old_conf(&t)) {
+        let _ = std::fs::write(&conf, new);
+    }
+    let data = dir.join("music");
+    glove_config::move_stored(&dir.join("musica"), &data);
+    glove_config::move_stored(&data.join("listas"), &data.join("playlists"));
+    glove_config::move_stored(&data.join("recentes.m3u"), &data.join("recent.m3u"));
+}
+
+fn migrate_old_names() {
+    migrate_old_names_in(&glove_config::dir());
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +345,7 @@ impl Musica {
             settings,
             queue: Vec::new(),
             lists: load_lists(),
-            recent: read_m3u(&data_dir().join("recentes.m3u")),
+            recent: read_m3u(&data_dir().join("recent.m3u")),
             source: Source::Library,
             artist: None,
             album: None,
@@ -439,7 +503,7 @@ impl Musica {
         self.recent.retain(|r| r != p);
         self.recent.insert(0, p.to_path_buf());
         self.recent.truncate(MAX_RECENT);
-        write_m3u(&data_dir().join("recentes.m3u"), &self.recent);
+        write_m3u(&data_dir().join("recent.m3u"), &self.recent);
         if self.settings.notify && !active {
             let i = self.info_of(p);
             let body = [i.artist.as_str(), i.album.as_str()].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(" — ");
@@ -547,12 +611,12 @@ impl Musica {
                     }
                 } else if let (Source::Recent, Some(p)) = (self.source, self.selected.clone()) {
                     self.recent.retain(|x| *x != p);
-                    write_m3u(&data_dir().join("recentes.m3u"), &self.recent);
+                    write_m3u(&data_dir().join("recent.m3u"), &self.recent);
                 }
             }
             "clear-recent" => {
                 self.recent.clear();
-                write_m3u(&data_dir().join("recentes.m3u"), &self.recent);
+                write_m3u(&data_dir().join("recent.m3u"), &self.recent);
             }
             "add-folder" => self.folder_fb = Some(FileBrowser::folder(Some(music_dir()))),
             "rescan" => self.rescan(),
@@ -1113,6 +1177,7 @@ impl App for Musica {
 }
 
 pub fn main() {
+    migrate_old_names();
     let opts = WindowOptions { title: tr!("Música").into(), app_id: "glove.Music".into(), size: (900, 520), fixed: false, min_size: Some((640, 360)) };
     if let Err(e) = run(opts, Musica::new()) {
         eprintln!("glove-music: {e}");
@@ -1134,6 +1199,80 @@ mod tests {
         let s = Settings { volume: 0.3, shuffle: true, repeat: Repeat::One, browser: true, notify: false, folders: vec![PathBuf::from("/mnt/musicas")] };
         assert_eq!(Settings::parse(&s.text()), s);
         assert_eq!(Settings::parse(""), Settings::default());
+    }
+
+    /// What an older version wrote in `musica.conf`.
+    const OLD_CONF: &str = "# Preferências da Música (o Glove reescreve este arquivo)\nvolume = 0.30\naleatorio = sim\nrepetir = uma\nnavegador = sim\navisar = nao\npasta = /mnt/musicas\npasta = /mnt/sim\n";
+
+    fn old_conf_settings() -> Settings {
+        Settings { volume: 0.3, shuffle: true, repeat: Repeat::One, browser: true, notify: false, folders: vec![PathBuf::from("/mnt/musicas"), PathBuf::from("/mnt/sim")] }
+    }
+
+    /// An empty folder for one test (never the real configuration).
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("glove-music-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn old_conf_becomes_todays() {
+        let new = convert_old_conf(OLD_CONF).unwrap();
+        // Exactly what the app writes today, so the old words are gone.
+        assert_eq!(new, old_conf_settings().text());
+        assert_eq!(Settings::parse(&new), old_conf_settings());
+        // The values of Repeat, and a line that is not a preference.
+        assert_eq!(convert_old_conf("repetir = todas\n# nota\n").unwrap(), "repeat = all\n# nota\n");
+        assert_eq!(convert_old_conf("repetir = nao\naleatorio = nao").unwrap(), "repeat = off\nshuffle = no\n");
+        // Today's format has nothing to convert (and so does a converted text).
+        assert_eq!(convert_old_conf(&new), None);
+        assert_eq!(convert_old_conf(&Settings::default().text()), None);
+        assert_eq!(convert_old_conf(""), None);
+    }
+
+    #[test]
+    fn old_names_are_moved_once() {
+        let dir = temp_dir("old-names");
+        std::fs::write(dir.join("musica.conf"), OLD_CONF).unwrap();
+        write_m3u(&dir.join("musica/listas/Festa.m3u"), &[PathBuf::from("/a/b.mp3")]);
+        write_m3u(&dir.join("musica/recentes.m3u"), &[PathBuf::from("/c/d.flac")]);
+        migrate_old_names_in(&dir);
+        for old in ["musica.conf", "musica", "music/listas", "music/recentes.m3u"] {
+            assert!(!dir.join(old).exists(), "{old} should be gone");
+        }
+        let conf = std::fs::read_to_string(dir.join("music.conf")).unwrap();
+        assert_eq!(Settings::parse(&conf), old_conf_settings());
+        assert_eq!(read_m3u(&dir.join("music/playlists/Festa.m3u")), vec![PathBuf::from("/a/b.mp3")]);
+        assert_eq!(read_m3u(&dir.join("music/recent.m3u")), vec![PathBuf::from("/c/d.flac")]);
+        // A second run finds nothing to do.
+        migrate_old_names_in(&dir);
+        assert_eq!(std::fs::read_to_string(dir.join("music.conf")).unwrap(), conf);
+        assert_eq!(read_m3u(&dir.join("music/playlists/Festa.m3u")), vec![PathBuf::from("/a/b.mp3")]);
+        assert_eq!(read_m3u(&dir.join("music/recent.m3u")), vec![PathBuf::from("/c/d.flac")]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn todays_names_are_left_alone() {
+        let dir = temp_dir("todays-names");
+        let conf = old_conf_settings().text();
+        std::fs::write(dir.join("music.conf"), &conf).unwrap();
+        write_m3u(&dir.join("music/playlists/Festa.m3u"), &[PathBuf::from("/a/b.mp3")]);
+        // Something old beside the new: the new is the one in use, and nothing is touched.
+        std::fs::write(dir.join("musica.conf"), OLD_CONF.replace("0.30", "0.90")).unwrap();
+        write_m3u(&dir.join("musica/listas/Velha.m3u"), &[PathBuf::from("/x.mp3")]);
+        migrate_old_names_in(&dir);
+        assert_eq!(std::fs::read_to_string(dir.join("music.conf")).unwrap(), conf);
+        assert_eq!(read_m3u(&dir.join("music/playlists/Festa.m3u")), vec![PathBuf::from("/a/b.mp3")]);
+        assert!(!dir.join("music/playlists/Velha.m3u").exists());
+        assert!(dir.join("musica.conf").exists() && dir.join("musica/listas/Velha.m3u").exists());
+        // Nothing stored at all: nothing is created.
+        let empty = temp_dir("nothing-stored");
+        migrate_old_names_in(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 
     #[test]

@@ -19,7 +19,7 @@ echo glove > /etc/glove/autologin
 
 # Tela de início do sistema (Plymouth) com o tema do Glove. O initramfs é refeito pelo
 # live-build logo depois dos ganchos; o instalador refaz o do sistema instalado.
-/usr/share/glove-os/tela-de-inicio --sem-initramfs || true
+/usr/share/glove-os/boot-screen --no-initramfs || true
 
 # Idiomas que o instalador oferece, já prontos.
 for l in pt_BR en_US en_GB pt_PT es_ES fr_FR de_DE it_IT; do

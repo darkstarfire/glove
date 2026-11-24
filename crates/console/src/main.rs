@@ -14,9 +14,22 @@ use glove_ui::{
 const SOURCES: [&str; 4] = ["Sessão do Glove", "Sessão anterior", "Sistema (desde a partida)", "Kernel"];
 const ROW: f32 = 15.0;
 const MAX_LINES: usize = 3000;
+/// The log of the Glove session and the one of the session before it (`glove-session`
+/// writes them), in the state folder of Glove.
+const LOG: &str = "session.log";
+const PREVIOUS_LOG: &str = "session.log.previous";
 
 fn state_dir() -> std::path::PathBuf {
     std::env::var_os("XDG_STATE_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/state")).join("glove")
+}
+
+/// The logs a session of up to Glove 0.15.1 left in `dir` (`sessao.log` and
+/// `sessao.log.anterior`) take today's names. It happens once, here or in the next
+/// `glove-session`: after that there is nothing left to move. The log of a session that
+/// is still open goes on being written under the new name.
+fn move_old_logs(dir: &std::path::Path) {
+    glove_config::move_stored(&dir.join("sessao.log"), &dir.join(LOG));
+    glove_config::move_stored(&dir.join("sessao.log.anterior"), &dir.join(PREVIOUS_LOG));
 }
 
 /// Tira as cores de terminal (ESC[…m) que o log do Glove tem.
@@ -39,8 +52,8 @@ pub fn strip_ansi(s: &str) -> String {
 
 fn load(source: usize) -> Vec<String> {
     let text = match source {
-        0 => std::fs::read_to_string(state_dir().join("sessao.log")).unwrap_or_else(|_| "Ainda não há registro da sessão do Glove (só existe ao entrar pela tela de login).".into()),
-        1 => std::fs::read_to_string(state_dir().join("sessao.log.anterior")).unwrap_or_else(|_| "Não há registro da sessão anterior.".into()),
+        0 => std::fs::read_to_string(state_dir().join(LOG)).unwrap_or_else(|_| "Ainda não há registro da sessão do Glove (só existe ao entrar pela tela de login).".into()),
+        1 => std::fs::read_to_string(state_dir().join(PREVIOUS_LOG)).unwrap_or_else(|_| "Não há registro da sessão anterior.".into()),
         2 => Command::new("journalctl").args(["-b", "--no-pager", "-o", "short", "-n", "3000"]).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default(),
         _ => Command::new("journalctl").args(["-k", "-b", "--no-pager", "-o", "short", "-n", "3000"]).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default(),
     };
@@ -153,6 +166,7 @@ impl App for Registros {
 }
 
 pub fn main() {
+    move_old_logs(&state_dir());
     let app = Registros { source: Some(2), lines: load(2), filter: String::new(), scroll: f32::MAX, follow: true };
     let opts = WindowOptions { title: tr!("Registros").into(), app_id: "glove.Console".into(), size: (820, 500), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
@@ -165,5 +179,52 @@ mod tests {
     #[test]
     fn sem_cores() {
         assert_eq!(super::strip_ansi("\u{1b}[2m2026\u{1b}[0m \u{1b}[32m INFO\u{1b}[0m ok"), "2026  INFO ok");
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-console-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn read(p: std::path::PathBuf) -> String {
+        std::fs::read_to_string(p).unwrap()
+    }
+
+    #[test]
+    fn old_logs_take_todays_names_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("sessao.log"), "this session").unwrap();
+        std::fs::write(d.join("sessao.log.anterior"), "the one before").unwrap();
+        super::move_old_logs(&d);
+        assert!(!d.join("sessao.log").exists() && !d.join("sessao.log.anterior").exists());
+        assert_eq!(read(d.join("session.log")), "this session");
+        assert_eq!(read(d.join("session.log.previous")), "the one before");
+        // The second time there is nothing left to do.
+        super::move_old_logs(&d);
+        assert_eq!(read(d.join("session.log")), "this session");
+        assert_eq!(read(d.join("session.log.previous")), "the one before");
+        assert_eq!(std::fs::read_dir(&d).unwrap().count(), 2);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn todays_logs_are_left_alone() {
+        let d = test_dir("new");
+        // The log in use wins: an old one beside it stays where it is.
+        std::fs::write(d.join("session.log"), "new").unwrap();
+        std::fs::write(d.join("sessao.log"), "old").unwrap();
+        super::move_old_logs(&d);
+        assert_eq!(read(d.join("session.log")), "new");
+        assert_eq!(read(d.join("sessao.log")), "old");
+        assert!(!d.join("session.log.previous").exists());
+        // No log at all (the session did not come from the login screen): nothing is created.
+        let empty = test_dir("empty");
+        super::move_old_logs(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

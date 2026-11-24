@@ -4,40 +4,77 @@
 //! com moldura própria (a faixa colorida no alto, como no 10.4). Abrir o app
 //! de novo só pede ao processo que já está rodando (por um socket) para abrir
 //! os lembretes fechados ou um novo. Os textos ficam em
-//! ~/.local/share/glove/lembretes/<n>.txt e a cor em <n>.cor.
+//! ~/.local/share/glove/notes/<n>.txt e a cor em <n>.color.
 
 use glove_config::tr;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use glove_ui::paint::draw::*;
 use glove_ui::{run, App, Choice, ColorPanel, FileBrowser, Menu, MenuItem, Rect, TextBuffer, Ui, WindowOptions};
 
 const COLORS: [(&str, &str, (u8, u8, u8)); 6] = [
-    ("amarelo", "Amarelo", (255, 244, 160)),
-    ("azul", "Azul", (190, 222, 255)),
-    ("verde", "Verde", (200, 245, 190)),
-    ("rosa", "Rosa", (255, 205, 225)),
-    ("roxo", "Roxo", (225, 210, 255)),
-    ("cinza", "Cinza", (232, 232, 232)),
+    ("yellow", "Amarelo", (255, 244, 160)),
+    ("blue", "Azul", (190, 222, 255)),
+    ("green", "Verde", (200, 245, 190)),
+    ("pink", "Rosa", (255, 205, 225)),
+    ("purple", "Roxo", (225, 210, 255)),
+    ("gray", "Cinza", (232, 232, 232)),
 ];
+
+/// The colour ids an older version wrote in a note's colour file, and today's.
+const OLD_COLORS: [(&str, &str); 6] = [("amarelo", "yellow"), ("azul", "blue"), ("verde", "green"), ("rosa", "pink"), ("roxo", "purple"), ("cinza", "gray")];
 
 /// Altura da faixa colorida do alto.
 const STRIP: f32 = 16.0;
 const SIZE: (u32, u32) = (260, 220);
 
-fn dir() -> PathBuf {
-    let base = std::env::var_os("XDG_DATA_HOME")
+/// The user's data folder (`~/.local/share`).
+fn data_home() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"));
-    base.join("glove/lembretes")
+        .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"))
+}
+
+fn dir() -> PathBuf {
+    data_home().join("glove/notes")
 }
 
 fn socket_path() -> PathBuf {
-    std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("glove-lembretes.sock")
+    std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("glove-notes.sock")
+}
+
+/// Today's content of a colour file an older version wrote: the six colour ids changed name;
+/// anything else (the "#rrggbb" of the Colour Panel, an id of today) stays as it is.
+fn current_color(stored: &str) -> &str {
+    let c = stored.trim();
+    OLD_COLORS.iter().find(|(old, _)| *old == c).map(|(_, new)| *new).unwrap_or(c)
+}
+
+/// Moves what an older version stored under `data` (the data folder): the folder
+/// `glove/lembretes` becomes `glove/notes` and, inside it, each colour file `<n>.cor` becomes
+/// `<n>.color` with today's colour id. Runs once: afterwards nothing is left under the old names.
+fn migrate_old_names(data: &Path) {
+    let dir = data.join("glove/notes");
+    glove_config::move_stored(&data.join("glove/lembretes"), &dir);
+    for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let old = e.path();
+        if old.extension().is_none_or(|x| x != "cor") {
+            continue;
+        }
+        let new = old.with_extension("color");
+        // A colour file of today wins; the old one only goes away once the new one is there.
+        if !new.exists() {
+            let Ok(stored) = std::fs::read_to_string(&old) else { continue };
+            if std::fs::write(&new, current_color(&stored)).is_err() {
+                continue;
+            }
+        }
+        let _ = std::fs::remove_file(&old);
+    }
 }
 
 fn existing() -> Vec<u32> {
@@ -76,7 +113,7 @@ impl Note {
         if let Ok(t) = std::fs::read_to_string(n.path("txt")) {
             n.buf = TextBuffer::new(t);
         }
-        if let Ok(c) = std::fs::read_to_string(n.path("cor")) {
+        if let Ok(c) = std::fs::read_to_string(n.path("color")) {
             let c = c.trim();
             n.color = COLORS.iter().position(|(id, _, _)| *id == c).unwrap_or(0);
             // "#rrggbb": cor do Painel de Cores.
@@ -109,7 +146,7 @@ impl Note {
             Some((r, g, b)) => format!("#{r:02x}{g:02x}{b:02x}"),
             None => COLORS[self.color].0.to_string(),
         };
-        write(self.path("cor"), &cor);
+        write(self.path("color"), &cor);
         self.buf.modified = false;
     }
 
@@ -133,7 +170,7 @@ struct Notes {
     windows: HashMap<u32, u32>,
     /// Lembretes abertos no começo que ainda faltam abrir.
     to_open: Vec<u32>,
-    /// Pedidos de outros "glove-notes": "novo", "todos" ou um número.
+    /// Pedidos de outros "glove-notes": "new", "all" ou um número.
     requests: Vec<String>,
     listener: Option<UnixListener>,
     /// Lembrete da janela com o foco (para os menus).
@@ -179,8 +216,8 @@ impl Notes {
         }
         for r in std::mem::take(&mut self.requests) {
             match r.as_str() {
-                "novo" => self.new_note(ui),
-                "todos" => {
+                "new" => self.new_note(ui),
+                "all" => {
                     let all = existing();
                     if all.is_empty() {
                         self.new_note(ui);
@@ -264,7 +301,7 @@ impl App for Notes {
                 "Ctrl+M" => acts.push("minimize".into()),
                 "Ctrl+Shift+E" => acts.push("export".into()),
                 "Ctrl+Shift+I" => acts.push("import".into()),
-                "Ctrl+Shift+C" => acts.push("cor-outra".into()),
+                "Ctrl+Shift+C" => acts.push("color-other".into()),
                 _ => {}
             }
         }
@@ -281,7 +318,7 @@ impl App for Notes {
                 "delete" => {
                     if let Some(n) = self.note_mut(id) {
                         let _ = std::fs::remove_file(n.path("txt"));
-                        let _ = std::fs::remove_file(n.path("cor"));
+                        let _ = std::fs::remove_file(n.path("color"));
                         n.deleted = true;
                     }
                     ui.close = true;
@@ -299,7 +336,7 @@ impl App for Notes {
                     self.file = Some((win, fb, a == "export", size));
                     ui.set_window_size(560.0, 420.0, true);
                 }
-                "cor-outra" if self.colors.is_none() => {
+                "color-other" if self.colors.is_none() => {
                     let rgb = self.note_mut(id).map(|n| n.paper()).unwrap_or((255, 244, 160));
                     let mut p = ColorPanel::new(rgb);
                     p.open = true;
@@ -307,8 +344,8 @@ impl App for Notes {
                     self.colors = Some((win, p, (ui.c.w, ui.c.h)));
                     ui.set_window_size(280.0, 340.0, true);
                 }
-                c if c.starts_with("cor-") => {
-                    if let (Some(i), Some(n)) = (COLORS.iter().position(|(cid, _, _)| c[4..] == **cid), self.note_mut(id)) {
+                c if c.starts_with("color-") => {
+                    if let (Some(i), Some(n)) = (COLORS.iter().position(|(cid, _, _)| c["color-".len()..] == **cid), self.note_mut(id)) {
                         n.color = i;
                         n.custom = None;
                         n.buf.paper = Some(n.paper());
@@ -392,9 +429,9 @@ impl App for Notes {
     fn menus(&self) -> Vec<Menu> {
         let color = self.notes.iter().find(|n| n.id == self.active).map(|n| n.color).unwrap_or(0);
         let custom = self.notes.iter().find(|n| n.id == self.active).is_some_and(|n| n.custom.is_some());
-        let mut cores: Vec<MenuItem> = COLORS.iter().enumerate().map(|(i, (id, name, _))| MenuItem::new(&format!("cor-{id}"), tr(name), "").checked(i == color && !custom)).collect();
+        let mut cores: Vec<MenuItem> = COLORS.iter().enumerate().map(|(i, (id, name, _))| MenuItem::new(&format!("color-{id}"), tr(name), "").checked(i == color && !custom)).collect();
         cores.push(MenuItem::Separator);
-        cores.push(MenuItem::new("cor-outra", tr!("Outra Cor…"), "Ctrl+Shift+C").checked(custom));
+        cores.push(MenuItem::new("color-other", tr!("Outra Cor…"), "Ctrl+Shift+C").checked(custom));
         vec![
             Menu::new(
                 tr!("Arquivo"),
@@ -457,9 +494,9 @@ impl App for Notes {
 
 pub fn main() {
     let req = match std::env::args().nth(1).as_deref() {
-        Some("new") => "novo".to_string(),
+        Some("new") => "new".to_string(),
         Some(n) if n.parse::<u32>().is_ok() => n.to_string(),
-        _ => "todos".to_string(),
+        _ => "all".to_string(),
     };
     // Já tem um Lembretes rodando: só pede a ele e sai.
     let sock = socket_path();
@@ -472,10 +509,12 @@ pub fn main() {
     if let Some(l) = &listener {
         let _ = l.set_nonblocking(true);
     }
+    // This is the one process that reads the notes: what an older version stored moves first.
+    migrate_old_names(&data_home());
     // Lembretes desta abertura: o primeiro vai na janela 0; os outros abrem no primeiro quadro.
     let mut ids: Vec<u32> = match req.as_str() {
-        "novo" => vec![next_id(&[])],
-        "todos" => existing(),
+        "new" => vec![next_id(&[])],
+        "all" => existing(),
         n => vec![n.parse().unwrap_or(1)],
     };
     if ids.is_empty() {
@@ -495,4 +534,90 @@ pub fn main() {
         eprintln!("glove-notes: {e}");
     }
     let _ = std::fs::remove_file(&sock);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An empty folder for one test, under the system's temporary folder.
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-notes-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// The files of a folder with their content, in order.
+    fn listing(dir: &Path) -> Vec<(String, String)> {
+        let mut v: Vec<(String, String)> = std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| (e.file_name().to_string_lossy().into_owned(), std::fs::read_to_string(e.path()).unwrap()))
+            .collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn old_color_ids() {
+        for (old, new) in [("amarelo", "yellow"), ("azul", "blue"), ("verde", "green"), ("rosa", "pink"), ("roxo", "purple"), ("cinza", "gray")] {
+            assert_eq!(current_color(old), new);
+            // Today's id is one of the six colours and is left as it is.
+            assert!(COLORS.iter().any(|(id, _, _)| *id == new));
+            assert_eq!(current_color(new), new);
+        }
+        assert_eq!(current_color("azul\n"), "blue");
+        assert_eq!(current_color("#ffcc00"), "#ffcc00");
+        assert_eq!(current_color(""), "");
+    }
+
+    #[test]
+    fn old_notes_are_moved_once() {
+        let data = temp("moved");
+        let old = data.join("glove/lembretes");
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join("1.txt"), "milk").unwrap();
+        std::fs::write(old.join("1.cor"), "azul").unwrap();
+        std::fs::write(old.join("2.txt"), "bread").unwrap();
+        std::fs::write(old.join("2.cor"), "#12ab34").unwrap();
+        std::fs::write(old.join("3.txt"), "no colour file").unwrap();
+        migrate_old_names(&data);
+        assert!(!old.exists());
+        let expected: Vec<(String, String)> = [("1.color", "blue"), ("1.txt", "milk"), ("2.color", "#12ab34"), ("2.txt", "bread"), ("3.txt", "no colour file")]
+            .iter()
+            .map(|(n, t)| (n.to_string(), t.to_string()))
+            .collect();
+        assert_eq!(listing(&data.join("glove/notes")), expected);
+        // A second run finds nothing to do.
+        migrate_old_names(&data);
+        assert!(!old.exists());
+        assert_eq!(listing(&data.join("glove/notes")), expected);
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn new_notes_are_left_untouched() {
+        let data = temp("untouched");
+        let (old, new) = (data.join("glove/lembretes"), data.join("glove/notes"));
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::create_dir_all(&new).unwrap();
+        std::fs::write(old.join("1.txt"), "old").unwrap();
+        std::fs::write(old.join("1.cor"), "rosa").unwrap();
+        std::fs::write(new.join("1.txt"), "new").unwrap();
+        std::fs::write(new.join("1.color"), "green").unwrap();
+        // A leftover of the old name beside today's file: today's wins and the leftover goes.
+        std::fs::write(new.join("1.cor"), "roxo").unwrap();
+        migrate_old_names(&data);
+        let expected: Vec<(String, String)> = [("1.color", "green"), ("1.txt", "new")].iter().map(|(n, t)| (n.to_string(), t.to_string())).collect();
+        assert_eq!(listing(&new), expected);
+        // The new folder is the one in use: the old one is not merged into it.
+        assert_eq!(std::fs::read_to_string(old.join("1.cor")).unwrap(), "rosa");
+        // Nothing stored at all: nothing is created.
+        let empty = temp("empty");
+        migrate_old_names(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&empty);
+    }
 }

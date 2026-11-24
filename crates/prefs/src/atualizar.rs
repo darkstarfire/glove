@@ -232,13 +232,26 @@ pub fn script_atualizar(p: Pacote, v: &str, repo: &str) -> Option<String> {
     }
 }
 
+/// What was already announced, in the cache folder of Glove: the version of Glove, and the
+/// packages of the system.
+const UPDATE_NOTIFIED: &str = "update-notified";
+const SYSTEM_NOTIFIED: &str = "system-notified";
+
 fn avisada_path() -> std::path::PathBuf {
     let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
-    home.join(".cache/glove/atualizacao-avisada")
+    home.join(".cache/glove").join(UPDATE_NOTIFIED)
 }
 
 fn sistema_avisado_path() -> std::path::PathBuf {
-    avisada_path().with_file_name("sistema-avisado")
+    avisada_path().with_file_name(SYSTEM_NOTIFIED)
+}
+
+/// The two files a version up to Glove 0.15.1 left in `dir` (`atualizacao-avisada` and
+/// `sistema-avisado`) take today's names, so that nothing is announced twice. It happens
+/// once: after that there is nothing left to move.
+fn move_old_notified(dir: &std::path::Path) {
+    glove_config::move_stored(&dir.join("atualizacao-avisada"), &dir.join(UPDATE_NOTIFIED));
+    glove_config::move_stored(&dir.join("sistema-avisado"), &dir.join(SYSTEM_NOTIFIED));
 }
 
 /// Os pacotes do sistema com versão nova, pela lista que o apt já tem (sem rede e sem
@@ -283,6 +296,9 @@ fn avisar(titulo: String, texto: String) {
 /// Glove vem do repositório dele (a cada 6 horas, avisa uma vez por versão); o resto do
 /// sistema, da lista do apt (avisa quando aparece algo que ainda não foi avisado).
 pub fn verificar_em_segundo_plano() {
+    if let Some(dir) = avisada_path().parent() {
+        move_old_notified(dir);
+    }
     std::thread::sleep(Duration::from_secs(120));
     let mut volta = 0u32;
     loop {
@@ -409,5 +425,53 @@ mod tests {
         let out = "Listing... Done\nlibc6/stable-security 2.41-12+deb13u1 amd64 [upgradable from: 2.41-12]\nglove/glove 0.12.62 amd64 [upgradable from: 0.12.61]\nfirefox-esr/stable-security 140.5 amd64 [upgradable from: 140.4]\n";
         assert_eq!(pendentes_de(out), vec!["firefox-esr".to_string(), "libc6".to_string()]);
         assert!(pendentes_de("Listing... Done\n").is_empty());
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-update-notified-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn notified_paths_have_todays_names() {
+        assert!(avisada_path().ends_with(".cache/glove/update-notified"));
+        assert!(sistema_avisado_path().ends_with(".cache/glove/system-notified"));
+    }
+
+    #[test]
+    fn old_notified_files_take_todays_names_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("atualizacao-avisada"), "0.15.1").unwrap();
+        std::fs::write(d.join("sistema-avisado"), "firefox-esr\nlibc6").unwrap();
+        move_old_notified(&d);
+        assert!(!d.join("atualizacao-avisada").exists() && !d.join("sistema-avisado").exists());
+        assert_eq!(std::fs::read_to_string(d.join("update-notified")).unwrap(), "0.15.1");
+        assert_eq!(std::fs::read_to_string(d.join("system-notified")).unwrap(), "firefox-esr\nlibc6");
+        // The second time there is nothing left to do.
+        move_old_notified(&d);
+        assert_eq!(std::fs::read_to_string(d.join("update-notified")).unwrap(), "0.15.1");
+        assert_eq!(std::fs::read_to_string(d.join("system-notified")).unwrap(), "firefox-esr\nlibc6");
+        assert_eq!(std::fs::read_dir(&d).unwrap().count(), 2);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn todays_notified_files_are_left_alone() {
+        let d = test_dir("new");
+        // The file in use wins: an old one beside it stays where it is.
+        std::fs::write(d.join("update-notified"), "0.15.2").unwrap();
+        std::fs::write(d.join("atualizacao-avisada"), "0.15.1").unwrap();
+        move_old_notified(&d);
+        assert_eq!(std::fs::read_to_string(d.join("update-notified")).unwrap(), "0.15.2");
+        assert_eq!(std::fs::read_to_string(d.join("atualizacao-avisada")).unwrap(), "0.15.1");
+        assert!(!d.join("system-notified").exists());
+        // Nothing announced yet (not even the folder): nothing is created.
+        let none = d.join("not-there");
+        move_old_notified(&none);
+        assert!(!none.exists());
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

@@ -331,6 +331,7 @@ pub fn main() {
         open_fb: None,
         error: None,
     };
+    dict::migrate_old_names(&dict::data_home());
     app.reload();
     let opts = WindowOptions { title: tr!("Dicionário").into(), app_id: "glove.Dictionary".into(), size: (720, 480), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {

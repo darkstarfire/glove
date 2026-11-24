@@ -94,11 +94,11 @@ fn fit_filter(w: u32, h: u32, fps: u32) -> String {
     format!("fps={fps},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}")
 }
 
-/// Onde fica a cópia reduzida de um vídeo para um tamanho e ritmo (~/.cache/glove/papel).
+/// Onde fica a cópia reduzida de um vídeo para um tamanho e ritmo (~/.cache/glove/wallpaper).
 fn cache_path(path: &str, w: u32, h: u32, fps: u32) -> Option<std::path::PathBuf> {
     let meta = std::fs::metadata(path).ok()?;
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default();
-    let dir = std::env::var_os("XDG_CACHE_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| home.join(".cache")).join("glove/papel");
+    let dir = std::env::var_os("XDG_CACHE_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| home.join(".cache")).join("glove/wallpaper");
     Some(dir.join(format!("{:016x}-{w}x{h}-{fps}.mp4", hash_of(&(path, meta.len(), meta.modified().ok())))))
 }
 
@@ -123,7 +123,11 @@ fn make_cache(src: &str, out: &std::path::Path, w: u32, h: u32, fps: u32) {
             return;
         };
         let _ = std::fs::create_dir_all(dir);
-        let tmp = out.with_extension("parcial.mp4");
+        // The cache folder up to Glove 0.15.1 (the copies are made again here).
+        if let Some(parent) = dir.parent() {
+            let _ = std::fs::remove_dir_all(parent.join("papel"));
+        }
+        let tmp = out.with_extension("partial.mp4");
         let ok = Command::new("nice")
             .args(["-n", "15", "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostdin", "-hwaccel", "auto", "-i", &src, "-an", "-vf", &fit_filter(w, h, fps)])
             .args(["-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-pix_fmt", "yuv420p", "-g", &(fps * 2).to_string()])

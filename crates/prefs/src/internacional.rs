@@ -1,9 +1,9 @@
 //! Painel Internacional: idioma dos apps e formatos (data, hora, números e
-//! moeda). Fica em ~/.config/glove/ambiente.conf (LANG e LC_*), que a sessão
+//! moeda). Fica em ~/.config/glove/environment.conf (LANG e LC_*), que a sessão
 //! do Glove lê ao entrar; vale para os apps abertos depois disso.
 
 use glove_config::tr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use glove_ui::Ui;
 
@@ -52,19 +52,36 @@ pub fn instalar_como_admin(loc: &str) -> Result<(), String> {
     if ok.success() { Ok(()) } else { Err(tr!("Não deu para instalar o idioma {}.", loc)) }
 }
 
+/// The file with the language and the formats, in the configuration folder of Glove (the
+/// one `glove-session` reads).
+const FILE: &str = "environment.conf";
+/// Its name up to Glove 0.15.1.
+const OLD_FILE: &str = "ambiente.conf";
+
 fn file() -> PathBuf {
-    glove_config::dir().join("ambiente.conf")
+    glove_config::dir().join(FILE)
+}
+
+/// The file an older version left in `dir` takes today's name. It happens once, here or
+/// in the next `glove-session`: after that there is nothing left to move.
+fn move_old_file(dir: &Path) -> bool {
+    glove_config::move_stored(&dir.join(OLD_FILE), &dir.join(FILE))
 }
 
 /// (LANG, região dos formatos) gravados; vazio = padrão do sistema.
 pub fn load() -> (String, String) {
-    let t = std::fs::read_to_string(file()).unwrap_or_default();
+    load_from(&glove_config::dir())
+}
+
+fn load_from(dir: &Path) -> (String, String) {
+    move_old_file(dir);
+    let t = std::fs::read_to_string(dir.join(FILE)).unwrap_or_default();
     let get = |k: &str| t.lines().find_map(|l| l.strip_prefix(&format!("{k}="))).map(|v| v.trim_matches('"').split('.').next().unwrap_or("").to_string()).unwrap_or_default();
     (get("LANG"), get("LC_TIME"))
 }
 
 fn save(lang: &str, region: &str) -> std::io::Result<()> {
-    let mut out = String::from("# Idioma e formatos do Glove (painel Internacional). A sessão lê ao entrar.\n");
+    let mut out = String::from("# Glove language and formats (International pane). The session reads it at login.\n");
     if !lang.is_empty() {
         out.push_str(&format!("LANG={lang}.UTF-8\n"));
     }
@@ -299,5 +316,46 @@ mod tests {
         assert_eq!(money("de_DE", 1_234.56), "1.234,56 €");
         assert_eq!(date_time("en_US", (2026, 11, 5, 14, 30)), ("11/5/2026".to_string(), "2:30 PM".to_string()));
         assert_eq!(date_time("pt_BR", (2026, 11, 5, 9, 5)), ("05/11/2026".to_string(), "09:05".to_string()));
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-international-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn old_file_takes_todays_name_once() {
+        let d = test_dir("old");
+        let text = "# Idioma e formatos do Glove\nLANG=pt_BR.UTF-8\nLC_TIME=en_GB.UTF-8\n";
+        std::fs::write(d.join("ambiente.conf"), text).unwrap();
+        assert_eq!(load_from(&d), ("pt_BR".to_string(), "en_GB".to_string()));
+        assert!(!d.join("ambiente.conf").exists());
+        assert_eq!(std::fs::read_to_string(d.join("environment.conf")).unwrap(), text);
+        // The second time there is nothing left to do.
+        assert!(!move_old_file(&d));
+        assert_eq!(load_from(&d), ("pt_BR".to_string(), "en_GB".to_string()));
+        assert_eq!(std::fs::read_to_string(d.join("environment.conf")).unwrap(), text);
+        assert_eq!(std::fs::read_dir(&d).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn todays_file_is_left_alone() {
+        let d = test_dir("new");
+        // The file in use wins: an old one beside it stays where it is.
+        std::fs::write(d.join("environment.conf"), "LANG=de_DE.UTF-8\n").unwrap();
+        std::fs::write(d.join("ambiente.conf"), "LANG=pt_BR.UTF-8\n").unwrap();
+        assert_eq!(load_from(&d), ("de_DE".to_string(), String::new()));
+        assert_eq!(std::fs::read_to_string(d.join("environment.conf")).unwrap(), "LANG=de_DE.UTF-8\n");
+        assert_eq!(std::fs::read_to_string(d.join("ambiente.conf")).unwrap(), "LANG=pt_BR.UTF-8\n");
+        // Nothing chosen yet: the defaults of the system, and nothing is created.
+        let empty = test_dir("empty");
+        assert_eq!(load_from(&empty), (String::new(), String::new()));
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

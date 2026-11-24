@@ -349,14 +349,9 @@ fn auto() {
         return;
     }
     // Uma por vez (o Glove pode chamar de novo enquanto uma cópia longa roda).
-    let lock = motor::root(&dest).join(".andamento.lock");
-    let _ = std::fs::create_dir_all(motor::root(&dest));
-    if std::fs::OpenOptions::new().write(true).create_new(true).open(&lock).is_err() {
-        let old = lock.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|e| e > Duration::from_secs(6 * 3600));
-        if !old {
-            return;
-        }
-    }
+    let root = motor::root(&dest);
+    let _ = std::fs::create_dir_all(&root);
+    let Some(lock) = motor::take_lock(&root) else { return };
     let p = Progress::default();
     let r = motor::backup(&prefs, &p);
     let _ = std::fs::remove_file(&lock);
@@ -367,6 +362,7 @@ fn auto() {
 }
 
 pub fn main() {
+    motor::migrate_old_names();
     if std::env::args().any(|a| a == "--auto") {
         auto();
         return;

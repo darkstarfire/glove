@@ -380,7 +380,7 @@ impl Editor {
                     glove_ui::print::PrintContent::Text(self.doc.plain_text())
                 } else {
                     let pdf = view::export_pdf(&self.doc, &self.fb, &self.name());
-                    let path = std::env::temp_dir().join(format!("glove-imprimir-{}.pdf", std::process::id()));
+                    let path = std::env::temp_dir().join(format!("glove-print-{}.pdf", std::process::id()));
                     match std::fs::write(&path, pdf) {
                         Ok(()) => glove_ui::print::PrintContent::Pdf(path),
                         Err(e) => {

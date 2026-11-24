@@ -859,7 +859,7 @@ impl Correio {
         if snapshot != (f.a.imap_host.clone(), f.imap_port.clone(), f.a.smtp_host.clone(), f.smtp_port.clone(), f.a.user.clone()) {
             f.touched = true;
         }
-        for (k, line) in [tr!("A senha fica guardada só para você,"), "em ~/.config/glove/correio.toml."].iter().enumerate() {
+        for (k, line) in [tr!("A senha fica guardada só para você,"), "em ~/.config/glove/mail.toml."].iter().enumerate() {
             ui.fonts.draw(ui.c, line, fx, y + 10.0 + k as f32 * 14.0, 10.0, false, rgba(120, 120, 126, 255));
         }
         if let Some(e) = &f.error {
@@ -1094,6 +1094,7 @@ impl App for Correio {
 }
 
 pub fn main() {
+    store::migrate_old_names();
     let accounts = store::load_accounts();
     let shared: Arc<Mutex<Shared>> = Arc::default();
     let tx = worker::start(shared.clone(), accounts.clone());

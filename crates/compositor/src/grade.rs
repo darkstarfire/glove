@@ -12,7 +12,7 @@
 //!   Arrastar muda a ordem e, na borda, passa de página; soltar um app sobre outro
 //!   (parando um instante em cima) cria uma pasta, e sobre uma pasta põe o app nela;
 //!   arrastar para fora da faixa tira o app da pasta (a pasta vazia some). Esc ou
-//!   um clique no vazio sai do modo. A arrumação fica em `~/.config/glove/grade.json`.
+//!   um clique no vazio sai do modo. A arrumação fica em `~/.config/glove/all-apps.json`.
 //!
 //! Desenho: o campo e a grade são duas texturas (a do campo é pequena, para o
 //! cursor piscar sem redesenhar os ícones). Cada ícone com o nome vira uma imagem
@@ -63,7 +63,10 @@ const BAND_PAD: f32 = 12.0;
 const FOLD: f32 = 0.22;
 /// Quadros por segundo no modo de edição e nas animações (~30).
 const TICK: Duration = Duration::from_millis(33);
-const FILE: &str = "grade.json";
+/// The file with the arrangement, in the configuration folder of Glove.
+const FILE: &str = "all-apps.json";
+/// Its name up to Glove 0.15.1.
+const OLD_FILE: &str = "grade.json";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GradeKey {
@@ -373,14 +376,14 @@ fn arrange(apps: &[App], saved: Option<&serde_json::Value>, next_id: &mut u64) -
     let mut used = vec![false; apps.len()];
     let mut take = |k: &str| index.get(k).copied().filter(|&i| !std::mem::replace(&mut used[i], true));
     let mut out = Vec::new();
-    match saved.and_then(|v| v.get("itens")).and_then(|v| v.as_array()) {
+    match saved.and_then(|v| v.get("items")).and_then(|v| v.as_array()) {
         Some(list) => {
             for it in list {
                 if let Some(i) = it.as_str().and_then(&mut take) {
                     out.push(Entry::App(i));
                 } else if let Some(keys) = it.get("apps").and_then(|v| v.as_array()) {
-                    let name = it.get("nome").and_then(|v| v.as_str()).map(String::from);
-                    let utilities = it.get("utilitarios").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let name = it.get("name").and_then(|v| v.as_str()).map(String::from);
+                    let utilities = it.get("utilities").and_then(|v| v.as_bool()).unwrap_or(false);
                     let apps = keys.iter().filter_map(|k| k.as_str()).filter_map(&mut take).collect();
                     out.push(Entry::Folder(Folder { id: id(), name, utilities, apps }));
                 }
@@ -416,13 +419,71 @@ fn to_json(top: &[Entry], apps: &[App]) -> serde_json::Value {
         .map(|e| match e {
             Entry::App(i) => serde_json::Value::String(app_key(&apps[*i])),
             Entry::Folder(f) => serde_json::json!({
-                "nome": f.name,
-                "utilitarios": f.utilities,
+                "name": f.name,
+                "utilities": f.utilities,
                 "apps": f.apps.iter().map(|i| app_key(&apps[*i])).collect::<Vec<_>>(),
             }),
         })
         .collect();
-    serde_json::json!({ "itens": items })
+    serde_json::json!({ "items": items })
+}
+
+/// Today's key of an app that an older version stored under another one: the window id of
+/// a Glove app ("glove.Agenda" is "glove.Calendar"), or the program that opens any other
+/// app, which is the first word of the command, maybe with a folder in front
+/// ("exec:glove-instalador --x" is "exec:glove-installer --x"). `None` when the key is today's.
+fn current_app_key(key: &str) -> Option<String> {
+    let Some(command) = key.strip_prefix("exec:") else {
+        return glove_config::current_window_id(key).map(String::from);
+    };
+    let (program, rest) = command.split_at(command.find(' ').unwrap_or(command.len()));
+    let (folder, name) = program.split_at(program.rfind('/').map_or(0, |i| i + 1));
+    Some(format!("exec:{folder}{}{rest}", glove_config::current_program(name)?))
+}
+
+/// What an older version saved, in today's format: the keys `itens`, `nome` and
+/// `utilitarios` are `items`, `name` and `utilities`, and the apps have today's keys.
+/// `None` when there is nothing to change, or when the text is not a saved arrangement.
+fn convert_old(text: &str) -> Option<String> {
+    /// Gives the value under `old` the key `new` (the one in use wins if both are there).
+    fn rename(map: &mut serde_json::Map<String, serde_json::Value>, old: &str, new: &str) -> bool {
+        let Some(v) = map.remove(old) else { return false };
+        map.entry(new).or_insert(v);
+        true
+    }
+    /// Gives an app (a text) today's key.
+    fn update_app(v: &mut serde_json::Value) -> bool {
+        let Some(new) = v.as_str().and_then(current_app_key) else { return false };
+        *v = serde_json::Value::String(new);
+        true
+    }
+    let mut all: serde_json::Value = serde_json::from_str(text).ok()?;
+    let root = all.as_object_mut()?;
+    let mut changed = rename(root, "itens", "items");
+    for it in root.get_mut("items").and_then(|v| v.as_array_mut()).into_iter().flatten() {
+        changed |= update_app(it);
+        if let Some(folder) = it.as_object_mut() {
+            changed |= rename(folder, "nome", "name");
+            changed |= rename(folder, "utilitarios", "utilities");
+            for a in folder.get_mut("apps").and_then(|v| v.as_array_mut()).into_iter().flatten() {
+                changed |= update_app(a);
+            }
+        }
+    }
+    changed.then(|| all.to_string())
+}
+
+/// The arrangement saved in `dir`. What an older version left there takes today's name and
+/// format first; it happens once: after that there is nothing left to move or to change.
+fn load_saved(dir: &std::path::Path) -> Option<serde_json::Value> {
+    let file = dir.join(FILE);
+    glove_config::move_stored(&dir.join(OLD_FILE), &file);
+    let mut text = std::fs::read_to_string(&file).ok()?;
+    if let Some(new) = convert_old(&text) {
+        let _ = std::fs::write(&file, &new);
+        text = new;
+    }
+    serde_json::from_str(&text).ok()
 }
 
 /// Os apps de uma busca, do mais parecido para o menos.
@@ -463,7 +524,7 @@ impl Glove {
             self.chrome.dock_hover = None;
             self.chrome.animate_dock_zoom(0.0);
         }
-        let saved = std::fs::read_to_string(glove_config::dir().join(FILE)).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+        let saved = load_saved(&glove_config::dir());
         let g = &mut self.grade;
         g.open = true;
         g.query.clear();
@@ -1908,7 +1969,7 @@ mod tests {
         assert_eq!(again.iter().map(|e| e.item()).count(), 3);
         assert!(matches!(&again[0], Entry::Folder(f) if f.utilities && f.apps == vec![1]));
         // Uma pasta do usuário com nome, um app que saiu e um app novo (vai para o fim).
-        let saved = serde_json::json!({"itens": ["exec:zeta", {"nome": "Jogos", "apps": ["exec:alfa", "exec:sumiu"]}]});
+        let saved = serde_json::json!({"items": ["exec:zeta", {"name": "Jogos", "apps": ["exec:alfa", "exec:sumiu"]}]});
         let apps2 = sorted_apps(vec![app("Zeta", false), app("Monitor", true), app("Alfa", false), app("Beta", false)]);
         let top = arrange(&apps2, Some(&saved), &mut id);
         // Alfa, Beta, Monitor, Zeta: Zeta = 3, Alfa = 0, Beta = 1, Monitor = 2.
@@ -1917,7 +1978,7 @@ mod tests {
         // Sem pasta de utilitários guardada: o utilitário fica solto, no fim, com o novo.
         assert_eq!(&top[2..], &[Entry::App(1), Entry::App(2)]);
         // Pasta que ficou vazia some.
-        let saved = serde_json::json!({"itens": [{"nome": "Vazia", "apps": ["exec:sumiu"]}]});
+        let saved = serde_json::json!({"items": [{"name": "Vazia", "apps": ["exec:sumiu"]}]});
         assert!(arrange(&apps2, Some(&saved), &mut id).iter().all(|e| matches!(e, Entry::App(_))));
     }
 
@@ -1958,5 +2019,99 @@ mod tests {
         assert_eq!(l.tile_at(l.x - 1.0, l.y), None);
         let b = Band { top: 300.0, h: 100.0, full_h: 100.0, up: 0.0, split: 300.0, notch_x: 0.0 };
         assert_eq!((b.shift(200.0), b.shift(300.0)), (200.0, 400.0));
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-all-apps-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// An arrangement as Glove 0.15.1 saved it, with apps under the ids of before 0.15.
+    const OLD: &str = r#"{"itens":["glove.Agenda","exec:firefox-esr",{"apps":["glove.Registros","exec:/usr/bin/glove-instalador --now","glove.Terminal"],"nome":null,"utilitarios":true},{"apps":["exec:gimp"],"nome":"Arte","utilitarios":false}]}"#;
+
+    #[test]
+    fn todays_app_keys() {
+        assert_eq!(current_app_key("glove.Agenda").as_deref(), Some("glove.Calendar"));
+        assert_eq!(current_app_key("exec:glove-agenda").as_deref(), Some("exec:glove-calendar"));
+        assert_eq!(current_app_key("exec:/opt/glove/glove-musica --play a b").as_deref(), Some("exec:/opt/glove/glove-music --play a b"));
+        // Today's keys, other apps, and an old name that is not the program itself.
+        for key in ["glove.Calendar", "glove.Files", "exec:glove-calendar", "exec:firefox-esr", "exec:env glove-agenda", "exec:", "glove-agenda", ""] {
+            assert_eq!(current_app_key(key), None, "{key}");
+        }
+    }
+
+    #[test]
+    fn converts_old_keys_and_apps() {
+        let new = convert_old(OLD).expect("the old arrangement is converted");
+        let v: serde_json::Value = serde_json::from_str(&new).unwrap();
+        let expected = serde_json::json!({"items": [
+            "glove.Calendar",
+            "exec:firefox-esr",
+            {"name": null, "utilities": true, "apps": ["glove.Console", "exec:/usr/bin/glove-installer --now", "glove.Terminal"]},
+            {"name": "Arte", "utilities": false, "apps": ["exec:gimp"]},
+        ]});
+        assert_eq!(v, expected);
+        // Today's format has nothing to change; neither has what is not an arrangement.
+        assert_eq!(convert_old(&new), None);
+        assert_eq!(convert_old("[1, 2]"), None);
+        assert_eq!(convert_old("isto não é json"), None);
+        assert_eq!(convert_old(""), None);
+        // Today's keys with an app of before: only the app changes.
+        assert_eq!(convert_old(r#"{"items":["glove.Correio"]}"#).as_deref(), Some(r#"{"items":["glove.Mail"]}"#));
+    }
+
+    #[test]
+    fn converted_arrangement_is_the_one_read() {
+        // What `to_json` writes is what `convert_old` produces: the arrangement comes back whole.
+        let mut glove = app("Agenda", false);
+        glove.glove_id = Some("glove.Calendar".into());
+        let apps = sorted_apps(vec![glove, app("Firefox-esr", false), app("Gimp", false)]);
+        let saved: serde_json::Value = serde_json::from_str(&convert_old(OLD).unwrap()).unwrap();
+        let mut id = 0;
+        let top = arrange(&apps, Some(&saved), &mut id);
+        // Agenda = 0, Firefox-esr = 1, Gimp = 2; the utilities that are gone leave no folder.
+        assert_eq!(&top[..2], &[Entry::App(0), Entry::App(1)]);
+        assert!(matches!(&top[2], Entry::Folder(f) if f.name.as_deref() == Some("Arte") && !f.utilities && f.apps == vec![2]));
+        assert_eq!(top.len(), 3);
+        assert_eq!(convert_old(&to_json(&top, &apps).to_string()), None);
+    }
+
+    #[test]
+    fn moves_and_converts_the_old_file_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("grade.json"), OLD).unwrap();
+        let v = load_saved(&d).expect("the old file is read");
+        assert_eq!(v["items"][0], "glove.Calendar");
+        assert_eq!(v["items"][2]["utilities"], true);
+        assert!(v.get("itens").is_none());
+        assert!(!d.join("grade.json").exists());
+        let stored = std::fs::read_to_string(d.join("all-apps.json")).unwrap();
+        assert!(!stored.contains("itens") && !stored.contains("nome") && !stored.contains("utilitarios") && !stored.contains("glove.Agenda"));
+        // The second time there is nothing left to do.
+        assert_eq!(load_saved(&d), Some(v));
+        assert_eq!(std::fs::read_to_string(d.join("all-apps.json")).unwrap(), stored);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn leaves_todays_file_alone() {
+        let d = test_dir("new");
+        // Spaced by hand, to tell a rewrite apart; the old file beside it stays where it is.
+        let text = "{ \"items\": [ \"glove.Calendar\", { \"name\": \"Arte\", \"utilities\": false, \"apps\": [ \"exec:gimp\" ] } ] }\n";
+        std::fs::write(d.join("all-apps.json"), text).unwrap();
+        std::fs::write(d.join("grade.json"), OLD).unwrap();
+        let v = load_saved(&d).unwrap();
+        assert_eq!(v["items"][1]["name"], "Arte");
+        assert_eq!(std::fs::read_to_string(d.join("all-apps.json")).unwrap(), text);
+        assert!(d.join("grade.json").exists());
+        // Nothing saved yet: nothing is created (the first arrangement is the default one).
+        let empty = test_dir("empty");
+        assert!(load_saved(&empty).is_none());
+        assert!(!empty.join("all-apps.json").exists());
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

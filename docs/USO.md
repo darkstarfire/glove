@@ -28,7 +28,7 @@ continua na frente (clicar num app dele abre o app e fecha a grade).
   - solte sobre uma pasta para pôr o app nela;
   - arraste um app para fora da faixa para tirá-lo da pasta (pasta vazia some);
   - **Esc** ou um clique no vazio param o balanço.
-  A arrumação fica salva (`~/.config/glove/grade.json`); apps instalados depois entram no fim (os
+  A arrumação fica salva (`~/.config/glove/all-apps.json`); apps instalados depois entram no fim (os
   utilitários, na pasta Utilitários).
 - **Fechar:** Esc (primeiro limpa a busca, depois fecha a pasta e para o balanço), F4 de novo ou
   clique fora dos ícones.
@@ -214,7 +214,7 @@ Cópias automáticas da pasta pessoal num disco externo, com uma linha do tempo.
 
 As cópias ficam em `Glove Backups/<nome do computador>/<data>` no disco. Caches, a Lixeira e
 pastas de programas (`.cache`, `node_modules`…) ficam de fora. A lista está em
-`~/.config/glove/copias.toml`. O disco precisa aceitar links fixos (ext4, btrfs, xfs…); em
+`~/.config/glove/backup.toml`. O disco precisa aceitar links fixos (ext4, btrfs, xfs…); em
 FAT/exFAT cada cópia ocupa o espaço inteiro.
 
 ## Central de Apps
@@ -273,7 +273,7 @@ Bate-papo no IRC.
 - **+** abre um canal (`#nome`) ou uma conversa com alguém (o apelido).
 - **Comandos:** `/join #canal`, `/part`, `/msg apelido texto`, `/me ação`, `/nick novo`.
 - Mensagem particular ou com o seu apelido, com a janela no fundo, vira aviso na central.
-- **Conta…** muda o servidor e o apelido. A conta fica em `~/.config/glove/mensagens.toml`.
+- **Conta…** muda o servidor e o apelido. A conta fica em `~/.config/glove/messages.toml`.
   Senhas do NickServ ainda não são guardadas.
 
 ## Música
@@ -486,7 +486,7 @@ Em Preferências ▸ Mesa e Protetor de Tela ▸ Mesa:
   papel animado (precisa do ffmpeg). Opções: quadros por segundo, **Leve** (metade da resolução,
   bom para computadores simples), **Parar na bateria** e **Parar com app em tela cheia**. Na primeira
   vez o Glove prepara, em segundo plano, uma cópia do vídeo já no tamanho da tela (em
-  `~/.cache/glove/papel`, sem perda visível); com ela, o papel gasta cerca de 5 vezes menos. Ele também
+  `~/.cache/glove/wallpaper`, sem perda visível); com ela, o papel gasta cerca de 5 vezes menos. Ele também
   para com a tela bloqueada e com "Reduzir efeitos". O animado vale nos três modos (no panorama, um
   vídeo largo atravessa os monitores).
 - A Pasta Imagens aceita PNG, JPEG e WebP.
@@ -519,7 +519,7 @@ também funcionam.
 
 Um **AppImage** (programa num arquivo só) abre com **dois cliques** no Arquivos ou na mesa: aparece
 uma janela com o ícone do programa e a pasta **Aplicativos**. **Arraste o ícone para a pasta** (ou
-clique em Instalar) para copiá-lo para `~/Aplicativos`; ele passa a aparecer em Todos os Apps.
+clique em Instalar) para copiá-lo para `~/Aplicativos` (`~/Applications` com o sistema em inglês); ele passa a aparecer em Todos os Apps.
 **Abrir sem Instalar** só roda o programa. Os AppImage antigos precisam da libfuse2, que já vem no
 Glove OS (sem ela, o Glove os roda do mesmo jeito, abrindo o arquivo antes).
 

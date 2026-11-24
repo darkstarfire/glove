@@ -110,14 +110,30 @@ pub fn list(glove_cmd: &[String]) -> Vec<Session> {
     out
 }
 
-fn memory() -> Option<PathBuf> {
+/// The file with the last choice, in the cache folder of the login screen's user.
+const MEMORY: &str = "glove-login-session";
+/// Its name up to Glove 0.15.1.
+const OLD_MEMORY: &str = "glove-login-sessao";
+
+fn cache_dir() -> Option<PathBuf> {
     let home = std::env::var_os("HOME").map(PathBuf::from)?;
-    Some(home.join(".cache/glove-login-sessao"))
+    Some(home.join(".cache"))
+}
+
+fn memory() -> Option<PathBuf> {
+    Some(cache_dir()?.join(MEMORY))
 }
 
 /// A sessão escolhida da última vez (id e se é X11).
 pub fn last() -> Option<(String, bool)> {
-    let t = std::fs::read_to_string(memory()?).ok()?;
+    last_in(&cache_dir()?)
+}
+
+/// The last choice kept in `dir`. The file an older version left there takes today's name
+/// first; it happens once: after that there is nothing left to move.
+fn last_in(dir: &Path) -> Option<(String, bool)> {
+    glove_config::move_stored(&dir.join(OLD_MEMORY), &dir.join(MEMORY));
+    let t = std::fs::read_to_string(dir.join(MEMORY)).ok()?;
     let (id, kind) = t.trim().split_once(' ').unwrap_or((t.trim(), "wayland"));
     Some((id.to_string(), kind == "x11"))
 }
@@ -142,5 +158,44 @@ mod tests {
         assert_eq!(cmd[0], "startx");
         assert!(env.contains(&"XDG_CURRENT_DESKTOP=zorin:GNOME".to_string()));
         assert!(super::parse("x", "[Desktop Entry]\nName=X\nExec=x\nNoDisplay=true\n", false).is_none());
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-login-session-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn old_choice_takes_todays_name_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("glove-login-sessao"), "zorin-xorg x11\n").unwrap();
+        assert_eq!(super::last_in(&d), Some(("zorin-xorg".to_string(), true)));
+        assert!(!d.join("glove-login-sessao").exists());
+        assert_eq!(std::fs::read_to_string(d.join("glove-login-session")).unwrap(), "zorin-xorg x11\n");
+        // The second time there is nothing left to do.
+        assert_eq!(super::last_in(&d), Some(("zorin-xorg".to_string(), true)));
+        assert_eq!(std::fs::read_to_string(d.join("glove-login-session")).unwrap(), "zorin-xorg x11\n");
+        assert_eq!(std::fs::read_dir(&d).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn todays_choice_is_left_alone() {
+        let d = test_dir("new");
+        // The file in use wins: an old one beside it stays where it is.
+        std::fs::write(d.join("glove-login-session"), "glove wayland\n").unwrap();
+        std::fs::write(d.join("glove-login-sessao"), "zorin-xorg x11\n").unwrap();
+        assert_eq!(super::last_in(&d), Some(("glove".to_string(), false)));
+        assert_eq!(std::fs::read_to_string(d.join("glove-login-session")).unwrap(), "glove wayland\n");
+        assert!(d.join("glove-login-sessao").exists());
+        // Nothing chosen yet: nothing is created.
+        let empty = test_dir("empty");
+        assert_eq!(super::last_in(&empty), None);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

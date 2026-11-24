@@ -11,7 +11,7 @@ Conflicts=getty@tty7.service
 
 [Service]
 Type=simple
-ExecStart=@PREFIXO@/lib/glove/glove-login-greetd
+ExecStart=@PREFIX@/lib/glove/glove-login-greetd
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
 TimeoutStopSec=30s

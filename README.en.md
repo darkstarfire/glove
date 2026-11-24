@@ -254,7 +254,7 @@ the system starts and shuts down. On another distribution, install it with
 `sudo ./data/install-plymouth.sh` (`--remove` goes back to the previous theme). On the Glove OS ISO
 it is already done, on the USB stick and in the installed system: Plymouth is in the package list,
 the theme ships in the `glove-os` package (which turns it on with
-`/usr/share/glove-os/tela-de-inicio`) and the installed system's GRUB passes `splash` to the kernel.
+`/usr/share/glove-os/boot-screen`) and the installed system's GRUB passes `splash` to the kernel.
 
 ## Glove OS (the distribution, as an ISO)
 
@@ -304,7 +304,7 @@ cargo build --release
 ```
 
 `./install.sh` points the session at the project's own programs, so rebuilding updates it.
-Session log: `~/.local/state/glove/sessao.log`.
+Session log: `~/.local/state/glove/session.log`.
 
 ## Shortcuts (defaults, editable in Preferences)
 

@@ -180,15 +180,15 @@ stage() {
     # To enable: sudo systemctl enable --force glove-login
     mkdir -p "$dest$prefix/lib/glove" "$dest$prefix/lib/systemd/system"
     install -m 755 data/glove-login-greetd "$dest$prefix/lib/glove/glove-login-greetd"
-    sed "s|@PREFIXO@|$prefix|" data/glove-login.service > "$dest$prefix/lib/systemd/system/glove-login.service"
+    sed "s|@PREFIX@|$prefix|" data/glove-login.service > "$dest$prefix/lib/systemd/system/glove-login.service"
     chmod 644 "$dest$prefix/lib/systemd/system/glove-login.service"
     # Chromebook battery the firmware does not recognise: glove-battery reads it from
     # the EC as root (the service only runs on Chromebooks) and a sleep hook checks it
     # while suspended.
-    sed "s|@PREFIXO@|$prefix|" data/glove-battery.service > "$dest$prefix/lib/systemd/system/glove-battery.service"
+    sed "s|@PREFIX@|$prefix|" data/glove-battery.service > "$dest$prefix/lib/systemd/system/glove-battery.service"
     chmod 644 "$dest$prefix/lib/systemd/system/glove-battery.service"
     mkdir -p "$dest$prefix/lib/systemd/system-sleep"
-    sed "s|@PREFIXO@|$prefix|" data/glove-battery.sleep > "$dest$prefix/lib/systemd/system-sleep/glove-battery"
+    sed "s|@PREFIX@|$prefix|" data/glove-battery.sleep > "$dest$prefix/lib/systemd/system-sleep/glove-battery"
     chmod 755 "$dest$prefix/lib/systemd/system-sleep/glove-battery"
     # Session entry (every login screen reads /usr/share/wayland-sessions).
     mkdir -p "$dest/usr/share/wayland-sessions"
@@ -205,8 +205,8 @@ stage() {
     # Icon theme (drawn by code, the same as the glove-icons repository).
     target/release/glove-art icons "$dest$prefix/share/icons/Glove" >/dev/null
     # Wallpapers (the Glove OS one is the default).
-    mkdir -p "$dest$prefix/share/glove/papeis"
-    install -m 644 data/papeis/*.png "$dest$prefix/share/glove/papeis/"
+    mkdir -p "$dest$prefix/share/glove/wallpapers"
+    install -m 644 data/wallpapers/*.png "$dest$prefix/share/glove/wallpapers/"
     # The key of the Glove repositories: on Fedora and Arch the package manager checks
     # the Glove updates with it (Software Update adds the repository).
     install -m 644 data/glove-os/glove-os-repositorio.asc "$dest$prefix/share/glove/glove-os-repositorio.asc"
@@ -230,6 +230,11 @@ if command -v systemctl >/dev/null 2>&1; then
   systemctl enable glove-battery.service 2>/dev/null || true
   systemctl start glove-battery.service 2>/dev/null || true
 fi
+# Up to 0.15.1 the note of the login manager that was there before had a Portuguese name.
+if [ -f /etc/glove/login/gerenciador-anterior ]; then
+  [ -f /etc/glove/login/previous-manager ] || mv /etc/glove/login/gerenciador-anterior /etc/glove/login/previous-manager
+  rm -f /etc/glove/login/gerenciador-anterior
+fi
 # Up to 0.15.0 the appearance of the login screen was stored under its Portuguese name.
 login_config=/etc/glove/login/config.toml
 if [ -f "$login_config" ]; then
@@ -249,7 +254,7 @@ echo "To go back to the previous one (e.g. GDM): sudo systemctl enable --force g
 pre_remove_sh='command -v systemctl >/dev/null 2>&1 && systemctl disable --now glove-battery.service 2>/dev/null || true
 if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled glove-login >/dev/null 2>&1; then
   systemctl disable glove-login 2>/dev/null || true
-  previous=$(cat /etc/glove/login/gerenciador-anterior 2>/dev/null || true)
+  previous=$(cat /etc/glove/login/previous-manager 2>/dev/null || true)
   for d in $previous gdm gdm3 lightdm sddm lxdm greetd; do
     if systemctl cat "$d.service" >/dev/null 2>&1 && systemctl enable --force "$d.service" 2>/dev/null; then
       echo "Glove: the login screen goes back to $d."
@@ -263,7 +268,14 @@ size_kb() { du -sk "$1" | cut -f1; }
 
 # --- install / uninstall ----------------------------------------------------------
 
-manifest_path() { echo "$1/share/glove/instalados.txt"; }
+manifest_path() { echo "$1/share/glove/installed.txt"; }
+# The list of an installation already in the prefix $1 (nothing if there is none). Up to
+# 0.15.1 the file had a Portuguese name: an installation made then is still found by it.
+existing_manifest() {
+    for name in installed.txt instalados.txt; do
+        if [ -f "$sysroot$1/share/glove/$name" ]; then echo "$1/share/glove/$name"; return; fi
+    done
+}
 
 # Copies the staged tree ($1) to the system ($2), replacing each file by name: copies
 # it as ".new" and renames it. This way Glove can be installed while it is running (a
@@ -301,6 +313,7 @@ install_glove() {
     stage "$tmp" "$prefix" "$pam_style"
     # List of what was installed: this is what "uninstall" deletes.
     list=$(manifest_path "$prefix")
+    previous=$(existing_manifest "$prefix")
     mkdir -p "$tmp$(dirname "$list")"
     (cd "$tmp" && find . ! -type d | sed 's|^\.||' | sort) > "$tmp$list"
     echo "$list" >> "$tmp$list"
@@ -322,7 +335,18 @@ install_glove() {
     fi
     msg "$(t "Copiando para o sistema (pede a senha)" "Copying to the system (asks for your password)")"
     root mkdir -p "$sysroot/"
+    # What the installation that was there had and this one does not (programs that changed
+    # name, the old list itself) goes away, so nothing stale is left to be opened by mistake.
+    stale=""
+    if [ -n "$previous" ]; then
+        stale=$(mktemp)
+        grep -vxFf "$tmp$list" "$sysroot$previous" > "$stale" || true
+    fi
     root sh -c "$copy_sh" sh "$tmp" "$sysroot" || die "$(t "a cópia para o sistema falhou" "copying to the system failed")"
+    if [ -n "$stale" ]; then
+        root sh -c 'while IFS= read -r f; do [ -n "$f" ] && rm -f "$2$f"; done < "$1"' sh "$stale" "$sysroot" || true
+        rm -f "$stale"
+    fi
     if [ -z "$sysroot" ]; then
         root sh -c "$post_install_sh"
     fi
@@ -379,7 +403,7 @@ install_glove() {
 # first (PATH, the glove-login service), so the session keeps opening the old one.
 # Removes only that copy: the files in its list that the package does not own.
 remove_local_copy() {
-    list=$(manifest_path /usr/local)
+    list=$(existing_manifest /usr/local)
     msg "$(t "Removendo a cópia antiga de /usr/local (o pacote fica)" "Removing the old copy in /usr/local (the package stays)")"
     root sh -c '
 login=$(systemctl is-enabled glove-login 2>/dev/null || true)
@@ -395,7 +419,7 @@ if [ "$login" = enabled ]; then systemctl enable --force glove-login.service; fi
 }
 
 uninstall_glove() {
-    if [ -z "$sysroot" ] && has dpkg-query && dpkg-query -W -f='${Status}' glove 2>/dev/null | grep -q "ok installed" && [ -f "$(manifest_path /usr/local)" ]; then
+    if [ -z "$sysroot" ] && has dpkg-query && dpkg-query -W -f='${Status}' glove 2>/dev/null | grep -q "ok installed" && [ -n "$(existing_manifest /usr/local)" ]; then
         if ask "$(t "O Glove está instalado pelo pacote e também há uma cópia antiga em /usr/local, que a sessão usa no lugar dele. Remover só a cópia de /usr/local?" "Glove is installed as a package and there is also an old copy in /usr/local, which the session uses instead. Remove only the copy in /usr/local?")" y; then
             remove_local_copy
             return
@@ -416,11 +440,11 @@ uninstall_glove() {
     fi
     found=""
     for p in /usr/local /usr /opt/glove "$1"; do
-        [ -n "$p" ] && [ -f "$sysroot$(manifest_path "$p")" ] && found="$found $p"
+        [ -n "$p" ] && [ -n "$(existing_manifest "$p")" ] && found="$found $p"
     done
     [ -n "$found" ] || die "$(t "não achei uma instalação do Glove feita por este instalador" "no Glove installation made by this tool was found")"
     for p in $found; do
-        list="$sysroot$(manifest_path "$p")"
+        list="$sysroot$(existing_manifest "$p")"
         ask "$(t "Remover o Glove instalado em $p?" "Remove the Glove installed in $p?")" y || continue
         [ -z "$sysroot" ] && root sh -c "$pre_remove_sh"
         msg "$(t "Removendo $(wc -l < "$list") arquivos" "Removing $(wc -l < "$list") files")"
@@ -589,9 +613,9 @@ package_glove_os() {
     tmp=$(mktemp -d)
     o="$tmp/usr/share/glove-os"
     mkdir -p "$o" "$tmp/DEBIAN" "$tmp/etc/xdg/fastfetch" "$tmp/etc/skel/.config/neofetch" "$tmp/etc/apt/apt.conf.d" "$tmp/etc/default/grub.d" "$tmp/usr/share/pixmaps"
-    echo "$version" > "$o/versao"
-    install -m 755 "$d/identidade" "$d/tela-de-inicio" "$o/"
-    # Boot and shutdown screen: the Glove Plymouth themes (tela-de-inicio turns on the
+    echo "$version" > "$o/version"
+    install -m 755 "$d/identity" "$d/boot-screen" "$o/"
+    # Boot and shutdown screen: the Glove Plymouth themes (boot-screen turns on the
     # classic one; "Use the appearance everywhere" switches to the Modern ones).
     for p in glove glove-modern glove-modern-dark; do
         mkdir -p "$tmp/usr/share/plymouth/themes/$p"
@@ -605,12 +629,12 @@ package_glove_os() {
     install -m 644 "$d/grub-glove-os.cfg" "$tmp/etc/default/grub.d/glove-os.cfg"
     mkdir -p "$tmp/etc/grub.d"
     install -m 755 "$root_dir/data/grub/06_glove" "$tmp/etc/grub.d/06_glove"
-    for f in "$d"/icones/glove-os-*.png; do
+    for f in "$d"/icons/glove-os-*.png; do
         s=$(basename "$f" .png | sed 's/glove-os-//')
         mkdir -p "$tmp/usr/share/icons/hicolor/${s}x${s}/apps"
         install -m 644 "$f" "$tmp/usr/share/icons/hicolor/${s}x${s}/apps/glove-os.png"
     done
-    install -m 644 "$d/icones/glove-os-256.png" "$tmp/usr/share/pixmaps/glove-os.png"
+    install -m 644 "$d/icons/glove-os-256.png" "$tmp/usr/share/pixmaps/glove-os.png"
     # Updates of Glove itself: the Glove OS apt repository (built by CI for every
     # version, on GitHub Pages) and its public key. Debian keeps coming from Debian.
     mkdir -p "$tmp/usr/share/keyrings" "$tmp/etc/apt/sources.list.d"
@@ -873,13 +897,21 @@ login() {
     fi
     state_dir=/etc/glove/login
     # Old versions of this tool replaced greetd's own configuration: put the original
-    # back (the glove-login service uses a configuration of its own).
-    if [ -f /etc/greetd/config.toml.antes-do-glove ]; then
-        mv /etc/greetd/config.toml.antes-do-glove /etc/greetd/config.toml
-        systemctl disable greetd 2>/dev/null || true
+    # back (the glove-login service uses a configuration of its own). The copy they kept
+    # had a Portuguese name up to 0.15.1.
+    for kept in /etc/greetd/config.toml.before-glove /etc/greetd/config.toml.antes-do-glove; do
+        if [ -f "$kept" ]; then
+            mv "$kept" /etc/greetd/config.toml
+            systemctl disable greetd 2>/dev/null || true
+        fi
+    done
+    # The note of the previous login manager had a Portuguese name up to 0.15.1.
+    if [ -f "$state_dir/gerenciador-anterior" ]; then
+        [ -f "$state_dir/previous-manager" ] || mv "$state_dir/gerenciador-anterior" "$state_dir/previous-manager"
+        rm -f "$state_dir/gerenciador-anterior"
     fi
     if [ "${1:-}" = remove ]; then
-        previous=$(cat "$state_dir/gerenciador-anterior" 2>/dev/null || true)
+        previous=$(cat "$state_dir/previous-manager" 2>/dev/null || true)
         systemctl disable glove-login 2>/dev/null || true
         for d in $previous gdm gdm3 lightdm sddm lxdm greetd; do
             if systemctl cat "$d.service" >/dev/null 2>&1 && systemctl enable --force "$d.service" 2>/dev/null; then
@@ -887,7 +919,7 @@ login() {
                 break
             fi
         done
-        rm -f "$state_dir/gerenciador-anterior"
+        rm -f "$state_dir/previous-manager"
         return
     fi
     systemctl cat glove-login.service >/dev/null 2>&1 || die "$(t "o Glove não está instalado (instale o pacote ou rode: ./glove-setup-tool.sh install)" "Glove isn’t installed (install the package or run: ./glove-setup-tool.sh install)")"
@@ -925,7 +957,7 @@ login() {
     fi
     echo "$(t "A tela de login atual é ${current:-desconhecida}." "The current login screen is ${current:-unknown}.")"
     if ask "$(t "Trocar pela tela de login do Glove (vale a partir do próximo boot)?" "Switch to the Glove login screen (from the next boot)?")" y; then
-        [ -n "$current" ] && echo "$current" > "$state_dir/gerenciador-anterior"
+        [ -n "$current" ] && echo "$current" > "$state_dir/previous-manager"
         systemctl enable --force glove-login
         echo "$(t "Pronto: reinicie para ver a tela de login do Glove." "Done: restart to see the Glove login screen.")"
         echo "$(t "Para voltar à do ${current:-sistema}: ./glove-setup-tool.sh login remove" "To go back to ${current:-the system’s}: ./glove-setup-tool.sh login remove")"
@@ -979,7 +1011,7 @@ grub_screen() {
             return ;;
     esac
     src=""
-    for f in "$root_dir/data/papeis/glove-os.png" /usr/local/share/glove/papeis/glove-os.png /usr/share/glove/papeis/glove-os.png; do
+    for f in "$root_dir/data/wallpapers/glove-os.png" /usr/local/share/glove/wallpapers/glove-os.png /usr/share/glove/wallpapers/glove-os.png; do
         if [ -f "$f" ]; then src=$f; break; fi
     done
     [ -n "$src" ] || die "$(t "não achei o papel de parede do Glove OS (glove-os.png)" "the Glove OS wallpaper (glove-os.png) was not found")"

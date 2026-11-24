@@ -33,11 +33,11 @@ if [ "$(id -u)" = 0 ]; then
 fi
 
 case "${1:-}" in
-    --remove|--remover)
+    --remove)
         if ask "$(t 'Tirar o Glove da lista de sessões?' 'Remove Glove from the session list?')" y; then
             sudo ./data/install-session.sh --remove
         fi
-        if [ -f /etc/greetd/config.toml.antes-do-glove ] && ask "$(t 'Devolver a tela de login que havia antes do Glove?' 'Restore the login screen that was there before Glove?')" y; then
+        if { [ -f /etc/greetd/config.toml.before-glove ] || [ -f /etc/greetd/config.toml.antes-do-glove ]; } && ask "$(t 'Devolver a tela de login que havia antes do Glove?' 'Restore the login screen that was there before Glove?')" y; then
             sudo ./data/install-login.sh --remove
         fi
         exit 0

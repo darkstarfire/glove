@@ -105,7 +105,7 @@ pub fn parse(text: &str) -> Vec<Event> {
 }
 
 pub fn serialize(events: &[Event]) -> String {
-    let mut s = String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Glove//Agenda//PT-BR\r\n");
+    let mut s = String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Glove//Calendar//EN\r\n");
     for e in events {
         s.push_str("BEGIN:VEVENT\r\n");
         s.push_str(&format!("UID:{}\r\n", e.uid));
@@ -135,6 +135,11 @@ mod tests {
             Event { uid: "b".into(), title: "Feriado".into(), start: (2026, 11, 15, 0, 0), end: (2026, 11, 16, 0, 0), all_day: true, notes: String::new() },
         ];
         assert_eq!(parse(&serialize(&ev)), ev);
+    }
+
+    #[test]
+    fn exported_product_id() {
+        assert!(serialize(&[]).contains("\r\nPRODID:-//Glove//Calendar//EN\r\n"));
     }
 
     #[test]

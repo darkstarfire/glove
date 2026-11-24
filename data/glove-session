@@ -21,8 +21,18 @@ export _JAVA_AWT_WM_NONREPARENTING=1
 # Open/Save dialogs of GTK apps (Firefox…) go through the portal: they become the Glove one.
 export GTK_USE_PORTAL=1
 
+# What a version up to Glove 0.15.1 stored under another name takes today's name. It
+# happens once: only when the old one ($1) is there and the new one ($2) is not.
+move_stored() {
+    if [ -e "$1" ] && [ ! -e "$2" ]; then
+        mv "$1" "$2"
+    fi
+}
+
 # Language and formats chosen in the International pane (LANG and LC_*).
-env_file="${XDG_CONFIG_HOME:-$HOME/.config}/glove/ambiente.conf"
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/glove"
+env_file="$config_dir/environment.conf"
+move_stored "$config_dir/ambiente.conf" "$env_file"
 if [ -f "$env_file" ]; then
     set -a
     . "$env_file"
@@ -39,10 +49,14 @@ for c in "$dir/glove" "$dir/../target/release/glove"; do
     fi
 done
 
-# Session log, for when something goes wrong (there is no terminal on screen).
-log="${XDG_STATE_HOME:-$HOME/.local/state}/glove/sessao.log"
-mkdir -p "$(dirname "$log")"
-[ -f "$log" ] && mv -f "$log" "$log.anterior"
+# Session log, for when something goes wrong (there is no terminal on screen). The log
+# of the session before this one is kept beside it.
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/glove"
+log="$state_dir/session.log"
+mkdir -p "$state_dir"
+move_stored "$state_dir/sessao.log.anterior" "$log.previous"
+move_stored "$state_dir/sessao.log" "$log"
+[ -f "$log" ] && mv -f "$log" "$log.previous"
 
 # The user services (portals, etc.) learn about this Wayland session.
 if command -v systemctl >/dev/null; then

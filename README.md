@@ -300,7 +300,7 @@ atual: Ctrl+Alt+F3, entre com usuário e senha no console e rode `./target/relea
   o cabo ajusta na hora
 - Teclado, mouse e touchpad pelo libinput, com as preferências aplicadas na hora
 - O cursor é desenhado pelo Glove; os apps podem trocar o desenho dele (ex.: barra de texto)
-- Log da sessão: `~/.local/state/glove/sessao.log`
+- Log da sessão: `~/.local/state/glove/session.log`
 - Tirar da tela de login: `sudo ./data/install-session.sh --remove`
 
 Imprimir (Ctrl+P) no Editor, no Visualizador e no Correio: impressoras do CUPS, Salvar PDF e Pré-visualizar.
@@ -383,7 +383,7 @@ sudo ./data/install-plymouth.sh --remove  # volta ao tema anterior
 ```
 
 Na ISO do Glove OS isso já vem feito, no pendrive e no sistema instalado: o Plymouth está na lista
-de pacotes, o tema vem no pacote `glove-os` (que o ativa com `/usr/share/glove-os/tela-de-inicio`) e
+de pacotes, o tema vem no pacote `glove-os` (que o ativa com `/usr/share/glove-os/boot-screen`) e
 o GRUB do sistema instalado passa `splash` ao kernel.
 
 ## Idiomas

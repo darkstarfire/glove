@@ -601,7 +601,7 @@ pub fn build(m: &Outgoing, now: i64, host: &str) -> String {
         let refs = format!("{} {}", m.references, m.in_reply_to);
         h.push_str(&format!("References: {}\r\n", refs.trim()));
     }
-    h.push_str("MIME-Version: 1.0\r\nUser-Agent: Glove Correio\r\n");
+    h.push_str("MIME-Version: 1.0\r\nUser-Agent: Glove Mail\r\n");
     let text_part = format!("Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n{}", qp_encode(&m.body));
     if m.attachments.is_empty() {
         return format!("{h}{text_part}");

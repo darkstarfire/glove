@@ -27,7 +27,7 @@ front (clicking an app in it opens the app and closes the grid).
   - drop on a folder to put the app in it;
   - drag an app out of the strip to take it out of the folder (an empty folder goes away);
   - **Esc** or a click on empty space stops the wiggle.
-  The arrangement is saved (`~/.config/glove/grade.json`); apps installed later go at the end
+  The arrangement is saved (`~/.config/glove/all-apps.json`); apps installed later go at the end
   (utilities, in the Utilities folder).
 - **Close:** Esc (first clears the search, then closes the folder and stops the wiggle), F4 again
   or a click outside the icons.
@@ -214,7 +214,7 @@ Automatic backups of your home folder to an external disk, with a timeline.
 - **Show in Files** opens the backup in Files.
 
 Backups live in `Glove Backups/<computer name>/<date>` on the disk. Caches, the Trash and program
-folders (`.cache`, `node_modules`…) are skipped. The list is in `~/.config/glove/copias.toml`.
+folders (`.cache`, `node_modules`…) are skipped. The list is in `~/.config/glove/backup.toml`.
 The disk must support hard links (ext4, btrfs, xfs…); on FAT/exFAT each backup takes its full
 size.
 
@@ -276,7 +276,7 @@ IRC chat.
 - A private message, or one with your nickname, while the window is in the background becomes a
   notification.
 - **Account…** changes the server and nickname. The account is kept in
-  `~/.config/glove/mensagens.toml`. NickServ passwords are not stored yet.
+  `~/.config/glove/messages.toml`. NickServ passwords are not stored yet.
 
 ## Music
 
@@ -491,7 +491,7 @@ laptops with a backlit keyboard), with the on-screen notice; dedicated keyboard 
 ## AppImage
 
 An **AppImage** (a program in one file) opens with a **double click** in Files or on the desktop: a
-window shows the program's icon and the **Applications** folder (`~/Aplicativos`). **Drag the icon
+window shows the program's icon and the **Applications** folder (`~/Applications`, or `~/Aplicativos` when the system is in Portuguese). **Drag the icon
 onto the folder** (or click Install) to copy it there; it then shows in All Apps. **Open Without
 Installing** just runs it. Older AppImages need libfuse2, which Glove OS ships (without it, Glove
 still runs them by unpacking the file first).
@@ -648,7 +648,7 @@ In Preferences ▸ Desktop & Screen Saver ▸ Desktop:
   folders become an animated wallpaper (needs ffmpeg). Options: frames per second, **Light** (half
   resolution, good for simple computers), **Pause on battery** and **Pause with a full-screen app**.
   The first time, Glove prepares in the background a copy of the video already at screen size (in
-  `~/.cache/glove/papel`, no visible loss); with it the wallpaper uses about 5 times less CPU.
+  `~/.cache/glove/wallpaper`, no visible loss); with it the wallpaper uses about 5 times less CPU.
   It also pauses with the screen locked and with "Reduce effects". Animated works in all three
   modes (in panorama, a wide video spans the displays).
 - The Pictures folder accepts PNG, JPEG and WebP.

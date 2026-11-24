@@ -185,7 +185,7 @@ pub fn plano(e: &Escolhas) -> Vec<Passo> {
         &format!("{home}/.config/glove/config.toml"),
         format!("theme = \"{}\"\nwelcome_done = true\n\n[appearance]\nicon_theme = \"{icones}\"\nsystem_theme = true\n\n[keyboard]\nlayout = \"{}\"\nvariant = \"{}\"\n", e.tema, e.layout, e.variante),
     ));
-    cfg.push(escrever(&format!("{home}/.config/glove/ambiente.conf"), format!("LANG={}\n", e.idioma)));
+    cfg.push(escrever(&format!("{home}/.config/glove/environment.conf"), format!("LANG={}\n", e.idioma)));
     cfg.push(chroot(&["chown", "-R", &format!("{u}:{u}"), &format!("{home}/.config")]));
     passos.push(Passo { nome: tr!("Configurando o sistema").into(), peso: 0.08, acoes: cfg });
 

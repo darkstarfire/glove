@@ -5,7 +5,7 @@
 //!
 //! Tudo desenhado pelo compositor (glove-paint/widgets.rs), sem processos novos;
 //! só o Clima chama o `curl` (numa thread) para buscar a previsão no Open-Meteo.
-//! Os widgets e o que eles guardam ficam em `~/.config/glove/painel.toml`.
+//! Os widgets e o que eles guardam ficam em `~/.config/glove/dashboard.toml`.
 
 use glove_config::tr;
 use std::sync::{Arc, Mutex};
@@ -122,8 +122,44 @@ pub struct Dashboard {
     pub mem: (f32, String),
 }
 
+/// The file with the widgets, in the configuration folder of Glove.
+const FILE: &str = "dashboard.toml";
+/// Its name up to Glove 0.15.1.
+const OLD_FILE: &str = "painel.toml";
+
 fn saved_path() -> std::path::PathBuf {
-    glove_config::dir().join("painel.toml")
+    glove_config::dir().join(FILE)
+}
+
+/// What an older version saved, in today's format: the kind of a widget was a Portuguese
+/// word ("relogio" is "clock"). `None` when there is nothing to change, or when the text is
+/// not a saved Dashboard.
+fn convert_old(text: &str) -> Option<String> {
+    let mut all: SavedAll = toml::from_str(text).ok()?;
+    let mut changed = false;
+    for w in &mut all.widget {
+        if let Some((_, new)) = WidgetKind::OLD_IDS.iter().find(|(old, _)| w.kind == *old) {
+            w.kind = new.to_string();
+            changed = true;
+        }
+    }
+    if !changed {
+        return None;
+    }
+    toml::to_string(&all).ok()
+}
+
+/// The Dashboard saved in `dir`. What an older version left there takes today's name and
+/// format first; it happens once: after that there is nothing left to move or to change.
+fn load_saved(dir: &std::path::Path) -> Option<SavedAll> {
+    let file = dir.join(FILE);
+    glove_config::move_stored(&dir.join(OLD_FILE), &file);
+    let mut text = std::fs::read_to_string(&file).ok()?;
+    if let Some(new) = convert_old(&text) {
+        let _ = std::fs::write(&file, &new);
+        text = new;
+    }
+    toml::from_str(&text).ok()
 }
 
 /// Cidade do fuso horário ("America/Sao_Paulo" → "Sao Paulo").
@@ -303,7 +339,7 @@ impl Glove {
             return;
         }
         self.dashboard.loaded = true;
-        let saved: Option<SavedAll> = std::fs::read_to_string(saved_path()).ok().and_then(|t| toml::from_str(&t).ok());
+        let saved = load_saved(&glove_config::dir());
         match saved {
             Some(s) => {
                 for w in s.widget {
@@ -808,5 +844,75 @@ mod tests {
         assert_eq!(fmt_num(0.1 + 0.2), "0,3");
         assert_eq!(fmt_num(-2.0), "-2");
         assert_eq!(fmt_num(1.0 / 3.0), "0,3333333333");
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-dashboard-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// A Dashboard as Glove 0.15.1 saved it: every kind that had a Portuguese id, and the Monitor.
+    const OLD: &str = "[[widget]]\nkind = \"relogio\"\nx = 10\ny = 20\ntext = \"\"\ncity = \"\"\n\n\
+        [[widget]]\nkind = \"calendario\"\nx = 1\ny = 2\ntext = \"\"\ncity = \"\"\n\n\
+        [[widget]]\nkind = \"calculadora\"\nx = 3\ny = 4\ntext = \"\"\ncity = \"\"\n\n\
+        [[widget]]\nkind = \"clima\"\nx = 5\ny = 6\ntext = \"\"\ncity = \"Recife\"\n\n\
+        [[widget]]\nkind = \"lembrete\"\nx = 7\ny = 8\ntext = \"comprar pão\"\ncity = \"\"\n\n\
+        [[widget]]\nkind = \"monitor\"\nx = 9\ny = 10\ntext = \"\"\ncity = \"\"\n\n\
+        [[widget]]\nkind = \"dicionario\"\nx = 11\ny = 12\ntext = \"casa\"\ncity = \"\"\n";
+
+    fn kinds(all: &SavedAll) -> Vec<&str> {
+        all.widget.iter().map(|w| w.kind.as_str()).collect()
+    }
+
+    #[test]
+    fn converts_old_widget_kinds() {
+        let new = convert_old(OLD).expect("the old kinds are converted");
+        let all: SavedAll = toml::from_str(&new).unwrap();
+        assert_eq!(kinds(&all), ["clock", "calendar", "calculator", "weather", "note", "monitor", "dictionary"]);
+        // Every kind is one the kit knows, and the rest of each widget is kept.
+        assert!(all.widget.iter().all(|w| WidgetKind::from_id(&w.kind).is_some()));
+        assert_eq!((all.widget[3].x, all.widget[3].y, all.widget[3].city.as_str()), (5, 6, "Recife"));
+        assert_eq!(all.widget[4].text, "comprar pão");
+        // Today's format has nothing to change; neither has what is not a Dashboard.
+        assert_eq!(convert_old(&new), None);
+        assert_eq!(convert_old("isto não é toml ["), None);
+        assert_eq!(convert_old(""), None);
+    }
+
+    #[test]
+    fn moves_and_converts_the_old_file_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("painel.toml"), OLD).unwrap();
+        let all = load_saved(&d).expect("the old file is read");
+        assert_eq!(kinds(&all), ["clock", "calendar", "calculator", "weather", "note", "monitor", "dictionary"]);
+        assert!(!d.join("painel.toml").exists());
+        let stored = std::fs::read_to_string(d.join("dashboard.toml")).unwrap();
+        assert!(!stored.contains("relogio") && stored.contains("kind = \"clock\""));
+        // The second time there is nothing left to do.
+        assert_eq!(kinds(&load_saved(&d).unwrap()), kinds(&all));
+        assert_eq!(std::fs::read_to_string(d.join("dashboard.toml")).unwrap(), stored);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn leaves_todays_file_alone() {
+        let d = test_dir("new");
+        // Written by hand, to tell a rewrite apart; the old file beside it stays where it is.
+        let text = "# mine\n[[widget]]\nkind = \"note\"\nx = 1\ny = 2\ntext = \"oi\"\n";
+        std::fs::write(d.join("dashboard.toml"), text).unwrap();
+        std::fs::write(d.join("painel.toml"), OLD).unwrap();
+        let all = load_saved(&d).unwrap();
+        assert_eq!(kinds(&all), ["note"]);
+        assert_eq!(std::fs::read_to_string(d.join("dashboard.toml")).unwrap(), text);
+        assert!(d.join("painel.toml").exists());
+        // Nothing saved yet: nothing is created (the first Dashboard is the default one).
+        let empty = test_dir("empty");
+        assert!(load_saved(&empty).is_none());
+        assert!(!empty.join("dashboard.toml").exists());
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

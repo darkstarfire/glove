@@ -616,7 +616,7 @@ impl Glove {
             self.show_osd(OsdKind::Volume, level, muted);
             // O "pop" no volume novo (como no 10.4), se ligado no painel Som.
             if self.config.sound.volume_feedback && !muted {
-                glove_config::sons::play("Volume", 1.0);
+                glove_config::sons::play("volume", 1.0);
             }
         }
     }

@@ -140,7 +140,7 @@ fn compress(items: &[PathBuf], shared: &Arc<Mutex<Progress>>) -> Result<Option<P
     shared.lock().unwrap().total = items.iter().map(|p| count_items(p)).sum();
     // O zip escreve numa pasta escondida (o arquivo pela metade e os temporários
     // dele não aparecem no Arquivos) e só no fim o .zip vai para o lugar.
-    let tmp = free_name(&dir, &format!(".glove-compactando-{}", std::process::id()), "");
+    let tmp = free_name(&dir, &format!(".glove-compressing-{}", std::process::id()), "");
     std::fs::create_dir(&tmp).map_err(|e| tr!("Não foi possível escrever em “{}”: {}", dir.display(), e))?;
     let part = tmp.join("a.zip");
     let mut cmd = Command::new("zip");
@@ -175,7 +175,7 @@ fn expand(archive: &Path, shared: &Arc<Mutex<Progress>>) -> Result<Option<PathBu
     let (fmt, stem) = format_of(archive).ok_or(tr!("Este tipo de arquivo não pode ser expandido."))?;
     let dir = archive.parent().unwrap_or(Path::new("/")).to_path_buf();
     // Expande numa pasta escondida e só no fim põe no lugar (Parar não deixa restos).
-    let tmp = free_name(&dir, &format!(".glove-expandindo-{}", std::process::id()), "");
+    let tmp = free_name(&dir, &format!(".glove-expanding-{}", std::process::id()), "");
     std::fs::create_dir(&tmp).map_err(|e| tr!("Não foi possível escrever em “{}”: {}", dir.display(), e))?;
     shared.lock().unwrap().total = list_count(fmt, archive).max(1);
     let r = match fmt {

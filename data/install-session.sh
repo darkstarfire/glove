@@ -18,7 +18,7 @@ if [ "$(id -u)" != 0 ]; then
     exit 1
 fi
 case "${1:-}" in
-    --remove|--remover)
+    --remove)
         rm -f "$dest" "$pam" "$launcher"
         say "Glove removido da tela de login." "Glove removed from the login screen."
         exit 0

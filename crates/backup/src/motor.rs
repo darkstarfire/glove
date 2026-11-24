@@ -2,7 +2,7 @@
 //! (`<destino>/Glove Backups/<computador>/2026-11-07-191500`) com a pasta pessoal
 //! inteira. Arquivos iguais aos da cópia anterior (mesmo tamanho e data) viram
 //! links fixos para ela: cada cópia parece completa, mas só o que mudou ocupa
-//! espaço. Uma cópia só aparece depois de pronta (até lá tem o fim `.andamento`).
+//! espaço. Uma cópia só aparece depois de pronta (até lá tem o fim `.in-progress`).
 //!
 //! Ficam: todas as das últimas 24 horas, uma por dia no último mês e uma por
 //! semana antes disso; com o disco quase cheio, as mais velhas vão embora.
@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-/// Preferências (`~/.config/glove/copias.toml`).
+/// Preferências (`~/.config/glove/backup.toml`).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Prefs {
@@ -39,7 +39,7 @@ impl Default for Prefs {
 
 impl Prefs {
     fn path() -> PathBuf {
-        glove_config::dir().join("copias.toml")
+        glove_config::dir().join("backup.toml")
     }
     pub fn load() -> Self {
         std::fs::read_to_string(Self::path()).ok().and_then(|t| toml::from_str(&t).ok()).unwrap_or_default()
@@ -50,6 +50,70 @@ impl Prefs {
             let _ = std::fs::write(Self::path(), t);
         }
     }
+}
+
+/// Gives today's name to the preferences an older version stored in `dir` (the Glove
+/// configuration folder) as `copias.toml`. With nothing old there, nothing is touched.
+fn migrate_old_names_in(dir: &Path) {
+    glove_config::move_stored(&dir.join("copias.toml"), &dir.join("backup.toml"));
+}
+
+pub fn migrate_old_names() {
+    migrate_old_names_in(&glove_config::dir());
+}
+
+/// End of the name of a backup still being made (`<stamp>.in-progress`), and the one an
+/// older version gave it: what either left on the disk is a backup that did not finish.
+const UNFINISHED: &str = ".in-progress";
+const OLD_UNFINISHED: &str = ".andamento";
+
+/// The lock of the hourly backup, and the name an older version gave it.
+const LOCK: &str = ".in-progress.lock";
+const OLD_LOCK: &str = ".andamento.lock";
+
+/// A lock older than this was left behind by a backup that was cut short.
+const STALE_LOCK: Duration = Duration::from_secs(6 * 3600);
+
+/// Whether `name` is the folder of a backup that did not finish.
+fn is_unfinished(name: &str) -> bool {
+    name.ends_with(UNFINISHED) || name.ends_with(OLD_UNFINISHED)
+}
+
+/// Removes from `root` what a backup that was cut short left behind.
+fn remove_unfinished(root: &Path) {
+    if let Ok(rd) = std::fs::read_dir(root) {
+        for e in rd.flatten() {
+            if is_unfinished(&e.file_name().to_string_lossy()) {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+    }
+}
+
+fn is_stale(lock: &Path) -> bool {
+    lock.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|e| e > STALE_LOCK)
+}
+
+/// Takes the lock of the hourly backup in `root` (one backup at a time) and says where
+/// it is, to remove at the end. None when another backup holds it. A lock older than
+/// `STALE_LOCK` was left behind and does not hold anything.
+///
+/// The lock of an older version counts the same way: while fresh, a backup of that
+/// version may still be running, so this one waits for the next hour; once stale it is
+/// removed, and so it cannot hold the backups back for good.
+pub fn take_lock(root: &Path) -> Option<PathBuf> {
+    let old = root.join(OLD_LOCK);
+    if old.exists() {
+        if !is_stale(&old) {
+            return None;
+        }
+        let _ = std::fs::remove_file(&old);
+    }
+    let lock = root.join(LOCK);
+    if std::fs::OpenOptions::new().write(true).create_new(true).open(&lock).is_err() && !is_stale(&lock) {
+        return None;
+    }
+    Some(lock)
 }
 
 pub fn home() -> PathBuf {
@@ -208,17 +272,11 @@ pub fn backup(prefs: &Prefs, p: &Progress) -> Result<PathBuf, String> {
     let root = root(&dest);
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     // Restos de uma cópia interrompida.
-    if let Ok(rd) = std::fs::read_dir(&root) {
-        for e in rd.flatten() {
-            if e.file_name().to_string_lossy().ends_with(".andamento") {
-                let _ = std::fs::remove_dir_all(e.path());
-            }
-        }
-    }
+    remove_unfinished(&root);
     make_room(&dest, 1 << 30);
     let prev = snapshots(&dest).first().map(|s| s.path.clone());
     let name = stamp(SystemTime::now());
-    let work = root.join(format!("{name}.andamento"));
+    let work = root.join(format!("{name}{UNFINISHED}"));
     std::fs::create_dir(&work).map_err(|e| e.to_string())?;
     let home = home();
     let mut excl_paths: Vec<PathBuf> = prefs.exclude.iter().filter(|x| x.contains('/')).map(PathBuf::from).collect();
@@ -334,8 +392,106 @@ mod tests {
     fn datas() {
         let t = parse_stamp("2026-11-07-191500").unwrap();
         assert_eq!(stamp(t), "2026-11-07-191500");
+        assert!(parse_stamp("2026-11-07-191500.in-progress").is_none());
         assert!(parse_stamp("2026-11-07-191500.andamento").is_none());
         assert!(parse_stamp("foto").is_none());
+    }
+
+    /// An empty folder for one test (never the real configuration, nor a real disk).
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("glove-backup-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Makes a file look as if it was written `hours` ago.
+    fn age(p: &Path, hours: u64) {
+        let f = std::fs::File::options().write(true).open(p).unwrap();
+        f.set_modified(SystemTime::now() - Duration::from_secs(hours * 3600)).unwrap();
+    }
+
+    #[test]
+    fn old_prefs_are_moved_once() {
+        let dir = temp_dir("old-names");
+        let prefs = Prefs { dest: Some(PathBuf::from("/media/disco")), auto: false, exclude: vec![".cache".into(), "Downloads/iso".into()] };
+        let text = toml::to_string(&prefs).unwrap();
+        std::fs::write(dir.join("copias.toml"), &text).unwrap();
+        migrate_old_names_in(&dir);
+        assert!(!dir.join("copias.toml").exists());
+        assert_eq!(std::fs::read_to_string(dir.join("backup.toml")).unwrap(), text);
+        assert_eq!(toml::from_str::<Prefs>(&text).unwrap(), prefs);
+        // A second run finds nothing to do.
+        migrate_old_names_in(&dir);
+        assert_eq!(std::fs::read_to_string(dir.join("backup.toml")).unwrap(), text);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        // Something old beside the new: the new is the one in use, and nothing is touched.
+        std::fs::write(dir.join("copias.toml"), "auto = true\n").unwrap();
+        migrate_old_names_in(&dir);
+        assert_eq!(std::fs::read_to_string(dir.join("backup.toml")).unwrap(), text);
+        assert_eq!(std::fs::read_to_string(dir.join("copias.toml")).unwrap(), "auto = true\n");
+        // Nothing stored at all: nothing is created.
+        let empty = temp_dir("nothing-stored");
+        migrate_old_names_in(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
+    }
+
+    #[test]
+    fn unfinished_backups_of_both_names_go_away() {
+        assert!(is_unfinished("2026-11-07-191500.in-progress") && is_unfinished("2026-11-07-191500.andamento"));
+        assert!(!is_unfinished("2026-11-07-191500") && !is_unfinished(LOCK) && !is_unfinished(OLD_LOCK));
+        let dest = temp_dir("unfinished");
+        let root = root(&dest);
+        for name in ["2026-11-07-191500", "2026-11-08-101500.andamento", "2026-11-09-111500.in-progress"] {
+            std::fs::create_dir_all(root.join(name).join("Docs")).unwrap();
+            std::fs::write(root.join(name).join("Docs/a.txt"), "um").unwrap();
+        }
+        // Neither is listed as a finished backup.
+        let done: Vec<PathBuf> = snapshots(&dest).into_iter().map(|s| s.path).collect();
+        assert_eq!(done, vec![root.join("2026-11-07-191500")]);
+        remove_unfinished(&root);
+        let mut left: Vec<String> = std::fs::read_dir(&root).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        left.sort();
+        assert_eq!(left, vec!["2026-11-07-191500".to_string()]);
+        assert_eq!(std::fs::read_to_string(root.join("2026-11-07-191500/Docs/a.txt")).unwrap(), "um");
+        let _ = std::fs::remove_dir_all(&dest);
+    }
+
+    #[test]
+    fn one_hourly_backup_at_a_time() {
+        let root = temp_dir("lock");
+        let lock = root.join(".in-progress.lock");
+        // Free: taken. Taken a moment ago: another backup is running.
+        assert_eq!(take_lock(&root), Some(lock.clone()));
+        assert!(lock.exists());
+        assert_eq!(take_lock(&root), None);
+        // Left behind for more than six hours: it holds nothing.
+        age(&lock, 5);
+        assert_eq!(take_lock(&root), None);
+        age(&lock, 7);
+        assert_eq!(take_lock(&root), Some(lock.clone()));
+        std::fs::remove_file(&lock).unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn lock_of_an_older_version() {
+        let root = temp_dir("old-lock");
+        let (lock, old) = (root.join(".in-progress.lock"), root.join(".andamento.lock"));
+        // Fresh: a backup of the older version may be running, so nothing is taken or removed.
+        std::fs::write(&old, "").unwrap();
+        assert_eq!(take_lock(&root), None);
+        assert!(old.exists() && !lock.exists());
+        age(&old, 5);
+        assert_eq!(take_lock(&root), None);
+        assert!(old.exists() && !lock.exists());
+        // Stale: it is a leftover; it goes away and the backup goes on under today's name.
+        age(&old, 7);
+        assert_eq!(take_lock(&root), Some(lock.clone()));
+        assert!(!old.exists() && lock.exists());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

@@ -259,7 +259,7 @@ pub fn parse_pdfinfo(t: &str) -> (usize, (f32, f32)) {
 
 fn cache_dir() -> PathBuf {
     let base = std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache"))).unwrap_or_else(std::env::temp_dir);
-    base.join("glove/visualizador").join(std::process::id().to_string())
+    base.join("glove/viewer").join(std::process::id().to_string())
 }
 
 /// Desenha a página `n` (1…) do PDF em `dpi` e devolve o PNG.

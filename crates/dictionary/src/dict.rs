@@ -340,11 +340,21 @@ pub fn strip_tags(s: &str) -> String {
     out.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&nbsp;", " ").replace("&amp;", "&")
 }
 
+/// The user's data folder (`~/.local/share`).
+pub fn data_home() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"))
+}
+
 /// Pastas onde procurar dicionários.
 pub fn dirs() -> Vec<PathBuf> {
     let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
-    let data = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".local/share"));
-    vec![data.join("glove/dicionarios"), home.join(".stardict/dic"), PathBuf::from("/usr/share/stardict/dic"), PathBuf::from("/usr/share/dictd")]
+    vec![data_home().join("glove/dictionaries"), home.join(".stardict/dic"), PathBuf::from("/usr/share/stardict/dic"), PathBuf::from("/usr/share/dictd")]
+}
+
+/// Moves the dictionaries an older version kept in `glove/dicionarios` (under `data`, the data
+/// folder) to today's `glove/dictionaries`. Runs once: afterwards the old folder is gone.
+pub fn migrate_old_names(data: &Path) {
+    glove_config::move_stored(&data.join("glove/dicionarios"), &data.join("glove/dictionaries"));
 }
 
 /// Todos os dicionários nas pastas (busca em subpastas, um nível).
@@ -477,5 +487,45 @@ pub mod tests {
         assert_eq!(d.entries.len(), 1);
         assert_eq!(d.definition(0), "felino doméstico");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// An empty folder for one test, under the system's temporary folder.
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-dictionary-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn old_folder_is_moved_once() {
+        let data = temp("moved");
+        make_stardict(&data.join("glove/dicionarios/teste"), &[("casa", "lugar onde se mora")]);
+        migrate_old_names(&data);
+        assert!(!data.join("glove/dicionarios").exists());
+        // The dictionary is found where it is looked for today.
+        let found = load_all(&[data.join("glove/dictionaries")]);
+        assert_eq!(found.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(), ["Dicionário de Teste"]);
+        // A second run finds nothing to do.
+        migrate_old_names(&data);
+        assert!(!data.join("glove/dicionarios").exists());
+        assert_eq!(std::fs::read_dir(data.join("glove/dictionaries/teste")).unwrap().count(), 3);
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn new_folder_is_left_untouched() {
+        let data = temp("untouched");
+        std::fs::create_dir_all(data.join("glove/dicionarios/old")).unwrap();
+        std::fs::create_dir_all(data.join("glove/dictionaries/new")).unwrap();
+        migrate_old_names(&data);
+        assert!(data.join("glove/dicionarios/old").exists());
+        assert_eq!(std::fs::read_dir(data.join("glove/dictionaries")).unwrap().count(), 1);
+        // Nothing stored at all: nothing is created.
+        let empty = temp("empty");
+        migrate_old_names(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

@@ -13,16 +13,22 @@ say() { printf '%s\n' "$(t "$1" "$2")"; }
 
 lib=/usr/local/lib/glove
 conf=/etc/greetd/config.toml
-# The file name stays in Portuguese: existing installations already have it.
-backup=/etc/greetd/config.toml.antes-do-glove
+backup=/etc/greetd/config.toml.before-glove
 
 if [ "$(id -u)" != 0 ]; then
     say "Rode com sudo." "Run with sudo." >&2
     exit 1
 fi
 
+# Up to 0.15.1 the copy of the previous configuration had a Portuguese name.
+old_backup=/etc/greetd/config.toml.antes-do-glove
+if [ -f "$old_backup" ]; then
+    [ -f "$backup" ] || mv "$old_backup" "$backup"
+    rm -f "$old_backup"
+fi
+
 case "${1:-}" in
-    --remove|--remover)
+    --remove)
         if [ -f "$backup" ]; then
             mv "$backup" "$conf"
             say "Configuração anterior do greetd devolvida." "Previous greetd configuration restored."

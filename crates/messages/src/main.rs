@@ -60,7 +60,38 @@ fn agora() -> String {
 }
 
 fn conta_path() -> std::path::PathBuf {
-    glove_config::dir().join("mensagens.toml")
+    glove_config::dir().join("messages.toml")
+}
+
+/// The keys of the account file an older version wrote, and the ones of today.
+const OLD_ACCOUNT_KEYS: [(&str, &str); 5] = [("servidor", "server"), ("porta", "port"), ("apelido", "nick"), ("nome", "name"), ("canais", "channels")];
+
+/// The account an older version wrote, with the keys of today (the values are the same).
+/// None when there is nothing to convert.
+fn convert_old_account(text: &str) -> Option<String> {
+    let mut changed = false;
+    let mut out = String::new();
+    for l in text.lines() {
+        let new = l.split_once('=').and_then(|(k, v)| OLD_ACCOUNT_KEYS.iter().find(|(old, _)| *old == k.trim()).map(|(_, new)| format!("{new} = {}", v.trim())));
+        changed |= new.is_some();
+        out.push_str(new.as_deref().unwrap_or(l));
+        out.push('\n');
+    }
+    changed.then_some(out)
+}
+
+/// Gives today's name and keys to the account an older version stored in `dir` (the Glove
+/// configuration folder). With nothing old there, nothing is touched.
+fn migrate_old_names_in(dir: &std::path::Path) {
+    let account = dir.join("messages.toml");
+    glove_config::move_stored(&dir.join("mensagens.toml"), &account);
+    if let Some(new) = std::fs::read_to_string(&account).ok().and_then(|t| convert_old_account(&t)) {
+        let _ = std::fs::write(&account, new);
+    }
+}
+
+fn migrate_old_names() {
+    migrate_old_names_in(&glove_config::dir());
 }
 
 fn notify(summary: &str, body: &str) {
@@ -98,7 +129,7 @@ impl Mensagens {
     fn new() -> Self {
         let conta: Option<Conta> = std::fs::read_to_string(conta_path()).ok().and_then(|t| toml::from_str(&t).ok());
         let mut m = Self { conta: conta.clone().unwrap_or_default(), conv: vec![Conversa::new("")], atual: 0, texto: String::new(), link: None, apelido: String::new(), estado: tr!("Desconectado").into(), folha: None, nova: None, ativa: true };
-        m.conv[0].nome = m.conta.servidor.clone();
+        m.conv[0].nome = m.conta.server.clone();
         match conta {
             Some(_) => m.conectar(),
             None => m.abrir_folha(),
@@ -108,7 +139,7 @@ impl Mensagens {
 
     fn abrir_folha(&mut self) {
         let c = &self.conta;
-        self.folha = Some(FolhaConta { servidor: c.servidor.clone(), porta: c.porta.to_string(), tls: c.tls, apelido: c.apelido.clone(), nome: c.nome.clone(), canais: c.canais.join(", ") });
+        self.folha = Some(FolhaConta { servidor: c.server.clone(), porta: c.port.to_string(), tls: c.tls, apelido: c.nick.clone(), nome: c.name.clone(), canais: c.channels.join(", ") });
     }
 
     fn conectar(&mut self) {
@@ -116,7 +147,7 @@ impl Mensagens {
             let _ = tx.send("\u{0}SAIR".into());
         }
         self.conv.truncate(1);
-        self.conv[0].nome = self.conta.servidor.clone();
+        self.conv[0].nome = self.conta.server.clone();
         self.atual = 0;
         self.estado = tr!("Conectando…").into();
         self.link = Some(irc::start(self.conta.clone()));
@@ -449,12 +480,12 @@ impl Mensagens {
             self.folha = None;
         } else if ok && !f.servidor.trim().is_empty() && !f.apelido.trim().is_empty() {
             self.conta = Conta {
-                servidor: f.servidor.trim().into(),
-                porta: f.porta.trim().parse().unwrap_or(if f.tls { 6697 } else { 6667 }),
+                server: f.servidor.trim().into(),
+                port: f.porta.trim().parse().unwrap_or(if f.tls { 6697 } else { 6667 }),
                 tls: f.tls,
-                apelido: f.apelido.trim().replace(' ', "_"),
-                nome: f.nome.trim().into(),
-                canais: f.canais.split([',', ' ']).map(str::trim).filter(|c| !c.is_empty()).map(|c| if c.starts_with('#') { c.to_string() } else { format!("#{c}") }).collect(),
+                nick: f.apelido.trim().replace(' ', "_"),
+                name: f.nome.trim().into(),
+                channels: f.canais.split([',', ' ']).map(str::trim).filter(|c| !c.is_empty()).map(|c| if c.starts_with('#') { c.to_string() } else { format!("#{c}") }).collect(),
             };
             if let Ok(t) = toml::to_string(&self.conta) {
                 let _ = std::fs::create_dir_all(glove_config::dir());
@@ -559,8 +590,78 @@ impl App for Mensagens {
 }
 
 pub fn main() {
+    migrate_old_names();
     let opts = WindowOptions { title: tr!("Mensagens").into(), app_id: "glove.Messages".into(), size: (760, 520), fixed: false, min_size: Some((560, 380)) };
     if let Err(e) = run(opts, Mensagens::new()) {
         eprintln!("glove-messages: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// What an older version wrote in `mensagens.toml`.
+    const OLD_ACCOUNT: &str = "servidor = \"irc.exemplo.org\"\nporta = 6667\ntls = false\napelido = \"ana\"\nnome = \"Ana Lima\"\ncanais = [\"#glove\", \"#rust\"]\n";
+
+    fn old_account() -> Conta {
+        Conta { server: "irc.exemplo.org".into(), port: 6667, tls: false, nick: "ana".into(), name: "Ana Lima".into(), channels: vec!["#glove".into(), "#rust".into()] }
+    }
+
+    /// An empty folder for one test (never the real configuration).
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("glove-messages-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn old_account_becomes_todays() {
+        let new = convert_old_account(OLD_ACCOUNT).unwrap();
+        // Exactly what the app writes today, so the old words are gone.
+        assert_eq!(new, toml::to_string(&old_account()).unwrap());
+        assert_eq!(toml::from_str::<Conta>(&new).unwrap(), old_account());
+        // Read as it was, the old file would lose the account (every key falls to its default).
+        assert_eq!(toml::from_str::<Conta>(OLD_ACCOUNT).unwrap().port, Conta::default().port);
+        // Today's format has nothing to convert (and so does a converted text).
+        assert_eq!(convert_old_account(&new), None);
+        assert_eq!(convert_old_account(&toml::to_string(&Conta::default()).unwrap()), None);
+        assert_eq!(convert_old_account(""), None);
+    }
+
+    #[test]
+    fn old_names_are_moved_once() {
+        let dir = temp_dir("old-names");
+        std::fs::write(dir.join("mensagens.toml"), OLD_ACCOUNT).unwrap();
+        migrate_old_names_in(&dir);
+        assert!(!dir.join("mensagens.toml").exists());
+        let text = std::fs::read_to_string(dir.join("messages.toml")).unwrap();
+        assert_eq!(toml::from_str::<Conta>(&text).unwrap(), old_account());
+        // A second run finds nothing to do.
+        migrate_old_names_in(&dir);
+        assert_eq!(std::fs::read_to_string(dir.join("messages.toml")).unwrap(), text);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn todays_names_are_left_alone() {
+        let dir = temp_dir("todays-names");
+        let text = toml::to_string(&old_account()).unwrap();
+        std::fs::write(dir.join("messages.toml"), &text).unwrap();
+        // Something old beside the new: the new is the one in use, and nothing is touched.
+        let other = OLD_ACCOUNT.replace("\"ana\"", "\"bia\"");
+        std::fs::write(dir.join("mensagens.toml"), &other).unwrap();
+        migrate_old_names_in(&dir);
+        assert_eq!(std::fs::read_to_string(dir.join("messages.toml")).unwrap(), text);
+        assert_eq!(std::fs::read_to_string(dir.join("mensagens.toml")).unwrap(), other);
+        // Nothing stored at all: nothing is created.
+        let empty = temp_dir("nothing-stored");
+        migrate_old_names_in(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

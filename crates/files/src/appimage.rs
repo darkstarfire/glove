@@ -101,11 +101,26 @@ fn look_inside(p: &Path) -> Inside {
     out
 }
 
-fn apps_folder() -> PathBuf {
-    std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join("Aplicativos")
+/// The folder of `home` where installed AppImages are copied. An `Aplicativos` that is already
+/// there (older versions always created it) stays in use, and so do the apps installed in it;
+/// otherwise an existing `Applications`. Only when there is neither, the folder to create takes
+/// `translated`, its name in the language in use.
+fn apps_folder_in(home: &Path, translated: &str) -> PathBuf {
+    if let Some(existing) = ["Aplicativos", "Applications"].iter().map(|n| home.join(n)).find(|p| p.is_dir()) {
+        return existing;
+    }
+    // A translation that is not a plain file name cannot name the folder.
+    let plain = !translated.is_empty() && !translated.starts_with('.') && !translated.contains('/');
+    home.join(if plain { translated } else { "Applications" })
 }
 
-/// Instala: copia para ~/Aplicativos, guarda o ícone e cria o atalho do app.
+fn apps_folder() -> PathBuf {
+    let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
+    apps_folder_in(&home, &glove_config::tr_dyn("Aplicativos"))
+}
+
+/// Installs: copies into the apps folder (see `apps_folder_in`), keeps the icon and creates the
+/// app's launcher.
 fn install(src: &Path, inside: &Inside) -> Result<PathBuf, String> {
     let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
     let dir = apps_folder();
@@ -269,5 +284,49 @@ pub fn main(path: PathBuf) {
     let app = Installer { path, name, inside, icon_img, drag: None, message: None, installed: None };
     if let Err(e) = run(opts, app) {
         eprintln!("glove-files: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An empty folder for one test, under the system's temporary folder.
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-appimage-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn apps_folder_keeps_an_existing_one() {
+        let home = temp("existing");
+        // Neither exists: the name comes from the translation, and nothing is created here.
+        assert_eq!(apps_folder_in(&home, "Applications"), home.join("Applications"));
+        assert_eq!(apps_folder_in(&home, "Aplicativos"), home.join("Aplicativos"));
+        assert_eq!(apps_folder_in(&home, "Anwendungen"), home.join("Anwendungen"));
+        assert_eq!(std::fs::read_dir(&home).unwrap().count(), 0);
+        // An existing Applications is used whatever the language.
+        std::fs::create_dir(home.join("Applications")).unwrap();
+        assert_eq!(apps_folder_in(&home, "Aplicativos"), home.join("Applications"));
+        assert_eq!(apps_folder_in(&home, "Anwendungen"), home.join("Applications"));
+        // The folder older versions created comes first, and is not renamed.
+        std::fs::create_dir(home.join("Aplicativos")).unwrap();
+        assert_eq!(apps_folder_in(&home, "Applications"), home.join("Aplicativos"));
+        assert!(home.join("Aplicativos").is_dir() && home.join("Applications").is_dir());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn apps_folder_needs_a_plain_name() {
+        let home = temp("plain");
+        // A file of that name is not the folder.
+        std::fs::write(home.join("Aplicativos"), "x").unwrap();
+        assert_eq!(apps_folder_in(&home, "Applications"), home.join("Applications"));
+        for bad in ["", "/etc", "a/b", ".hidden", ".."] {
+            assert_eq!(apps_folder_in(&home, bad), home.join("Applications"));
+        }
+        let _ = std::fs::remove_dir_all(&home);
     }
 }

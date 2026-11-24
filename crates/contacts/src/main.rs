@@ -1,10 +1,10 @@
 //! Contatos (como a Agenda de Endereços da era): grupos, nomes e a ficha,
-//! com Editar. Cada contato é um .vcf em ~/.local/share/glove/contatos.
+//! com Editar. Cada contato é um .vcf em ~/.local/share/glove/contacts.
 
 use glove_config::tr;
 mod vcard;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use glove_ui::{
     paint::{draw::*, chrome, Color},
@@ -17,9 +17,19 @@ const GROUP_W: f32 = 140.0;
 const NAME_W: f32 = 190.0;
 const ROW_H: f32 = 20.0;
 
+/// The user's data folder (`~/.local/share`).
+fn data_home() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"))
+}
+
 fn dir() -> PathBuf {
-    let base = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"));
-    base.join("glove/contatos")
+    data_home().join("glove/contacts")
+}
+
+/// Moves the cards an older version kept in `glove/contatos` (under `data`, the data folder)
+/// to today's `glove/contacts`. Runs once: afterwards the old folder is gone.
+fn migrate_old_names(data: &Path) {
+    glove_config::move_stored(&data.join("glove/contatos"), &data.join("glove/contacts"));
 }
 
 fn new_uid() -> String {
@@ -430,6 +440,7 @@ impl App for Contatos {
 }
 
 pub fn main() {
+    migrate_old_names(&data_home());
     let all = load_all();
     let selected = all.first().map(|c| c.uid.clone());
     let app = Contatos { all, group: None, selected, filter: String::new(), editing: None, file: None, message: None, name_scroll: 0.0 };
@@ -446,5 +457,47 @@ mod tests {
         assert_eq!(super::br_date("1990-05-04"), "04/05/1990");
         assert_eq!(super::iso_date("4/5/1990"), "1990-05-04");
         assert_eq!(super::iso_date("maio"), "maio");
+    }
+
+    /// An empty folder for one test, under the system's temporary folder.
+    fn temp(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-contacts-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn old_folder_is_moved_once() {
+        let data = temp("moved");
+        std::fs::create_dir_all(data.join("glove/contatos")).unwrap();
+        std::fs::write(data.join("glove/contatos/a.vcf"), "card").unwrap();
+        super::migrate_old_names(&data);
+        assert!(!data.join("glove/contatos").exists());
+        assert_eq!(std::fs::read_to_string(data.join("glove/contacts/a.vcf")).unwrap(), "card");
+        // A second run finds nothing to do.
+        super::migrate_old_names(&data);
+        assert!(!data.join("glove/contatos").exists());
+        assert_eq!(std::fs::read_dir(data.join("glove/contacts")).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn new_folder_is_left_untouched() {
+        let data = temp("untouched");
+        std::fs::create_dir_all(data.join("glove/contatos")).unwrap();
+        std::fs::create_dir_all(data.join("glove/contacts")).unwrap();
+        std::fs::write(data.join("glove/contatos/old.vcf"), "old").unwrap();
+        std::fs::write(data.join("glove/contacts/new.vcf"), "new").unwrap();
+        super::migrate_old_names(&data);
+        assert!(data.join("glove/contatos/old.vcf").exists());
+        assert_eq!(std::fs::read_to_string(data.join("glove/contacts/new.vcf")).unwrap(), "new");
+        assert_eq!(std::fs::read_dir(data.join("glove/contacts")).unwrap().count(), 1);
+        // Nothing stored at all: nothing is created.
+        let empty = temp("empty");
+        super::migrate_old_names(&empty);
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

@@ -1,7 +1,12 @@
 //! Itens Recentes do menu principal: apps abertos (guardados pelo Glove) e
 //! documentos (lidos do `recently-used.xbel`, o mesmo arquivo dos apps GTK).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// The file with the recent apps, in the state folder of Glove.
+const FILE: &str = "recent-apps";
+/// Its name up to Glove 0.15.1.
+const OLD_FILE: &str = "recentes";
 
 /// Quantos itens de cada tipo o menu mostra.
 /// Quantos guardar; o menu mostra quantos as Preferências pedirem (até isso).
@@ -15,11 +20,58 @@ pub struct Recent {
     cleared: String,
 }
 
-fn state_file() -> Option<PathBuf> {
+fn state_dir() -> Option<PathBuf> {
     let base = std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
-    Some(base.join("glove/recentes"))
+    Some(base.join("glove"))
+}
+
+fn state_file() -> Option<PathBuf> {
+    Some(state_dir()?.join(FILE))
+}
+
+/// What an older version stored, in today's format: the key `limpo` is `cleared` and the
+/// apps have today's window ids (an app that comes up twice keeps its first line, the most
+/// recent). `None` when there is nothing to change.
+fn convert_old(text: &str) -> Option<String> {
+    let mut out = String::with_capacity(text.len());
+    let mut apps: Vec<&str> = Vec::new();
+    let mut changed = false;
+    for line in text.lines() {
+        match line.split_once(' ') {
+            Some(("limpo", t)) => {
+                out.push_str(&format!("cleared {t}\n"));
+                changed = true;
+            }
+            Some(("app", id)) => {
+                let now = glove_config::current_window_id(id);
+                changed |= now.is_some();
+                let id = now.unwrap_or(id);
+                if apps.contains(&id) {
+                    changed = true;
+                } else {
+                    apps.push(id);
+                    out.push_str(&format!("app {id}\n"));
+                }
+            }
+            _ => {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    changed.then_some(out)
+}
+
+/// Brings what an older version stored in `dir` to today's name and format. It happens
+/// once: after that there is nothing left to move or to change.
+fn migrate(dir: &Path) {
+    let file = dir.join(FILE);
+    glove_config::move_stored(&dir.join(OLD_FILE), &file);
+    if let Some(text) = std::fs::read_to_string(&file).ok().and_then(|t| convert_old(&t)) {
+        let _ = std::fs::write(&file, text);
+    }
 }
 
 fn xbel_file() -> Option<PathBuf> {
@@ -31,12 +83,17 @@ fn xbel_file() -> Option<PathBuf> {
 
 impl Recent {
     pub fn load() -> Self {
+        state_dir().map(|d| Self::load_from(&d)).unwrap_or_default()
+    }
+
+    fn load_from(dir: &Path) -> Self {
+        migrate(dir);
         let mut r = Self::default();
-        let text = state_file().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
+        let text = std::fs::read_to_string(dir.join(FILE)).unwrap_or_default();
         for line in text.lines() {
             match line.split_once(' ') {
                 Some(("app", id)) => r.apps.push(id.to_string()),
-                Some(("limpo", t)) => r.cleared = t.to_string(),
+                Some(("cleared", t)) => r.cleared = t.to_string(),
                 _ => {}
             }
         }
@@ -50,7 +107,7 @@ impl Recent {
         }
         let mut out = String::new();
         if !self.cleared.is_empty() {
-            out.push_str(&format!("limpo {}\n", self.cleared));
+            out.push_str(&format!("cleared {}\n", self.cleared));
         }
         for a in &self.apps {
             out.push_str(&format!("app {a}\n"));
@@ -168,5 +225,59 @@ mod tests {
         let t = iso_now();
         assert_eq!(t.len(), 20);
         assert!(t.as_str() > "2025-01-01");
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-recent-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn converts_old_keys_and_ids() {
+        let old = "limpo 2026-01-01T00:00:00Z\napp glove.Agenda\napp org.mozilla.firefox\napp glove.Calendar\napp glove.Files\n";
+        let new = "cleared 2026-01-01T00:00:00Z\napp glove.Calendar\napp org.mozilla.firefox\napp glove.Files\n";
+        assert_eq!(convert_old(old).as_deref(), Some(new));
+        // Today's format (and nothing at all) has nothing to change.
+        assert_eq!(convert_old(new), None);
+        assert_eq!(convert_old(""), None);
+    }
+
+    #[test]
+    fn moves_and_converts_the_old_file_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("recentes"), "limpo 2026-02-03T04:05:06Z\napp glove.Correio\napp foot\n").unwrap();
+        let r = Recent::load_from(&d);
+        assert_eq!(r.apps, vec!["glove.Mail".to_string(), "foot".to_string()]);
+        assert_eq!(r.cleared, "2026-02-03T04:05:06Z");
+        assert!(!d.join("recentes").exists());
+        let stored = std::fs::read_to_string(d.join("recent-apps")).unwrap();
+        assert_eq!(stored, "cleared 2026-02-03T04:05:06Z\napp glove.Mail\napp foot\n");
+        // The second time there is nothing left to do.
+        migrate(&d);
+        assert_eq!(std::fs::read_to_string(d.join("recent-apps")).unwrap(), stored);
+        assert_eq!(Recent::load_from(&d).apps, r.apps);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn leaves_todays_file_alone() {
+        let d = test_dir("new");
+        // The file in use wins: an old one beside it stays where it is.
+        let text = "cleared 2026-02-03T04:05:06Z\napp glove.Mail\nsomething else\n";
+        std::fs::write(d.join("recent-apps"), text).unwrap();
+        std::fs::write(d.join("recentes"), "app glove.Agenda\n").unwrap();
+        let r = Recent::load_from(&d);
+        assert_eq!(r.apps, vec!["glove.Mail".to_string()]);
+        assert_eq!(std::fs::read_to_string(d.join("recent-apps")).unwrap(), text);
+        assert!(d.join("recentes").exists());
+        // Nothing stored yet: nothing is created.
+        let empty = test_dir("empty");
+        assert!(Recent::load_from(&empty).apps.is_empty());
+        assert!(!empty.join("recent-apps").exists());
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

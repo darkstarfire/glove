@@ -50,9 +50,25 @@ fn user_fonts() -> PathBuf {
     data_home().join("fonts")
 }
 
+/// The user's folder of fontconfig rules.
+fn rules_dir() -> PathBuf {
+    config_home().join("fontconfig/conf.d")
+}
+
 /// Regra do fontconfig com as famílias desativadas.
 fn rule_file() -> PathBuf {
-    config_home().join("fontconfig/conf.d/50-glove-desativadas.conf")
+    rules_dir().join("50-glove-disabled.conf")
+}
+
+/// Moves the rule an older version wrote as `50-glove-desativadas.conf` in `rules` (the
+/// fontconfig rules folder) to today's `50-glove-disabled.conf`. The fontconfig reads every
+/// file of that folder, so the old one never stays beside the new one: when today's rule is
+/// already there, the old one is deleted. Runs once: afterwards the old name is gone.
+fn migrate_old_names(rules: &std::path::Path) {
+    let (old, new) = (rules.join("50-glove-desativadas.conf"), rules.join("50-glove-disabled.conf"));
+    if !glove_config::move_stored(&old, &new) && new.exists() {
+        let _ = std::fs::remove_file(&old);
+    }
 }
 
 fn xml_escape(s: &str) -> String {
@@ -70,7 +86,7 @@ pub fn disabled_from(xml: &str) -> Vec<String> {
 
 /// Regra que faz o fontconfig ignorar essas famílias.
 pub fn rule_xml(families: &[String]) -> String {
-    let mut s = String::from("<?xml version=\"1.0\"?>\n<!DOCTYPE fontconfig SYSTEM \"fonts.dtd\">\n<!-- Escrito pelo Livro de Fontes do Glove: famílias desativadas. -->\n<fontconfig>\n  <selectfont>\n    <rejectfont>\n");
+    let mut s = String::from("<?xml version=\"1.0\"?>\n<!DOCTYPE fontconfig SYSTEM \"fonts.dtd\">\n<!-- Written by the Glove Font Book: disabled families. -->\n<fontconfig>\n  <selectfont>\n    <rejectfont>\n");
     for f in families {
         s.push_str(&format!("      <pattern><patelt name=\"family\"><string>{}</string></patelt></pattern>\n", xml_escape(f)));
     }
@@ -501,6 +517,7 @@ pub fn main() {
         message: None,
         pending,
     };
+    migrate_old_names(&rules_dir());
     app.reload();
     let opts = WindowOptions { title: tr!("Livro de Fontes").into(), app_id: "glove.Fonts".into(), size: (860, 520), fixed: false, min_size: None };
     if let Err(e) = run(opts, app) {
@@ -525,5 +542,65 @@ mod tests {
         let mut s = vec!["Bold", "Italic", "Regular", "Bold Italic", "Light"];
         s.sort_by_key(|x| style_rank(x));
         assert_eq!(s, ["Regular", "Italic", "Light", "Bold", "Bold Italic"]);
+    }
+
+    /// An empty folder for one test, under the system's temporary folder.
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-fonts-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// The names of the files of a folder, in order.
+    fn names(dir: &std::path::Path) -> Vec<String> {
+        let mut v: Vec<String> = std::fs::read_dir(dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn old_rule_is_moved_once() {
+        let rules = temp("moved");
+        let xml = rule_xml(&["Comic Sans MS".to_string()]);
+        std::fs::write(rules.join("50-glove-desativadas.conf"), &xml).unwrap();
+        std::fs::write(rules.join("10-other.conf"), "other").unwrap();
+        migrate_old_names(&rules);
+        assert_eq!(names(&rules), ["10-other.conf", "50-glove-disabled.conf"]);
+        let moved = std::fs::read_to_string(rules.join("50-glove-disabled.conf")).unwrap();
+        assert_eq!(moved, xml);
+        assert_eq!(disabled_from(&moved), ["Comic Sans MS"]);
+        // A second run finds nothing to do.
+        migrate_old_names(&rules);
+        assert_eq!(names(&rules), ["10-other.conf", "50-glove-disabled.conf"]);
+        assert_eq!(std::fs::read_to_string(rules.join("50-glove-disabled.conf")).unwrap(), xml);
+        let _ = std::fs::remove_dir_all(&rules);
+    }
+
+    #[test]
+    fn old_rule_never_stays_beside_the_new_one() {
+        let rules = temp("both");
+        std::fs::write(rules.join("50-glove-desativadas.conf"), rule_xml(&["Old".to_string()])).unwrap();
+        let new = rule_xml(&["New".to_string()]);
+        std::fs::write(rules.join("50-glove-disabled.conf"), &new).unwrap();
+        migrate_old_names(&rules);
+        assert_eq!(names(&rules), ["50-glove-disabled.conf"]);
+        assert_eq!(std::fs::read_to_string(rules.join("50-glove-disabled.conf")).unwrap(), new);
+        let _ = std::fs::remove_dir_all(&rules);
+    }
+
+    #[test]
+    fn new_rule_is_left_untouched() {
+        let rules = temp("untouched");
+        let new = rule_xml(&["New".to_string()]);
+        std::fs::write(rules.join("50-glove-disabled.conf"), &new).unwrap();
+        migrate_old_names(&rules);
+        assert_eq!(names(&rules), ["50-glove-disabled.conf"]);
+        assert_eq!(std::fs::read_to_string(rules.join("50-glove-disabled.conf")).unwrap(), new);
+        // No rule at all (not even the folder): nothing is created.
+        let none = rules.join("missing");
+        migrate_old_names(&none);
+        assert!(!none.exists());
+        let _ = std::fs::remove_dir_all(&rules);
     }
 }

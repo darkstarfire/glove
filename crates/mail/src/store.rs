@@ -1,7 +1,7 @@
-//! Contas (em ~/.config/glove/correio.toml, só o dono lê) e a cópia local
+//! Contas (em ~/.config/glove/mail.toml, só o dono lê) e a cópia local
 //! das pastas (cabeçalhos e mensagens já abertas), para ler sem rede.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -37,12 +37,43 @@ fn home() -> PathBuf {
     PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
 }
 
+/// The Glove folders of the configuration and of the data.
+fn config_dir() -> PathBuf {
+    std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".config")).join("glove")
+}
+
+fn data_dir() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/share")).join("glove")
+}
+
 fn config_file() -> PathBuf {
-    std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".config")).join("glove/correio.toml")
+    config_dir().join("mail.toml")
 }
 
 pub fn cache_root() -> PathBuf {
-    std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/share")).join("glove/correio")
+    data_dir().join("mail")
+}
+
+/// The folders inside `dir` (none when it cannot be read).
+fn subdirs(dir: &Path) -> Vec<PathBuf> {
+    std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect()
+}
+
+/// Gives today's names to what an older version stored under Portuguese names: in
+/// `config` the accounts file (a rename keeps its mode, so still only the owner reads
+/// it); in `data` the local copy of the mail and, in each folder of each account, the
+/// list of messages. With nothing old there, nothing is touched.
+fn migrate_old_names_in(config: &Path, data: &Path) {
+    glove_config::move_stored(&config.join("correio.toml"), &config.join("mail.toml"));
+    let root = data.join("mail");
+    glove_config::move_stored(&data.join("correio"), &root);
+    for folder in subdirs(&root).iter().flat_map(|account| subdirs(account)) {
+        glove_config::move_stored(&folder.join("lista.toml"), &folder.join("list.toml"));
+    }
+}
+
+pub fn migrate_old_names() {
+    migrate_old_names_in(&config_dir(), &data_dir());
 }
 
 pub fn load_accounts() -> Vec<Account> {
@@ -119,7 +150,7 @@ pub fn folder_dir(email: &str, folder: &str) -> PathBuf {
 }
 
 pub fn load_rows(email: &str, folder: &str) -> (u32, Vec<Row>) {
-    let p = folder_dir(email, folder).join("lista.toml");
+    let p = folder_dir(email, folder).join("list.toml");
     std::fs::read_to_string(p).ok().and_then(|t| toml::from_str::<FolderCache>(&t).ok()).map(|c| (c.validity, c.row)).unwrap_or_default()
 }
 
@@ -129,7 +160,7 @@ pub fn save_rows(email: &str, folder: &str, validity: u32, rows: &[Row]) {
         return;
     }
     if let Ok(t) = toml::to_string(&FolderCache { validity, row: rows.to_vec() }) {
-        let _ = std::fs::write(d.join("lista.toml"), t);
+        let _ = std::fs::write(d.join("list.toml"), t);
     }
 }
 
@@ -231,6 +262,96 @@ mod tests {
         assert_eq!(parse_date("Thu, 1 Jan 1970 00:00:00 +0000"), 0);
         assert_eq!(parse_date("Thu, 05 Nov 2026 10:00:00 -0300"), parse_date("5 Nov 2026 13:00:00 +0000"));
         assert_eq!(parse_date("Sat, 14 Nov 2026 12:00:00 +0000 (UTC)"), 1_794_657_600);
+    }
+
+    /// An empty folder for one test (never the real configuration).
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("glove-mail-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn mode(p: &Path) -> u32 {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(p).unwrap().permissions().mode() & 0o777
+    }
+
+    /// The accounts file as `save_accounts` writes it: only the owner reads it.
+    fn write_accounts(p: &Path, email: &str) -> String {
+        use std::os::unix::fs::OpenOptionsExt;
+        let text = toml::to_string(&File { account: vec![Account { password: "segredo".into(), ..guess(email) }] }).unwrap();
+        let mut f = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(p).unwrap();
+        std::io::Write::write_all(&mut f, text.as_bytes()).unwrap();
+        text
+    }
+
+    fn rows_text() -> String {
+        toml::to_string(&FolderCache { validity: 7, row: vec![Row { uid: 3, subject: "Oi".into(), ..Row::default() }] }).unwrap()
+    }
+
+    #[test]
+    fn old_names_are_moved_once() {
+        let dir = temp_dir("old-names");
+        let (config, data) = (dir.join("config"), dir.join("data"));
+        let inbox = data.join("correio/ana@exemplo.org/INBOX");
+        let sent = data.join("correio/ana@exemplo.org/Enviadas");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&inbox).unwrap();
+        std::fs::create_dir_all(&sent).unwrap();
+        let accounts = write_accounts(&config.join("correio.toml"), "ana@exemplo.org");
+        std::fs::write(inbox.join("lista.toml"), rows_text()).unwrap();
+        std::fs::write(inbox.join("3.eml"), "Subject: Oi\r\n\r\noi").unwrap();
+        std::fs::write(sent.join("lista.toml"), rows_text()).unwrap();
+        migrate_old_names_in(&config, &data);
+        // The accounts: same text, same mode (the passwords stay with the owner only).
+        assert!(!config.join("correio.toml").exists());
+        assert_eq!(std::fs::read_to_string(config.join("mail.toml")).unwrap(), accounts);
+        assert_eq!(mode(&config.join("mail.toml")), 0o600);
+        assert_eq!(toml::from_str::<File>(&accounts).unwrap().account[0].password, "segredo");
+        // The local copy: the folder and the list of each folder of the account.
+        assert!(!data.join("correio").exists());
+        for folder in ["INBOX", "Enviadas"] {
+            let d = data.join("mail/ana@exemplo.org").join(folder);
+            assert!(!d.join("lista.toml").exists());
+            let c: FolderCache = toml::from_str(&std::fs::read_to_string(d.join("list.toml")).unwrap()).unwrap();
+            assert_eq!((c.validity, c.row.len(), c.row[0].uid), (7, 1, 3));
+        }
+        assert_eq!(std::fs::read_to_string(data.join("mail/ana@exemplo.org/INBOX/3.eml")).unwrap(), "Subject: Oi\r\n\r\noi");
+        // A second run finds nothing to do.
+        migrate_old_names_in(&config, &data);
+        assert_eq!(std::fs::read_to_string(config.join("mail.toml")).unwrap(), accounts);
+        assert_eq!(mode(&config.join("mail.toml")), 0o600);
+        assert_eq!(std::fs::read_to_string(data.join("mail/ana@exemplo.org/INBOX/list.toml")).unwrap(), rows_text());
+        assert_eq!(std::fs::read_dir(&config).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn todays_names_are_left_alone() {
+        let dir = temp_dir("todays-names");
+        let (config, data) = (dir.join("config"), dir.join("data"));
+        let inbox = data.join("mail/ana@exemplo.org/INBOX");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&inbox).unwrap();
+        let accounts = write_accounts(&config.join("mail.toml"), "ana@exemplo.org");
+        std::fs::write(inbox.join("list.toml"), rows_text()).unwrap();
+        // Something old beside the new: the new is the one in use, and nothing is touched.
+        let old_accounts = write_accounts(&config.join("correio.toml"), "bia@exemplo.org");
+        std::fs::write(inbox.join("lista.toml"), "validity = 1\n").unwrap();
+        std::fs::create_dir_all(data.join("correio/bia@exemplo.org/INBOX")).unwrap();
+        migrate_old_names_in(&config, &data);
+        assert_eq!(std::fs::read_to_string(config.join("mail.toml")).unwrap(), accounts);
+        assert_eq!(std::fs::read_to_string(config.join("correio.toml")).unwrap(), old_accounts);
+        assert_eq!(std::fs::read_to_string(inbox.join("list.toml")).unwrap(), rows_text());
+        assert_eq!(std::fs::read_to_string(inbox.join("lista.toml")).unwrap(), "validity = 1\n");
+        assert!(data.join("correio/bia@exemplo.org/INBOX").exists() && !data.join("mail/bia@exemplo.org").exists());
+        // Nothing stored at all: nothing is created.
+        let empty = temp_dir("nothing-stored");
+        migrate_old_names_in(&empty.join("config"), &empty.join("data"));
+        assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 
     #[test]

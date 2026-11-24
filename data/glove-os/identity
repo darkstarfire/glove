@@ -1,0 +1,36 @@
+#!/bin/sh
+# Glove OS: rebuilds the identity of the system from Debian's.
+#
+# The system presents itself as "Glove OS" (NAME, PRETTY_NAME, logo, addresses), but stays
+# 100% Debian for programs: ID=debian, VERSION_ID, VERSION_CODENAME and the rest come from
+# Debian's original file, which is diverted next to it with ".debian" at the end (the
+# base-files package updates that one).
+# Runs when glove-os is installed and after every apt run (in case Debian's changed).
+set -e
+src=/usr/lib/os-release.debian
+[ -f "$src" ] || exit 0
+version=$(cat /usr/share/glove-os/version 2>/dev/null || echo "")
+# Debian's values (VERSION_ID, VERSION_CODENAME...).
+. "$src"
+# The name shown is only the distro's: "Glove OS 0.12.55" (the Debian base stays in the
+# other fields, which programs use, but is not shown to people).
+pretty=$(echo "Glove OS ${version}" | sed 's/  */ /g; s/ *$//')
+tmp=/usr/lib/os-release.glove-os.tmp
+{
+    echo "PRETTY_NAME=\"$pretty\""
+    echo 'NAME="Glove OS"'
+    grep -v -E '^(PRETTY_NAME|NAME|HOME_URL|SUPPORT_URL|BUG_REPORT_URL|LOGO|GLOVE_OS_VERSION)=' "$src"
+    echo 'HOME_URL="https://github.com/fabioaacarneiro/glove"'
+    echo 'SUPPORT_URL="https://github.com/fabioaacarneiro/glove/issues"'
+    echo 'BUG_REPORT_URL="https://github.com/fabioaacarneiro/glove/issues"'
+    echo 'LOGO=glove-os'
+    echo "GLOVE_OS_VERSION=\"$version\""
+} > "$tmp"
+if ! cmp -s "$tmp" /usr/lib/os-release; then
+    mv "$tmp" /usr/lib/os-release
+else
+    rm -f "$tmp"
+fi
+# Text before the login on the console and over the network.
+printf 'Glove OS %s \\n \\l\n\n' "$version" > /etc/issue
+printf 'Glove OS %s\n' "$version" > /etc/issue.net

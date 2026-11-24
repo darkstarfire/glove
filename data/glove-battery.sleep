@@ -24,7 +24,7 @@ case "$1/$2" in
         echo 0 > "$RTC"
         # Espera o sistema terminar de acordar antes de decidir.
         systemd-run --quiet --collect --on-active=30 --timer-property=AccuracySec=1s \
-            --unit="glove-battery-resume-$(date +%s)" @PREFIXO@/bin/glove-battery --resume-check
+            --unit="glove-battery-resume-$(date +%s)" @PREFIX@/bin/glove-battery --resume-check
         ;;
 esac
 exit 0

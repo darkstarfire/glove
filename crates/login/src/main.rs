@@ -384,6 +384,11 @@ fn com_tema(texto: &str, tema: &str) -> String {
     out.join("\n") + "\n"
 }
 
+/// How the name of the folder with the copy of the configuration for a preview starts (the
+/// number of the process comes next). The folder is only deleted at the end when its name
+/// has this in it: never a configuration folder that came from somewhere else.
+const PREVIEW_DIR: &str = "glove-login-preview-";
+
 pub fn main() {
     let fake = std::env::args().any(|a| a == "--fake");
     // Prévia (Preferências ▸ Telas do Sistema): `--fake --theme TEMA` abre com uma cópia da
@@ -391,7 +396,7 @@ pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let (true, Some(tema)) = (fake, args.iter().position(|a| a == "--theme").and_then(|i| args.get(i + 1))) {
         let base = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir);
-        let dir = base.join(format!("glove-login-previa-{}", std::process::id()));
+        let dir = base.join(format!("{PREVIEW_DIR}{}", std::process::id()));
         let texto = std::fs::read_to_string(glove_config::path()).unwrap_or_default();
         if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join("config.toml"), com_tema(&texto, tema)).is_ok() {
             // Ainda sem outras linhas de execução: mudar o ambiente aqui é seguro.
@@ -414,7 +419,7 @@ pub fn main() {
         WindowOptions { title: tr!("Entrar").into(), app_id: "glove.Login".into(), size: (W as u32, H as u32), fixed: true, min_size: None }
     };
     let r = run(opts, app);
-    if let Some(d) = std::env::var_os("GLOVE_CONFIG_DIR").filter(|d| d.to_string_lossy().contains("glove-login-previa-")) {
+    if let Some(d) = std::env::var_os("GLOVE_CONFIG_DIR").filter(|d| d.to_string_lossy().contains(PREVIEW_DIR)) {
         let _ = std::fs::remove_dir_all(d);
     }
     if let Err(e) = r {

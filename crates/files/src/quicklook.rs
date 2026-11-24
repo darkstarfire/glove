@@ -50,7 +50,7 @@ fn render_pdf(p: &Path) -> Receiver<Option<PathBuf>> {
         let mut h = std::collections::hash_map::DefaultHasher::new();
         src.hash(&mut h);
         let dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
-        let base = dir.join(format!("glove-olhada-{:x}", h.finish()));
+        let base = dir.join(format!("glove-quicklook-{:x}", h.finish()));
         let out = base.with_extension("png");
         let ok = out.exists()
             || std::process::Command::new("pdftoppm")

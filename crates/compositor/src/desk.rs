@@ -63,7 +63,7 @@ impl DeskItem {
     /// Chave da posição guardada: o nome do arquivo; para discos, o ponto de montagem.
     fn key(&self) -> String {
         match self.kind {
-            DeskKind::Disk | DeskKind::Removable => format!(":disco:{}", self.path.display()),
+            DeskKind::Disk | DeskKind::Removable => format!("{DISK_KEY}{}", self.path.display()),
             _ => self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         }
     }
@@ -326,8 +326,56 @@ fn read_items(dir: &Path, mounts: &[(String, PathBuf)], show_ext: bool) -> Vec<D
     v
 }
 
+/// The file with the place of each icon, in the configuration folder of Glove.
+const POSITIONS_FILE: &str = "desktop-positions";
+/// Its name up to Glove 0.15.1.
+const OLD_POSITIONS_FILE: &str = "mesa-posicoes";
+/// What the key of a disk starts with (where it is mounted comes next).
+const DISK_KEY: &str = ":disk:";
+/// The same up to Glove 0.15.1.
+const OLD_DISK_KEY: &str = ":disco:";
+
 fn positions_path() -> PathBuf {
-    glove_config::dir().join("mesa-posicoes")
+    glove_config::dir().join(POSITIONS_FILE)
+}
+
+/// What an older version stored, in today's format: the key of a disk started with
+/// `:disco:`. `None` when there is nothing to change.
+fn convert_old_positions(text: &str) -> Option<String> {
+    let mut out = String::with_capacity(text.len());
+    let mut changed = false;
+    for line in text.lines() {
+        let mut f = line.splitn(3, '\t');
+        // A disk is known by where it is mounted, a file by its name, which has no "/":
+        // a file that happens to be called ":disco:…" keeps its key.
+        match (f.next(), f.next(), f.next().and_then(|k| k.strip_prefix(OLD_DISK_KEY)).filter(|m| m.starts_with('/'))) {
+            (Some(x), Some(y), Some(mounted)) => {
+                out.push_str(&format!("{x}\t{y}\t{DISK_KEY}{mounted}\n"));
+                changed = true;
+            }
+            _ => {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    changed.then_some(out)
+}
+
+/// The places stored in `dir` (the text of the file). What an older version left there
+/// takes today's name and format first; it happens once: after that there is nothing left
+/// to move or to change.
+fn stored_positions(dir: &Path) -> String {
+    let file = dir.join(POSITIONS_FILE);
+    glove_config::move_stored(&dir.join(OLD_POSITIONS_FILE), &file);
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    match convert_old_positions(&text) {
+        Some(new) => {
+            let _ = std::fs::write(&file, &new);
+            new
+        }
+        None => text,
+    }
 }
 
 impl Desk {
@@ -336,7 +384,7 @@ impl Desk {
             return;
         }
         self.saved_loaded = true;
-        let text = std::fs::read_to_string(positions_path()).unwrap_or_default();
+        let text = stored_positions(&glove_config::dir());
         for l in text.lines() {
             let mut f = l.splitn(3, '\t');
             if let (Some(x), Some(y), Some(k)) = (f.next(), f.next(), f.next()) {
@@ -1632,5 +1680,63 @@ mod tests {
         assert_eq!(desk_key_of("n", Some('N'), true, true, false).map(|k| k.kind), Some(DeskKeyKind::Char('n')));
         assert_eq!(desk_key_of("a", Some('á'), false, false, true).map(|k| k.kind), Some(DeskKeyKind::Char('á')));
         assert_eq!(desk_key_of("f5", None, false, false, false), None);
+    }
+
+    /// An empty folder of its own for a test (never the real home).
+    fn test_dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("glove-desktop-positions-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn disk_key_is_todays() {
+        let disk = DeskItem { name: "Disco".into(), path: PathBuf::from("/media/ana/USB 1"), kind: DeskKind::Removable, icon: Icon::File, link: false, modified: None, size: 0, label: 0 };
+        assert_eq!(disk.key(), ":disk:/media/ana/USB 1");
+        let file = DeskItem { kind: DeskKind::File, path: PathBuf::from("/home/ana/Desktop/nota.txt"), ..disk };
+        assert_eq!(file.key(), "nota.txt");
+    }
+
+    #[test]
+    fn converts_old_disk_keys() {
+        let old = "10\t20\t:disco:/\n-5\t7\t:disco:/media/ana/USB 1\n30\t40\tnota.txt\n1\t2\t:disco:sem barra\n3\t4\tcom\ttab :disco:/x\n";
+        let new = "10\t20\t:disk:/\n-5\t7\t:disk:/media/ana/USB 1\n30\t40\tnota.txt\n1\t2\t:disco:sem barra\n3\t4\tcom\ttab :disco:/x\n";
+        assert_eq!(convert_old_positions(old).as_deref(), Some(new));
+        // Today's format (and nothing at all) has nothing to change.
+        assert_eq!(convert_old_positions(new), None);
+        assert_eq!(convert_old_positions(""), None);
+    }
+
+    #[test]
+    fn moves_and_converts_the_old_positions_once() {
+        let d = test_dir("old");
+        std::fs::write(d.join("mesa-posicoes"), "10\t20\t:disco:/\n30\t40\tnota.txt\n").unwrap();
+        let new = "10\t20\t:disk:/\n30\t40\tnota.txt\n";
+        assert_eq!(stored_positions(&d), new);
+        assert!(!d.join("mesa-posicoes").exists());
+        assert_eq!(std::fs::read_to_string(d.join("desktop-positions")).unwrap(), new);
+        // The second time there is nothing left to do.
+        assert_eq!(stored_positions(&d), new);
+        assert_eq!(std::fs::read_to_string(d.join("desktop-positions")).unwrap(), new);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn leaves_todays_positions_alone() {
+        let d = test_dir("new");
+        // The file in use wins: an old one beside it stays where it is.
+        let text = "1\t2\t:disk:/\n3\t4\tnota.txt\nnot a place\n";
+        std::fs::write(d.join("desktop-positions"), text).unwrap();
+        std::fs::write(d.join("mesa-posicoes"), "9\t9\t:disco:/\n").unwrap();
+        assert_eq!(stored_positions(&d), text);
+        assert_eq!(std::fs::read_to_string(d.join("desktop-positions")).unwrap(), text);
+        assert!(d.join("mesa-posicoes").exists());
+        // Nothing stored yet: nothing is created.
+        let empty = test_dir("empty");
+        assert_eq!(stored_positions(&empty), "");
+        assert!(!empty.join("desktop-positions").exists());
+        let _ = std::fs::remove_dir_all(&d);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 }

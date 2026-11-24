@@ -1,19 +1,24 @@
 #!/bin/sh
-# Glove OS: desvia os arquivos de identidade do Debian (ficam com ".debian") e
-# escreve os do Glove OS. Tudo o que é mecânico continua do Debian.
+# Glove OS: diverts Debian's identity files (they stay with ".debian") and writes the
+# Glove OS ones. Everything mechanical stays Debian's.
 set -e
-desviar() {
+divert() {
     dpkg-divert --package glove-os --add --rename --divert "$1.debian" "$1" >/dev/null
 }
 case "$1" in
     configure)
-        desviar /usr/lib/os-release
-        desviar /etc/issue
-        desviar /etc/issue.net
-        /usr/share/glove-os/identidade
+        divert /usr/lib/os-release
+        divert /etc/issue
+        divert /etc/issue.net
+        /usr/share/glove-os/identity
         command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
-        # Tela de início do sistema (Plymouth) com o tema do Glove, se o Plymouth estiver instalado.
-        /usr/share/glove-os/tela-de-inicio || true
+        # The boot screen of the system (Plymouth) with the Glove theme, if Plymouth is installed.
+        /usr/share/glove-os/boot-screen || true
+        # Up to 0.15.1 the GRUB background pointed to /usr/share/glove/papeis, which is now
+        # /usr/share/glove/wallpapers: the menu is written again with the new path.
+        if [ -n "${2:-}" ] && dpkg --compare-versions "$2" lt 0.15.2 && command -v update-grub >/dev/null 2>&1; then
+            update-grub >/dev/null 2>&1 || true
+        fi
         ;;
 esac
 exit 0

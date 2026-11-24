@@ -22,7 +22,7 @@ instalar_rust() {
 conferir() {
     for f in /usr/bin/glove /usr/bin/glove-apps /usr/bin/glove-portal /usr/bin/glove-chooser \
              /usr/bin/glove-session /usr/bin/glove-files /usr/share/wayland-sessions/glove.desktop \
-             /usr/share/icons/Glove/index.theme /usr/share/glove/papeis/glove-os.png \
+             /usr/share/icons/Glove/index.theme /usr/share/glove/wallpapers/glove-os.png \
              /usr/share/glove/glove-os-repositorio.asc /etc/pam.d/glove; do
         [ -e "$f" ] || { echo "ERRO: o pacote não instalou $f"; exit 1; }
     done
