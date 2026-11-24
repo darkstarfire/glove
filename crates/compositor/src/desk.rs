@@ -442,7 +442,7 @@ impl Glove {
                     let action = if video { self.config.media.video_dvd.clone() } else if optical { self.config.media.data_disc.clone() } else { self.config.removable_action.clone() };
                     match action.as_str() {
                         "video" => self.spawn(&format!("glove-video {}", quote(path))),
-                        "abrir" => self.spawn(&format!("glove-files {}", quote(path))),
+                        "open" => self.spawn(&format!("glove-files {}", quote(path))),
                         _ => {}
                     }
                 }
@@ -547,9 +547,9 @@ impl Glove {
             let (x, y) = (&items[a], &items[b]);
             let disk = |i: &DeskItem| !i.is_file();
             disk(y).cmp(&disk(x)).then_with(|| match by {
-                "data" => y.modified.cmp(&x.modified),
-                "tamanho" => y.size.cmp(&x.size),
-                "tipo" => {
+                "date" => y.modified.cmp(&x.modified),
+                "size" => y.size.cmp(&x.size),
+                "kind" => {
                     let ext = |i: &DeskItem| if i.kind == DeskKind::Folder { String::new() } else { i.path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "~".into()) };
                     ext(x).cmp(&ext(y)).then_with(|| x.name.to_lowercase().cmp(&y.name.to_lowercase()))
                 }
@@ -1110,7 +1110,7 @@ impl Glove {
     }
 
     fn arrange_nodes(&self) -> Vec<MenuNode> {
-        [("nome", tr!("Nome")), ("data", tr!("Data de Modificação")), ("tamanho", tr!("Tamanho")), ("tipo", tr!("Tipo"))]
+        [("name", tr!("Nome")), ("date", tr!("Data de Modificação")), ("size", tr!("Tamanho")), ("kind", tr!("Tipo"))]
             .into_iter()
             .map(|(k, l)| MenuNode::new(MenuItem::item(l), Some(MenuAction::Desk(DeskCmd::Arrange(k.into())))))
             .collect()

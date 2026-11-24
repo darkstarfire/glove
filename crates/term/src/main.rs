@@ -552,7 +552,9 @@ impl Session {
                     continue;
                 }
                 "Ctrl+Shift+N" => {
-                    let _ = std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-term".into())).spawn();
+                    // By the name of the link: the running program is glove-apps, one binary for every app.
+                    let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("glove-term"))).filter(|p| p.is_file()).unwrap_or_else(|| "glove-term".into());
+                    let _ = std::process::Command::new(exe).spawn();
                     continue;
                 }
                 "Ctrl+Shift+equal" | "Ctrl+Shift+plus" | "Ctrl+equal" => {

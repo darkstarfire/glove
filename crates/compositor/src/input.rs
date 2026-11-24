@@ -133,7 +133,7 @@ impl KeyAction {
             "expose_app" => Self::ExposeApp,
             "expose_desktop" => Self::ExposeDesktop,
             "dashboard" => Self::Dashboard,
-            "grade" => Self::Grade,
+            "apps" => Self::Grade,
             "fullscreen" => Self::Fullscreen,
             "desk_prev" => Self::VirtualDesk(-1, false),
             "desk_next" => Self::VirtualDesk(1, false),
@@ -386,9 +386,9 @@ impl Glove {
                     pointer.frame(self);
                 }
             }
-            // "fim encerrar|reiniciar|desligar": o fim de sessão (a tela de saída).
-            Some("fim") => {
-                let w = it.next().unwrap_or("encerrar").to_string();
+            // "end logout|restart|shutdown": the end of the session (the closing screen).
+            Some("end") => {
+                let w = it.next().unwrap_or("logout").to_string();
                 self.end_session(&w);
             }
             Some("mclick") => {

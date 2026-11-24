@@ -1,8 +1,0 @@
-[Plymouth Theme]
-Name=Glove Moderno
-Description=Início e desligamento do Glove: fundo claro e liso, a luva preta e o giratório (arte gerada por código).
-ModuleName=script
-
-[script]
-ImageDir=/usr/share/plymouth/themes/glove-moderno
-ScriptFile=/usr/share/plymouth/themes/glove-moderno/glove-moderno.script

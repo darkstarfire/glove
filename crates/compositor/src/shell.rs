@@ -305,7 +305,7 @@ pub enum MenuAction {
     /// Liga/desliga a ampliação do Dock.
     DockMagnification,
     DockAutohide,
-    /// "esquerda", "embaixo" ou "direita".
+    /// "left", "bottom" ou "right".
     SetDockSide(String),
     DockPreferences,
     /// Abre um app dos Itens Recentes (app_id).
@@ -1539,14 +1539,14 @@ impl Glove {
         let item = |label: &str, a: MenuAction| MenuNode::new(MenuItem::item(label), Some(a));
         let mag = if self.config.dock.magnification { tr!("Desativar Ampliação") } else { tr!("Ativar Ampliação") };
         let hide = if self.config.dock.autohide { tr!("Desativar Ocultação") } else { tr!("Ativar Ocultação") };
-        let pos = |label: &str, word: &str| MenuNode::new(MenuItem::check(label, self.config.dock.position == word || (word == "embaixo" && !matches!(self.config.dock.position.as_str(), "esquerda" | "direita"))), Some(MenuAction::SetDockSide(word.to_string())));
+        let pos = |label: &str, word: &str| MenuNode::new(MenuItem::check(label, self.config.dock.position == word || (word == "bottom" && !matches!(self.config.dock.position.as_str(), "esquerda" | "direita"))), Some(MenuAction::SetDockSide(word.to_string())));
         let dock = vec![
             item(hide, MenuAction::DockAutohide),
             item(mag, MenuAction::DockMagnification),
             MenuNode::sep(),
-            pos(tr!("Posição à Esquerda"), "esquerda"),
-            pos(tr!("Posição Embaixo"), "embaixo"),
-            pos(tr!("Posição à Direita"), "direita"),
+            pos(tr!("Posição à Esquerda"), "left"),
+            pos(tr!("Posição Embaixo"), "bottom"),
+            pos(tr!("Posição à Direita"), "right"),
             MenuNode::sep(),
             item(tr!("Preferências do Dock…"), MenuAction::DockPreferences),
         ];
@@ -1918,7 +1918,7 @@ impl Glove {
     pub fn run_dock_action(&mut self, a: DockAction) {
         // A grade de apps é desenhada pelo próprio Glove (não abre programa).
         if let DockAction::App(i) = &a {
-            if self.config.dock_apps.get(*i).is_some_and(|d| d.app_id == glove_config::GRADE_ID) {
+            if self.config.dock_apps.get(*i).is_some_and(|d| d.app_id == glove_config::ALL_APPS_ID) {
                 self.toggle_grade();
                 return;
             }

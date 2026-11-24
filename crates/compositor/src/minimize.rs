@@ -176,7 +176,7 @@ impl Glove {
     /// O efeito de minimizar é a Lâmpada Mágica (com o Dock em qualquer lado: o shader
     /// gira a conta para o lado dele).
     fn genie_on(&self) -> bool {
-        self.config.dock.minimize_effect == "genio"
+        self.config.dock.minimize_effect == "genie"
     }
 
     pub fn min_animating(&self, w: &Window) -> bool {

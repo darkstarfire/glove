@@ -67,7 +67,7 @@ fn mapear_x(x: f32, de: &ExtraBar, para: (&(f32, f32), &[(f32, f32)], &[(f32, f3
 impl Glove {
     /// Os monitores extras (mesa estendida): o retângulo e a escala de cada um.
     pub fn extra_areas(&self) -> Vec<(Rectangle<i32, Logical>, f64)> {
-        if self.config.monitor.arrangement == "espelhar" {
+        if self.config.monitor.arrangement == "mirror" {
             return Vec::new();
         }
         let principal = self.primary().cloned();
@@ -273,7 +273,7 @@ impl Glove {
             return self.work_area();
         }
         let mut r = rect;
-        if self.config.monitor.menubar_all && self.config.monitor.arrangement != "espelhar" {
+        if self.config.monitor.menubar_all && self.config.monitor.arrangement != "mirror" {
             r.loc.y += MENUBAR_H;
             r.size.h -= MENUBAR_H;
         }

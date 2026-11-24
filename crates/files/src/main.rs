@@ -215,9 +215,9 @@ fn display_name(p: &Path) -> String {
 /// "tamanho" (maiores e mais novos primeiro) ou "tipo" (pela extensão).
 fn sort_entries(v: &mut [Entry], by: &str) {
     match by {
-        "data" => v.sort_by(|a, b| b.modified.cmp(&a.modified)),
-        "tamanho" => v.sort_by(|a, b| (b.kind == Kind::Folder).cmp(&(a.kind == Kind::Folder)).then(b.size.cmp(&a.size))),
-        "tipo" => v.sort_by(|a, b| {
+        "date" => v.sort_by(|a, b| b.modified.cmp(&a.modified)),
+        "size" => v.sort_by(|a, b| (b.kind == Kind::Folder).cmp(&(a.kind == Kind::Folder)).then(b.size.cmp(&a.size))),
+        "kind" => v.sort_by(|a, b| {
             let ext = |e: &Entry| if e.kind == Kind::Folder { String::new() } else { e.path.extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_else(|| "~".into()) };
             ext(a).cmp(&ext(b)).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         }),
@@ -710,7 +710,7 @@ impl Files {
             self.go(home());
         }
         self.mounts.0 = None;
-        let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--eject").arg(mount));
+        let _ = launch(std::process::Command::new(sibling("glove-files")).arg("--eject").arg(mount));
     }
 
     /// Colar/soltar `srcs` em `dir`: pergunta antes se algum nome já existe lá.
@@ -1156,7 +1156,7 @@ impl Files {
         } else if e.kind == Kind::Server {
             // Conectar (pede a senha, se o servidor quiser) e abrir numa janela.
             if let Some(uri) = rede::uri_of(&e.path) {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).args(["--connect", &uri, "--now"]));
+                let _ = launch(std::process::Command::new(sibling("glove-files")).args(["--connect", &uri, "--now"]));
             }
         } else {
             // Achar o app padrão chama o xdg-mime (lento): fora da janela.
@@ -1628,7 +1628,7 @@ impl Files {
         let user = std::env::var("USER").unwrap_or_else(|_| "Início".into());
         let shown = |id: &str| !hidden.iter().any(|h| h == id);
         let mut v = vec![];
-        if shown("disco") {
+        if shown("disk") {
             v.push(Some((tr!("Disco").to_string(), Icon::Disk, PathBuf::from("/"))));
         }
         // Pendrives, discos externos e servidores conectados (com o ⏏), como no Tiger.
@@ -1636,7 +1636,7 @@ impl Files {
             let icon = icons::mount_icon(&m.dev, &m.path);
             v.push(Some((m.name.clone(), icon, m.path.clone())));
         }
-        if shown("rede") {
+        if shown("network") {
             v.push(Some((tr!("Rede").to_string(), Icon::Pref(icons::PrefKind::Network), PathBuf::from(rede::ROOT))));
         }
         if !v.is_empty() {
@@ -1653,14 +1653,14 @@ impl Files {
         };
         let mut add = |name: &str, icon: Icon, p: PathBuf| {
             let id = match name {
-                "Mesa" => "mesa",
-                "Aplicativos" => "aplicativos",
-                "Documentos" => "documentos",
+                "Mesa" => "desktop",
+                "Aplicativos" => "applications",
+                "Documentos" => "documents",
                 "Downloads" => "downloads",
-                "Imagens" => "imagens",
-                "Música" => "musica",
+                "Imagens" => "pictures",
+                "Música" => "music",
                 "Vídeos" => "videos",
-                _ => "inicio",
+                _ => "home",
             };
             if shown(id) && (p.is_dir() || apps::is_virtual(&p) || smart::is_smart(&p) || rede::is_rede(&p)) {
                 v.push(Some((glove_config::tr_dyn(name), icon, p)));
@@ -1681,7 +1681,7 @@ impl Files {
         add_user("Música", "MUSIC", &mut add);
         add_user("Vídeos", "VIDEOS", &mut add);
         // Pastas inteligentes salvas.
-        let saved = if shown("buscas") { smart::saved() } else { Vec::new() };
+        let saved = if shown("smart-folders") { smart::saved() } else { Vec::new() };
         if !saved.is_empty() {
             v.push(None);
             for n in saved {
@@ -2414,7 +2414,7 @@ impl Files {
         match a {
             // Janela nova: a pasta das Preferências do Arquivos (Geral).
             "new-window" => {
-                let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg(self.cfg.new_window_dir()));
+                let _ = launch(&mut std::process::Command::new(sibling("glove-files")).arg(self.cfg.new_window_dir()));
             }
             "new-folder" => self.new_folder(),
             "quicklook" => self.toggle_quicklook(ui),
@@ -2493,7 +2493,7 @@ impl Files {
             // Uma janela de informações por item (como no Mac).
             "info" => {
                 if let Some(p) = self.selected.clone().or_else(|| Some(self.current())) {
-                    let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--info").arg(p));
+                    let _ = launch(&mut std::process::Command::new(sibling("glove-files")).arg("--info").arg(p));
                 }
             }
             "paste" => match self.clip.clone() {
@@ -2521,7 +2521,7 @@ impl Files {
             "empty-trash" => {
                 // Sem o aviso (Preferências ▸ Avançado): esvazia direto.
                 if self.cfg.warn_empty_trash {
-                    let _ = launch(&mut std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--empty-trash"));
+                    let _ = launch(&mut std::process::Command::new(sibling("glove-files")).arg("--empty-trash"));
                 } else if let Err(e) = empty_trash() {
                     self.message = Some(e);
                 }
@@ -2542,7 +2542,7 @@ impl Files {
             "next-tab" => self.step_tab(1),
             "prev-tab" => self.step_tab(-1),
             "connect" => {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--connect"));
+                let _ = launch(std::process::Command::new(sibling("glove-files")).arg("--connect"));
             }
             "go-network" => self.go(PathBuf::from(rede::ROOT)),
             "toggle-toolbar" => {
@@ -2555,10 +2555,10 @@ impl Files {
                 }
             }
             "view-options" => {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--view-options"));
+                let _ = launch(std::process::Command::new(sibling("glove-files")).arg("--view-options"));
             }
             "prefs" => {
-                let _ = launch(std::process::Command::new(std::env::current_exe().unwrap_or_else(|_| "glove-files".into())).arg("--preferences"));
+                let _ = launch(std::process::Command::new(sibling("glove-files")).arg("--preferences"));
             }
             a if a.starts_with("openwith:") => {
                 let all = self.all_selected();

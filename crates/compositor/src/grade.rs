@@ -435,7 +435,7 @@ fn search(apps: &[App], query: &str) -> Vec<usize> {
 
 /// Lista ordenada pelo nome, sem acentos (e sem o próprio item da grade).
 fn sorted_apps(mut apps: Vec<App>) -> Vec<App> {
-    apps.retain(|a| a.glove_id.as_deref() != Some(glove_config::GRADE_ID));
+    apps.retain(|a| a.glove_id.as_deref() != Some(glove_config::ALL_APPS_ID));
     apps.sort_by_key(|a| normalize(&a.name));
     apps
 }

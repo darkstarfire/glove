@@ -35,9 +35,9 @@ pub enum ExposeMode {
 impl ExposeMode {
     pub fn from_word(s: &str) -> Option<Self> {
         Some(match s {
-            "todas" => Self::All,
+            "all" => Self::All,
             "app" => Self::App,
-            "mesa" => Self::Desktop,
+            "desktop" => Self::Desktop,
             _ => return None,
         })
     }
@@ -450,11 +450,11 @@ impl Glove {
             if self.corner_armed {
                 if let Some(mode) = ExposeMode::from_word(&action) {
                     self.toggle_expose(mode);
-                } else if action == "painel" {
+                } else if action == "dashboard" {
                     self.toggle_dashboard();
                 } else if action == "apps" {
                     self.toggle_grade();
-                } else if action == "protetor" {
+                } else if action == "screensaver" {
                     self.start_saver(None, false);
                 }
             }

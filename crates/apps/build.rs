@@ -1,7 +1,7 @@
 //! Cria, ao lado do executável, os atalhos glove-files, glove-prefs… para o
 //! glove-apps (assim `target/release/glove-files` continua funcionando).
 
-const APPS: &[&str] = &["glove-about", "glove-calendar", "glove-help", "glove-archive", "glove-welcome", "glove-calc", "glove-chars", "glove-keychain", "glove-chess", "glove-clock", "glove-contacts", "glove-installer", "glove-messages", "glove-photos", "glove-voicerec", "glove-appcenter", "glove-backup", "glove-mail", "glove-dictionary", "glove-disks", "glove-edit", "glove-files", "glove-find", "glove-fonts", "glove-info", "glove-login", "glove-monitor", "glove-music", "glove-browser", "glove-notes", "glove-prefs", "glove-console", "glove-logout", "glove-auth", "glove-shot", "glove-term", "glove-netutil", "glove-video", "glove-view"];
+const APPS: &[&str] = &["glove-about", "glove-calendar", "glove-help", "glove-archive", "glove-welcome", "glove-calc", "glove-chars", "glove-keychain", "glove-chess", "glove-clock", "glove-contacts", "glove-installer", "glove-messages", "glove-photos", "glove-voicerec", "glove-screenrec", "glove-appcenter", "glove-backup", "glove-mail", "glove-dictionary", "glove-disks", "glove-edit", "glove-files", "glove-find", "glove-fonts", "glove-info", "glove-login", "glove-monitor", "glove-music", "glove-browser", "glove-notes", "glove-prefs", "glove-console", "glove-logout", "glove-auth", "glove-shot", "glove-term", "glove-netutil", "glove-video", "glove-view"];
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");

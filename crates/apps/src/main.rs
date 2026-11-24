@@ -53,3 +53,21 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// The links created for the development build (build.rs) are the programs this
+    /// binary answers to: one missing there does not open from target/release.
+    #[test]
+    fn build_links_cover_every_app() {
+        // Read at run time (the translation check takes the macro that embeds a file for
+        // a text to translate).
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let build = std::fs::read_to_string(dir.join("build.rs")).unwrap();
+        let main = std::fs::read_to_string(dir.join("src/main.rs")).unwrap();
+        for app in super::APPS {
+            assert!(build.contains(&format!("\"{app}\"")), "{app} is missing in build.rs");
+            assert!(main.contains(&format!("\"{app}\" =>")), "{app} has no entry in main()");
+        }
+    }
+}

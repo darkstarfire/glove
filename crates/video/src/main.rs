@@ -314,7 +314,7 @@ impl Player {
         let shots = user_dir("PICTURES", &["Imagens", "Pictures"]);
         let child = Command::new("mpv")
             .arg(format!("--input-ipc-server={}", path.display()))
-            .args(["--osc=no", "--keep-open=yes", "--force-window=yes", "--wayland-app-id=glove.VideoTela", "--title=${media-title}"])
+            .args(["--osc=no", "--keep-open=yes", "--force-window=yes", "--wayland-app-id=glove.VideoScreen", "--title=${media-title}"])
             .arg(format!("--screenshot-directory={}", shots.display()))
             .arg(format!("--screenshot-template={} %F %wH.%wM.%wS", tr!("Vídeo")))
             .args(settings.mpv_args())

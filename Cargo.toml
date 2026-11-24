@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/compositor", "crates/power", "crates/about", "crates/prefs", "crates/calc", "crates/clock", "crates/editor", "crates/files", "crates/viewer", "crates/term", "crates/notes", "crates/monitor", "crates/shot", "crates/recorder", "crates/screenrec","crates/chars", "crates/find", "crates/disks", "crates/chess", "crates/logout", "crates/login", "crates/art", "crates/welcome", "crates/archive", "crates/browser", "crates/music", "crates/contacts", "crates/calendar", "crates/video", "crates/console", "crates/info", "crates/help", "crates/dictionary", "crates/fonts", "crates/mail", "crates/portal", "crates/keychain", "crates/netutil", "crates/backup", "crates/appcenter", "crates/voicerec", "crates/photos", "crates/messages", "crates/installer", "crates/auth", "crates/apps"]
 
 [workspace.package]
-version = "0.15.0"
+version = "0.15.1"
 edition = "2024"
 # O mínimo que as dependências pedem (uuid 1.29). Compilar com um Rust mais velho
 # dá um erro claro do Cargo, em vez de erros de compilação.

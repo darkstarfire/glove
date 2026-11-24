@@ -12,6 +12,22 @@
 set -e
 raiz=${GLOVE_OS_ROOT:-}
 feito="$raiz/var/lib/glove-os/plymouth"
+# Up to 0.15.0 the Modern themes were called glove-moderno and glove-moderno-escuro, and
+# their folders left with the update: a system that boots with one of them moves to the
+# new name (and the initramfs, which carries the theme, is rebuilt).
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    case "$(plymouth-set-default-theme 2>/dev/null || true)" in
+        glove-moderno) renamed=glove-modern ;;
+        glove-moderno-escuro) renamed=glove-modern-dark ;;
+        *) renamed= ;;
+    esac
+    if [ -n "$renamed" ] && [ -f "$raiz/usr/share/plymouth/themes/$renamed/$renamed.plymouth" ]; then
+        plymouth-set-default-theme "$renamed"
+        if [ "${1:-}" != --sem-initramfs ] && command -v update-initramfs >/dev/null 2>&1; then
+            update-initramfs -u || true
+        fi
+    fi
+fi
 [ -e "$feito" ] && exit 0
 [ -f "$raiz/usr/share/plymouth/themes/glove/glove.plymouth" ] || exit 0
 command -v plymouth-set-default-theme >/dev/null 2>&1 || exit 0

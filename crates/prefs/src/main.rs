@@ -178,7 +178,7 @@ fn mode_label(m: &str) -> String {
 }
 
 
-const WALLPAPERS: [(&str, &str); 3] = [("ondas", "Ondas"), ("aurora", "Aurora"), ("liso", "Liso")];
+const WALLPAPERS: [(&str, &str); 3] = [("waves", "Ondas"), ("aurora", "Aurora"), ("plain", "Liso")];
 
 /// Cores sólidas para a mesa (como a coleção do 10.4, em tons próprios).
 const SOLID_COLORS: [(u8, u8, u8); 10] = [
@@ -204,10 +204,10 @@ fn wallpaper_name(style: &str) -> String {
     if glove_config::glove_os_wallpaper().is_some_and(|p| p == style) {
         return "Glove OS".into();
     }
-    if let Some((_, n)) = WALLPAPERS.iter().find(|(i, _)| *i == style || (style.is_empty() && *i == "ondas")) {
+    if let Some((_, n)) = WALLPAPERS.iter().find(|(i, _)| *i == style || (style.is_empty() && *i == "waves")) {
         return tr(n).to_string();
     }
-    if style.starts_with("cor:") {
+    if style.starts_with("color:") {
         return tr!("Cor sólida").into();
     }
     std::path::Path::new(style).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| style.to_string())
@@ -388,7 +388,7 @@ struct Prefs {
 
 /// Grupos de atalhos (como no painel de atalhos do 10.4).
 const SHORTCUT_GROUPS: [(&str, &[&str]); 4] = [
-    ("Janelas", &["close", "minimize", "zoom", "fullscreen", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "grade", "cycle_windows"]),
+    ("Janelas", &["close", "minimize", "zoom", "fullscreen", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "apps", "cycle_windows"]),
     ("Mesas virtuais", &["desk_prev", "desk_next", "desk_move_prev", "desk_move_next"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
     ("Sistema", &["screenshot", "screenshot_area", "record_screen", "record_area", "record_toggle", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
@@ -801,7 +801,7 @@ impl Prefs {
 
     /// Depois de trocar a aparência: aplica de novo se a tela de login ou a abertura a seguem.
     fn aplicar_telas_se_seguem(&mut self) {
-        let segue = |c: &str| c == "aparencia" || (c.is_empty() && self.config.appearance.system_theme);
+        let segue = |c: &str| c == "appearance" || (c.is_empty() && self.config.appearance.system_theme);
         if segue(self.config.screen_choice(glove_config::Screen::Login)) || segue(self.config.screen_choice(glove_config::Screen::Boot)) {
             self.aplicar_telas();
         }
@@ -826,14 +826,14 @@ impl Prefs {
         for (w, rotulo, dica) in telas {
             let escolha = self.config.screen_choice(w).to_string();
             let efetivo = self.config.screen_theme(w);
-            let mut i = if escolha == "aparencia" || (escolha.is_empty() && self.config.appearance.system_theme) {
+            let mut i = if escolha == "appearance" || (escolha.is_empty() && self.config.appearance.system_theme) {
                 0
             } else {
                 Variant::ALL.iter().position(|v| v.id() == efetivo).map_or(0, |p| p + 1)
             };
             ui.form_row(rotulo, LW, |ui| {
                 if ui.popup(&mut i, &nomes, 190.0) {
-                    let v = if i == 0 { "aparencia".to_string() } else { Variant::ALL[i - 1].id().to_string() };
+                    let v = if i == 0 { "appearance".to_string() } else { Variant::ALL[i - 1].id().to_string() };
                     self.config.set_screen_choice(w, &v);
                     self.save();
                     mudou_sistema |= w != Screen::Session;
@@ -1124,7 +1124,7 @@ impl Prefs {
     /// Os quatro cantos da tela e o que cada um faz.
     fn hot_corners_ui(&mut self, ui: &mut Ui) {
         ui.label(tr!("Cantos ativos:"));
-        let actions: [(&str, &str); 7] = [("", "—"), ("todas", tr!("Todas as janelas")), ("app", tr!("Janelas do app")), ("mesa", tr!("Mesa")), ("painel", tr!("Painel de Widgets")), ("apps", tr!("Todos os Apps")), ("protetor", tr!("Iniciar o protetor de tela"))];
+        let actions: [(&str, &str); 7] = [("", "—"), ("all", tr!("Todas as janelas")), ("app", tr!("Janelas do app")), ("desktop", tr!("Mesa")), ("dashboard", tr!("Painel de Widgets")), ("apps", tr!("Todos os Apps")), ("screensaver", tr!("Iniciar o protetor de tela"))];
         let names: Vec<String> = actions.iter().map(|a| a.1.to_string()).collect();
         let hc = self.config.hot_corners.clone();
         let mut corners = [hc.top_left, hc.top_right, hc.bottom_left, hc.bottom_right];
@@ -1163,7 +1163,7 @@ impl Prefs {
         let mode = self.config.wallpaper_mode.clone();
         // Vários monitores: como o papel se reparte entre eles.
         if multi {
-            let modes = [("igual", tr!("A mesma imagem em todos")), ("por_tela", tr!("Uma imagem para cada monitor")), ("panorama", tr!("Uma imagem cobrindo todos (panorama)"))];
+            let modes = [("same", tr!("A mesma imagem em todos")), ("per-display", tr!("Uma imagem para cada monitor")), ("panorama", tr!("Uma imagem cobrindo todos (panorama)"))];
             let names: Vec<String> = modes.iter().map(|m| m.1.to_string()).collect();
             let mut cur = modes.iter().position(|m| m.0 == mode).unwrap_or(0);
             ui.form_row(tr!("Monitores:"), 90.0, |ui| {
@@ -1187,14 +1187,14 @@ impl Prefs {
             self.draw_thumb(ui, &cur, Rect::new(x0, y0, pw, ph));
         }
         let tx = x0 + pw + 20.0;
-        let title = if multi && self.config.wallpaper_mode == "por_tela" {
+        let title = if multi && self.config.wallpaper_mode == "per-display" {
             format!("{} — {}", monitors.get(self.desk_monitor).map(|m| m.1.as_str()).unwrap_or(""), wallpaper_name(&cur))
         } else {
             wallpaper_name(&cur)
         };
         let title = ui.fonts.ellipsize(&title, 13.0, true, w - pw - 24.0);
         ui.fonts.draw(ui.c, &title, tx, y0 + 30.0, 13.0, true, rgba(20, 20, 20, 255));
-        let hint = if multi && self.config.wallpaper_mode == "por_tela" { tr!("Clique num monitor e depois numa imagem.") } else { tr!("Clique numa imagem para usar na mesa.") };
+        let hint = if multi && self.config.wallpaper_mode == "per-display" { tr!("Clique num monitor e depois numa imagem.") } else { tr!("Clique numa imagem para usar na mesa.") };
         ui.fonts.draw(ui.c, hint, tx, y0 + 48.0, 11.0, false, rgba(90, 90, 96, 255));
         // Ajuste da imagem.
         let fits = glove_ui::paint::wallpaper::Fit::ALL;
@@ -1231,7 +1231,7 @@ impl Prefs {
                 .into_iter()
                 .chain(WALLPAPERS.iter().map(|(i, _)| i.to_string()))
                 .collect(),
-            DeskSource::Colors => SOLID_COLORS.iter().map(|(r, g, b)| format!("cor:{r},{g},{b}")).collect(),
+            DeskSource::Colors => SOLID_COLORS.iter().map(|(r, g, b)| format!("color:{r},{g},{b}")).collect(),
             DeskSource::Pictures => self.images.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
             DeskSource::Videos => self.videos.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
         };
@@ -1363,7 +1363,7 @@ impl Prefs {
     /// o principal primeiro. Dentro de outro desktop ou espelhando, um só.
     fn desk_monitors(&self) -> Vec<(String, String, (i32, i32, i32, i32))> {
         let Some(info) = &self.outputs else { return Vec::new() };
-        if info.nested || self.config.monitor.arrangement != "estender" {
+        if info.nested || self.config.monitor.arrangement != "extend" {
             return Vec::new();
         }
         let mut v: Vec<_> = info.outputs.iter().filter(|o| o.active && o.rect.2 > 0).map(|o| (o.primary, o.name.clone(), o.description.clone(), o.rect)).collect();
@@ -1374,7 +1374,7 @@ impl Prefs {
     /// O papel que o poço mostra (o do monitor escolhido no modo "um por monitor").
     fn desk_current(&self) -> String {
         let mons = self.desk_monitors();
-        if self.config.wallpaper_mode == "por_tela" {
+        if self.config.wallpaper_mode == "per-display" {
             if let Some(m) = mons.get(self.desk_monitor.min(mons.len().saturating_sub(1))) {
                 return self.config.wallpaper_for(&m.0).to_string();
             }
@@ -1385,7 +1385,7 @@ impl Prefs {
     /// Escolheu um papel: o do monitor escolhido (um por monitor) ou o de todos.
     fn set_desk_wallpaper(&mut self, style: String) {
         let mons = self.desk_monitors();
-        if self.config.wallpaper_mode == "por_tela" && mons.len() > 1 {
+        if self.config.wallpaper_mode == "per-display" && mons.len() > 1 {
             if let Some(m) = mons.get(self.desk_monitor.min(mons.len() - 1)) {
                 self.config.wallpapers.insert(m.0.clone(), style);
                 return;
@@ -1416,9 +1416,9 @@ impl Prefs {
             if let Some(Some(c)) = self.thumbs.get(&key) {
                 ui.c.draw_canvas(c, mr.x, mr.y);
             }
-            let sel = mode == "por_tela" && i == self.desk_monitor;
+            let sel = mode == "per-display" && i == self.desk_monitor;
             ui.c.stroke(rrect(mr.x - 0.5, mr.y - 0.5, mr.w + 1.0, mr.h + 1.0, 0.0), &solid(if sel { ui.theme.accent } else { rgba(20, 20, 24, 255) }), if sel { 2.0 } else { 1.0 });
-            if mode == "por_tela" && ui.hit(mr).clicked {
+            if mode == "per-display" && ui.hit(mr).clicked {
                 self.desk_monitor = i;
                 ui.redraw = true;
             }
@@ -1505,7 +1505,7 @@ impl Prefs {
             });
         });
         ui.space(8.0);
-        let words = ["esquerda", "embaixo", "direita"];
+        let words = ["left", "bottom", "right"];
         let mut pos = words.iter().position(|w| *w == self.config.dock.position).unwrap_or(1);
         ui.form_row(tr!("Posição na tela"), LW, |ui| {
             ui.horizontal(|ui| {
@@ -1517,7 +1517,7 @@ impl Prefs {
             });
         });
         ui.space(6.0);
-        let effects: [(&str, &str); 2] = [("escala", tr!("Efeito Escala")), ("genio", tr!("Efeito Lâmpada Mágica"))];
+        let effects: [(&str, &str); 2] = [("scale", tr!("Efeito Escala")), ("genie", tr!("Efeito Lâmpada Mágica"))];
         let mut effect = effects.iter().position(|e| e.0 == self.config.dock.minimize_effect).unwrap_or(0);
         ui.form_row(tr!("Minimizar usando"), LW, |ui| {
             if ui.popup(&mut effect, &effects.iter().map(|e| e.1.to_string()).collect::<Vec<_>>(), 200.0) {
@@ -1622,7 +1622,7 @@ impl Prefs {
         // O monitor sendo ajustado: o principal (barra de menu) ou, estendendo a
         // mesa, outro escolhido em "Ajustar".
         let primary = outputs.outputs.iter().find(|o| o.primary).or_else(|| outputs.outputs.iter().find(|o| o.active)).cloned().unwrap_or_default();
-        let extend = outputs.outputs.len() > 1 && self.config.monitor.arrangement == "estender";
+        let extend = outputs.outputs.len() > 1 && self.config.monitor.arrangement == "extend";
         let active = outputs.outputs.iter().find(|o| extend && o.name == self.mon_target && o.active).cloned().unwrap_or_else(|| primary.clone());
         let is_primary = active.name == primary.name;
         let mut mode_cfg = if is_primary { self.config.monitor.mode.clone() } else { self.config.monitor.others.get(&active.name).map(|o| o.mode.clone()).unwrap_or_default() };
@@ -1724,8 +1724,8 @@ impl Prefs {
             ui.space(10.0);
             // Organização: mais de um monitor ligado ao computador.
             if outputs.outputs.len() > 1 {
-                let arr: [(&str, &str); 3] = [("estender", tr!("Estender a mesa")), ("espelhar", tr!("Espelhar (a mesma imagem)")), ("um", tr!("Usar só o principal"))];
-                let sides: [(&str, &str); 3] = [("direita", tr!("À direita do principal")), ("esquerda", tr!("À esquerda do principal")), ("abaixo", tr!("Abaixo do principal"))];
+                let arr: [(&str, &str); 3] = [("extend", tr!("Estender a mesa")), ("mirror", tr!("Espelhar (a mesma imagem)")), ("single", tr!("Usar só o principal"))];
+                let sides: [(&str, &str); 3] = [("right", tr!("À direita do principal")), ("left", tr!("À esquerda do principal")), ("below", tr!("Abaixo do principal"))];
                 let names: Vec<String> = arr.iter().map(|a| a.1.to_string()).collect();
                 let mut cur = arr.iter().position(|a| a.0 == self.config.monitor.arrangement).unwrap_or(0);
                 ui.form_row(tr!("Com mais monitores"), LW, |ui| {
@@ -1735,7 +1735,7 @@ impl Prefs {
                         self.save();
                     }
                 });
-                if self.config.monitor.arrangement == "estender" {
+                if self.config.monitor.arrangement == "extend" {
                     let names: Vec<String> = sides.iter().map(|a| a.1.to_string()).collect();
                     let mut cur = sides.iter().position(|a| a.0 == self.config.monitor.side).unwrap_or(0);
                     ui.form_row(tr!("Os outros ficam"), LW, |ui| {
@@ -1765,7 +1765,7 @@ impl Prefs {
                         (m.menubar_all, m.dock_all, m.dim_inactive) = (barra, dock, esmaecer);
                         self.save();
                     }
-                } else if self.config.monitor.arrangement == "espelhar" {
+                } else if self.config.monitor.arrangement == "mirror" {
                     ui.form_note(LW, tr!("Os monitores usam a maior resolução que todos aceitam."));
                 }
                 ui.space(10.0);
@@ -2134,7 +2134,7 @@ impl Prefs {
         const LW: f32 = 230.0;
         ui.space(8.0);
         let opts = [tr!("Abrir no Arquivos").to_string(), tr!("Não fazer nada").to_string()];
-        let ids = ["abrir", "nada"];
+        let ids = ["open", "nothing"];
         let mut cur = ids.iter().position(|i| *i == self.config.removable_action).unwrap_or(0);
         ui.form_row(tr!("Ao conectar um pendrive ou disco"), LW, |ui| {
             if ui.popup(&mut cur, &opts, 200.0) {
@@ -2146,7 +2146,7 @@ impl Prefs {
         ui.space(14.0);
         // CDs e DVDs (como o painel do Tiger).
         let data_opts = [tr!("Abrir no Arquivos").to_string(), tr!("Não fazer nada").to_string()];
-        let data_ids = ["abrir", "nada"];
+        let data_ids = ["open", "nothing"];
         let mut cur = data_ids.iter().position(|i| *i == self.config.media.data_disc).unwrap_or(0);
         ui.form_row(tr!("Ao inserir um CD ou DVD de dados"), LW, |ui| {
             if ui.popup(&mut cur, &data_opts, 200.0) {
@@ -2156,7 +2156,7 @@ impl Prefs {
         });
         ui.space(6.0);
         let dvd_opts = [tr!("Abrir no Vídeo").to_string(), tr!("Abrir no Arquivos").to_string(), tr!("Não fazer nada").to_string()];
-        let dvd_ids = ["video", "abrir", "nada"];
+        let dvd_ids = ["video", "open", "nothing"];
         let mut cur = dvd_ids.iter().position(|i| *i == self.config.media.video_dvd).unwrap_or(0);
         ui.form_row(tr!("Ao inserir um DVD de vídeo"), LW, |ui| {
             if ui.popup(&mut cur, &dvd_opts, 200.0) {
@@ -2311,7 +2311,7 @@ impl Prefs {
         ui.space(8.0);
         ui.label(tr!("Atalhos de teclado:"));
         ui.space(4.0);
-        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard", "grade", "desk_prev", "desk_next"] {
+        for action in ["expose_all", "expose_app", "expose_desktop", "dashboard", "apps", "desk_prev", "desk_next"] {
             let label = glove_config::action_label(action);
             let mut keys = self.config.shortcut(action).unwrap_or("").to_string();
             let mut changed = false;
@@ -2511,16 +2511,17 @@ impl Prefs {
         ui.tab_box(&mut tab, &[tr!("Efeitos Sonoros"), tr!("Saída"), tr!("Entrada")], 280.0 + grow(), |ui| match shown {
             0 => {
                 ui.label(tr!("Escolher um alerta sonoro:"));
-                let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| tr(a).to_string()).collect();
+                let rows: Vec<String> = glove_config::sons::ALERTS.iter().map(|a| glove_config::sons::alert_label(a).to_string()).collect();
                 let mut sel = glove_config::sons::ALERTS.iter().position(|a| *a == self.config.sound.alert);
                 let (lx, ly) = ui.cursor();
                 let list_r = Rect::new(lx, ly, ui.available_width(), 118.0 + grow());
                 let again = ui.mouse_pressed() && list_r.contains(ui.pointer());
                 if ui.list(&mut sel, &rows, ui.available_width(), list_r.h) {
                     if let Some(i) = sel {
-                        self.config.sound.alert = rows[i].clone();
+                        // What is stored is the id; the list shows the translated name.
+                        self.config.sound.alert = glove_config::sons::ALERTS[i].to_string();
                         self.save();
-                        glove_config::sons::play(&rows[i], self.config.sound.alert_volume.max(0.3));
+                        glove_config::sons::play(&self.config.sound.alert, self.config.sound.alert_volume.max(0.3));
                     }
                 } else if again {
                     // Clicar no alerta já escolhido toca de novo.
@@ -2655,10 +2656,10 @@ impl Prefs {
             }
         }
         let names: Vec<String> = browsers.iter().map(|t| t.1.clone()).collect();
-        let mut cur = browsers.iter().position(|t| t.0 == self.config.navegador).unwrap_or(0);
+        let mut cur = browsers.iter().position(|t| t.0 == self.config.browser).unwrap_or(0);
         ui.form_row(tr!("Navegador"), LW, |ui| {
             if ui.popup(&mut cur, &names, 260.0) {
-                self.config.navegador = browsers[cur].0.clone();
+                self.config.browser = browsers[cur].0.clone();
                 self.save();
             }
         });

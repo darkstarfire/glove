@@ -1629,6 +1629,22 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - `glove-setup-tool.sh`: os textos em português também mostram os comandos em inglês
     (`install`, `uninstall`, `deps`, `all`, `iso test`, `login remove`, `grub remove`, `help`).
 
+- [x] 23.13 (v0.15.1, Jangada 2.1.1, glove-ui 0.2.71) Digitar na barra de endereço da Jangada
+  ficava lento com a lista de sugestões aberta (relato do usuário em 24/11/2026). A causa estava
+  no kit: `Fonts::ellipsize` cortava o texto com "…" tirando uma letra de cada vez e medindo o
+  texto inteiro de novo a cada uma, e a lista desenha título e endereço de até 8 visitas a cada
+  quadro. Medido: um endereço de 883 caracteres custava 40 ms por chamada e um de 4,8 mil, 1
+  segundo; o histórico do usuário tem 2000 visitas, 10% delas com mais de 883 caracteres. Num
+  histórico de teste com esse perfil, cada tecla custava mais de 5 segundos de processador na
+  Jangada 2.0.4 e custa de 10 a 40 ms na 2.1.1.
+  - `ellipsize` numa passada só, com um teste que confere o resultado igual ao de antes em
+    várias fontes, tamanhos e larguras; `Fonts::index_at` (a posição do clique no campo de uma
+    linha) também numa passada. Vale para todos os apps (são 117 usos do corte no Glove).
+  - Na Jangada, as sugestões são refeitas só quando o texto muda, numa passada pelo histórico.
+  - Fica para depois: a área de texto de várias linhas ainda mede o começo da linha a cada
+    letra no clique (as linhas são curtas por causa da quebra, mas uma linha sem quebra muito
+    longa demoraria).
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
@@ -1659,36 +1675,105 @@ utilrede→netutil.
   - [x] Jangada 2.1.0: `settings.conf` (chaves e valores em inglês), `bookmarks.tsv`,
     `history.tsv`, `session.tsv`, `permissions.tsv`, `passwords-never.txt`, `shields-off.txt`,
     as pastas `extensions/` e `shields/`.
-  - [ ] Glove: os valores em português do `config.toml`, `sessao.log` e os arquivos de dados de
-    cada app. Levantamento de 24/11/2026 (uns 215 pontos no código; os valores novos já
-    escolhidos, com migração ao ler a configuração, em `Config::rename_old_names`):
-    - Dock: `position` embaixo/esquerda/direita → bottom/left/right; `minimize_effect` escala →
-      scale (genio → genie).
+  - [x] (v0.15.1, glove-ui 0.2.71, Jangada 2.1.1) Glove: os valores guardados no `config.toml`,
+    trocados ao ler a configuração (`Config::rename_old_names`, que agora roda antes das outras
+    migrações):
+    - Dock: `position` embaixo/esquerda/direita → bottom/left/right; `minimize_effect`
+      escala/genio → scale/genie.
     - Monitores: `arrangement` estender/espelhar/um → extend/mirror/single; `side`
       direita/esquerda/abaixo → right/left/below.
     - Papel de parede: ondas/aurora/liso → waves/aurora/plain; `cor:R,G,B` → `color:R,G,B`;
       `wallpaper_mode` igual/por_tela/panorama → same/per-display/panorama; `wallpaper_fit`
       preencher/ajustar/esticar/centralizar/lado_a_lado → fill/fit/stretch/center/tile.
-    - Aparências (`theme`, e as telas do sistema): claro/listras/metal/grafite/moderno/
+    - Aparências (`theme` e as telas do sistema): claro/listras/metal/grafite/moderno/
       moderno-escuro → light/pinstripe/metal/graphite/modern/modern-dark; "aparencia" →
-      "appearance". Atenção: os mesmos nomes estão nas pastas do tema de abertura do Plymouth
-      (`glove-moderno`, `glove-moderno-escuro`) e no que `glove-prefs --system-theme` grava no
-      sistema: o pacote precisa trocar o tema padrão de quem já instalou.
+      "appearance".
     - Destaque: azul/grafite/prata/dourado/laranja/roxo/vermelho/verde →
       blue/graphite/silver/gold/orange/purple/red/green.
     - Protetor de tela: aurora/estrelas/bolhas/ondas/relogio → aurora/stars/bubbles/waves/clock.
-    - Sons de alerta (hoje o nome mostrado é o próprio valor): Gota/Sino/Vidro/Bolha/Toque/Sopro
-      → drop/bell/glass/bubble/tap/blow, com o nome mostrado vindo da tradução.
-    - Cantos ativos: todas/app/mesa → all/app/desktop. Mídia e discos: abrir/nada/video →
-      open/nothing/video. Mesa `arrange`: nome/data/tamanho/tipo → name/date/size/kind. Arquivos
-      `new_window`: inicio → home. Terminal: basico → basic (conferir os outros temas).
-    - A chave `navegador` → `browser`.
-  - [ ] Pastas de saída e scripts: `pacotes/`, e na Jangada `preparar.sh`, `empacotar*.sh`,
-    `exemplos/`, o caminho do motor no Slackware (`/usr/lib/jangada/motor`).
+    - Sons de alerta: Gota/Sino/Vidro/Bolha/Toque/Sopro → drop/bell/glass/bubble/tap/blow (o
+      nome mostrado vem da tradução, `sons::alert_label`; antes o valor guardado era o nome).
+    - Cantos ativos: todas/app/mesa/painel/apps/protetor → all/app/desktop/dashboard/apps/
+      screensaver. Mídia e discos: abrir/nada/video → open/nothing/video. `arrange` (mesa e
+      Arquivos): nome/data/tamanho/tipo → name/date/size/kind. Arquivos: `new_window`
+      inicio/mesa/documentos/computador → home/desktop/documents/computer; os lugares da barra
+      lateral (`sidebar_hidden`) disco/mesa/inicio/aplicativos/documentos/imagens/musica/buscas/
+      rede → disk/desktop/home/applications/documents/pictures/music/smart-folders/network.
+    - Terminal: basico/oceano/grama/novela/areia/noite → basic/ocean/grass/novel/red-sands/night.
+    - A chave `navegador` → `browser`; a ação de atalho `grade` → `apps`; o item Todos os Apps
+      do Dock `glove.Grade` → `glove.AllApps`; a janela do vídeo `glove.VideoTela` →
+      `glove.VideoScreen`; o ícone `chaves` → `keychain`.
+    - Tema de abertura (Plymouth): as pastas `glove-moderno` e `glove-moderno-escuro` →
+      `glove-modern` e `glove-modern-dark`. O `glove-os` atualizado troca o tema padrão de quem
+      inicia com um dos antigos e refaz o initramfs (`tela-de-inicio`); a pós-instalação do
+      `glove` acerta o `theme` guardado em `/etc/glove/login/config.toml`; o
+      `data/install-plymouth.sh` leva a anotação `/var/lib/glove-plymouth-anterior` para
+      `glove-plymouth-previous`.
+    - Cuidado entre versões: um programa feito com o kit antigo (a Jangada 2.1.0) não conhece
+      os valores novos (abre com a aparência clássica) e, ao regravar a configuração, punha de
+      volta o atalho `grade`; por isso a Jangada 2.1.1 sai junto e a migração tira o repetido.
+  - [ ] 24.4b Arquivos e pastas de cada app, com migração (levantamento de 24/11/2026):
+    - Sessão: `~/.local/state/glove/sessao.log` (+ `.anterior`), `recentes` (chaves `app`,
+      `limpo`), `video-posicoes`; `~/.config/glove/ambiente.conf` (lido pelo `glove-session`).
+    - Música: `musica.conf` (chaves `aleatorio`, `repetir`, `navegador`, `avisar`, `pasta`;
+      valores sim/nao, todas/uma), `musica/listas/`, `musica/recentes.m3u`. Vídeo: `video.conf`
+      (`continuar`, `placa_de_video`, `legendas_da_pasta`, `proximo_ao_terminar`,
+      `idiomas_legenda`, `idiomas_audio`), `video-recentes`.
+    - Mensagens: `mensagens.toml` (`servidor`, `porta`, `apelido`, `nome`, `canais`). Correio:
+      `correio.toml`, a pasta `correio/` e os `lista.toml`. Cópias: `copias.toml`, `.andamento`
+      e `.andamento.lock` no disco das cópias.
+    - Compositor: `painel.toml` (ids dos widgets relogio/calendario/calculadora/clima/lembrete/
+      dicionario), `grade.json` (`itens`, `nome`, `utilitarios`, e os apps com os ids antigos),
+      `mesa-posicoes` (prefixo `:disco:`), o cache `papel/`, a pasta `portais/`.
+    - Preferências: os avisos `atualizacao-avisada` e `sistema-avisado`. Agenda:
+      `agenda/agenda.ics`. Contatos: `contatos/`. Lembretes: `lembretes/`, os `.cor` (amarelo/
+      azul/verde/rosa/roxo/cinza) e o soquete `glove-lembretes.sock` (`novo`, `todos`).
+      Dicionário: `dicionarios/`. Fontes: `50-glove-desativadas.conf` (apagar o antigo, o
+      fontconfig lê todos). Arquivos: `buscas/` e os `.busca` (`busca=`, `onde=`), a pasta
+      `~/Aplicativos` dos AppImages (os `.desktop` apontam para ela), o atributo
+      `user.glove.rotulo` dos rótulos (continuar lendo o antigo: não dá para listar os
+      arquivos de quem usa). Login: `glove-login-sessao`. Kit: `glove-ejetados`,
+      `glove-silenciosos`, o cache `sons/`.
+  - [ ] 24.4c Conversa entre os programas e o que vai nos pacotes:
+    - As palavras do kit para o compositor (`MOLDURA`, `COPIAR`, `SAIR`, `GRAVAR`, `PROTETOR`,
+      `EDITADO`): mudam dos dois lados de uma vez, e a Jangada junto.
+    - Os caminhos virtuais do Arquivos (`/:Aplicativos`, `/:Busca`, `/:Rede`), as ações das
+      notificações (`abrir`, `ver`), o `glove-help <tópico>` pelo título em português.
+    - Pacote `glove-os`: `identidade`, `tela-de-inicio` (`--sem-initramfs`), `versao`,
+      `icones/`, `glove-os-repositorio.{gpg,asc}`, `glove-tema.xpi` (o id do tema no Firefox
+      fica guardado no perfil de quem usa: pesar antes de trocar).
+    - Sistema: `/usr/share/glove/papeis/`, `share/glove/instalados.txt`,
+      `/etc/glove/login/gerenciador-anterior`, o marcador `@PREFIXO@` dos serviços.
+    - Atualizações: `novidades.json` (`versao`, `data`, `notas`) é lido pelas versões já
+      instaladas: publicar os dois formatos por um tempo.
+    - Montagem: a pasta de saída `pacotes/`, `ci/comum.sh`, `ci/pacotes.sh`,
+      `ci/repositorios.sh`, os fluxos e os nomes dos trabalhos no GitHub; na Jangada
+      `preparar.sh`, `empacotar*.sh`, `exemplos/`, o caminho do motor no Slackware
+      (`/usr/lib/jangada/motor`).
 - [ ] 24.5 Código por dentro: primeiro a API pública do kit, depois cada crate (módulos,
   funções, campos, comentários). O que nasce novo já nasce em inglês.
 - [ ] 24.6 Textos de interface: o texto de origem passa a ser o inglês (um `pt.po` no lugar do
   `en.po`), sem mudar o que a pessoa vê.
+
+Falha da 0.15.0, corrigida na 0.15.1: confirmar Desligar, Reiniciar ou Encerrar Sessão na janela
+não fazia nada. O `glove-logout` passou a mandar ao compositor as palavras em inglês (`shutdown`,
+`restart`, `logout`, `quit`) e o compositor ainda só entendia as de antes. Agora os dois lados
+usam as mesmas, com um teste que as confere (`end_words_match_glove_logout`), e o comando do modo
+de depuração é `end logout|restart|shutdown`. Lição: ao trocar as palavras de um programa,
+conferir quem as recebe do outro lado. A auditoria das chamadas entre programas, feita em seguida
+(todas as chamadas `glove-*`, as variáveis `GLOVE_*`, as palavras do soquete dos menus e os
+identificadores das janelas), achou e a 0.15.1 corrige:
+
+- O botão Encerrar Sessão… das Atualizações chamava `glove-logout encerrar` (agora `logout`).
+- Quem veio da 0.14 ficou com `glove-fontes.desktop` e `glove-musica.desktop` como app padrão de
+  fontes e de áudio: abrir um MP3 ou um TTF pelo Arquivos não fazia nada. O registro dos apps de
+  arquivo apaga os dois e troca os nomes no `mimeapps.list`.
+- Anterior à troca dos nomes: o Arquivos (Nova Janela, Obter Informações, Esvaziar o Lixo,
+  Conectar ao Servidor, Opções de Visualização, Preferências, ejetar pela lateral) e o Terminal
+  (Ctrl+Shift+N) relançavam a si mesmos por `current_exe()`, que no programa único é o
+  `glove-apps`, e nada abria. Agora chamam pelo nome do atalho.
+- Faltava o atalho `glove-screenrec` na compilação de desenvolvimento (`crates/apps/build.rs`);
+  um teste confere a lista.
 
 Atenção (decisão do usuário, "corte limpo mesmo"): depois de atualizar para a 0.15.0, a sessão
 que já estava aberta ainda roda o compositor antigo, que chama os programas pelos nomes de antes.

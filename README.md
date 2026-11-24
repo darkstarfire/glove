@@ -429,7 +429,7 @@ crates/portal      `glove-portal` (portal FileChooser) e `glove-chooser`
 crates/login       tela de login (`glove-login`, pelo greetd; `--fake` para testar)
 crates/welcome  assistente de primeiro uso (`glove-welcome`)
 crates/logout        confirmação de Desligar/Reiniciar/Encerrar Sessão (`glove-logout`)
-crates/art        `glove-art`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-art icons <pasta>` e a amostra dele com `glove-art previa <arquivo.png>`)
+crates/art        `glove-art`: arte usada fora do Glove (tema do Plymouth, o tema de ícones "Glove" com `glove-art icons <pasta>` e a amostra dele com `glove-art preview <arquivo.png>`)
 crates/power     bateria (biblioteca usada pelo compositor e pelas Preferências)
 crates/installer  Instalar o Glove OS (`glove-installer`)
 crates/auth       senha do sistema: o agente do polkit (`glove-auth`)

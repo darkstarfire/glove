@@ -377,7 +377,7 @@ impl Atualizacao {
             ui.paragraph(m);
         }
         if self.atualizado && ui.button(tr!("Encerrar Sessão…")) {
-            let _ = Command::new(sibling("glove-logout")).arg("encerrar").spawn();
+            let _ = Command::new(sibling("glove-logout")).arg("logout").spawn();
         }
         ui.space(8.0);
         match &self.list {

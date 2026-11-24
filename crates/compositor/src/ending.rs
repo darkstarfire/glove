@@ -19,9 +19,10 @@ pub enum EndKind {
 impl EndKind {
     fn from_word(s: &str) -> Option<Self> {
         Some(match s {
-            "encerrar" | "sair" => Self::LogOut,
-            "reiniciar" => Self::Restart,
-            "desligar" => Self::ShutDown,
+            // The words glove-logout sends ("quit" is leaving a nested Glove).
+            "logout" | "quit" => Self::LogOut,
+            "restart" => Self::Restart,
+            "shutdown" => Self::ShutDown,
             _ => return None,
         })
     }
@@ -86,7 +87,7 @@ impl Glove {
         self.ending.as_ref().is_some_and(|e| e.screen_since.is_some())
     }
 
-    /// Começa o fim de sessão pedido pelo glove-logout ("encerrar", "reiniciar", "desligar").
+    /// Começa o fim de sessão pedido pelo glove-logout ("logout", "quit", "restart", "shutdown").
     pub fn end_session(&mut self, word: &str) {
         let Some(kind) = EndKind::from_word(word) else { return };
         if self.ending.is_some() {
@@ -149,7 +150,7 @@ impl Glove {
                 let app = self.space.elements().next().map(|w| crate::shell::app_display_name(w)).unwrap_or_default();
                 self.ending = None;
                 tracing::info!("fim de sessão cancelado: {app} não fechou");
-                let word = if kind == EndKind::LogOut && self.nested { "sair" } else { kind.word() };
+                let word = if kind == EndKind::LogOut && self.nested { "quit" } else { kind.word() };
                 self.spawn(&format!("glove-logout cancelled {word} {}", shell_quote(&app)));
                 return false;
             }
@@ -190,4 +191,24 @@ impl Glove {
 /// Aspas simples para o `sh -c` do spawn.
 fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EndKind;
+
+    /// The words glove-logout sends when the person confirms (its KINDS) are the ones
+    /// understood here, and the word handed back to it ("cancelled", "failed") is one of
+    /// them too. In 0.15.0 the two sides spoke different languages and nothing happened.
+    #[test]
+    fn end_words_match_glove_logout() {
+        assert_eq!(EndKind::from_word("shutdown"), Some(EndKind::ShutDown));
+        assert_eq!(EndKind::from_word("restart"), Some(EndKind::Restart));
+        assert_eq!(EndKind::from_word("logout"), Some(EndKind::LogOut));
+        assert_eq!(EndKind::from_word("quit"), Some(EndKind::LogOut));
+        assert_eq!(EndKind::from_word("desligar"), None);
+        for kind in [EndKind::LogOut, EndKind::Restart, EndKind::ShutDown] {
+            assert_eq!(EndKind::from_word(kind.word()), Some(kind));
+        }
+    }
 }

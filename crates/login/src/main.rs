@@ -427,7 +427,7 @@ pub fn main() {
 mod tests {
     #[test]
     fn troca_o_tema_da_copia() {
-        assert_eq!(super::com_tema("theme = \"claro\"\nx = 1\n[a]\ntheme = 2\n", "moderno"), "theme = \"moderno\"\nx = 1\n[a]\ntheme = 2\n");
-        assert_eq!(super::com_tema("x = 1\n", "moderno-escuro"), "theme = \"moderno-escuro\"\nx = 1\n");
+        assert_eq!(super::com_tema("theme = \"light\"\nx = 1\n[a]\ntheme = 2\n", "modern"), "theme = \"modern\"\nx = 1\n[a]\ntheme = 2\n");
+        assert_eq!(super::com_tema("x = 1\n", "modern-dark"), "theme = \"modern-dark\"\nx = 1\n");
     }
 }

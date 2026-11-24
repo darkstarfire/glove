@@ -56,7 +56,7 @@ impl App for NoBrowser {
 pub fn main() {
     let urls: Vec<String> = std::env::args().skip(1).collect();
     let mem = mem_total_mb(&std::fs::read_to_string("/proc/meminfo").unwrap_or_default());
-    let preferred = glove_config::Config::load().navegador;
+    let preferred = glove_config::Config::load().browser;
     let Some((prog, glove_firefox)) = choose(mem, &preferred, &|p| which(p).is_some()) else {
         let opts = WindowOptions { title: tr!("Navegador").into(), app_id: "glove.Browser".into(), size: (440, 130), fixed: true, min_size: None };
         let _ = run(opts, NoBrowser);

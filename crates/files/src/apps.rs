@@ -80,7 +80,7 @@ pub fn all() -> Vec<App> {
     let mut out: Vec<App> = glove_config::default_dock_apps()
         .into_iter()
         .chain(glove_config::extra_apps())
-        .filter(|a| a.app_id.starts_with("glove.") && a.app_id != glove_config::GRADE_ID)
+        .filter(|a| a.app_id.starts_with("glove.") && a.app_id != glove_config::ALL_APPS_ID)
         .map(|a| App {
             utility: matches!(a.app_id.as_str(), "glove.Monitor" | "glove.Disks" | "glove.Terminal" | "glove.Chars" | "glove.Shot" | "glove.Find" | "glove.Console" | "glove.Info" | "glove.Keychain" | "glove.NetUtil" | "glove.Backup"),
             name: a.name,

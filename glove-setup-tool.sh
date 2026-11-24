@@ -15,7 +15,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=2.1.0
+jangada_version=2.1.1
 # Slackware 15.0: o GTK 4 e o compilador dele são velhos para o WebKitGTK atual; nele a
 # Jangada fica na 1.15 (a do motor do Chromium).
 jangada_version_slack15=1.15.1
@@ -229,6 +229,13 @@ if command -v systemctl >/dev/null 2>&1; then
   rm -f /etc/systemd/system/multi-user.target.wants/glove-bateria.service
   systemctl enable glove-battery.service 2>/dev/null || true
   systemctl start glove-battery.service 2>/dev/null || true
+fi
+# Up to 0.15.0 the appearance of the login screen was stored under its Portuguese name.
+login_config=/etc/glove/login/config.toml
+if [ -f "$login_config" ]; then
+  sed -i -e "s/^theme = \"claro\"/theme = \"light\"/" -e "s/^theme = \"listras\"/theme = \"pinstripe\"/" \
+    -e "s/^theme = \"grafite\"/theme = \"graphite\"/" -e "s/^theme = \"moderno\"/theme = \"modern\"/" \
+    -e "s/^theme = \"moderno-escuro\"/theme = \"modern-dark\"/" "$login_config" 2>/dev/null || true
 fi
 for t in /usr/share/icons/Glove /usr/local/share/icons/Glove; do
   [ -d "$t" ] && command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -f "$t" 2>/dev/null || true
@@ -586,7 +593,7 @@ package_glove_os() {
     install -m 755 "$d/identidade" "$d/tela-de-inicio" "$o/"
     # Boot and shutdown screen: the Glove Plymouth themes (tela-de-inicio turns on the
     # classic one; "Use the appearance everywhere" switches to the Modern ones).
-    for p in glove glove-moderno glove-moderno-escuro; do
+    for p in glove glove-modern glove-modern-dark; do
         mkdir -p "$tmp/usr/share/plymouth/themes/$p"
         install -m 644 "$root_dir"/data/plymouth/$p/* "$tmp/usr/share/plymouth/themes/$p/"
     done

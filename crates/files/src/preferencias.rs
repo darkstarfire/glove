@@ -8,20 +8,20 @@ use glove_ui::{paint::draw::*, run, ui::Ticks, App, Rect, Ui, WindowOptions};
 
 /// Lugares da barra lateral: (id, nome).
 const PLACES: [(&str, &str); 11] = [
-    ("disco", "Disco"),
-    ("mesa", "Mesa"),
-    ("inicio", "Início"),
-    ("aplicativos", "Aplicativos"),
-    ("documentos", "Documentos"),
+    ("disk", "Disco"),
+    ("desktop", "Mesa"),
+    ("home", "Início"),
+    ("applications", "Aplicativos"),
+    ("documents", "Documentos"),
     ("downloads", "Downloads"),
-    ("imagens", "Imagens"),
-    ("musica", "Música"),
+    ("pictures", "Imagens"),
+    ("music", "Música"),
     ("videos", "Vídeos"),
-    ("buscas", "Pastas inteligentes"),
-    ("rede", "Rede"),
+    ("smart-folders", "Pastas inteligentes"),
+    ("network", "Rede"),
 ];
-const NEW_WINDOW: [(&str, &str); 4] = [("inicio", "Início"), ("mesa", "Mesa"), ("documentos", "Documentos"), ("computador", "Computador")];
-const ARRANGE: [(&str, &str); 4] = [("nome", "Nome"), ("data", "Data de Modificação"), ("tamanho", "Tamanho"), ("tipo", "Tipo")];
+const NEW_WINDOW: [(&str, &str); 4] = [("home", "Início"), ("desktop", "Mesa"), ("documents", "Documentos"), ("computer", "Computador")];
+const ARRANGE: [(&str, &str); 4] = [("name", "Nome"), ("date", "Data de Modificação"), ("size", "Tamanho"), ("kind", "Tipo")];
 /// Fundos da vista de ícones: (valor, nome).
 const BACKGROUNDS: [(&str, &str); 6] = [("", "Branco"), ("#e8eef8", "Azul-claro"), ("#eef4e6", "Verde-claro"), ("#f6efe2", "Bege"), ("#d8d8dc", "Cinza"), ("#2e3440", "Grafite")];
 

@@ -23,8 +23,8 @@ const PLYMOUTH: &str = "/usr/share/plymouth/themes";
 /// O tema do Plymouth de cada aparência (os clássicos usam o "glove").
 pub fn plymouth_de(tema: &str) -> &'static str {
     match tema {
-        "moderno" => "glove-moderno",
-        "moderno-escuro" => "glove-moderno-escuro",
+        "modern" => "glove-modern",
+        "modern-dark" => "glove-modern-dark",
         _ => "glove",
     }
 }
@@ -245,9 +245,9 @@ mod tests {
     #[test]
     fn troca_o_tema_do_login() {
         let t = "theme = \"claro\"\nwallpaper = \"x\"\n\n[appearance]\ntheme_extra = 1\n";
-        assert_eq!(trocar_tema(t, "moderno"), "theme = \"moderno\"\nwallpaper = \"x\"\n\n[appearance]\ntheme_extra = 1\n");
-        assert_eq!(trocar_tema("wallpaper = \"x\"\n", "moderno-escuro"), "theme = \"moderno-escuro\"\nwallpaper = \"x\"\n");
-        assert_eq!(plymouth_de("moderno"), "glove-moderno");
+        assert_eq!(trocar_tema(t, "modern"), "theme = \"modern\"\nwallpaper = \"x\"\n\n[appearance]\ntheme_extra = 1\n");
+        assert_eq!(trocar_tema("wallpaper = \"x\"\n", "modern-dark"), "theme = \"modern-dark\"\nwallpaper = \"x\"\n");
+        assert_eq!(plymouth_de("modern"), "glove-modern");
         assert_eq!(plymouth_de("metal"), "glove");
     }
 
@@ -261,7 +261,7 @@ mod tests {
         assert_eq!(trocar_icones(t, "mide-dark"), "theme = \"claro\"\n\n[appearance]\nhighlight = \"azul\"\nicon_theme = \"mide-dark\"\n\n[keyboard]\nlayout = \"br\"\n");
         // Sem a seção.
         assert_eq!(trocar_icones("theme = \"metal\"\n", ""), "theme = \"metal\"\n\n[appearance]\nicon_theme = \"\"\n");
-        assert_eq!(glove_config::icones_da_aparencia("moderno-escuro"), "mide-dark");
-        assert_eq!(glove_config::icones_da_aparencia("grafite"), "");
+        assert_eq!(glove_config::icones_da_aparencia("modern-dark"), "mide-dark");
+        assert_eq!(glove_config::icones_da_aparencia("graphite"), "");
     }
 }

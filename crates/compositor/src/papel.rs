@@ -1,7 +1,7 @@
 //! Papel de parede de cada monitor.
 //!
-//! - "igual": o mesmo papel em cada monitor (cada um no tamanho dele);
-//! - "por_tela": um papel para cada monitor (pelo nome do conector);
+//! - "same": o mesmo papel em cada monitor (cada um no tamanho dele);
+//! - "per-display": um papel para cada monitor (pelo nome do conector);
 //! - "panorama": uma imagem só cobrindo todos os monitores, pela posição deles na
 //!   mesa (lado a lado, um em cima do outro, em L): cada um mostra o seu pedaço.
 //!
@@ -235,7 +235,7 @@ impl Glove {
     fn papel_screens(&self) -> Vec<Screen> {
         let primary = self.primary().cloned();
         let mut v: Vec<Screen> = Vec::new();
-        let mirror = self.config.monitor.arrangement == "espelhar" || self.nested;
+        let mirror = self.config.monitor.arrangement == "mirror" || self.nested;
         let outs: Vec<smithay::output::Output> = self.space.outputs().cloned().collect();
         for o in outs.iter().filter(|o| Some(*o) == primary.as_ref()).chain(outs.iter().filter(|o| Some(*o) != primary.as_ref())) {
             if mirror && Some(o) != primary.as_ref() {
@@ -280,7 +280,7 @@ impl Glove {
             let anim = (ffmpeg && wallpaper::is_animated(&style)).then(|| {
                 if panorama {
                     format!("panorama|{style}")
-                } else if mode == "por_tela" {
+                } else if mode == "per-display" {
                     format!("{}|{style}", s.name)
                 } else {
                     format!("igual|{style}")

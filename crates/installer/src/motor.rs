@@ -50,7 +50,7 @@ pub struct Escolhas {
     pub senha: String,
     pub computador: String,
     pub uefi: bool,
-    /// A aparência escolhida (o id: "claro", "moderno-escuro"…): vale em todo o sistema.
+    /// A aparência escolhida (o id: "light", "modern-dark"…): vale em todo o sistema.
     pub tema: String,
 }
 
@@ -427,7 +427,7 @@ mod tests {
             livre: Some((1050624, 400_000_000)),
             ao_vivo: false,
         };
-        Escolhas { idioma: "pt_BR.UTF-8".into(), layout: "br".into(), variante: String::new(), fuso: "America/Sao_Paulo".into(), disco, modo, nome: "Ana".into(), usuario: "ana".into(), senha: "segredo".into(), computador: "pc-ana".into(), uefi, tema: "moderno".into() }
+        Escolhas { idioma: "pt_BR.UTF-8".into(), layout: "br".into(), variante: String::new(), fuso: "America/Sao_Paulo".into(), disco, modo, nome: "Ana".into(), usuario: "ana".into(), senha: "segredo".into(), computador: "pc-ana".into(), uefi, tema: "modern".into() }
     }
 
     fn cmds(p: &[Passo]) -> Vec<String> {

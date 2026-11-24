@@ -160,17 +160,17 @@ pub fn common_size(lists: &[Vec<(u16, u16)>]) -> Option<(u16, u16)> {
 pub fn place_extra(primary: (i32, i32), extras: &[(i32, i32)], side: &str) -> Vec<(i32, i32)> {
     let mut out = Vec::new();
     let (mut x, mut y) = match side {
-        "esquerda" => (0, 0),
-        "abaixo" => (0, primary.1),
+        "left" => (0, 0),
+        "below" => (0, primary.1),
         _ => (primary.0, 0),
     };
     for (w, h) in extras {
         match side {
-            "esquerda" => {
+            "left" => {
                 x -= w;
                 out.push((x, 0));
             }
-            "abaixo" => {
+            "below" => {
                 out.push((0, y));
                 y += h;
             }
@@ -196,7 +196,7 @@ struct Plan {
 fn plan(list: &[Connected], cfg: &glove_config::Monitor, keep: &[(connector::Handle, crtc::Handle)]) -> (Vec<Plan>, bool) {
     let Some(primary) = choose_connector(list, &cfg.output).cloned() else { return (Vec::new(), false) };
     let mut order = vec![primary.clone()];
-    if cfg.arrangement != "um" {
+    if cfg.arrangement != "single" {
         order.extend(list.iter().filter(|c| c.handle != primary.handle).cloned());
     }
     // Controladores diferentes para cada tela (quem já tem um, fica com ele).
@@ -215,7 +215,7 @@ fn plan(list: &[Connected], cfg: &glove_config::Monitor, keep: &[(connector::Han
         return (Vec::new(), false);
     }
     // Espelhar: a mesma resolução (a maior que todos têm) e a mesma escala.
-    if cfg.arrangement == "espelhar" && chosen.len() > 1 {
+    if cfg.arrangement == "mirror" && chosen.len() > 1 {
         let sizes: Vec<Vec<(u16, u16)>> = chosen.iter().map(|(c, _)| c.modes.iter().map(|m| m.size()).collect()).collect();
         if let Some((w, h)) = common_size(&sizes) {
             let p = chosen[0].0.clone();
@@ -851,8 +851,8 @@ mod tests {
 
     #[test]
     fn posicao_dos_extras() {
-        assert_eq!(place_extra((1280, 800), &[(1920, 1080)], "direita"), vec![(1280, 0)]);
-        assert_eq!(place_extra((1280, 800), &[(1920, 1080), (800, 600)], "esquerda"), vec![(-1920, 0), (-2720, 0)]);
-        assert_eq!(place_extra((1280, 800), &[(1920, 1080)], "abaixo"), vec![(0, 800)]);
+        assert_eq!(place_extra((1280, 800), &[(1920, 1080)], "right"), vec![(1280, 0)]);
+        assert_eq!(place_extra((1280, 800), &[(1920, 1080), (800, 600)], "left"), vec![(-1920, 0), (-2720, 0)]);
+        assert_eq!(place_extra((1280, 800), &[(1920, 1080)], "below"), vec![(0, 800)]);
     }
 }

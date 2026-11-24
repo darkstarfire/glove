@@ -1,8 +1,0 @@
-[Plymouth Theme]
-Name=Glove Moderno Escuro
-Description=Início e desligamento do Glove: fundo grafite, a luva branca e o giratório (arte gerada por código).
-ModuleName=script
-
-[script]
-ImageDir=/usr/share/plymouth/themes/glove-moderno-escuro
-ScriptFile=/usr/share/plymouth/themes/glove-moderno-escuro/glove-moderno-escuro.script

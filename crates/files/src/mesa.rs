@@ -192,7 +192,7 @@ struct ViewOptions {
     pending: bool,
 }
 
-const ARRANGE: [(&str, &str); 4] = [("nome", "Nome"), ("data", "Data de Modificação"), ("tamanho", "Tamanho"), ("tipo", "Tipo")];
+const ARRANGE: [(&str, &str); 4] = [("name", "Nome"), ("date", "Data de Modificação"), ("size", "Tamanho"), ("kind", "Tipo")];
 
 impl ViewOptions {
     fn save(&mut self, ui: &Ui) {
@@ -250,7 +250,7 @@ impl App for ViewOptions {
             let mut keep = !d.arrange.is_empty();
             ui.horizontal(|ui| {
                 if ui.checkbox(&mut keep, tr!("Manter organizado por")) {
-                    self.config.desk.arrange = if keep { "nome".into() } else { String::new() };
+                    self.config.desk.arrange = if keep { "name".into() } else { String::new() };
                     self.save(ui);
                 }
             });
