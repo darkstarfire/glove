@@ -39,6 +39,10 @@ impl XdgShellHandler for Glove {
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
+        // As bordas que o app pediu pelo protocolo da KDE (o GTK pede antes da janela existir).
+        if let Some(m) = super::bordas_kde(surface.wl_surface()) {
+            surface.with_pending_state(|s| s.decoration_mode = Some(m));
+        }
         let window = Window::new_wayland_window(surface);
         // Posição provisória; a definitiva vem no primeiro quadro (já com tamanho).
         let area = self.work_area();

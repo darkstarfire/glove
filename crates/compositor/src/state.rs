@@ -41,6 +41,9 @@ pub struct Glove {
     pub compositor_state: CompositorState,
     pub xdg_shell_state: XdgShellState,
     pub xdg_decoration_state: XdgDecorationState,
+    /// As bordas pedidas pelo protocolo da KDE (o GTK 3 e o GTK 4 usam este): o Glove
+    /// desenha as dele.
+    pub kde_decoration_state: smithay::wayland::shell::kde::decoration::KdeDecorationState,
     pub fractional_scale_state: FractionalScaleManagerState,
     pub viewporter_state: ViewporterState,
     /// linux-dmabuf (anunciado pelo backend, que sabe qual é a placa).
@@ -238,6 +241,10 @@ impl Glove {
         let compositor_state = CompositorState::new::<Self>(&dh);
         let xdg_shell_state = XdgShellState::new::<Self>(&dh);
         let xdg_decoration_state = XdgDecorationState::new::<Self>(&dh);
+        let kde_decoration_state = smithay::wayland::shell::kde::decoration::KdeDecorationState::new::<Self>(
+            &dh,
+            smithay::reexports::wayland_protocols_misc::server_decoration::server::org_kde_kwin_server_decoration_manager::Mode::Server,
+        );
         let fractional_scale_state = FractionalScaleManagerState::new::<Self>(&dh);
         let cursor_shape = smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(&dh);
         let viewporter_state = ViewporterState::new::<Self>(&dh);
@@ -272,6 +279,7 @@ impl Glove {
             compositor_state,
             xdg_shell_state,
             xdg_decoration_state,
+            kde_decoration_state,
             fractional_scale_state,
             viewporter_state,
             dmabuf_state: smithay::wayland::dmabuf::DmabufState::new(),

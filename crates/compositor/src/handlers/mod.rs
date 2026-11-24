@@ -161,6 +161,52 @@ impl XdgDecorationHandler for Glove {
 }
 delegate_xdg_decoration!(Glove);
 
+// O mesmo pelo protocolo da KDE (o GTK pede as bordas por ele): a janela que pede as do
+// servidor ganha a barra do Glove; a que desenha as próprias (barra de título do app)
+// fica sem.
+impl smithay::wayland::shell::kde::decoration::KdeDecorationHandler for Glove {
+    fn kde_decoration_state(&self) -> &smithay::wayland::shell::kde::decoration::KdeDecorationState {
+        &self.kde_decoration_state
+    }
+
+    fn request_mode(
+        &mut self,
+        surface: &WlSurface,
+        decoration: &smithay::reexports::wayland_protocols_misc::server_decoration::server::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration,
+        mode: smithay::reexports::wayland_server::WEnum<smithay::reexports::wayland_protocols_misc::server_decoration::server::org_kde_kwin_server_decoration::Mode>,
+    ) {
+        use smithay::reexports::wayland_protocols_misc::server_decoration::server::org_kde_kwin_server_decoration::Mode as Kde;
+        let smithay::reexports::wayland_server::WEnum::Value(pedido) = mode else { return };
+        // Tela de login: sem barras de título.
+        let modo = if self.greeter || pedido != Kde::Server { Kde::Client } else { Kde::Server };
+        decoration.mode(modo);
+        let m = if modo == Kde::Server { DecorationMode::ServerSide } else { DecorationMode::ClientSide };
+        // O GTK pede antes de criar a janela (o xdg_toplevel): o pedido fica guardado na
+        // superfície e vale quando ela vira janela (`new_toplevel`).
+        with_states(surface, |st| {
+            st.data_map.insert_if_missing(|| BordasKde(std::cell::Cell::new(None)));
+            if let Some(b) = st.data_map.get::<BordasKde>() {
+                b.0.set(Some(m));
+            }
+        });
+        if let Some(t) = self.xdg_shell_state.toplevel_surfaces().iter().find(|t| t.wl_surface() == surface).cloned() {
+            t.with_pending_state(|s| s.decoration_mode = Some(m));
+            if t.is_initial_configure_sent() {
+                t.send_pending_configure();
+            }
+        }
+    }
+}
+
+/// As bordas pedidas pelo protocolo da KDE para uma superfície (antes de ela virar janela).
+pub struct BordasKde(pub std::cell::Cell<Option<DecorationMode>>);
+
+/// As bordas que a superfície pediu pelo protocolo da KDE, se pediu.
+pub fn bordas_kde(surface: &WlSurface) -> Option<DecorationMode> {
+    with_states(surface, |st| st.data_map.get::<BordasKde>().and_then(|b| b.0.get()))
+}
+smithay::delegate_kde_decoration!(Glove);
+
 // Escala fracionada: os apps desenham na escala exata da tela (ex.: 1.5).
 impl FractionalScaleHandler for Glove {
     fn new_fractional_scale(&mut self, surface: WlSurface) {
