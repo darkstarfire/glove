@@ -15,7 +15,10 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=1.15.1
+jangada_version=2.0.0
+# Slackware 15.0: o GTK 4 e o compilador dele são velhos para o WebKitGTK atual; nele a
+# Jangada fica na 1.15 (a do motor do Chromium).
+jangada_version_slack15=1.15.1
 mide_icons_repo="https://github.com/fabioaacarneiro/mide-icons"
 mide_icons_commit=11f848417aba8abbb2889439d374803a6c6f0cbf
 mide_icons_version=1.0
@@ -319,17 +322,18 @@ install_glove() {
             :
         elif [ "$(distro)" = debian ]; then
             echo
-            if ask "$(t "Instalar também a Jangada, o navegador do Glove (~110 MB)?" "Also install Jangada, Glove's browser (~110 MB)?")" y; then
+            if ask "$(t "Instalar também a Jangada, o navegador do Glove (o motor, o WebKitGTK, vem pela distribuição)?" "Also install Jangada, Glove's browser (its engine, WebKitGTK, comes from the distribution)?")" y; then
                 package_jangada
                 root apt-get install -y "$out_dir/jangada_${jangada_version}_amd64.deb" || echo "$(t "Aviso: a Jangada não foi instalada." "Warning: Jangada was not installed.")" >&2
             fi
         elif jangada_nome "$(distro)" >/dev/null; then
             # Fedora, Arch e Slackware: o pacote da release da Jangada.
             echo
-            if ask "$(t "Instalar também a Jangada, o navegador do Glove (~110 MB)?" "Also install Jangada, Glove's browser (~110 MB)?")" y; then
+            if ask "$(t "Instalar também a Jangada, o navegador do Glove?" "Also install Jangada, Glove's browser?")" y; then
                 n=$(jangada_nome "$(distro)")
+                jv=$(jangada_versao "$(distro)")
                 mkdir -p "$out_dir"
-                if curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jangada_version/$n" -o "$out_dir/$n.parte" && mv "$out_dir/$n.parte" "$out_dir/$n"; then
+                if curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jv/$n" -o "$out_dir/$n.parte" && mv "$out_dir/$n.parte" "$out_dir/$n"; then
                     case "$(distro)" in
                         fedora) root dnf install -y "$out_dir/$n" ;;
                         arch) root pacman -U --noconfirm "$out_dir/$n" ;;
@@ -465,17 +469,27 @@ EOF
     msg "$(t "Pacote Debian/Ubuntu: $f" "Debian/Ubuntu package: $f")"
 }
 
-# The browser: Jangada (its own repository, github.com/fabioaacarneiro/jangada). The
-# package of the pinned version comes ready from its release; without it (offline, or the
-# release not out yet), it is built from the source of that version (downloads the
-# Chromium engine, ~200 MB, and needs cmake). glove-os depends on it.
+# The browser: Jangada (its own repository, github.com/fabioaacarneiro/jangada). Its
+# engine is the system WebKitGTK (the packages depend on it). The package of the pinned
+# version comes ready from its release; without it (offline, or the release not out yet),
+# it is built from the source of that version (needs libwebkitgtk-6.0-dev and
+# libgtk-4-dev). glove-os depends on it.
 jangada_repo="https://github.com/fabioaacarneiro/jangada"
+# The Jangada version for a distribution: Slackware 15.0 stays on 1.15 (Chromium engine).
+jangada_versao() {
+    if [ "$1" = slackware ] && grep -qx "Slackware 15.0" /etc/slackware-version 2>/dev/null; then
+        echo "$jangada_version_slack15"
+    else
+        echo "$jangada_version"
+    fi
+}
 # The name of Jangada's release package for a distribution (fails for the others).
 jangada_nome() {
+    jv=$(jangada_versao "$1")
     case "$1" in
-        fedora) echo "jangada-${jangada_version}-1.x86_64.rpm" ;;
-        arch) echo "jangada-${jangada_version}-1-x86_64.pkg.tar.zst" ;;
-        slackware) echo "jangada-${jangada_version}-x86_64-1.tgz" ;;
+        fedora) echo "jangada-${jv}-1.x86_64.rpm" ;;
+        arch) echo "jangada-${jv}-1-x86_64.pkg.tar.zst" ;;
+        slackware) echo "jangada-${jv}-x86_64-1.tgz" ;;
         *) return 1 ;;
     esac
 }
@@ -491,6 +505,10 @@ package_jangada() {
     rm -f "$f.parte"
     has git || die "$(t "falta o git" "git is missing")"
     msg "$(t "Jangada $jangada_version: sem o pacote pronto; compilando do código" "Jangada $jangada_version: no ready package; building from source")"
+    # O motor e o GTK 4 para compilar (no CI, o contêiner já os tem).
+    if ! pkg-config --exists webkitgtk-6.0 2>/dev/null; then
+        root apt-get install -y --no-install-recommends libwebkitgtk-6.0-dev libgtk-4-dev pkg-config || die "$(t "não deu para instalar o WebKitGTK para compilar a Jangada" "could not install WebKitGTK to build Jangada")"
+    fi
     src=$(mktemp -d)
     git clone -q --depth 1 --recursive --branch "v$jangada_version" "$jangada_repo" "$src/jangada" || die "$(t "não deu para baixar a Jangada" "could not download Jangada")"
     (cd "$src/jangada" && ./empacotar.sh) || die "$(t "o empacotamento da Jangada falhou" "the Jangada packaging failed")"

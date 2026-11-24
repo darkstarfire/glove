@@ -369,6 +369,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "cairo-rs"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62bf7f026ae17fe688938438ec1da2b69f69832f1428a17258f6ee9a7f6e1815"
+dependencies = [
+ "bitflags 2.13.2",
+ "cairo-sys-rs",
+ "glib",
+ "libc",
+]
+
+[[package]]
+name = "cairo-sys-rs"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee548131103ad8f698c6725669647b9c757b3b66992dd6a026037596417bee21"
+dependencies = [
+ "glib-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
 name = "calloop"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -428,6 +451,16 @@ dependencies = [
  "jobserver",
  "libc",
  "shlex",
+]
+
+[[package]]
+name = "cfg-expr"
+version = "0.20.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd44d82755fb9210fb10d9daf8dd7e522da0efe1d5f263cffc5db07725663ff"
+dependencies = [
+ "smallvec",
+ "target-lexicon",
 ]
 
 [[package]]
@@ -758,6 +791,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "field-offset"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38e2275cc4e4fc009b0669731a1e5ab7ebf11f469eaede2bab9309a5b4d6057f"
+dependencies = [
+ "memoffset",
+ "rustc_version",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -808,10 +851,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
+name = "futures-channel"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
+dependencies = [
+ "futures-core",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
+
+[[package]]
+name = "futures-executor"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "031b47cf1a3c6cc8bc2fc76cd437f521619387907d469316e7c0bc278f1f5432"
+dependencies = [
+ "futures-core",
+ "futures-task",
+ "futures-util",
+]
 
 [[package]]
 name = "futures-io"
@@ -833,6 +896,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-macro"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "futures-task"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -845,6 +919,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-core",
+ "futures-macro",
  "futures-task",
  "pin-project-lite",
  "slab",
@@ -870,6 +945,63 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c13a5f2acc785d8fb6bf6b7ab6bfb0ef5dad4f4d97e8e70bb8e470722312f76f"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "gdk-pixbuf"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aabb44971913eb9f7bf6747f6e88889386007d8ce8cfd1ca2735751b664e7079"
+dependencies = [
+ "gdk-pixbuf-sys",
+ "gio",
+ "glib",
+ "libc",
+]
+
+[[package]]
+name = "gdk-pixbuf-sys"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d5209294ba3775f9b650bf78bfadeba4332089f2329b3e2f6ce0a4957a45bff"
+dependencies = [
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gdk4"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e77c579bac9eff8b84c0625d5f533da6d69988c063062fe92c2e955ede8f28eb"
+dependencies = [
+ "cairo-rs",
+ "gdk-pixbuf",
+ "gdk4-sys",
+ "gio",
+ "glib",
+ "libc",
+ "pango",
+]
+
+[[package]]
+name = "gdk4-sys"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3eff6238a30c1f198fb3c8d3d445fa7faf211d11d9075af0772e6e0ca32ae001"
+dependencies = [
+ "cairo-sys-rs",
+ "gdk-pixbuf-sys",
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "pango-sys",
+ "pkg-config",
+ "system-deps",
 ]
 
 [[package]]
@@ -927,6 +1059,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "gio"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "536990682bab3b8bf68a78d298ccae69702a114290b096edf2bec6eb2e4013b3"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-io",
+ "futures-util",
+ "gio-sys",
+ "glib",
+ "libc",
+ "pin-project-lite",
+ "smallvec",
+]
+
+[[package]]
+name = "gio-sys"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9c253490f9a475047f109bf6ccb68c407e9d186b7bfab01849188f4e669e669"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "gl_generator"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -938,8 +1100,73 @@ dependencies = [
 ]
 
 [[package]]
+name = "glib"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9c4cbf1972a07741ae5ce9b23a582a90efc69745fc713f8b037b8d962f604da"
+dependencies = [
+ "bitflags 2.13.2",
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-task",
+ "futures-util",
+ "gio-sys",
+ "glib-macros",
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "memchr",
+ "smallvec",
+]
+
+[[package]]
+name = "glib-macros"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4014e54e2049108c93cf278b64e89f490849402e09b455a25dfa2098cc35093"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
+name = "glib-sys"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b01e8b94529c2698b98f765b887f1e001b76195c1e25d1139aa9336019e745d"
+dependencies = [
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "glib-unix"
+version = "0.22.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc698e05c8483a899312f76b30b8d6d59e44f9e6ddf93a7487a6de34019b543d"
+dependencies = [
+ "futures-core",
+ "glib",
+ "glib-unix-sys",
+]
+
+[[package]]
+name = "glib-unix-sys"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8644d8d71c4f25b27f775dc9bb4dcd69ff81de8614b23f16c2d7944c915e96ab"
+dependencies = [
+ "glib-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
 name = "glove"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "bitflags 2.13.2",
  "glove-config",
@@ -958,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "glove-about"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -966,7 +1193,7 @@ dependencies = [
 
 [[package]]
 name = "glove-agenda"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -975,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "glove-ajuda"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -983,7 +1210,7 @@ dependencies = [
 
 [[package]]
 name = "glove-apps"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-about",
  "glove-agenda",
@@ -1029,7 +1256,7 @@ dependencies = [
 
 [[package]]
 name = "glove-arquivo"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1037,7 +1264,7 @@ dependencies = [
 
 [[package]]
 name = "glove-arte"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-paint",
  "png 0.17.16",
@@ -1045,7 +1272,7 @@ dependencies = [
 
 [[package]]
 name = "glove-boasvindas"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1053,7 +1280,7 @@ dependencies = [
 
 [[package]]
 name = "glove-calc"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1061,7 +1288,7 @@ dependencies = [
 
 [[package]]
 name = "glove-central"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1069,7 +1296,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chars"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1078,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chaves"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1087,7 +1314,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chess"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1096,7 +1323,7 @@ dependencies = [
 
 [[package]]
 name = "glove-clock"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1104,7 +1331,7 @@ dependencies = [
 
 [[package]]
 name = "glove-config"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-i18n",
  "libc",
@@ -1114,7 +1341,7 @@ dependencies = [
 
 [[package]]
 name = "glove-contatos"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1122,7 +1349,7 @@ dependencies = [
 
 [[package]]
 name = "glove-copias"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1134,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "glove-correio"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "base64",
  "glove-config",
@@ -1149,7 +1376,7 @@ dependencies = [
 
 [[package]]
 name = "glove-dicionario"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "flate2",
  "glove-config",
@@ -1158,7 +1385,7 @@ dependencies = [
 
 [[package]]
 name = "glove-disks"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1169,7 +1396,7 @@ dependencies = [
 
 [[package]]
 name = "glove-edit"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "ab_glyph",
  "glove-config",
@@ -1179,7 +1406,7 @@ dependencies = [
 
 [[package]]
 name = "glove-energia"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "libc",
  "serde_json",
@@ -1187,7 +1414,7 @@ dependencies = [
 
 [[package]]
 name = "glove-files"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1196,7 +1423,7 @@ dependencies = [
 
 [[package]]
 name = "glove-find"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1205,7 +1432,7 @@ dependencies = [
 
 [[package]]
 name = "glove-fontes"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1213,7 +1440,7 @@ dependencies = [
 
 [[package]]
 name = "glove-fotos"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1222,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "glove-gravacao"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1230,7 +1457,7 @@ dependencies = [
 
 [[package]]
 name = "glove-gravador"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1239,11 +1466,11 @@ dependencies = [
 
 [[package]]
 name = "glove-i18n"
-version = "0.13.6"
+version = "0.14.0"
 
 [[package]]
 name = "glove-info"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1251,7 +1478,7 @@ dependencies = [
 
 [[package]]
 name = "glove-instalador"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1261,7 +1488,7 @@ dependencies = [
 
 [[package]]
 name = "glove-login"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1269,7 +1496,7 @@ dependencies = [
 
 [[package]]
 name = "glove-mensagens"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1284,7 +1511,7 @@ dependencies = [
 
 [[package]]
 name = "glove-monitor"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1293,7 +1520,7 @@ dependencies = [
 
 [[package]]
 name = "glove-musica"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1302,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "glove-navegador"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1310,7 +1537,7 @@ dependencies = [
 
 [[package]]
 name = "glove-notes"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1319,7 +1546,7 @@ dependencies = [
 
 [[package]]
 name = "glove-paint"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "ab_glyph",
  "glove-i18n",
@@ -1332,7 +1559,7 @@ dependencies = [
 
 [[package]]
 name = "glove-portal"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1341,7 +1568,7 @@ dependencies = [
 
 [[package]]
 name = "glove-prefs"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-energia",
@@ -1353,7 +1580,7 @@ dependencies = [
 
 [[package]]
 name = "glove-recorder"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "libc",
@@ -1361,7 +1588,7 @@ dependencies = [
 
 [[package]]
 name = "glove-registros"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1369,7 +1596,7 @@ dependencies = [
 
 [[package]]
 name = "glove-sair"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1377,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "glove-senha"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "async-io",
  "glove-config",
@@ -1388,7 +1615,7 @@ dependencies = [
 
 [[package]]
 name = "glove-shot"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1397,7 +1624,7 @@ dependencies = [
 
 [[package]]
 name = "glove-term"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "alacritty_terminal",
  "glove-config",
@@ -1407,10 +1634,12 @@ dependencies = [
 
 [[package]]
 name = "glove-ui"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
+ "glib-unix",
  "glove-config",
  "glove-paint",
+ "gtk4",
  "image-webp",
  "libc",
  "miniz_oxide 0.8.9",
@@ -1421,7 +1650,7 @@ dependencies = [
 
 [[package]]
 name = "glove-utilrede"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1430,7 +1659,7 @@ dependencies = [
 
 [[package]]
 name = "glove-video"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1439,10 +1668,125 @@ dependencies = [
 
 [[package]]
 name = "glove-view"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "glove-config",
  "glove-ui",
+]
+
+[[package]]
+name = "gobject-sys"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07595c9ba696bd9819cb6a8df39f08078f3dd679508fe052dd558492c2053834"
+dependencies = [
+ "glib-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "graphene-rs"
+version = "0.22.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb856b9c558971c3f13ab692358926da710b046932a4e087aedcc35b040d7dff"
+dependencies = [
+ "glib",
+ "graphene-sys",
+]
+
+[[package]]
+name = "graphene-sys"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97842c7543828f98aa5583aa54fcda28aa84fa2b0f8c556142177f7bbb638057"
+dependencies = [
+ "glib-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gsk4"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eee23d7425c5281ec5a2f40f7b69384aac66c15861d990d248e9d9c9368be464"
+dependencies = [
+ "cairo-rs",
+ "gdk4",
+ "glib",
+ "graphene-rs",
+ "gsk4-sys",
+ "libc",
+ "pango",
+]
+
+[[package]]
+name = "gsk4-sys"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27900c92e47df410bbe43b51818104051e3409da43fb88547a41c0bafddfd39c"
+dependencies = [
+ "cairo-sys-rs",
+ "gdk4-sys",
+ "glib-sys",
+ "gobject-sys",
+ "graphene-sys",
+ "libc",
+ "pango-sys",
+ "system-deps",
+]
+
+[[package]]
+name = "gtk4"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0f8226c94dd0b65ba2e8fcd8ff402d380e890f6e5a6488e652a0158e827b9bf"
+dependencies = [
+ "cairo-rs",
+ "field-offset",
+ "futures-channel",
+ "gdk-pixbuf",
+ "gdk4",
+ "gio",
+ "glib",
+ "graphene-rs",
+ "gsk4",
+ "gtk4-macros",
+ "gtk4-sys",
+ "libc",
+ "pango",
+]
+
+[[package]]
+name = "gtk4-macros"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb906c98f0b4cc9002594e337e83f40492aa6dca22c97242f13be5b046c5f338"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
+name = "gtk4-sys"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd14af0137f269bdecee73404157d2a852f9651af7d68bd1023d3b8b914a14c3"
+dependencies = [
+ "cairo-sys-rs",
+ "gdk-pixbuf-sys",
+ "gdk4-sys",
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "graphene-sys",
+ "gsk4-sys",
+ "libc",
+ "pango-sys",
+ "system-deps",
 ]
 
 [[package]]
@@ -1450,6 +1794,12 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+
+[[package]]
+name = "heck"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
@@ -2112,6 +2462,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36820e9051aca1014ddc75770aab4d68bc1e9e632f0f5627c4086bc216fb583b"
 dependencies = [
  "ttf-parser",
+]
+
+[[package]]
+name = "pango"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b2022dbbd82e1c42bd950a6f1df9b98c796e725dce5ec275e03cbf9772e4efa"
+dependencies = [
+ "gio",
+ "glib",
+ "pango-sys",
+]
+
+[[package]]
+name = "pango-sys"
+version = "0.22.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd6be7bdb6cde4c49703315c1818a14382ce500dce57179a8d05f1c5efe4955f"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
 ]
 
 [[package]]
@@ -3070,6 +3443,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "system-deps"
+version = "9.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db551ad38aac61d5e0343e0eeeb0163be3115c4e23b6a025959570ee0c03c67d"
+dependencies = [
+ "cfg-expr",
+ "heck",
+ "pkg-config",
+ "toml",
+ "version-compare",
+]
+
+[[package]]
+name = "target-lexicon"
+version = "0.13.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
+
+[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3402,6 +3794,12 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "version-compare"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03c2856837ef78f57382f06b2b8563a2f512f7185d732608fd9176cb3b8edf0e"
 
 [[package]]
 name = "version_check"

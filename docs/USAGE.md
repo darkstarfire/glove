@@ -94,8 +94,10 @@ To try it: `notify-send "Hello" "A test notification"` in Terminal.
 ## Jangada (the browser)
 
 The **Jangada** icon in the Dock opens the Glove OS browser (package `jangada`, its own repository:
-github.com/fabioaacarneiro/jangada): the Chromium engine (today's web features) in a Glove window,
-with tabs, the address bar and Jangada's own pages, in the classic or the Modern look.
+github.com/fabioaacarneiro/jangada): the system WebKitGTK engine (security fixes arrive with the
+distribution's updates) in a Glove window, with tabs, the address bar and Jangada's own pages, in
+the classic or the Modern look. Sites see it as Safari (same engine): WhatsApp Web and banks accept
+it. Video (H.264, VP9, AV1) comes through GStreamer.
 
 - **No title bar**, like Safari: close, minimize and zoom sit in Jangada's own toolbar, next to
   back, forward and home (the little house). Dragging the toolbar (or the free space of the tab
@@ -117,15 +119,15 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
   search, open in new tab and remove.
 - **Find on page** (Ctrl+F), **Print** (Ctrl+P, through Glove's Print sheet) and **Save as PDF**
   (File menu, to the Downloads folder).
-- **Shields** (the shield at the right of the toolbar, as in Brave): ads and trackers blocked before
-  loading and ad slots hidden, with Brave's blocking engine and the EasyList, EasyPrivacy, Portuguese,
-  Peter Lowe's and uBlock Origin lists. The number on the shield is how much the page had blocked; a
-  click turns shields on or off for the site. Third-party cookies are blocked too. The **Extensions**
-  menu turns Jangada's extensions on and off (Chrome Web Store ones do not work in the windowless
-  engine).
+- **Shields** (the shield at the right of the toolbar): ads and trackers blocked by the engine
+  itself before loading and ad slots hidden, with the EasyList, EasyPrivacy, Portuguese, Peter
+  Lowe's and uBlock Origin lists (converted to the engine's native filters: no script on the page).
+  A click turns shields on or off for the site. Third-party cookies are blocked too (with the
+  engine's tracking prevention). The **Extensions** menu turns Jangada's extensions on and off
+  (Chrome Web Store ones do not work: the engine is different).
 - **Private window** (File ▸ New Private Window, Ctrl+Shift+N): no history, favorites, passwords or
-  cookies are saved; site data lives only in memory and disappears when it closes. It is a separate
-  window from the normal one.
+  cookies are saved; site data lives only in memory (an engine session with nothing on disk) and
+  disappears when it closes. It is a separate window from the normal one.
 - **Bar suggestions:** while typing, the bar shows what you visited or bookmarked. Arrow keys pick,
   Enter opens.
 - **Passwords:** when you sign in to a site, Jangada offers to save the password (in the system
@@ -136,27 +138,31 @@ with tabs, the address bar and Jangada's own pages, in the classic or the Modern
   in) and passwords.
 - **Google account:** Jangada ▸ Sign In to Google… (or Preferences ▸ Accounts) opens Google's
   sign-in; once signed in, Gmail, YouTube, Drive and the other services open with your account.
-  Accounts also lets you manage the account and sign out. (Chrome's bookmark and password sync is
-  not available in Jangada's engine.)
+  Accounts also lets you manage the account and sign out.
 - **Preferences** (Ctrl+,): home page, reopen last time's tabs, page size, the search engine
   (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), block windows pages open by
   themselves, Do Not Track, clear history and cookies, and Jangada's extensions: the **ad and
-  tracker blocker** (on) and **dark mode on pages**. (Chrome Web Store extensions do not work yet
-  in the windowless engine.)
+  tracker blocker** (on) and **dark mode on pages**. Chrome-format extensions (page scripts and
+  storage) install under Installed.
 - **Shortcuts:** Ctrl+R or F5 reloads, Alt+← and Alt+→ go back and forward, Alt+Home goes home,
   Ctrl+= / Ctrl+- / Ctrl+0 change the text size.
 - **Right click:** Glove's menu (floating, above everything) with open link in new tab, copy link,
   copy, paste, search the selected text, back and reload.
+- **Touchpad:** two fingers sideways go back and forward. **Full screen** videos: the bars hide;
+  Esc returns.
+- **Developer Tools** (Ctrl+Shift+I): the engine's inspector, next to the page.
 - **Cursor:** the hand over links and the text bar over fields (for all of Glove).
 - **Downloads** go straight to the Downloads folder; the **Downloads** window (Ctrl+J, or the
   arrow at the right of the toolbar) shows the progress and lets you open, show in folder and cancel.
 - **Page notices** (alert and confirm) show as Glove alerts, in their own window.
 - **About Jangada**, in the menu with its name, shows the version and the engine.
-- **Light:** the graphics card draws the pages (heavy feeds stay smooth), few page processes and
-  nothing running in the background; only the parts of the page that changed go to the screen, and
-  when idle the window is not redrawn. If the graphics card misbehaves, uncheck *Use the graphics
-  card* in Preferences ▸ Advanced (or open it with `JANGADA_SEM_GPU=1 jangada`): the processor
-  draws everything.
+- **Light:** the graphics card draws the page straight to the screen (long feeds and videos stay
+  smooth), Jangada's bars are redrawn only when they change and nothing runs in the background. The
+  package is about 4 MB: the engine comes from the distribution. If the graphics card misbehaves,
+  uncheck *Use the graphics card* in Preferences ▸ Advanced (or open it with
+  `JANGADA_SEM_GPU=1 jangada`): the processor draws everything.
+- **Slackware:** on -current the engine ships inside the package; on 15.0 (GTK 4 too old for the
+  engine), the installer sets up Jangada 1.15, the Chromium-engine one.
 - Opening it again (from the Dock or `jangada address`) opens a tab in the window already open. On
   Glove OS it is the system's default browser.
 - Without the package, the icon opens Firefox or another installed browser. The choice in

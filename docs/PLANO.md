@@ -1507,20 +1507,28 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     e a página não recebe esse clique até o botão subir. Conferido na sessão oculta: 1.15.0 deixa o
     clique na página, 1.15.1 abre a sugestão.
 
-## Fase 23 — Jangada com vídeos H.264 e mais fluida (pendências de 23/11/2026)
+## Fase 23 — Jangada com vídeos H.264 e mais fluida: o motor WebKitGTK (23/11/2026)
 
-- [ ] 23.1 Motor com H.264/AAC (G; adiado pelo usuário em 23/11/2026). O CEF pronto
-  (cef-builds.spotifycdn.com) vem sem os codecs com patente: na Jangada 1.14.0, `canPlayType` dá
-  "não" para H.264, AAC e HEVC (VP9, AV1 e Opus funcionam), e parte dos vídeos do Facebook mostra
-  um quadro preto com "a mídia não pode ser carregada". O único jeito é compilar o CEF/Chromium
-  com `proprietary_codecs=true ffmpeg_branding="Chrome"` (opção de compilação: não dá para
-  acrescentar depois). Custo estimado: ~30 GB de código, ~100 GB livres (60-70 GB no modo enxuto:
-  `symbol_level=0`, sem histórico), 3-6 h na primeira vez com 16 núcleos e 32 GB de memória;
-  depois, 20-60 min por correção da mesma versão e quase uma compilação inteira a cada versão
-  nova do Chromium (4 semanas). Onde: no PC de casa do usuário (de noite, uma vez por mês;
-  custo zero) ou num runner pago do GitHub (sempre do zero). Falta o usuário dizer núcleos,
-  memória e disco do PC de casa. Depois: a Jangada passa a baixar esse motor no `preparar.sh`.
-- [ ] 23.2 Página direto da placa para o compositor (G). Hoje cada quadro passa pelo processador
-  (o motor lê da placa, a Jangada troca as cores, o kit copia, compara e troca de novo, e o
-  compositor sobe para a placa): num monitor de 2560×1440 ainda trava. Caminho: `on_accelerated_paint`
-  do CEF (dmabuf) e uma subsuperfície com `zwp_linux_dmabuf_v1` no glove-ui.
+- [x] 23.0 Decisão (23/11/2026): trocar o motor em vez de compilar o Chromium. Compilar o
+  CEF com os codecs custaria ~30 GB de código e uma compilação quase inteira por mês (cada
+  atraso deixava falhas conhecidas sem correção); o WebKitGTK é o motor que as distribuições
+  mantêm, com as correções de segurança pelo gerenciador de pacotes, e os vídeos pelo GStreamer.
+  A Jangada 1.x (CEF) fica na branch `cef`.
+- [x] 23.1 Motor com H.264/AAC (Jangada 2.0.0). O GStreamer do sistema decodifica H.264, AAC,
+  VP9, AV1 e Opus (no Fedora, o H.264 pelo OpenH264); com o VA-API, pela placa de vídeo.
+  Conferido: YouTube tocando, WhatsApp Web aceitando o navegador (os sites veem o Safari).
+- [x] 23.2 Página direto da placa (Jangada 2.0.0). A página é um widget do WebKitGTK dentro da
+  janela, embaixo do desenho do glove-ui (o backend GTK do kit: as barras em texturas por cima,
+  transparentes onde a página aparece, e o mouse passa por elas): a placa de vídeo desenha a página
+  direto na tela, sem cópia pelo processador. Parada, a Jangada não gasta processador.
+- [x] 23.3 Tudo da 1.x no motor novo: abas, sugestões, favoritos, histórico, sessões, downloads,
+  buscar na página, PDF e impressão, alertas e permissões em janela própria, menu de contexto do
+  Glove, janela privada (sessão efêmera do motor), senhas e extensões num mundo isolado, escudos
+  (as mesmas listas convertidas para os filtros nativos do WebKit, sem script na página), Não
+  Rastrear/GPC, modo escuro nas páginas, inspetor do WebKit, tela cheia, gestos do touchpad.
+- [x] 23.4 (v0.14.0) Bordas pelo protocolo da KDE no compositor (o GTK pede por ele): as janelas do GTK que
+  querem as do servidor ganham a barra do Glove (as Preferências da Jangada, outros apps GTK).
+- [x] 23.5 (v0.14.0, Jangada 2.0.0) Pacotes: deb (3,7 MB em vez de 110 MB), rpm e Arch dependem do WebKitGTK, do GTK 4 e
+  do GStreamer da distribuição. Slackware -current: o WebKitGTK compilado no CI vai junto no
+  pacote (o Slackware não o tem). Slackware 15.0: fica na Jangada 1.15.1 (GTK 4 e compilador
+  velhos demais para o WebKitGTK atual); o instalador escolhe sozinho.

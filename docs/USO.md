@@ -94,9 +94,10 @@ Para testar: `notify-send "Olá" "Um aviso de teste"` no Terminal.
 ## Jangada (o navegador)
 
 O ícone da **Jangada** no Dock abre o navegador do Glove OS (pacote `jangada`, repositório próprio:
-github.com/fabioaacarneiro/jangada): o motor do Chromium (os recursos da web de hoje) numa janela do
-Glove, com as abas, a barra de endereço e as páginas da própria Jangada, no visual clássico ou no
-Moderno.
+github.com/fabioaacarneiro/jangada): o motor WebKitGTK, o do sistema (as correções de segurança
+chegam pelas atualizações da distribuição), numa janela do Glove, com as abas, a barra de endereço e
+as páginas da própria Jangada, no visual clássico ou no Moderno. Os sites a veem como o Safari (o
+mesmo motor): o WhatsApp Web e os bancos aceitam. Os vídeos (H.264, VP9, AV1) vêm pelo GStreamer.
 
 - **Janela sem barra de título**, como a do Safari: fechar, minimizar e zoom ficam na própria barra
   da Jangada, ao lado de voltar, avançar e do início (a casinha). Arrastar a barra (ou o espaço
@@ -118,15 +119,15 @@ Moderno.
   (Ctrl+H), uma janela com busca, abrir em nova aba e apagar.
 - **Buscar na página** (Ctrl+F), **Imprimir** (Ctrl+P, pela folha Imprimir do Glove) e **Salvar
   como PDF** (menu Arquivo, na pasta Downloads).
-- **Escudos** (o escudo à direita da barra, como no Brave): anúncios e rastreadores barrados antes
-  de carregar e os espaços de anúncio escondidos, com o motor de bloqueio do Brave e as listas
-  EasyList, EasyPrivacy, a portuguesa, a do Peter Lowe e as do uBlock Origin. O número no escudo é
-  quanto a página teve barrado; o clique liga ou desliga os escudos no site. Também barra os cookies
-  de terceiros. O menu **Extensões** liga e desliga as extensões da Jangada (as da loja do Chrome não
-  funcionam no motor sem janela própria).
+- **Escudos** (o escudo à direita da barra): anúncios e rastreadores barrados pelo próprio motor
+  antes de carregar e os espaços de anúncio escondidos, com as listas EasyList, EasyPrivacy, a
+  portuguesa, a do Peter Lowe e as do uBlock Origin (convertidas para os filtros nativos do motor:
+  nenhum script na página). O clique liga ou desliga os escudos no site. Também barra os cookies de
+  terceiros (com a prevenção de rastreamento do motor). O menu **Extensões** liga e desliga as
+  extensões da Jangada (as da loja do Chrome não funcionam: o motor é outro).
 - **Janela privada** (Arquivo ▸ Nova Janela Privada, Ctrl+Shift+N): sem histórico, favoritos, senhas
-  nem cookies gravados; os dados dos sites ficam só na memória e somem ao fechar. Ela é uma janela
-  separada da normal.
+  nem cookies gravados; os dados dos sites ficam só na memória (uma sessão do motor sem nada em
+  disco) e somem ao fechar. Ela é uma janela separada da normal.
 - **Sugestões da barra:** ao digitar, a barra mostra o que já foi visitado ou é favorito. As setas
   escolhem e o Enter abre.
 - **Senhas:** ao entrar num site, a Jangada oferece guardar a senha (no chaveiro do sistema, a mesma
@@ -136,26 +137,30 @@ Moderno.
   (continua com as contas abertas) e as senhas.
 - **Conta do Google:** Jangada ▸ Iniciar Sessão no Google… (ou Preferências ▸ Contas) abre o login
   do Google; com a sessão aberta, o Gmail, o YouTube, o Drive e os outros serviços já entram com a
-  sua conta. Em Contas também dá para gerenciar a conta e sair. (A sincronização de favoritos e
-  senhas do Chrome não existe no motor da Jangada.)
+  sua conta. Em Contas também dá para gerenciar a conta e sair.
 - **Preferências** (Ctrl+,): página inicial, reabrir as abas da última vez, tamanho das páginas, o
   buscador (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), bloquear janelas que as
   páginas abrem sozinhas, Não Rastrear, limpar o histórico e os cookies, e as extensões da Jangada:
-  o **bloqueador de anúncios e rastreadores** (ligado) e o **modo escuro nas páginas**. (As
-  extensões da loja do Chrome ainda não funcionam no motor sem janela própria.)
+  o **bloqueador de anúncios e rastreadores** (ligado) e o **modo escuro nas páginas**. As
+  extensões no formato do Chrome (scripts nas páginas e armazenamento) se instalam em Instaladas.
 - **Atalhos:** Ctrl+R ou F5 recarrega, Alt+← e Alt+→ voltam e avançam, Alt+Home vai ao início,
   Ctrl+= / Ctrl+- / Ctrl+0 mudam o tamanho do texto.
 - **Botão direito:** o menu do Glove (solto, por cima de tudo) com abrir o link em nova aba,
   copiar o link, copiar, colar, buscar o texto escolhido, voltar e recarregar.
+- **Touchpad:** dois dedos para os lados voltam e avançam. **Tela cheia** dos vídeos: as barras
+  somem; Esc volta.
+- **Ferramentas do Desenvolvedor** (Ctrl+Shift+I): o inspetor do motor, junto da página.
 - **Cursor:** a mãozinha nos links e a barra de texto nos campos (vale para todo o Glove).
 - **Downloads:** vão direto para a pasta Downloads; a janela **Downloads** (Ctrl+J, ou a seta à
   direita da barra) mostra o andamento e deixa abrir, mostrar na pasta e cancelar.
 - **Avisos das páginas** (alert e confirm) aparecem como alertas do Glove, em janela própria.
 - **Sobre a Jangada**, no menu com o nome dela, mostra a versão e o motor.
-- **Leve:** a placa de vídeo desenha as páginas (feeds pesados ficam fluidos), poucos processos
-  de página e nada rodando de fundo; só as partes da página que mudaram vão para a tela, e parada
-  a janela não é refeita. Se a placa der problema, desmarque *Usar a placa de vídeo* em
+- **Leve:** a página é desenhada pela placa de vídeo direto na tela (feeds longos e vídeos ficam
+  fluidos), as barras da Jangada só são refeitas quando mudam e nada roda de fundo. O pacote tem uns
+  4 MB: o motor vem da distribuição. Se a placa der problema, desmarque *Usar a placa de vídeo* em
   Preferências ▸ Avançado (ou abra com `JANGADA_SEM_GPU=1 jangada`): o processador desenha tudo.
+- **Slackware:** no -current o motor vem junto no pacote; no 15.0 (GTK 4 velho para o motor), o
+  instalador põe a Jangada 1.15, a do motor do Chromium.
 - Abrir de novo (pelo Dock ou `jangada endereço`) abre uma aba na janela que já está aberta. No
   Glove OS ela é o navegador padrão do sistema.
 - Sem o pacote, o ícone abre o Firefox ou outro navegador instalado. A escolha das Preferências
