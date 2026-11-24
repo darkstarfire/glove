@@ -34,7 +34,9 @@ pub fn init(
     );
     let _global = output.create_global::<Glove>(dh);
     // Usa a mesma escala do desktop por baixo (ex.: 1.5 em telas HiDPI).
-    let scale = backend.window().scale_factor();
+    // GLOVE_ESCALA=1.5: outra escala (testar telas HiDPI numa tela comum).
+    let forcada = std::env::var("GLOVE_ESCALA").ok().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v >= 1.0 && *v <= 4.0);
+    let scale = forcada.unwrap_or_else(|| backend.window().scale_factor());
     output.change_current_state(Some(mode), Some(Transform::Flipped180), Some(Scale::Fractional(scale)), Some((0, 0).into()));
     output.set_preferred(mode);
     state.space.map_output(&output, (0, 0));
@@ -43,7 +45,7 @@ pub fn init(
     event_loop.handle().insert_source(winit, move |event, _, data| match event {
         WinitEvent::Resized { size, scale_factor } => {
             if let Backend::Winit(w) = &data.backend {
-                w.output.change_current_state(Some(Mode { size, refresh: 60_000 }), None, Some(Scale::Fractional(scale_factor)), None);
+                w.output.change_current_state(Some(Mode { size, refresh: 60_000 }), None, Some(Scale::Fractional(forcada.unwrap_or(scale_factor))), None);
                 data.state.write_outputs_info_nested(&w.output);
             }
             data.state.update_client_scales();

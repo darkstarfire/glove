@@ -1543,3 +1543,8 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   uma só (`glove_config::icones_da_aparencia`): Mide no Moderno Claro, Mide Escuro no Moderno Escuro
   e os do Glove nas clássicas. Nas Preferências, com "Usar a aparência em todo o sistema", trocar
   a aparência troca os ícones, e a tela de login ganha os mesmos ícones.
+- [x] 23.8 (v0.14.2, Jangada 2.0.2) A Jangada nítida em telas HiDPI (1,25, 1,5, 2). As barras
+  borravam em escala fracionária: o backend GTK do glove-ui mandava o desenho pelo nó de
+  textura com filtro, que o GTK reamostra. Com o nó de textura simples, cada pixel do desenho
+  cai num pixel da tela: conferido pixel a pixel (diferença 0) em 1,25, 1,5 e 2, no GTK 4.14 e
+  no 4.18. Para testar escalas numa tela comum: `GLOVE_ESCALA=1.5 glove --winit`.
