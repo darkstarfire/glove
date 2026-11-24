@@ -123,8 +123,8 @@ it. Video (H.264, VP9, AV1) comes through GStreamer.
   itself before loading and ad slots hidden, with the EasyList, EasyPrivacy, Portuguese, Peter
   Lowe's and uBlock Origin lists (converted to the engine's native filters: no script on the page).
   A click turns shields on or off for the site. Third-party cookies are blocked too (with the
-  engine's tracking prevention). The **Extensions** menu turns Jangada's extensions on and off
-  (Chrome Web Store ones do not work: the engine is different).
+  engine's tracking prevention). The **Extensions** menu turns Jangada's built-in extensions on
+  and off (Chrome Web Store ones do not work: Jangada does not have Chrome's extension platform).
 - **Private window** (File ▸ New Private Window, Ctrl+Shift+N): no history, favorites, passwords or
   cookies are saved; site data lives only in memory (an engine session with nothing on disk) and
   disappears when it closes. It is a separate window from the normal one.
@@ -142,8 +142,9 @@ it. Video (H.264, VP9, AV1) comes through GStreamer.
 - **Preferences** (Ctrl+,): home page, reopen last time's tabs, page size, the search engine
   (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), block windows pages open by
   themselves, Do Not Track, clear history and cookies, and Jangada's extensions: the **ad and
-  tracker blocker** (on) and **dark mode on pages**. Chrome-format extensions (page scripts and
-  storage) install under Installed.
+  tracker blocker** (on) and **dark mode on pages**. Extensions written for Jangada (its own
+  format: JavaScript and CSS on the pages you choose, with stored data) install under Installed;
+  how to write one is in `docs/EXTENSOES.md` in the Jangada repository.
 - **Shortcuts:** Ctrl+R or F5 reloads, Alt+← and Alt+→ go back and forward, Alt+Home goes home,
   Ctrl+= / Ctrl+- / Ctrl+0 change the text size.
 - **Right click:** Glove's menu (floating, above everything) with open link in new tab, copy link,

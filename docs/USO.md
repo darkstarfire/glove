@@ -124,7 +124,8 @@ mesmo motor): o WhatsApp Web e os bancos aceitam. Os vídeos (H.264, VP9, AV1) v
   portuguesa, a do Peter Lowe e as do uBlock Origin (convertidas para os filtros nativos do motor:
   nenhum script na página). O clique liga ou desliga os escudos no site. Também barra os cookies de
   terceiros (com a prevenção de rastreamento do motor). O menu **Extensões** liga e desliga as
-  extensões da Jangada (as da loja do Chrome não funcionam: o motor é outro).
+  extensões que vêm com a Jangada (as da loja do Chrome não funcionam: a Jangada não tem a
+  plataforma de extensões do Chrome).
 - **Janela privada** (Arquivo ▸ Nova Janela Privada, Ctrl+Shift+N): sem histórico, favoritos, senhas
   nem cookies gravados; os dados dos sites ficam só na memória (uma sessão do motor sem nada em
   disco) e somem ao fechar. Ela é uma janela separada da normal.
@@ -142,7 +143,9 @@ mesmo motor): o WhatsApp Web e os bancos aceitam. Os vídeos (H.264, VP9, AV1) v
   buscador (DuckDuckGo, Google, Bing, Ecosia, Brave Search, Startpage), bloquear janelas que as
   páginas abrem sozinhas, Não Rastrear, limpar o histórico e os cookies, e as extensões da Jangada:
   o **bloqueador de anúncios e rastreadores** (ligado) e o **modo escuro nas páginas**. As
-  extensões no formato do Chrome (scripts nas páginas e armazenamento) se instalam em Instaladas.
+  extensões feitas para a Jangada (um formato próprio: JavaScript e CSS nas páginas que você
+  escolher, com dados guardados) se instalam em Instaladas; como escrever uma está no
+  `docs/EXTENSOES.md` do repositório da Jangada.
 - **Atalhos:** Ctrl+R ou F5 recarrega, Alt+← e Alt+→ voltam e avançam, Alt+Home vai ao início,
   Ctrl+= / Ctrl+- / Ctrl+0 mudam o tamanho do texto.
 - **Botão direito:** o menu do Glove (solto, por cima de tudo) com abrir o link em nova aba,

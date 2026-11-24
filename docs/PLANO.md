@@ -1548,3 +1548,48 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   textura com filtro, que o GTK reamostra. Com o nó de textura simples, cada pixel do desenho
   cai num pixel da tela: conferido pixel a pixel (diferença 0) em 1,25, 1,5 e 2, no GTK 4.14 e
   no 4.18. Para testar escalas numa tela comum: `GLOVE_ESCALA=1.5 glove --winit`.
+- [x] 23.9 (v0.14.3, Jangada 2.0.3) Revisão da Jangada 2 (estabilidade, compatibilidade, desempenho,
+  HiDPI), cada falha reproduzida na sessão oculta antes e depois:
+  - Quedas: `prompt()` e sair de uma página com aviso de saída (`beforeunload`: Gmail, editores,
+    formulários) derrubavam a Jangada inteira (falha de segmentação: o diálogo era fechado dentro
+    do sinal do motor, que o soltava de novo em seguida).
+  - Abas: fechar uma aba aberta por outra (window.open, login em janelinha) matava o processo que
+    as duas dividem, e a que abriu caía ("A página parou de responder"); `window.close()` não
+    fechava a aba; fechar uma aba antes da escolhida trocava a escolhida. A aba comum continua
+    soltando o processo na hora (a memória volta já).
+  - Downloads: o que o motor não sabe mostrar e não vem marcado como anexo (`.zip`, `.deb`,
+    `application/octet-stream`) era ignorado sem aviso; sem a pasta Downloads todo download
+    falhava como "Cancelado" (agora a pasta é criada, e a falha diz "Falhou").
+  - Barra: carregar pelo endereço, por uma sugestão ou por um favorito não mostrava a faixa azul
+    nem o botão de parar, e um endereço inválido não mostrava a página de erro (os avisos do
+    motor chegavam com a página ainda emprestada e se perdiam).
+  - Histórico: regravado inteiro a cada troca de título (um site que pisca o título: 167
+    gravações de 219 KB em 10 s; agora 8, em lote).
+  - Menu do botão direito: abria no canto da página com o mouse parado sobre uma aba nova; e
+    "Salvar Página como PDF" abria Imprimir.
+  - Janela: abria maior que a tela em 1366 × 768 ou com a tela em 150% (agora cabe na menor tela).
+  - Senhas: o chaveiro é consultado fora da linha principal (trancado, congelava a Jangada).
+  - Extensões: com dois scripts na página, só o primeiro recebia as respostas do armazenamento;
+    um erro de escrita num script derrubava os outros; instalar de novo com o manifesto mudado
+    deixava duas cópias; o pedido de armazenamento aceitava caminhos no lugar do nome. A API
+    atende por `jangada` (e por `chrome`), com `storage.local.clear`.
+  - Documentação: o README dizia "extensões no formato do Chrome" e prometia `run_at`; agora diz
+    que é um formato próprio (não roda as da loja do Chrome), com o guia `docs/EXTENSOES.md` e o
+    exemplo mínimo `exemplos/ola/` em JavaScript; e lista o que ainda não funciona.
+- [ ] 23.10 Pendências da revisão da Jangada (não corrigidas na 2.0.3):
+  - (M) Abas abertas por trás carregam com a página de tamanho zero (`innerWidth` 0): o widget
+    escondido não é alocado. Alocar as abas escondidas no tamanho da página (no `NativeHost` do
+    kit) evita sites que montam o layout errado.
+  - (M) Scripts das extensões e o das senhas só entram quando a página termina de carregar
+    (em páginas pesadas, demora): usar os scripts de usuário do motor, no fim do documento, e
+    honrar `run_at`.
+  - (P) `prompt()` com uma janela do Glove (hoje responde "cancelado"); perguntar antes de deixar
+    um site ler a área de transferência; permitir prender o mouse (jogos).
+  - (P) Faixa de abas: as que não cabem na largura ficam fora de alcance do mouse (só Ctrl+Tab).
+  - (P) Reabrir as abas da última vez carrega todas de uma vez: carregar cada uma ao ser escolhida.
+  - (G) Chamadas de vídeo: o WebKitGTK do Debian 13 vem sem WebRTC (e sem DRM). Só muda com o
+    motor compilado à parte, como já é no Slackware.
+  - (motor) Em 125% e 150% o WebKitGTK desenha a página em 200% e o GTK reduz: acompanhar a
+    escala fracionária no motor.
+  - (P) O desenho do kit ocupa a janela inteira (transparente sobre a página): em 4K são dezenas
+    de MB; limitar às barras.
