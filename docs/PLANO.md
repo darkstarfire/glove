@@ -1576,20 +1576,35 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - Documentação: o README dizia "extensões no formato do Chrome" e prometia `run_at`; agora diz
     que é um formato próprio (não roda as da loja do Chrome), com o guia `docs/EXTENSOES.md` e o
     exemplo mínimo `exemplos/ola/` em JavaScript; e lista o que ainda não funciona.
-- [ ] 23.10 Pendências da revisão da Jangada (não corrigidas na 2.0.3):
-  - (M) Abas abertas por trás carregam com a página de tamanho zero (`innerWidth` 0): o widget
-    escondido não é alocado. Alocar as abas escondidas no tamanho da página (no `NativeHost` do
-    kit) evita sites que montam o layout errado.
-  - (M) Scripts das extensões e o das senhas só entram quando a página termina de carregar
-    (em páginas pesadas, demora): usar os scripts de usuário do motor, no fim do documento, e
-    honrar `run_at`.
-  - (P) `prompt()` com uma janela do Glove (hoje responde "cancelado"); perguntar antes de deixar
-    um site ler a área de transferência; permitir prender o mouse (jogos).
-  - (P) Faixa de abas: as que não cabem na largura ficam fora de alcance do mouse (só Ctrl+Tab).
-  - (P) Reabrir as abas da última vez carrega todas de uma vez: carregar cada uma ao ser escolhida.
+- [x] 23.10 (v0.14.4, Jangada 2.0.4) O que tinha ficado da revisão, conferido na sessão oculta:
+  - Abas abertas por trás carregam com a página no tamanho certo (era `innerWidth` 0): as abas
+    escondidas saem da tela mas ficam com o lugar marcado no `NativeHost`.
+  - Os scripts das extensões e o das senhas entram quando o documento fica pronto (um script de
+    usuário do motor avisa a Jangada), sem esperar a página acabar de carregar.
+  - `prompt()` numa janela própria com o campo do texto (Esc e fechar a janela cancelam; fechar a
+    aba com a pergunta aberta não derruba nada).
+  - Ler a área de transferência por script: a pergunta numa faixa no alto da página (Negar, Só
+    desta vez, Permitir). Prender o mouse: a Jangada permite (o aviso "Esc solta" sai quando
+    prende de fato).
+  - A faixa de abas rola quando não cabem todas (setas nas pontas, a roda, acompanha a escolhida).
+  - Reabrir as abas da última vez: cada uma carrega ao ser escolhida, já com o título guardado
+    (16 abas reabertas: 1 processo de página em vez de 16).
+  - As opções da linha de comando da Jangada em inglês (`--install`, `--extensions`, `--remove`,
+    `--private`, `--debug`, `--yes`, com `--help` e `--version`); as de antes continuam aceitas.
+  - CI do Slackware: o Rust do sistema serve (o script lia `~/.cargo/env`, que só existe com o
+    rustup, e o pacote falhava depois de três horas compilando o motor); o motor vai para o cache
+    assim que existe, mesmo que um passo de depois falhe.
+- [ ] 23.11 Pendências da Jangada:
+  - (M) Prender o mouse no Glove: o compositor ainda não oferece os protocolos de travar o
+    ponteiro e de movimento relativo (pointer-constraints e relative-pointer); sem eles o pedido
+    da página falha, mesmo com a Jangada permitindo.
+  - (P) Honrar `run_at: document_start` nas extensões (hoje todas entram com o documento pronto).
   - (G) Chamadas de vídeo: o WebKitGTK do Debian 13 vem sem WebRTC (e sem DRM). Só muda com o
     motor compilado à parte, como já é no Slackware.
   - (motor) Em 125% e 150% o WebKitGTK desenha a página em 200% e o GTK reduz: acompanhar a
     escala fracionária no motor.
   - (P) O desenho do kit ocupa a janela inteira (transparente sobre a página): em 4K são dezenas
     de MB; limitar às barras.
+  - (M) As ferramentas do Glove ainda têm opções de linha de comando em português
+    (`--tema-sistema`, `--conectar`, `--esvaziar-lixeira`, `--instalar-idioma`…): passar para o
+    inglês, aceitando as de antes.
