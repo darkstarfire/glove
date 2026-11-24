@@ -1659,8 +1659,30 @@ utilrede→netutil.
   - [x] Jangada 2.1.0: `settings.conf` (chaves e valores em inglês), `bookmarks.tsv`,
     `history.tsv`, `session.tsv`, `permissions.tsv`, `passwords-never.txt`, `shields-off.txt`,
     as pastas `extensions/` e `shields/`.
-  - [ ] Glove: os valores em português do `config.toml` (`position = "embaixo"`, `highlight =
-    "azul"`, os nomes das aparências…), `sessao.log` e os arquivos de dados de cada app.
+  - [ ] Glove: os valores em português do `config.toml`, `sessao.log` e os arquivos de dados de
+    cada app. Levantamento de 24/11/2026 (uns 215 pontos no código; os valores novos já
+    escolhidos, com migração ao ler a configuração, em `Config::rename_old_names`):
+    - Dock: `position` embaixo/esquerda/direita → bottom/left/right; `minimize_effect` escala →
+      scale (genio → genie).
+    - Monitores: `arrangement` estender/espelhar/um → extend/mirror/single; `side`
+      direita/esquerda/abaixo → right/left/below.
+    - Papel de parede: ondas/aurora/liso → waves/aurora/plain; `cor:R,G,B` → `color:R,G,B`;
+      `wallpaper_mode` igual/por_tela/panorama → same/per-display/panorama; `wallpaper_fit`
+      preencher/ajustar/esticar/centralizar/lado_a_lado → fill/fit/stretch/center/tile.
+    - Aparências (`theme`, e as telas do sistema): claro/listras/metal/grafite/moderno/
+      moderno-escuro → light/pinstripe/metal/graphite/modern/modern-dark; "aparencia" →
+      "appearance". Atenção: os mesmos nomes estão nas pastas do tema de abertura do Plymouth
+      (`glove-moderno`, `glove-moderno-escuro`) e no que `glove-prefs --system-theme` grava no
+      sistema: o pacote precisa trocar o tema padrão de quem já instalou.
+    - Destaque: azul/grafite/prata/dourado/laranja/roxo/vermelho/verde →
+      blue/graphite/silver/gold/orange/purple/red/green.
+    - Protetor de tela: aurora/estrelas/bolhas/ondas/relogio → aurora/stars/bubbles/waves/clock.
+    - Sons de alerta (hoje o nome mostrado é o próprio valor): Gota/Sino/Vidro/Bolha/Toque/Sopro
+      → drop/bell/glass/bubble/tap/blow, com o nome mostrado vindo da tradução.
+    - Cantos ativos: todas/app/mesa → all/app/desktop. Mídia e discos: abrir/nada/video →
+      open/nothing/video. Mesa `arrange`: nome/data/tamanho/tipo → name/date/size/kind. Arquivos
+      `new_window`: inicio → home. Terminal: basico → basic (conferir os outros temas).
+    - A chave `navegador` → `browser`.
   - [ ] Pastas de saída e scripts: `pacotes/`, e na Jangada `preparar.sh`, `empacotar*.sh`,
     `exemplos/`, o caminho do motor no Slackware (`/usr/lib/jangada/motor`).
 - [ ] 24.5 Código por dentro: primeiro a API pública do kit, depois cada crate (módulos,
