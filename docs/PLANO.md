@@ -1675,6 +1675,9 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     viram mais textura, então o GTK deixa de misturá-las com a página a cada quadro. Rolando
     uma página longa, a Jangada gastou 30% menos processador (6,6 s → 4,6 s). O histórico só é
     relido do disco quando o arquivo muda (antes, a cada 3 segundos).
+  - (v0.15.5) Com o Dock oculto, Todos os Apps o mostra, mas os ícones ficavam por baixo
+    dele: a grade usava a área útil de sempre, que não desconta o Dock quando ele se esconde.
+    Agora a grade sempre deixa o espaço do Dock (`work_area_with(true)`), igual ao Dock fixo.
   - Fica para medir na máquina do usuário (a sessão oculta não tem placa de vídeo): um
     `jangada --profile` com o tempo de cada quadro e a aceleração de fato ligada.
 

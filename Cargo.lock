@@ -1166,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "glove"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "bitflags 2.13.2",
  "glove-config",
@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "glove-about"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1193,7 +1193,7 @@ dependencies = [
 
 [[package]]
 name = "glove-appcenter"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1201,7 +1201,7 @@ dependencies = [
 
 [[package]]
 name = "glove-apps"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-about",
  "glove-appcenter",
@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "glove-archive"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1255,7 +1255,7 @@ dependencies = [
 
 [[package]]
 name = "glove-art"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-paint",
  "png 0.17.16",
@@ -1263,7 +1263,7 @@ dependencies = [
 
 [[package]]
 name = "glove-auth"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "async-io",
  "glove-config",
@@ -1274,7 +1274,7 @@ dependencies = [
 
 [[package]]
 name = "glove-backup"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1286,7 +1286,7 @@ dependencies = [
 
 [[package]]
 name = "glove-browser"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1294,7 +1294,7 @@ dependencies = [
 
 [[package]]
 name = "glove-calc"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1302,7 +1302,7 @@ dependencies = [
 
 [[package]]
 name = "glove-calendar"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1311,7 +1311,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chars"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1320,7 +1320,7 @@ dependencies = [
 
 [[package]]
 name = "glove-chess"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1329,7 +1329,7 @@ dependencies = [
 
 [[package]]
 name = "glove-clock"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1337,7 +1337,7 @@ dependencies = [
 
 [[package]]
 name = "glove-config"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-i18n",
  "libc",
@@ -1347,7 +1347,7 @@ dependencies = [
 
 [[package]]
 name = "glove-console"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1355,7 +1355,7 @@ dependencies = [
 
 [[package]]
 name = "glove-contacts"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1363,7 +1363,7 @@ dependencies = [
 
 [[package]]
 name = "glove-dictionary"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "flate2",
  "glove-config",
@@ -1372,7 +1372,7 @@ dependencies = [
 
 [[package]]
 name = "glove-disks"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1383,7 +1383,7 @@ dependencies = [
 
 [[package]]
 name = "glove-edit"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "ab_glyph",
  "glove-config",
@@ -1393,7 +1393,7 @@ dependencies = [
 
 [[package]]
 name = "glove-files"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "glove-find"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1411,7 +1411,7 @@ dependencies = [
 
 [[package]]
 name = "glove-fonts"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1419,7 +1419,7 @@ dependencies = [
 
 [[package]]
 name = "glove-help"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1427,11 +1427,11 @@ dependencies = [
 
 [[package]]
 name = "glove-i18n"
-version = "0.15.4"
+version = "0.15.5"
 
 [[package]]
 name = "glove-info"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "glove-installer"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1449,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "glove-keychain"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "glove-login"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1466,7 +1466,7 @@ dependencies = [
 
 [[package]]
 name = "glove-logout"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1474,7 +1474,7 @@ dependencies = [
 
 [[package]]
 name = "glove-mail"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "base64",
  "glove-config",
@@ -1489,7 +1489,7 @@ dependencies = [
 
 [[package]]
 name = "glove-messages"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1504,7 +1504,7 @@ dependencies = [
 
 [[package]]
 name = "glove-monitor"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1513,7 +1513,7 @@ dependencies = [
 
 [[package]]
 name = "glove-music"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1522,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "glove-netutil"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1531,7 +1531,7 @@ dependencies = [
 
 [[package]]
 name = "glove-notes"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1540,7 +1540,7 @@ dependencies = [
 
 [[package]]
 name = "glove-paint"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "ab_glyph",
  "glove-i18n",
@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "glove-photos"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1562,7 +1562,7 @@ dependencies = [
 
 [[package]]
 name = "glove-portal"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1571,7 +1571,7 @@ dependencies = [
 
 [[package]]
 name = "glove-power"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "libc",
  "serde_json",
@@ -1579,7 +1579,7 @@ dependencies = [
 
 [[package]]
 name = "glove-prefs"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-paint",
@@ -1591,7 +1591,7 @@ dependencies = [
 
 [[package]]
 name = "glove-recorder"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "libc",
@@ -1599,7 +1599,7 @@ dependencies = [
 
 [[package]]
 name = "glove-screenrec"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "glove-shot"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1616,7 +1616,7 @@ dependencies = [
 
 [[package]]
 name = "glove-term"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "alacritty_terminal",
  "glove-config",
@@ -1626,7 +1626,7 @@ dependencies = [
 
 [[package]]
 name = "glove-ui"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glib-unix",
  "glove-config",
@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "glove-video"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1651,7 +1651,7 @@ dependencies = [
 
 [[package]]
 name = "glove-view"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1659,7 +1659,7 @@ dependencies = [
 
 [[package]]
 name = "glove-voicerec"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",
@@ -1668,7 +1668,7 @@ dependencies = [
 
 [[package]]
 name = "glove-welcome"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "glove-config",
  "glove-ui",

@@ -1071,6 +1071,12 @@ impl Glove {
 
     /// Área útil: abaixo da barra de menu e acima do Dock.
     pub fn work_area(&self) -> Rectangle<i32, Logical> {
+        self.work_area_with(!self.config.dock.autohide)
+    }
+
+    /// The useful area with the room of the Dock taken out or not, whatever its setting:
+    /// All Apps shows the Dock even when it hides, and keeps its apps clear of it.
+    pub fn work_area_with(&self, dock_shown: bool) -> Rectangle<i32, Logical> {
         let (w, h) = self.output_size();
         // Tela de login: a tela inteira.
         if self.greeter {
@@ -1084,7 +1090,7 @@ impl Glove {
             Some(l) => l.shelf.3,
             None => chrome::dock_shelf_thickness(self.config.dock.size.clamp(24, 128) as f32),
         };
-        let reserve = if self.config.dock.autohide { 0 } else { shelf.ceil() as i32 };
+        let reserve = if dock_shown { shelf.ceil() as i32 } else { 0 };
         match chrome::DockSide::from_config(&self.config.dock.position) {
             chrome::DockSide::Bottom => Rectangle::new((0, MENUBAR_H).into(), (w, (h - MENUBAR_H - reserve).max(100)).into()),
             chrome::DockSide::Left => Rectangle::new((reserve, MENUBAR_H).into(), ((w - reserve).max(100), h - MENUBAR_H).into()),

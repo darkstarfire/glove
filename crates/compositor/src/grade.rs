@@ -634,7 +634,9 @@ impl Glove {
     }
 
     fn grade_layout(&self) -> Layout {
-        Layout::new(self.work_area())
+        // The Dock shows over All Apps even when it hides: the apps keep clear of it, as
+        // when it stays on the screen.
+        Layout::new(self.work_area_with(true))
     }
 
     fn grade_pages(&self) -> usize {
