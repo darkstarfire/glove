@@ -1678,6 +1678,9 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - (v0.15.5) Com o Dock oculto, Todos os Apps o mostra, mas os ícones ficavam por baixo
     dele: a grade usava a área útil de sempre, que não desconta o Dock quando ele se esconde.
     Agora a grade sempre deixa o espaço do Dock (`work_area_with(true)`), igual ao Dock fixo.
+  - (v0.15.6, glove-ui 0.2.74) Os apps com ícone em XPM (o Eclipse, o Python 3.13) apareciam
+    sem ícone: o kit só lia PNG e SVG. `sysicons::load_xpm` lê o formato (com teste, inclusive
+    com os ícones reais do computador do usuário).
   - Fica para medir na máquina do usuário (a sessão oculta não tem placa de vídeo): um
     `jangada --profile` com o tempo de cada quadro e a aceleração de fato ligada.
 
