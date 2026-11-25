@@ -1645,6 +1645,22 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     letra no clique (as linhas são curtas por causa da quebra, mas uma linha sem quebra muito
     longa demoraria).
 
+- [x] 23.14 (v0.15.3, Jangada 2.1.2) Colar uma captura de tela e soltar arquivos nos sites
+  (relato do usuário em 25/11/2026: a captura no Ctrl+V não entrava no Telegram, e arrastar
+  também não). A causa é o WebKitGTK: no `paste` e no `drop` a página só vê `text/uri-list`
+  vazio e nenhum arquivo (conferido também no MiniBrowser do próprio WebKitGTK, com a área de
+  transferência do Glove e com a de outro app).
+  - Ctrl+V (e Editar ▸ Colar, o menu de contexto) com uma imagem ou arquivos copiados: a Jangada
+    lê a área de transferência e manda à página o `paste` com os `File` (como os outros
+    navegadores). Se a página não tratar (um campo de texto comum), o motor cola como antes; só
+    com texto, a tecla vai direto para a página.
+  - Arquivos arrastados de fora (mesa, Arquivos): um alvo de soltar do GTK antes do motor manda
+    `dragenter`/`dragover`/`dragleave`/`drop` com os arquivos (já no primeiro `dragenter` a
+    página vê "Files"). Arrastar dentro da Jangada continua com o motor; um link solto de outro
+    app abre na aba. Até 512 MB por vez (os bytes atravessam como texto até a página).
+  - Conferido na sessão oculta: colar (imagem de outro app e a cópia da mesa do Glove) e soltar
+    da mesa chegam à página como `image/png` com o tamanho certo.
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
