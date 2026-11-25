@@ -223,6 +223,25 @@ pub struct Grade {
     pub fold_gpu: Option<FoldGpu>,
     /// O quadro de agora usa as camadas (e não a `grid_tex`).
     pub fold_gpu_on: bool,
+    /// Edit mode on the GPU: each tile is a texture of its own (with a transparent margin,
+    /// so it can turn without being cut), sent once; the GPU turns them every frame. The
+    /// whole grid used to be drawn again on the CPU for each frame, which an older laptop
+    /// processor (i5-4200U) could not do in time.
+    tile_gpu: HashMap<Item, (u64, Tex)>,
+    /// The frame now uses `jiggle` (and not `grid_tex`).
+    pub jiggle_on: bool,
+    /// What to draw, front first: the tile, the top-left corner of its texture (logical
+    /// points on the screen), the angle in degrees, the zoom and the opacity.
+    jiggle: Vec<(Item, (f32, f32), f32, f32, f32)>,
+    /// The glass frame under an app that is about to become a folder, and its position.
+    merge_tex: Option<(u64, Tex)>,
+    merge_at_pos: Option<(f32, f32)>,
+}
+
+/// The transparent margin around a tile texture of the edit mode (logical points): room
+/// for the turn (±1.8°) and for the 12% growth of the dragged tile.
+fn tile_margin(l: &Layout) -> f32 {
+    (l.tile_w.max(l.tile_h) * 0.1).ceil()
 }
 
 /// As camadas da animação da pasta (posições na tela, em pontos lógicos).
@@ -1310,6 +1329,8 @@ impl Glove {
                 g.field_tex = None;
                 g.bg = None;
                 g.tiles.clear();
+                g.tile_gpu.clear();
+                g.merge_tex = None;
                 g.pos.clear();
                 g.apps = Vec::new();
                 g.top = Vec::new();
@@ -1347,6 +1368,7 @@ impl Glove {
         // Ícones prontos (refeitos quando muda a escala, o tema ou o conteúdo).
         if self.grade.tiles_base != base {
             self.grade.tiles.clear();
+            self.grade.tile_gpu.clear();
             self.grade.tiles_base = base;
         }
         let slots = self.grade_slots(&l);
@@ -1403,13 +1425,27 @@ impl Glove {
         } else {
             self.grade.fold_gpu = None;
         }
+        // Edit mode with nothing else moving (no folder open, no page sliding, no search,
+        // no rename): the tiles go to the GPU and it turns them.
+        let g = &self.grade;
+        let jiggle = g.edit && !fold_gpu && g.fold_anim.is_none() && slots.band_geo.is_none() && g.rename.is_none() && g.slide.is_none() && !self.searching();
+        self.grade.jiggle_on = jiggle;
+        if jiggle {
+            self.grade_build_jiggle(&l, &slots, sc);
+        } else {
+            self.grade.jiggle.clear();
+            self.grade.merge_at_pos = None;
+            if !self.grade.edit {
+                self.grade.tile_gpu.clear();
+            }
+        }
         // A grade: a cada quadro quando há movimento; senão, só quando algo muda.
         let animating = !fold_gpu && (self.grade.edit || self.grade.drag.is_some() || self.grade.fold_anim.is_some() || self.grade.easing);
         let mut k = std::collections::hash_map::DefaultHasher::new();
         (base, &self.grade.query, self.grade.folder, self.grade.page, self.grade.selected, sw, sh, self.grade.ver, self.grade.fold.to_bits()).hash(&mut k);
         (&self.grade.rename, caret && self.grade.rename.is_some()).hash(&mut k);
         let key = k.finish();
-        if !fold_gpu && (animating || self.grade.grid_tex.as_ref().map(|t| t.0) != Some(key)) {
+        if !fold_gpu && !jiggle && (animating || self.grade.grid_tex.as_ref().map(|t| t.0) != Some(key)) {
             self.grade.grid_tex = self.draw_grade_grid(&l, &slots, caret).map(|c| (key, to_tex(c)));
         }
         if animating {
@@ -1592,18 +1628,7 @@ impl Glove {
         let sc = self.scale() as f32;
         let (ox, oy, w, h) = l.tex;
         let mut c = Canvas::new(w, h, sc)?;
-        let t = g.edit_since.map_or(0.0, |t| t.elapsed().as_secs_f32());
-        let jiggle = |it: Item| -> f32 {
-            if !g.edit {
-                return 0.0;
-            }
-            let seed = match it {
-                Item::App(a) => a as u32,
-                Item::Folder(id) => id as u32 ^ 0x9e37,
-            };
-            let phase = hash(seed) as f32 / u32::MAX as f32 * std::f32::consts::TAU;
-            (t * std::f32::consts::TAU * 3.0 + phase).sin() * 1.8
-        };
+        let jiggle = |it: Item| -> f32 { jiggle_angle(g, it) };
         let fold = smooth(g.fold);
         let open = slots.band_geo.and(g.folder).map(Item::Folder);
         let per = l.per_page();
@@ -1664,6 +1689,92 @@ impl Glove {
             }
         }
         Some(c)
+    }
+}
+
+/// The turn of a tile in edit mode, in degrees (0 outside it): each tile with its own phase.
+fn jiggle_angle(g: &Grade, it: Item) -> f32 {
+    if !g.edit {
+        return 0.0;
+    }
+    let t = g.edit_since.map_or(0.0, |t| t.elapsed().as_secs_f32());
+    let seed = match it {
+        Item::App(a) => a as u32,
+        Item::Folder(id) => id as u32 ^ 0x9e37,
+    };
+    let phase = hash(seed) as f32 / u32::MAX as f32 * std::f32::consts::TAU;
+    (t * std::f32::consts::TAU * 3.0 + phase).sin() * 1.8
+}
+
+impl Glove {
+    /// Edit mode on the GPU: the textures of the tiles (made once each) and what to draw
+    /// this frame, the same places, turns and order as `draw_grade_grid`.
+    fn grade_build_jiggle(&mut self, l: &Layout, slots: &Slots, sc: f32) {
+        use std::hash::{Hash, Hasher};
+        let m = tile_margin(l);
+        let pad = (m * sc).round();
+        // The textures: a tile with its margin, made again only when the tile changes.
+        let mut wanted: Vec<Item> = slots.main.iter().filter_map(|s| s.0).collect();
+        if let Some(d) = &self.grade.drag {
+            wanted.push(d.entry.item());
+        }
+        for it in &wanted {
+            let Some((key, tile)) = self.grade.tiles.get(it) else { continue };
+            if self.grade.tile_gpu.get(it).is_some_and(|t| t.0 == *key) {
+                continue;
+            }
+            if let Some(mut c) = Canvas::new(l.tile_w + 2.0 * m, l.tile_h + 2.0 * m, sc) {
+                c.draw_pixmap_t(tile.pm.as_ref(), &PixmapPaint { quality: FilterQuality::Nearest, ..Default::default() }, Transform::from_translate(pad, pad));
+                self.grade.tile_gpu.insert(*it, (*key, to_tex(c)));
+            }
+        }
+        let g = &self.grade;
+        let per = l.per_page();
+        let dragged = g.drag.as_ref().map(|d| d.entry.item());
+        let merge_at = g.drag.as_ref().and_then(|d| d.merge.map(|mi| if mi < d.gap { mi } else { mi + 1 }));
+        let mut parts = Vec::new();
+        // Front first: the dragged tile, then the others (a later one is drawn over an
+        // earlier one, as on the CPU).
+        if let (Some(d), Some(it)) = (&g.drag, dragged) {
+            parts.push((it, (d.pos.0 - d.grab.0 - m, d.pos.1 - d.grab.1 - m), 0.0, 1.12, 0.92));
+        }
+        let mut merge_pos = None;
+        for (k, (it, tx, ty)) in slots.main.iter().enumerate().rev() {
+            let Some(it) = *it else { continue };
+            let (x, y) = g.pos.get(&it).copied().unwrap_or((*tx, *ty));
+            if merge_at == Some(g.page * per + k) {
+                merge_pos = Some((x + (l.tile_w - l.icon) / 2.0 - 10.0, y + 10.0 - 10.0));
+            }
+            parts.push((it, (x - m, y - m), jiggle_angle(g, it), 1.0, 1.0));
+        }
+        self.grade.jiggle = parts;
+        self.grade.merge_at_pos = merge_pos;
+        // The glass frame of "becomes a folder" (made again only when the icon size changes).
+        let mut k = std::collections::hash_map::DefaultHasher::new();
+        (l.icon.to_bits(), sc.to_bits()).hash(&mut k);
+        let key = k.finish();
+        if merge_pos.is_some() && self.grade.merge_tex.as_ref().map(|t| t.0) != Some(key) {
+            let s = l.icon + 20.0;
+            self.grade.merge_tex = Canvas::new(s, s, sc).map(|mut c| {
+                c.fill(rrect(0.0, 0.0, s, s, l.icon * 0.26), &solid(rgba(225, 232, 245, 90)));
+                c.stroke(rrect(0.5, 0.5, s - 1.0, s - 1.0, l.icon * 0.26), &solid(rgba(255, 255, 255, 160)), 1.0);
+                (key, to_tex(c))
+            });
+        }
+    }
+
+    /// The edit mode on the GPU, for the renderer, front first: the texture, its top-left
+    /// corner on the screen (logical points), the angle in degrees, the zoom, the opacity
+    /// and the turning point inside the texture (pixels). Then the glass frame, if any.
+    pub fn grade_jiggle_parts(&self) -> (Vec<(&Tex, (f32, f32), f32, f32, f32, (f32, f32))>, Option<(&Tex, (f32, f32))>) {
+        let g = &self.grade;
+        let l = self.grade_layout();
+        let sc = self.scale() as f32;
+        let pad = (tile_margin(&l) * sc).round();
+        let center = (pad + l.tile_w / 2.0 * sc, pad + (10.0 + l.icon / 2.0) * sc);
+        let parts = g.jiggle.iter().filter_map(|(it, at, angle, zoom, alpha)| Some((&g.tile_gpu.get(it)?.1, *at, *angle, *zoom, *alpha, center))).collect();
+        let merge = g.merge_at_pos.and_then(|p| Some((&g.merge_tex.as_ref()?.1, p)));
+        (parts, merge)
     }
 }
 

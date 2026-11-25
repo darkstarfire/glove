@@ -90,7 +90,63 @@ pub struct EffectCache {
     genie: Option<GlesTexProgram>,
     /// Programa dos cantos de baixo arredondados (Moderno); `Some(None)` = não compilou.
     cantos: Option<Option<GlesTexProgram>>,
+    /// Program that turns and grows a tile of All Apps in edit mode; `Some(None)` = it did
+    /// not compile.
+    jiggle: Option<Option<GlesTexProgram>>,
 }
+
+/// A tile of All Apps in edit mode: the texture turned by `angle` (radians) and grown by
+/// `zoom` around `center`; `size` is the size drawn, all in pixels. The texture has a
+/// transparent margin, so the turned tile is not cut at the edges.
+const JIGGLE_SHADER: &str = r#"#version 100
+
+//_DEFINES_
+
+#if defined(EXTERNAL)
+#extension GL_OES_EGL_image_external : require
+#endif
+
+precision highp float;
+#if defined(EXTERNAL)
+uniform samplerExternalOES tex;
+#else
+uniform sampler2D tex;
+#endif
+
+uniform float alpha;
+varying vec2 v_coords;
+
+#if defined(DEBUG_FLAGS)
+uniform float tint;
+#endif
+
+uniform vec2 size;
+uniform vec2 center;
+uniform float angle;
+uniform float zoom;
+
+void main() {
+    vec2 p = v_coords * size - center;
+    float c = cos(angle);
+    float s = sin(angle);
+    vec2 q = vec2(c * p.x + s * p.y, -s * p.x + c * p.y) / zoom + center;
+    vec2 uv = q / size;
+    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
+        gl_FragColor = vec4(0.0);
+        return;
+    }
+    vec4 color = texture2D(tex, uv);
+#if defined(NO_ALPHA)
+    color = vec4(color.rgb, 1.0);
+#endif
+    color = color * alpha;
+#if defined(DEBUG_FLAGS)
+    if (tint == 1.0)
+        color = vec4(0.0, 0.2, 0.0, 0.2) + color * 0.8;
+#endif
+    gl_FragColor = color;
+}
+"#;
 
 /// Lâmpada Mágica: para cada ponto da área da animação, de onde ele vem na foto
 /// da janela. `fr`/`sl` = janela e ícone (x, y, largura, altura, em pontos da área
@@ -519,6 +575,8 @@ impl Glove {
                     };
                     out.extend(mem_part(renderer, at, t, sc, alpha * g.alpha, crop, size));
                 }
+            } else if g.jiggle_on {
+                self.jiggle_elements(renderer, sc, g.alpha, &mut out);
             } else if let Some((_, t)) = &g.grid_tex {
                 out.extend(mem_alpha(renderer, pos + Point::from((dx_new, 0)), t, sc, a));
             }
@@ -995,6 +1053,43 @@ impl Glove {
             Uniform::new("dir", dir),
         ];
         out.push(GloveElement::Shader(TextureShaderElement::new(el, program, uniforms)));
+    }
+
+    /// All Apps in edit mode: each tile turned by the GPU (see `grade_build_jiggle`).
+    fn jiggle_elements(&self, renderer: &mut GlesRenderer, sc: f64, alpha: f32, out: &mut Vec<GloveElement>) {
+        let program = {
+            let mut cache = self.effects.borrow_mut();
+            cache
+                .jiggle
+                .get_or_insert_with(|| {
+                    let names = [UniformName::new("size", UniformType::_2f), UniformName::new("center", UniformType::_2f), UniformName::new("angle", UniformType::_1f), UniformName::new("zoom", UniformType::_1f)];
+                    renderer.compile_custom_texture_shader(JIGGLE_SHADER, &names).map_err(|e| tracing::warn!("balanço dos ícones não compilou: {e:?}")).ok()
+                })
+                .clone()
+        };
+        let (parts, merge) = self.grade_jiggle_parts();
+        for (tex, at, angle, zoom, a, center) in parts {
+            let Some(buf) = tex.upload(renderer) else { continue };
+            let loc = Point::<f64, Logical>::from((at.0 as f64, at.1 as f64)).to_physical(sc);
+            let src = Rectangle::from_size((tex.px.0 as f64, tex.px.1 as f64).into());
+            let el = TextureRenderElement::from_texture_buffer((loc.x.round(), loc.y.round()), &buf, Some(a * alpha), Some(src), Some(tex.size), Kind::Unspecified);
+            match &program {
+                Some(p) => {
+                    let uniforms = vec![
+                        Uniform::new("size", [tex.px.0 as f32, tex.px.1 as f32]),
+                        Uniform::new("center", [center.0, center.1]),
+                        Uniform::new("angle", angle.to_radians()),
+                        Uniform::new("zoom", zoom),
+                    ];
+                    out.push(GloveElement::Shader(TextureShaderElement::new(el, p.clone(), uniforms)));
+                }
+                // Without the program: the tiles still, in their places.
+                None => out.push(GloveElement::Texture(el)),
+            }
+        }
+        if let Some((t, at)) = merge {
+            out.extend(mem_part(renderer, at, t, sc, alpha, None, (t.size.w as f32, t.size.h as f32)));
+        }
     }
 
     fn cursor_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {

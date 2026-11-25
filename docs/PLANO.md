@@ -1661,6 +1661,23 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - Conferido na sessão oculta: colar (imagem de outro app e a cópia da mesa do Glove) e soltar
     da mesa chegam à página como `image/png` com o tamanho certo.
 
+- [x] 23.15 (v0.15.4, Jangada 2.1.3, glove-ui 0.2.73) Desempenho, a partir de relatos do usuário
+  no Panasonic CF-SX3 (i5-4200U, Intel HD 4400):
+  - Todos os Apps, modo de edição (os ícones balançando) travava: a cada quadro a grade inteira
+    era redesenhada no processador, com cada ícone girado por filtragem, e reenviada à placa
+    de vídeo. Agora cada ícone é uma textura própria (com margem transparente), enviada uma
+    vez, e a placa de vídeo gira e aumenta cada um com um programa de textura (`JIGGLE_SHADER`).
+    Vale com a grade parada no modo de edição e ao arrastar; com pasta aberta, página
+    deslizando, busca ou renomeando, o caminho antigo continua. Medido na sessão oculta (escala
+    1,5; lá a placa é simulada no processador): o trabalho do compositor no modo de edição caiu
+    de 563 para 48 ms por segundo.
+  - Jangada: as faixas transparentes da camada das barras (as que ficam sobre a página) não
+    viram mais textura, então o GTK deixa de misturá-las com a página a cada quadro. Rolando
+    uma página longa, a Jangada gastou 30% menos processador (6,6 s → 4,6 s). O histórico só é
+    relido do disco quando o arquivo muda (antes, a cada 3 segundos).
+  - Fica para medir na máquina do usuário (a sessão oculta não tem placa de vídeo): um
+    `jangada --profile` com o tempo de cada quadro e a aceleração de fato ligada.
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
