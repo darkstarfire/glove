@@ -13,6 +13,7 @@ mod expose;
 mod avisos;
 mod bandeja;
 mod cantos;
+mod clipboard;
 mod gestos;
 mod dmabuf;
 mod grade;

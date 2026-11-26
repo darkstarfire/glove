@@ -94,6 +94,26 @@ impl XwmHandler for Glove {
     }
 
     fn new_window(&mut self, _xwm: XwmId, _window: X11Surface) {}
+
+    /// The clipboard between the X11 and the Wayland apps (Glove keeps both sides).
+    fn allow_selection_access(&mut self, _xwm: XwmId, _selection: smithay::wayland::selection::SelectionTarget) -> bool {
+        true
+    }
+    fn new_selection(&mut self, _xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget, mime_types: Vec<String>) {
+        if selection == smithay::wayland::selection::SelectionTarget::Clipboard {
+            self.clip_from_x11(mime_types);
+        }
+    }
+    fn send_selection(&mut self, _xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget, mime_type: String, fd: std::os::fd::OwnedFd) {
+        if selection == smithay::wayland::selection::SelectionTarget::Clipboard {
+            self.clip_send_to_x11(mime_type, fd);
+        }
+    }
+    fn cleared_selection(&mut self, _xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget) {
+        if selection == smithay::wayland::selection::SelectionTarget::Clipboard {
+            self.clip_x11_cleared();
+        }
+    }
     fn new_override_redirect_window(&mut self, _xwm: XwmId, _window: X11Surface) {}
 
     fn map_window_request(&mut self, _xwm: XwmId, window: X11Surface) {
@@ -249,6 +269,18 @@ impl XwmHandler for CalloopData {
     }
     fn new_window(&mut self, xwm: XwmId, window: X11Surface) {
         self.state.new_window(xwm, window)
+    }
+    fn allow_selection_access(&mut self, xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget) -> bool {
+        self.state.allow_selection_access(xwm, selection)
+    }
+    fn new_selection(&mut self, xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget, mime_types: Vec<String>) {
+        XwmHandler::new_selection(&mut self.state, xwm, selection, mime_types)
+    }
+    fn send_selection(&mut self, xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget, mime_type: String, fd: std::os::fd::OwnedFd) {
+        XwmHandler::send_selection(&mut self.state, xwm, selection, mime_type, fd)
+    }
+    fn cleared_selection(&mut self, xwm: XwmId, selection: smithay::wayland::selection::SelectionTarget) {
+        XwmHandler::cleared_selection(&mut self.state, xwm, selection)
     }
     fn new_override_redirect_window(&mut self, xwm: XwmId, window: X11Surface) {
         self.state.new_override_redirect_window(xwm, window)

@@ -295,6 +295,12 @@ struct LastSize(std::cell::Cell<(i32, i32)>);
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuAction {
     About,
+    /// The clipboard history: make an entry the clipboard; that and paste it; delete one;
+    /// clear the history.
+    ClipUse(u64),
+    ClipPaste(u64),
+    ClipDelete(u64),
+    ClipClear,
     /// Um item do menu de um app da bandeja: (a chave do ícone, o id do item).
     Bandeja(String, i32),
     /// Para a gravação de tela em andamento (o item do indicador na barra).
@@ -1865,6 +1871,10 @@ impl Glove {
                 self.dirty = true;
             }
             MenuAction::OpenPrefs(pane) => self.spawn(&format!("glove-prefs {pane}")),
+            MenuAction::ClipUse(id) => self.clip_use(id),
+            MenuAction::ClipPaste(id) => self.clip_paste(id),
+            MenuAction::ClipDelete(id) => self.clip_delete(id),
+            MenuAction::ClipClear => self.clip_clear(),
             MenuAction::SetWifi(on) => self.set_wifi(on),
             MenuAction::SetLayout(id) => {
                 let (l, v) = glove_config::split_layout(&id);

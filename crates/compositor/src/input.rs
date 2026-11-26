@@ -35,6 +35,8 @@ enum KeyAction {
     Screenshot,
     /// Captura de uma área (Shift+Print).
     ScreenshotArea,
+    /// The clipboard history next to where one is typing (choosing pastes).
+    ClipboardHistory,
     /// Gravar a tela inteira (Shift+Super+3).
     RecordScreen,
     /// Gravar uma área, escolhida na tela (Shift+Super+4).
@@ -117,6 +119,7 @@ impl KeyAction {
             "preferences" => Self::Preferences,
             "screenshot" => Self::Screenshot,
             "screenshot_area" => Self::ScreenshotArea,
+            "clipboard_history" => Self::ClipboardHistory,
             "record_screen" => Self::RecordScreen,
             "record_area" => Self::RecordArea,
             "record_toggle" => Self::RecordToggle,
@@ -197,6 +200,34 @@ impl Glove {
             self.on_key(code.raw(), KeyState::Released, t);
         }
         self.suppressed_keys.clear();
+    }
+
+    /// Pastes in the window in focus: Ctrl+V (Ctrl+Shift+V in a terminal), sent as if
+    /// typed (straight to the app: none of Glove's shortcuts).
+    pub fn inject_paste(&mut self, shift: bool) {
+        use smithay::input::keyboard::FilterResult;
+        let Some(keyboard) = self.seat.get_keyboard() else { return };
+        // evdev codes; the keyboard takes them + 8 (xkb).
+        const CTRL: u32 = 29;
+        const SHIFT: u32 = 42;
+        const V: u32 = 47;
+        let mut keys = vec![CTRL];
+        if shift {
+            keys.push(SHIFT);
+        }
+        let t = self.start_time.elapsed().as_millis() as u32;
+        let send = |st: &mut Self, code: u32, state: KeyState| {
+            let serial = smithay::utils::SERIAL_COUNTER.next_serial();
+            keyboard.input::<(), _>(st, (code + 8).into(), state, serial, t, |_, _, _| FilterResult::Forward);
+        };
+        for &k in &keys {
+            send(self, k, KeyState::Pressed);
+        }
+        send(self, V, KeyState::Pressed);
+        send(self, V, KeyState::Released);
+        for &k in keys.iter().rev() {
+            send(self, k, KeyState::Released);
+        }
     }
 
     /// Comandos de teste (ver GLOVE_DEBUG_CTL em main.rs).
@@ -758,6 +789,7 @@ impl Glove {
             Some(KeyAction::Preferences) => self.open_preferences(),
             Some(KeyAction::Screenshot) => self.request_screenshot(),
             Some(KeyAction::ScreenshotArea) => self.start_region_shot(false, false),
+            Some(KeyAction::ClipboardHistory) => self.show_clipboard_popup(),
             Some(KeyAction::RecordScreen) => self.gravar_tela(),
             Some(KeyAction::RecordArea) => self.gravar_area(false),
             Some(KeyAction::RecordToggle) => self.gravar_alternar(),

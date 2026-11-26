@@ -33,6 +33,8 @@ use glove_paint::chrome::MenuItem;
 pub enum ExtraKind {
     /// Central de controle (Wi-Fi, Bluetooth, brilho, luz do teclado, som).
     Control,
+    /// The clipboard history.
+    Clipboard,
     Input,
     Display,
     Wifi,
@@ -275,6 +277,9 @@ impl Glove {
         if self.extras.battery.is_some() && self.config.energy.battery_menu {
             v.push(ExtraKind::Battery);
         }
+        if self.config.clipboard_menu && !self.greeter {
+            v.push(ExtraKind::Clipboard);
+        }
         // A central de controle, ao lado do relógio (como nos Mac mais novos).
         if !self.greeter {
             v.push(ExtraKind::Control);
@@ -300,6 +305,7 @@ impl Glove {
             .map(|k| match k {
                 ExtraKind::Display => Extra::Display,
                 ExtraKind::Control => Extra::Control,
+                ExtraKind::Clipboard => Extra::Clipboard,
                 ExtraKind::Input => Extra::Input { badge: glove_config::layout_badge(&self.config.keyboard.layout, &self.config.keyboard.variant) },
                 ExtraKind::Clock => {
                     let c = &self.config.clock;
@@ -376,6 +382,10 @@ impl Glove {
                 self.show_menu(BarTarget::Extra(k), vec![parar]);
             }
             ExtraKind::Control => self.open_control(k),
+            ExtraKind::Clipboard => {
+                let nodes = self.clipboard_menu(false);
+                self.show_menu(BarTarget::Extra(k), nodes);
+            }
             ExtraKind::Tray(i) => self.bandeja_clique(i, k),
         }
     }

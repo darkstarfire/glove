@@ -15,7 +15,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=2.1.6
+jangada_version=2.1.7
 # Slackware 15.0: o GTK 4 e o compilador dele são velhos para o WebKitGTK atual; nele a
 # Jangada fica na 1.15 (a do motor do Chromium).
 jangada_version_slack15=1.15.1
@@ -370,7 +370,8 @@ install_glove() {
                 n=$(jangada_nome "$(distro)")
                 jv=$(jangada_versao "$(distro)")
                 mkdir -p "$out_dir"
-                if curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jv/$n" -o "$out_dir/$n.parte" && mv "$out_dir/$n.parte" "$out_dir/$n"; then
+                velho=$(echo "$n" | sed 's/-1_glove\.tgz$/-1.tgz/')
+                if { curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jv/$n" -o "$out_dir/$n.parte" || curl -fsSL --max-time 900 "$jangada_repo/releases/download/v$jv/$velho" -o "$out_dir/$n.parte"; } && mv "$out_dir/$n.parte" "$out_dir/$n"; then
                     case "$(distro)" in
                         fedora) root dnf install -y "$out_dir/$n" ;;
                         arch) root pacman -U --noconfirm "$out_dir/$n" ;;
@@ -526,7 +527,9 @@ jangada_nome() {
     case "$1" in
         fedora) echo "jangada-${jv}-1.x86_64.rpm" ;;
         arch) echo "jangada-${jv}-1-x86_64.pkg.tar.zst" ;;
-        slackware) echo "jangada-${jv}-x86_64-1.tgz" ;;
+        # With the mark of third-party packages (-1_glove) from Jangada 2.1.8; the download
+        # tries the old name too (the 1.15 of Slackware 15.0 and the versions before).
+        slackware) echo "jangada-${jv}-x86_64-1_glove.tgz" ;;
         *) return 1 ;;
     esac
 }
@@ -732,7 +735,8 @@ fi
 # the login manager (in /etc/rc.d/rc.4).
 EOF
     mkdir -p "$out_dir"
-    f="$out_dir/glove-$version-$arch-1.tgz"
+    # The mark of third-party packages (as slackpkg+ expects): name-version-arch-build_tag.
+    f="$out_dir/glove-$version-$arch-1_glove.tgz"
     (cd "$tmp" && tar --owner=0 --group=0 --numeric-owner -czf "$f" .)
     rm -rf "$tmp"
     msg "$(t "Pacote Slackware: $f (instale com: installpkg $(basename "$f"))" "Slackware package: $f (install with: installpkg $(basename "$f"))")"

@@ -225,11 +225,11 @@ pub fn script_atualizar(p: Pacote, v: &str, repo: &str) -> Option<String> {
         )),
         Pacote::Pacman => Some(format!("pacman -U --noconfirm {repo}/arch/glove-{v}-1-$(uname -m).pkg.tar.zst")),
         Pacote::Slackware => Some(format!(
-            "set -e\nf=glove-{v}-$(uname -m)-1.tgz\nd=$(mktemp -d)\ncd \"$d\"\n\
+            "set -e\nf=glove-{v}-$(uname -m)-1_glove.tgz\nd=$(mktemp -d)\ncd \"$d\"\n\
              baixar() {{ if command -v curl >/dev/null 2>&1 && curl -fsSL \"$1\" -o \"$2\"; then :; else wget -q -O \"$2\" \"$1\"; fi; }}\n\
              baixar {RELEASES}/v{v}/$f $f\nbaixar {RELEASES}/v{v}/SHA256SUMS SHA256SUMS\n\
              grep \" $f\\$\" SHA256SUMS | sha256sum -c -\n/sbin/upgradepkg --install-new $f\n\
-             j=$(grep -o \"jangada-[0-9.]*-$(uname -m)-1\\.tgz\" SHA256SUMS | head -1 || true)\n\
+             j=$(grep -o -E \"jangada-[0-9.]+-$(uname -m)-1(_glove)?\\.tgz\" SHA256SUMS | head -1 || true)\n\
              if [ -n \"$j\" ] && ls /var/lib/pkgtools/packages /var/log/packages 2>/dev/null | grep -q '^jangada-[2-9]'; then\n\
              baixar {RELEASES}/v{v}/$j $j\ngrep \" $j\\$\" SHA256SUMS | sha256sum -c -\n/sbin/upgradepkg --install-new $j\nfi\n\
              cd /\nrm -rf \"$d\"\n"
@@ -369,6 +369,8 @@ mod tests {
     fn versao_do_pacote_instalado() {
         assert_eq!(versao_slackware("glove-0.12.74-x86_64-1").as_deref(), Some("0.12.74"));
         assert_eq!(versao_slackware("glove-extras-1.0-x86_64-1"), None);
+        // With the mark of third-party packages (from 0.15.12).
+        assert_eq!(versao_slackware("glove-0.15.12-x86_64-1_glove").as_deref(), Some("0.15.12"));
         assert_eq!(versao_slackware("glibc-2.33-x86_64-9_slack15.0"), None);
         assert_eq!(versao_pacman("glove 0.12.74-1").as_deref(), Some("0.12.74"));
         assert_eq!(versao_pacman("glove"), None);

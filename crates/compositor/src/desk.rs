@@ -168,6 +168,25 @@ pub fn quote(p: &Path) -> String {
 }
 
 /// file:///caminho%20com%20espa%C3%A7o
+/// "foto%20nova.png" → "foto nova.png" (the escapes of a file:// address).
+pub fn decode_uri(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Some(v) = std::str::from_utf8(&b[i + 1..i + 3]).ok().and_then(|h| u8::from_str_radix(h, 16).ok()) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 pub fn file_uri(p: &Path) -> String {
     let mut out = String::from("file://");
     for b in p.to_string_lossy().as_bytes() {
@@ -240,8 +259,15 @@ impl Glove {
         if is_png(path) {
             mimes.insert(0, IMAGE_PNG.into());
         }
-        let dh = self.display_handle.clone();
-        smithay::wayland::selection::data_device::set_data_device_selection(&dh, &self.seat.clone(), mimes, ());
+        self.clip_files(mimes);
+    }
+
+    /// The files in `desk.clip` become the clipboard (an entry of the history), in the
+    /// types `mimes`.
+    pub fn clip_files(&mut self, mimes: Vec<String>) {
+        let paths = self.desk.clip.clone();
+        let data = mimes.iter().map(|m| (m.clone(), payload(&paths, m))).collect();
+        self.clip_keep(data);
     }
 }
 
@@ -1356,8 +1382,7 @@ impl Glove {
                 let all: Vec<PathBuf> = chosen.iter().map(|i| i.path.clone()).collect();
                 if !all.is_empty() {
                     self.desk.clip = all;
-                    let dh = self.display_handle.clone();
-                    smithay::wayland::selection::data_device::set_data_device_selection(&dh, &self.seat.clone(), offered_mimes(), ());
+                    self.clip_files(offered_mimes());
                 }
             }
             DeskCmd::Paste => self.desk_paste(),

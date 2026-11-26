@@ -98,6 +98,8 @@ pub struct Glove {
     pub open_after_shot: bool,
     /// The thumbnail of the last screenshot in the corner of the screen.
     pub shot_thumb: Option<crate::shot_thumb::ShotThumb>,
+    /// The clipboard kept by Glove and its history.
+    pub clip: crate::clipboard::Clipboard,
     /// Cursor pedido pelo app sob o ponteiro (desenhado só na sessão própria).
     pub cursor_status: smithay::input::pointer::CursorImageStatus,
     /// Ícone do que está sendo arrastado entre apps (segue o mouse).
@@ -311,6 +313,7 @@ impl Glove {
             screenshot_request: None,
             open_after_shot: false,
             shot_thumb: None,
+            clip: Default::default(),
             cursor_status: smithay::input::pointer::CursorImageStatus::default_named(),
             dnd_icon: None,
             cursor_tex: None,
@@ -742,7 +745,14 @@ pub struct ClientState {
 
 impl ClientData for ClientState {
     fn initialized(&self, _client_id: ClientId) {}
-    fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+    fn disconnected(&self, client_id: ClientId, _reason: DisconnectReason) {
+        // The clipboard takes over what this app had copied (if it is the owner).
+        if let Ok(g) = crate::clipboard::GONE.lock() {
+            if let Some(tx) = g.as_ref() {
+                let _ = tx.send(client_id);
+            }
+        }
+    }
 }
 
 /// Sessão própria: os serviços do usuário (portais, chaveiro…) que o systemd e o

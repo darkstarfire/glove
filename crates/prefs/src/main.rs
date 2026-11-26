@@ -396,7 +396,7 @@ const SHORTCUT_GROUPS: [(&str, &[&str]); 4] = [
     ("Janelas", &["close", "minimize", "zoom", "fullscreen", "cycle", "expose_all", "expose_app", "expose_desktop", "dashboard", "apps", "cycle_windows"]),
     ("Mesas virtuais", &["desk_prev", "desk_next", "desk_move_prev", "desk_move_next"]),
     ("Aplicativos", &["terminal", "preferences", "search", "hide", "hide_others"]),
-    ("Sistema", &["screenshot", "screenshot_area", "record_screen", "record_area", "record_toggle", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
+    ("Sistema", &["screenshot", "screenshot_area", "clipboard_history", "record_screen", "record_area", "record_toggle", "force_quit", "lock", "input_next", "zoom_toggle", "zoom_in", "zoom_out", "invert_colors", "quit"]),
 ];
 
 impl Prefs {
@@ -1557,7 +1557,7 @@ impl Prefs {
         let open_rows: usize = SHORTCUT_GROUPS.iter().zip(self.open_groups).filter(|(_, o)| *o).map(|((_, a), _)| a.len()).sum();
         let height = match shown {
             1 => 120.0 + SHORTCUT_GROUPS.len() as f32 * 24.0 + open_rows as f32 * 30.0,
-            2 => 380.0,
+            2 => 410.0,
             _ => 240.0,
         };
         ui.tab_box(&mut tab, &[tr!("Teclado"), tr!("Atalhos de Teclado"), tr!("Menu de Entrada")], height + grow(), |ui| match shown {
@@ -2065,6 +2065,12 @@ impl Prefs {
         let mut show = self.config.keyboard.show_input_menu;
         if ui.checkbox(&mut show, tr!("Mostrar o Menu de Entrada na barra de menu")) {
             self.config.keyboard.show_input_menu = show;
+            self.save();
+        }
+        // The clipboard history (Super+Shift+V also opens it where one is typing).
+        let mut clip = self.config.clipboard_menu;
+        if ui.checkbox(&mut clip, tr!("Mostrar o histórico da área de transferência na barra de menu")) {
+            self.config.clipboard_menu = clip;
             self.save();
         }
     }

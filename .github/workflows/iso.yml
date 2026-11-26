@@ -246,6 +246,11 @@ jobs:
             exit 0
           fi
           tag=$GITHUB_REF_NAME
+          # Slackware: the package also under the name of before the mark (-1.tgz), for
+          # the Software Update of the versions up to 0.15.11, which look for that one.
+          for f in distros/glove-*-x86_64-1_glove.tgz; do
+            [ -f "$f" ] && cp "$f" "${f%_glove.tgz}.tgz"
+          done
           sh ci/release.sh "$tag"
           # Soma as somas destes arquivos às que a ISO publicou.
           gh release download "$tag" -p SHA256SUMS -O SHA256SUMS 2>/dev/null || : > SHA256SUMS
@@ -273,12 +278,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           jv=$(sed -n 's/^jangada_version=//p' glove-setup-tool.sh | head -1)
-          f=jangada-$jv-x86_64-1.tgz
-          url=https://github.com/fabioaacarneiro/jangada/releases/download/v$jv/$f
+          # Published here with the mark of third-party packages (-1_glove); the release of
+          # the Jangada has it from 2.1.8 (before, -1.tgz).
+          f=jangada-$jv-x86_64-1_glove.tgz
+          base=https://github.com/fabioaacarneiro/jangada/releases/download/v$jv
           for i in $(seq 70); do
-            curl -fsSL --retry 3 "$url" -o "$f" && break
+            curl -fsSL --retry 3 "$base/$f" -o "$f" && break
+            curl -fsSL --retry 3 "$base/jangada-$jv-x86_64-1.tgz" -o "$f" && break
             rm -f "$f"
-            echo "Ainda sem $f na release da Jangada; esperando ($i)..."
+            echo "Ainda sem o pacote do Slackware na release da Jangada; esperando ($i)..."
             sleep 60
           done
           if [ ! -s "$f" ]; then

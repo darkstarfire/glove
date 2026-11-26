@@ -57,17 +57,31 @@ impl SeatHandler for Glove {
 delegate_seat!(Glove);
 
 impl SelectionHandler for Glove {
-    type SelectionUserData = ();
+    type SelectionUserData = crate::clipboard::ClipOwner;
 
-    /// Um app quer colar o que foi copiado na mesa.
-    fn send_selection(&mut self, _ty: smithay::wayland::selection::SelectionTarget, mime_type: String, fd: std::os::fd::OwnedFd, _seat: Seat<Self>, _user_data: &()) {
-        // Fora da linha principal: ler a imagem e escrever no cano podem demorar.
-        let paths = self.desk.clip.clone();
-        std::thread::spawn(move || {
-            use std::io::Write;
-            let data = crate::desk::payload(&paths, &mime_type);
-            let _ = std::fs::File::from(fd).write_all(&data);
-        });
+    /// An app copied: Glove reads it, keeps it in the history and offers it from then on
+    /// (also to the X11 apps).
+    fn new_selection(&mut self, ty: smithay::wayland::selection::SelectionTarget, source: Option<smithay::wayland::selection::SelectionSource>, _seat: Seat<Self>) {
+        if ty != smithay::wayland::selection::SelectionTarget::Clipboard {
+            return;
+        }
+        match source {
+            Some(s) => self.clip_from_wayland(s.mime_types()),
+            None => {
+                if let Some(xwm) = self.xwm.as_mut() {
+                    let _ = xwm.new_selection(smithay::wayland::selection::SelectionTarget::Clipboard, None);
+                }
+            }
+        }
+    }
+
+    /// An app wants to paste what Glove offers (an entry of the history, or the copy of
+    /// an X11 app being passed on).
+    fn send_selection(&mut self, ty: smithay::wayland::selection::SelectionTarget, mime_type: String, fd: std::os::fd::OwnedFd, _seat: Seat<Self>, owner: &crate::clipboard::ClipOwner) {
+        if ty == smithay::wayland::selection::SelectionTarget::Clipboard {
+            let owner = owner.clone();
+            self.clip_send_to_wayland(&owner, mime_type, fd);
+        }
     }
 }
 

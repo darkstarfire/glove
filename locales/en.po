@@ -6530,3 +6530,24 @@ msgstr "The look of the whole system. You can change it later in Preferences."
 
 msgid "Ícones: {}. Vale também para a tela de login, a abertura e o desligamento do sistema, o bloqueio e a saída."
 msgstr "Icons: {}. It also applies to the login screen, system startup and shutdown, the lock screen and log out."
+
+msgid "Nada copiado ainda"
+msgstr "Nothing copied yet"
+
+msgid "Limpar Histórico"
+msgstr "Clear History"
+
+msgid "{} arquivos"
+msgstr "{} files"
+
+msgid "Imagem ({}×{})"
+msgstr "Image ({}×{})"
+
+msgid "Imagem"
+msgstr "Image"
+
+msgid "Conteúdo copiado"
+msgstr "Copied content"
+
+msgid "Mostrar o histórico da área de transferência na barra de menu"
+msgstr "Show clipboard history in menu bar"

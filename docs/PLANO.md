@@ -1773,6 +1773,37 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - Dock que se esconde: só sobe depois de 0,5 s com o mouse na borda (como no Mac), para um
     clique perto da borda não trazer o Dock.
 
+- [x] 23.19 (v0.15.12, glove-ui 0.2.79) A área de transferência (relato de 26/11/2026: às vezes
+  copiar e colar não colava nada).
+  - As causas: (1) não havia ponte entre os apps X11 e os Wayland (o XWM não tratava as
+    seleções); (2) quando o app que copiou fecha, a cópia sumia (no Wayland quem guarda é o app).
+  - `clipboard.rs`: o Glove lê os tipos leves de cada cópia (texto, HTML, lista de arquivos,
+    PNG) para um histórico (25 itens, 128 MB, só na memória; o que um gerenciador de senhas
+    marca como segredo fica fora do histórico). O app que copiou continua dono enquanto está
+    aberto (o colar mantém todos os formatos dele, inclusive os próprios, como os do
+    LibreOffice); quando ele fecha (a desconexão do cliente Wayland, ou a seleção X11 ficando
+    sem dono), o Glove assume com o que guardou. A cópia passa entre X11 e Wayland nos dois
+    sentidos. Atenção: o smithay avisa da cópia antes de registrá-la (a leitura fica para
+    depois, num `insert_idle`).
+  - Histórico na barra de menus (ícone de prancheta, `clipboard_menu`): clicar faz do item a
+    cópia atual; Apagar (submenu) e Limpar Histórico. Super+Shift+V abre o histórico onde se
+    está digitando (o mouse, se estiver na janela em foco) e escolher já cola (Ctrl+V enviado à
+    janela; num terminal, Ctrl+Shift+V).
+  - Conferido na sessão oculta: a cópia de um app Wayland e a de um X11 continuam colando
+    depois de fechar o app; X11 → Wayland e Wayland → X11; o menu da barra; o Super+Shift+V
+    colou o item escolhido no Editor de Texto.
+  - Preferências ▸ Teclado ▸ Menu de Entrada: a opção de mostrar o histórico na barra; o
+    atalho do histórico aparece em Atalhos de Teclado.
+  - (Jangada 2.1.7) Relato de um colega: no Slackware a Jangada ficava com a tela preta e não
+    carregava site nenhum. Os processos do motor (WebKitWebProcess, NetworkProcess, GPUProcess)
+    não tinham o RUNPATH para /usr/lib/jangada/motor/lib e nem abriam (só o binário da Jangada
+    tinha). Agora o CI grava o caminho neles e nas bibliotecas do motor (patchelf) e confere com
+    ldd; a Jangada também põe a pasta no LD_LIBRARY_PATH ao abrir (vale para um pacote antigo).
+  - Pacotes do Slackware com a marca dos pacotes de terceiros, como o slackpkg+ espera:
+    glove-VERSÃO-x86_64-1_glove.tgz (a release traz também o nome antigo, -1.tgz, para a
+    Atualização de Software até a 0.15.11); a release do Glove publica a Jangada com o nome novo
+    (a da Jangada passa a ter na próxima versão). O atualizador aceita os dois nomes.
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
