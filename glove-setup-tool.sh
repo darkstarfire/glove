@@ -15,7 +15,7 @@ out_dir="$root_dir/pacotes"
 # The modern icon theme (mide-icons, the Mide project's fork of WhiteSur), packaged as
 # glove-mide-icons from this fixed commit. Its own version: bump both when updating.
 # The browser (Jangada, its own repository): the version the Glove OS ships.
-jangada_version=2.1.5
+jangada_version=2.1.6
 # Slackware 15.0: o GTK 4 e o compilador dele são velhos para o WebKitGTK atual; nele a
 # Jangada fica na 1.15 (a do motor do Chromium).
 jangada_version_slack15=1.15.1

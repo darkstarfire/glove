@@ -1724,6 +1724,16 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     respondendo. O PDF continua com tudo diagramado (`exact_only`).
   - Jangada: "Mostrar na Pasta" abre o Arquivos com o arquivo baixado já escolhido
     (`glove-files --show`); fora do Glove, o pedido padrão (FileManager1 ShowItems).
+  - (v0.15.10, Jangada 2.1.6) Extensões com `"run_at": "document_start"` (pedido de um
+    colaborador, darkstarfire, para bloquear o anúncio do YouTube antes do primeiro vídeo):
+    os scripts dessas regras entram no começo de cada documento (`UserScript` em `Start`, no
+    mundo da extensão, com o teste do endereço em expressão regular e a API montada só nas
+    páginas que casam). As outras regras continuam com a página pronta (o padrão do Chrome é
+    `document_idle`; o patch original punha todas no começo, o que quebraria as extensões
+    que esperam a página). Ligar, desligar, instalar ou remover uma extensão refaz os scripts
+    das abas abertas. Conferido numa navegação real (sessão oculta): o script do começo rodou
+    antes de qualquer script da página, sem `<body>`, já com `chrome.runtime`; a regra comum
+    rodou depois, como antes.
 
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
