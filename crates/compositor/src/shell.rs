@@ -462,6 +462,14 @@ pub enum DockAction {
 /// Peças do Dock como texturas. Cada ícone (com a sombra) é desenhado uma vez
 /// por faixa de tamanho e a GPU o escala; a prateleira só é refeita quando muda
 /// de tamanho. Assim a ampliação quase não gasta CPU.
+/// The Dock of a monitor that is not the live one: its own items (the minimized windows
+/// of that monitor), drawn without zoom.
+pub struct StillDock {
+    pub area: Rectangle<i32, Logical>,
+    pub layout: DockLayout,
+    pub gpu: DockGpu,
+}
+
 #[derive(Default)]
 pub struct DockGpu {
     /// Tema e escala das peças guardadas (mudou → refaz tudo).
@@ -549,11 +557,11 @@ pub struct Chrome {
     pub dock_pressed: Option<usize>,
     /// O Dock em peças na GPU: a ampliação só muda posições e tamanhos.
     pub dock_gpu: DockGpu,
-    /// O Dock parado (sem a ampliação), para as cópias dos outros monitores enquanto um
-    /// deles amplia; None = igual ao de cima (nada ampliando).
-    pub dock_still: DockGpu,
-    pub dock_still_layout: Option<DockLayout>,
-    /// O monitor do Dock sob o mouse (o que amplia).
+    /// The Docks of the other monitors, drawn still (each with its own minimized
+    /// windows); the one under the mouse is the live one above.
+    pub dock_stills: Vec<StillDock>,
+    /// The monitor of the live Dock (the one under the mouse, which zooms and answers
+    /// clicks); None = the main one.
     pub dock_zoom_area: Option<Rectangle<i32, Logical>>,
     /// Ocultar automaticamente, com o Dock em todos os monitores: o monitor em que ele foi
     /// revelado (só lá ele aparece e responde ao mouse). None = o principal.
@@ -715,7 +723,10 @@ impl Glove {
             let t = self.chrome.title_ranges.iter().position(|(a, b)| px >= *a as f64 && px < *b as f64);
             return Hit::MenuBar { target: t.map(BarTarget::Title) };
         }
-        let dock_aqui = self.dock_shown_on(self.output_rect_at(self.pointer_pos));
+        // Only the live Dock answers here (the one of the monitor under the mouse; on an
+        // extra monitor, through the translated point).
+        let real = self.output_rect_at(self.pointer_pos);
+        let dock_aqui = self.dock_shown_on(real) && (real.is_none() || real == self.live_dock_area());
         if let Some(l) = self.chrome.dock_layout.as_ref().filter(|_| dock_aqui && self.chrome.dock_hide < 0.5 && !covered && !(self.chrome.fs && self.chrome.peek < 0.5)) {
             let d = self.chrome.dock_pos();
             let (lx, ly) = ((px - d.x as f64) as f32, (py - d.y as f64) as f32);
@@ -2119,7 +2130,9 @@ impl Glove {
         self.prepare_decorations();
     }
 
-    fn dock_model(&self) -> (Vec<DockItem>, Vec<DockAction>) {
+    /// The items of the Dock of the monitor `area`: the same apps on every monitor, and
+    /// only the windows minimized there.
+    fn dock_model(&self, area: Option<Rectangle<i32, Logical>>) -> (Vec<DockItem>, Vec<DockAction>) {
         let mut items = Vec::new();
         let mut actions = Vec::new();
         let running: Vec<String> = self
@@ -2161,7 +2174,11 @@ impl Glove {
             items.push(DockItem { icon, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
             actions.push(DockAction::Running(id));
         }
+        let mut any_min = false;
         for (i, (w, _)) in self.minimized.iter().enumerate() {
+            if self.minimized_area(i) != area {
+                continue;
+            }
             let (title, app_id) = window_info(w);
             let label = if title.is_empty() { pretty_app_name(&app_id) } else { title };
             items.push(DockItem {
@@ -2169,17 +2186,18 @@ impl Glove {
                 letter: label.chars().next(),
                 label,
                 running: false,
-                separator_before: i == 0,
+                separator_before: !any_min,
                 bounce: 0.0,
                 thumbnail: true,
             });
             actions.push(DockAction::Restore(i));
+            any_min = true;
         }
         // Lixeira sempre no fim, do outro lado do separador.
         let trash_icon = if self.chrome.trash_full.0 > 0 { Icon::TrashFull(self.chrome.trash_full.0) } else { Icon::Trash };
         // Arrastando só discos da mesa: o Lixo vira Ejetar (como no Tiger).
         let (trash_icon, trash_label) = if self.desk_dragging_disks() { (Icon::Eject, tr!("Ejetar")) } else { (trash_icon, tr!("Lixeira")) };
-        items.push(DockItem { icon: trash_icon, label: trash_label.into(), letter: None, running: false, separator_before: self.minimized.is_empty(), bounce: 0.0, thumbnail: false });
+        items.push(DockItem { icon: trash_icon, label: trash_label.into(), letter: None, running: false, separator_before: !any_min, bounce: 0.0, thumbnail: false });
         actions.push(DockAction::Trash);
         (items, actions)
     }
@@ -2189,7 +2207,8 @@ impl Glove {
         if self.chrome.trash_full.1.is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(1)) {
             self.chrome.trash_full = (trash_count(), Some(std::time::Instant::now()));
         }
-        let (items, actions) = self.dock_model();
+        let live = self.live_dock_area();
+        let (items, actions) = self.dock_model(live);
         let d = &self.config.dock;
         let base = d.size.clamp(24, 128) as f32;
         let max = if d.magnification && !glove_config::reduce_effects() { (d.max_size as f32).max(base) } else { base };
@@ -2236,29 +2255,43 @@ impl Glove {
         }
         self.chrome.dock_side = chrome::DockSide::from_config(&self.config.dock.position);
         // Muitos ícones: encolhe até caber na borda (como no Mac).
-        let (sw, sh) = self.output_size();
-        let room = if self.chrome.dock_side.vertical() { sh - MENUBAR_H - 8 } else { sw - 8 } as f32;
-        let (mut base, mut max) = (base, max);
-        while base > 16.0 && chrome::dock_length(&items, base, max) > room {
-            let k = (base - 1.0) / base;
-            base -= 1.0;
-            max = (max * k).max(base);
-        }
+        let side = self.chrome.dock_side;
+        let fit = |items: &[DockItem], (sw, sh): (i32, i32)| {
+            let room = if side.vertical() { sh - MENUBAR_H - 8 } else { sw - 8 } as f32;
+            let (mut base, mut max) = (base, max);
+            while base > 16.0 && chrome::dock_length(items, base, max) > room {
+                let k = (base - 1.0) / base;
+                base -= 1.0;
+                max = (max * k).max(base);
+            }
+            (base, max)
+        };
+        let live_size = live.map_or(self.output_size(), |a| (a.size.w, a.size.h));
+        let (base_l, max_l) = fit(&items, live_size);
         let zoom = self.chrome.dock_zoom;
         let hover_x = self.chrome.dock_hover_x.or((zoom > 0.0).then_some(self.chrome.dock_last_x));
-        let layout = chrome::dock_layout_on(&items, hover_x, zoom, base, max, self.chrome.dock_side);
+        let layout = chrome::dock_layout_on(&items, hover_x, zoom, base_l, max_l, side);
         // Com o menu de um ícone aberto, o nome sob o mouse some (o menu já diz qual é).
         let hover = if self.dock_menu_open() { None } else { self.chrome.dock_hover };
         let zooming = zoom > 0.0 || self.chrome.dock_zoom_anim.is_some();
-        self.prepare_dock_gpu(false, &items, &layout, hover, zooming);
-        // Com o Dock em mais de um monitor, os que não estão sob o mouse ficam parados.
-        if zooming && self.config.monitor.dock_all && !self.extra_areas().is_empty() {
-            let parado = chrome::dock_layout_on(&items, None, 0.0, base, max, self.chrome.dock_side);
-            self.prepare_dock_gpu(true, &items, &parado, None, false);
-            self.chrome.dock_still_layout = Some(parado);
-        } else {
-            self.chrome.dock_still_layout = None;
+        let mut g = std::mem::take(&mut self.chrome.dock_gpu);
+        self.fill_dock_gpu(&mut g, &items, &layout, hover, zooming);
+        self.chrome.dock_gpu = g;
+        // The Docks of the other monitors: still, each with its own minimized windows.
+        let mut old = std::mem::take(&mut self.chrome.dock_stills);
+        let mut stills = Vec::new();
+        for area in self.dock_areas() {
+            if Some(area) == live {
+                continue;
+            }
+            let (its, _) = self.dock_model(Some(area));
+            let (b, m) = fit(&its, (area.size.w, area.size.h));
+            let l = chrome::dock_layout_on(&its, None, 0.0, b, m, side);
+            let mut gpu = old.iter().position(|s| s.area == area).map(|i| old.remove(i).gpu).unwrap_or_default();
+            self.fill_dock_gpu(&mut gpu, &its, &l, None, false);
+            stills.push(StillDock { area, layout: l, gpu });
         }
+        self.chrome.dock_stills = stills;
         self.chrome.dock_items = items;
         self.chrome.dock_actions = actions;
         self.chrome.dock_layout = Some(layout);
@@ -2272,9 +2305,8 @@ impl Glove {
     }
 
     /// Garante as texturas das peças do Dock e calcula onde vai cada uma.
-    fn prepare_dock_gpu(&mut self, parado: bool, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, zooming: bool) {
+    fn fill_dock_gpu(&self, g: &mut DockGpu, items: &[DockItem], layout: &DockLayout, hover: Option<usize>, zooming: bool) {
         let sc = self.scale() as f32;
-        let g = if parado { &mut self.chrome.dock_still } else { &mut self.chrome.dock_gpu };
         let stamp = self.theme_gen ^ ((sc.to_bits() as u64) << 32);
         if g.stamp != stamp {
             *g = DockGpu { stamp, ..DockGpu::default() };

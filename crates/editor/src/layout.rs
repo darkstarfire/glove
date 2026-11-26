@@ -58,6 +58,9 @@ pub struct ParaLayout {
     pub h: f32,
     pub ver: u64,
     pub width: f32,
+    /// Only an estimate (heights, no segments): a paragraph far from the screen while a
+    /// big paste is laid out over the next frames (`estimate_para`).
+    pub estimated: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -326,7 +329,42 @@ pub fn layout_para(p: &Para, width: f32, fb: &FontBook, nums: &NoteNums) -> Para
     if let Some(l) = out.first_mut() {
         l.a = 0;
     }
-    ParaLayout { lines: out, h: y + ps.space_after, ver: p.ver, width }
+    ParaLayout { lines: out, h: y + ps.space_after, ver: p.ver, width, estimated: false }
+}
+
+/// A quick estimate of a paragraph's layout: as many lines as its text needs at an
+/// average letter width, with the right line height, and no segments (nothing drawn).
+/// For the paragraphs far from the screen when a big text is pasted; they are laid out
+/// for real over the next frames. About a hundred times faster than `layout_para`.
+pub fn estimate_para(p: &Para, width: f32, fb: &FontBook) -> ParaLayout {
+    let ps = &p.style;
+    let st = p.runs.first().map(|r| r.style.clone()).unwrap_or_default();
+    let (asc, desc) = fb.metrics(&st);
+    let text_h = asc + desc;
+    let h = text_h * ps.line_spacing.max(0.5);
+    let left = ps.left_indent;
+    let avail = ((width - ps.right_indent).max(left + 20.0) - left).max(20.0);
+    // The average width of a letter in this style (a sample with spaces, as in text).
+    let avg = fb.avg_char_width(&st);
+    let chars = p.text.chars().count();
+    let n = ((chars as f32 * avg.max(0.5)) / avail).ceil().max(1.0) as usize;
+    // Lines over the text in equal pieces (at character boundaries).
+    let per = chars.div_ceil(n).max(1);
+    let bounds: Vec<usize> = p.text.char_indices().map(|(i, _)| i).step_by(per).chain(std::iter::once(p.text.len())).collect();
+    let mut lines = Vec::with_capacity(n);
+    let mut y = ps.space_before;
+    for w in bounds.windows(2) {
+        lines.push(Line { a: w[0], b: w[1], y, h, base: asc, text_h, x0: left, x1: left, segs: Vec::new() });
+        y += h;
+    }
+    if lines.is_empty() {
+        lines.push(Line { a: 0, b: p.text.len(), y, h, base: asc, text_h, x0: left, x1: left, segs: Vec::new() });
+        y += h;
+    }
+    if let Some(l) = lines.last_mut() {
+        l.b = p.text.len();
+    }
+    ParaLayout { lines, h: y + ps.space_after, ver: p.ver, width, estimated: true }
 }
 
 /// Linha que contém a posição `o` (no ponto de quebra, a linha de baixo).

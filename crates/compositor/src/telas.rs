@@ -1,9 +1,10 @@
 //! A barra de menu e o Dock nos monitores extras (mesa estendida).
 //!
-//! O monitor principal continua sendo o "dono" da barra e do Dock: é nele que ficam as
-//! posições que o resto do compositor usa (menus, ampliação do Dock, área útil). Cada
-//! monitor extra ganha uma cópia: a barra pintada na largura dele (com os mesmos menus,
-//! extras e relógio) e o Dock com as mesmas peças. O mouse sobre a cópia é traduzido para
+//! O monitor principal continua sendo o "dono" da barra: é nele que ficam as posições que
+//! o resto do compositor usa (menus, área útil). Cada monitor extra ganha uma cópia da
+//! barra, pintada na largura dele (com os mesmos menus, extras e relógio), e um Dock
+//! próprio: os mesmos apps, mas só as janelas minimizadas naquele monitor. O Dock sob o
+//! mouse é o "vivo" (amplia, mostra o nome, responde ao clique); os outros ficam parados. O mouse sobre a cópia é traduzido para
 //! o ponto equivalente do principal (`chrome_translate`), e os menus que se abrem dali
 //! são levados para o monitor em que o clique aconteceu (`shift_menu_level`).
 //!
@@ -195,13 +196,69 @@ impl Glove {
         }
     }
 
-    /// Onde fica o Dock no monitor extra `area` (coordenadas globais), ou None sem o Dock
-    /// nos extras.
+    /// Onde fica o Dock vivo no monitor extra `area` (coordenadas globais), ou None sem o
+    /// Dock nos extras.
     pub fn extra_dock_origin(&self, area: Rectangle<i32, Logical>) -> Option<Point<i32, Logical>> {
         if !self.config.monitor.dock_all || self.chrome.dock_layout.is_none() {
             return None;
         }
         Some(self.chrome.dock_pos_for((area.size.w, area.size.h)) + area.loc)
+    }
+
+    /// The monitors that have a Dock: the main one and, with the Dock on all monitors,
+    /// the extra ones.
+    pub fn dock_areas(&self) -> Vec<Rectangle<i32, Logical>> {
+        let mut v: Vec<Rectangle<i32, Logical>> = self.primary_rect().into_iter().collect();
+        if self.config.monitor.dock_all {
+            v.extend(self.extra_areas().into_iter().map(|(a, _)| a));
+        }
+        v
+    }
+
+    /// The monitor of the live Dock (the one under the mouse); the main one by default.
+    pub fn live_dock_area(&self) -> Option<Rectangle<i32, Logical>> {
+        let areas = self.dock_areas();
+        self.chrome.dock_zoom_area.filter(|a| areas.contains(a)).or_else(|| self.primary_rect())
+    }
+
+    /// The Dock where the minimized window `i` goes: the one of the monitor it was on
+    /// (by its middle), or the main one if that monitor has no Dock (or is gone).
+    pub fn minimized_area(&self, i: usize) -> Option<Rectangle<i32, Logical>> {
+        let (w, loc) = self.minimized.get(i)?;
+        let size = w.geometry().size;
+        let mid: Point<f64, Logical> = ((loc.x + size.w / 2) as f64, (loc.y + size.h / 2) as f64).into();
+        let areas = self.dock_areas();
+        self.output_rect_at(mid).filter(|a| areas.contains(a)).or_else(|| self.primary_rect())
+    }
+
+    /// Where the Dock with the layout `l` sits on the monitor `area` (global coordinates).
+    pub fn area_dock_pos(&self, area: Rectangle<i32, Logical>, l: &chrome::DockLayout) -> Point<i32, Logical> {
+        if Some(area) == self.primary_rect() {
+            return self.chrome.dock_pos_layout(l, self.chrome.out_size);
+        }
+        area.loc + self.chrome.dock_pos_layout(l, (area.size.w, area.size.h))
+    }
+
+    /// The layout and the position (global) of the Dock of the monitor `area`.
+    pub fn dock_of(&self, area: Rectangle<i32, Logical>) -> Option<(&chrome::DockLayout, Point<i32, Logical>)> {
+        if Some(area) == self.live_dock_area() {
+            let l = self.chrome.dock_layout.as_ref()?;
+            let p = if Some(area) == self.primary_rect() { self.chrome.dock_pos() } else { self.extra_dock_origin(area)? };
+            return Some((l, p));
+        }
+        let s = self.chrome.dock_stills.iter().find(|s| s.area == area)?;
+        Some((&s.layout, self.area_dock_pos(area, &s.layout)))
+    }
+
+    /// The monitor whose Dock is under `pos` (shown there), if any.
+    pub fn dock_area_under(&self, pos: Point<f64, Logical>) -> Option<Rectangle<i32, Logical>> {
+        let area = self.output_rect_at(pos)?;
+        let main = Some(area) == self.primary_rect();
+        if !self.dock_areas().contains(&area) || !self.dock_shown_on(Some(area)) || (!main && self.area_fullscreen(area)) {
+            return None;
+        }
+        let (l, o) = self.dock_of(area)?;
+        Rectangle::<i32, Logical>::new(o, (l.width as i32, l.height as i32).into()).to_f64().contains(pos).then_some(area)
     }
 
     /// Há uma janela em tela cheia neste monitor (a barra e o Dock da cópia somem).
@@ -236,7 +293,10 @@ impl Glove {
             let d = pos - q;
             return Some((q, (d.x.round() as i32, d.y.round() as i32).into()));
         }
-        if let (Some(o), Some(l)) = (self.extra_dock_origin(area).filter(|_| self.dock_shown_on(Some(area))), self.chrome.dock_layout.as_ref()) {
+        // Only the live Dock (the one with this monitor's items): the mouse on the Dock of
+        // another monitor first makes it the live one (`update_hover`).
+        let live = Some(area) == self.live_dock_area();
+        if let (Some(o), Some(l)) = (self.extra_dock_origin(area).filter(|_| live && self.dock_shown_on(Some(area))), self.chrome.dock_layout.as_ref()) {
             let r = Rectangle::<i32, Logical>::new(o, (l.width as i32, l.height as i32).into());
             if r.to_f64().contains(pos) {
                 let p = self.chrome.dock_pos();

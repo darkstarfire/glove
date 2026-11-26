@@ -14,7 +14,13 @@ mod pdf;
 pub use pdf::export_pdf;
 
 use crate::fontbook::FontBook;
-use crate::layout::{hit_line, layout_para, line_of, note_label, x_of, NoteNums, ParaLayout};
+use crate::layout::{estimate_para, hit_line, layout_para, line_of, note_label, x_of, NoteNums, ParaLayout};
+
+/// Text to lay out at once (bytes of changed paragraphs); more than this (a big paste)
+/// is laid out near the screen first and the rest a slice per frame.
+const BIG_CHANGE: usize = 40_000;
+/// The time given each frame to the paragraphs still estimated.
+const LAYOUT_SLICE: std::time::Duration = std::time::Duration::from_millis(12);
 use crate::rich::{CharStyle, Doc, Frag, HeaderFooter, PageSetup, Para, ParaStyle, Pos};
 
 /// Margens do texto no modo "ajustar à janela" (pontos).
@@ -117,6 +123,12 @@ pub struct DocView {
     img_drag: Option<(Pos, f32, f32)>,
     /// Onde o documento começa na tela (pixels, já com a rolagem para os lados).
     origin: (f32, f32),
+    /// Height of the visible area (points), from the last frame.
+    view_h: f32,
+    /// Paragraphs still estimated (a big paste being laid out over the frames).
+    pub layout_pending: bool,
+    /// Never estimate (PDF export: every line must be real).
+    pub exact_only: bool,
 }
 
 /// Uma imagem do documento já aberta.
@@ -161,7 +173,7 @@ pub struct Caret {
 
 impl DocView {
     pub fn new() -> Self {
-        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, page_num: Default::default(), base_family: String::new(), title: String::new(), date: today(), edit_note: None, edit_hf: None, edit_toc: false, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false, pics: Default::default(), img_drag: None, origin: (0.0, 0.0) }
+        Self { scroll: 0.0, hscroll: 0.0, doc_w: 0.0, zoom: 1.0, cache: HashMap::new(), page_mode: false, fit_width: false, lys: Vec::new(), total: 0.0, width: 0.0, col_x: MARGIN_X, page: PageSetup::default(), pages: 1, page_x: GAP, nums: NoteNums::new(), note_lays: HashMap::new(), page_notes: Vec::new(), endnotes: Vec::new(), header: HeaderFooter::default(), footer: HeaderFooter::default(), title_page: false, page_num: Default::default(), base_family: String::new(), title: String::new(), date: today(), edit_note: None, edit_hf: None, edit_toc: false, labels: Vec::new(), para_page: Vec::new(), para_x: Vec::new(), para_w: Vec::new(), tables: Vec::new(), col_drag: None, reveal: false, want_x: None, dragging: false, last_click: None, pasting: false, pics: Default::default(), img_drag: None, origin: (0.0, 0.0), view_h: 800.0, layout_pending: false, exact_only: false }
     }
 
     fn lay<'a>(&'a self, p: &Para) -> &'a ParaLayout {
@@ -222,12 +234,20 @@ impl DocView {
             self.tables.push(TableGeo { id: c0.table, borders: props.borders, bounds, rows: Vec::new(), first: i, end });
             i = end;
         }
-        for (k, p) in doc.paras.iter().enumerate() {
+        let stale: Vec<usize> = (0..n)
+            .filter(|&k| {
+                let p = &doc.paras[k];
+                !self.cache.get(&p.id).is_some_and(|l| l.ver == p.ver && (l.width - self.para_w[k]).abs() < 0.01)
+            })
+            .collect();
+        // A big change (pasting a long text): estimated first, laid out for real below
+        // (near the screen now, the rest over the next frames).
+        let estimate = !self.exact_only && stale.iter().map(|&k| doc.paras[k].text.len()).sum::<usize>() > BIG_CHANGE;
+        for k in stale {
+            let p = &doc.paras[k];
             let w = self.para_w[k];
-            let fresh = self.cache.get(&p.id).is_some_and(|l| l.ver == p.ver && (l.width - w).abs() < 0.01);
-            if !fresh {
-                self.cache.insert(p.id, layout_para(p, w, fb, &self.nums));
-            }
+            let l = if estimate { estimate_para(p, w, fb) } else { layout_para(p, w, fb, &self.nums) };
+            self.cache.insert(p.id, l);
         }
         // O texto das notas, diagramado em letra menor.
         let note_style = std::rc::Rc::new(CharStyle { size: 9.0, family: self.base_family.clone(), ..CharStyle::default() });
@@ -241,7 +261,6 @@ impl DocView {
             }
         }
         self.note_lays.retain(|id, _| order.contains(id));
-        let note_h = |id: &u32, lays: &HashMap<u32, (String, f32, Para, ParaLayout)>| lays.get(id).map_or(0.0, |l| l.3.h);
         // Marcadores e números das listas (a numeração recomeça quando a lista para).
         self.labels.clear();
         let mut counters = [0usize; 9];
@@ -265,6 +284,87 @@ impl DocView {
                 }
             }
         }
+        self.place(doc, area_w, &order);
+        // A big paste: the paragraphs near the screen and the cursor are laid out now,
+        // the rest a slice per frame (the estimates are placed meanwhile).
+        let slice = if self.exact_only { None } else { Some(LAYOUT_SLICE) };
+        if self.finish_layout(doc, fb, slice) {
+            self.place(doc, area_w, &order);
+        }
+        // Esquece os parágrafos que não existem mais (de vez em quando).
+        if self.cache.len() > doc.paras.len() * 2 + 64 {
+            let ids: std::collections::HashSet<u64> = doc.paras.iter().map(|p| p.id).collect();
+            self.cache.retain(|k, _| ids.contains(k));
+        }
+    }
+
+    /// Lays out for real the paragraphs that are only estimated: always those near the
+    /// screen and around the cursor; the others while `budget` lasts (None = all).
+    /// True if something changed (the lines must be placed again).
+    fn finish_layout(&mut self, doc: &Doc, fb: &FontBook, budget: Option<std::time::Duration>) -> bool {
+        let n = doc.paras.len();
+        let est = |v: &Self, k: usize| v.cache.get(&doc.paras[k].id).is_some_and(|l| l.estimated);
+        if !(0..n).any(|k| est(self, k)) {
+            self.layout_pending = false;
+            return false;
+        }
+        let t0 = Instant::now();
+        let view_top = self.scroll / self.zoom.max(0.01);
+        let vh = self.view_h.max(200.0);
+        // Near the screen (by the current placement)...
+        let mut must: Vec<usize> = (0..n).filter(|&k| self.lys.get(k).and_then(|ys| ys.first()).is_some_and(|&y| y >= view_top - vh && y <= view_top + 2.0 * vh)).collect();
+        // ...and a screen and a half around the cursor and the anchor (the view follows
+        // the cursor after the paste).
+        for c in [doc.cursor.p, doc.anchor.p] {
+            let c = c.min(n.saturating_sub(1));
+            let mut h = 0.0;
+            for k in (0..=c).rev() {
+                must.push(k);
+                h += self.cache.get(&doc.paras[k].id).map_or(0.0, |l| l.h);
+                if h > 1.5 * vh {
+                    break;
+                }
+            }
+            let mut h = 0.0;
+            for k in c..n {
+                must.push(k);
+                h += self.cache.get(&doc.paras[k].id).map_or(0.0, |l| l.h);
+                if h > 1.5 * vh {
+                    break;
+                }
+            }
+        }
+        must.sort_unstable();
+        must.dedup();
+        let mut changed = false;
+        let mut lay = |v: &mut Self, k: usize| {
+            if est(v, k) {
+                let p = &doc.paras[k];
+                let l = layout_para(p, v.para_w[k], fb, &v.nums);
+                v.cache.insert(p.id, l);
+                changed = true;
+            }
+        };
+        for &k in &must {
+            lay(self, k);
+        }
+        for k in 0..n {
+            if budget.is_some_and(|b| t0.elapsed() >= b) {
+                break;
+            }
+            lay(self, k);
+        }
+        self.layout_pending = (0..n).any(|k| est(self, k));
+        changed
+    }
+
+    /// Puts every line in its place (in a column or on pages), from the layouts in the
+    /// cache (exact or estimated).
+    fn place(&mut self, doc: &Doc, area_w: f32, order: &[u32]) {
+        let n = doc.paras.len();
+        let pg = self.page.clone();
+        let pg = &pg;
+        let note_h = |id: &u32, lays: &HashMap<u32, (String, f32, Para, ParaLayout)>| lays.get(id).map_or(0.0, |l| l.3.h);
         self.para_page = vec![0; n];
         self.lys = vec![Vec::new(); n];
         let paged = self.page_mode;
@@ -392,18 +492,13 @@ impl DocView {
             let mut y = MARGIN_Y + y;
             if !order.is_empty() {
                 y += NOTE_SEP * 1.5;
-                for id in &order {
+                for id in order {
                     self.endnotes.push((*id, y));
                     y += note_h(id, &self.note_lays);
                 }
             }
             self.total = y + MARGIN_Y;
             self.doc_w = area_w;
-        }
-        // Esquece os parágrafos que não existem mais (de vez em quando).
-        if self.cache.len() > doc.paras.len() * 2 + 64 {
-            let ids: std::collections::HashSet<u64> = doc.paras.iter().map(|p| p.id).collect();
-            self.cache.retain(|k, _| ids.contains(k));
         }
     }
 
@@ -602,6 +697,7 @@ impl DocView {
         }
         let z = self.zoom;
         let width = (r.w - sb_w) / z;
+        self.view_h = r.h / z;
         self.ensure(doc, fb, width);
         let ver = doc.version;
         // Folha mais larga que a janela (zoom alto): barra de rolagem embaixo.
@@ -772,6 +868,10 @@ impl DocView {
         let changed = doc.version != ver;
         if changed {
             self.ensure(doc, fb, width);
+        }
+        // A big paste still being laid out: another frame soon (a slice each).
+        if self.layout_pending {
+            ui.wake_after(std::time::Duration::from_millis(1));
         }
         // Cursor sempre à vista depois de mexer pelo teclado.
         if self.reveal {
@@ -1359,4 +1459,35 @@ pub fn para_style(doc: &Doc) -> &crate::rich::ParaStyle {
 fn today() -> String {
     let (y, m, d, ..) = glove_ui::local_time();
     format!("{d:02}/{m:02}/{y}")
+}
+
+#[cfg(test)]
+mod perf_probe {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    #[ignore]
+    fn paste_timing() {
+        let fb = FontBook::new();
+        let line = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore. ";
+        for (name, text) in [("200 KB", (0..2000).map(|_| line).collect::<Vec<_>>().join("\n")), ("2 MB", (0..20000).map(|_| line).collect::<Vec<_>>().join("\n")), ("1 parágrafo 60k", line.repeat(600))] {
+            let mut doc = Doc::new();
+            let mut v = DocView::new();
+            v.view_h = 600.0;
+            v.ensure(&doc, &fb, 800.0);
+            let t = Instant::now();
+            doc.insert_text(&text);
+            v.ensure(&doc, &fb, 800.0);
+            let first = t.elapsed();
+            let mut frames = 1;
+            while v.layout_pending {
+                v.ensure(&doc, &fb, 800.0);
+                frames += 1;
+            }
+            let all = t.elapsed();
+            // The caret must be on a real line after the first frame.
+            println!("{name}: primeiro quadro {first:?}, pronto em {frames} quadros ({all:?}), altura {:.0}", v.total);
+        }
+    }
 }

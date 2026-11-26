@@ -274,24 +274,15 @@ impl Glove {
             return;
         }
         let alpha = self.dock_alpha(principal);
-        match self.still_dock_for(principal) {
-            Some(l) => self.dock_elements_at(renderer, sc, self.chrome.dock_pos_layout(l, self.chrome.out_size), true, alpha, out),
-            None => self.dock_elements_at(renderer, sc, self.chrome.dock_pos(), false, alpha, out),
+        match self.chrome.dock_stills.iter().find(|s| Some(s.area) == principal) {
+            Some(s) => self.dock_elements_at(renderer, sc, self.chrome.dock_pos_layout(&s.layout, self.chrome.out_size), &s.gpu, alpha, out),
+            None => self.dock_elements_at(renderer, sc, self.chrome.dock_pos(), &self.chrome.dock_gpu, alpha, out),
         }
     }
 
-    /// O desenho parado do Dock para o monitor `area`, se outro monitor estiver ampliando
-    /// o dele (None = o Dock de sempre).
-    pub fn still_dock_for(&self, area: Option<Rectangle<i32, Logical>>) -> Option<&glove_paint::chrome::DockLayout> {
-        let l = self.chrome.dock_still_layout.as_ref()?;
-        (self.chrome.dock_zoom_area.is_some() && self.chrome.dock_zoom_area != area).then_some(l)
-    }
-
-    /// O Dock com o canto em `o` (no principal, a posição dele; num monitor extra, a da
-    /// cópia, relativa a esse monitor). `parado`: o desenho sem a ampliação.
-    fn dock_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, o: Point<i32, Logical>, parado: bool, alpha: Option<f32>, out: &mut Vec<GloveElement>) {
-        let c = &self.chrome;
-        let g = if parado { &c.dock_still } else { &c.dock_gpu };
+    /// O Dock com o canto em `o` (no principal, a posição dele; num monitor extra,
+    /// relativa a esse monitor), com as peças de `g` (o Dock vivo ou o parado de um monitor).
+    fn dock_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, o: Point<i32, Logical>, g: &crate::shell::DockGpu, alpha: Option<f32>, out: &mut Vec<GloveElement>) {
         let Some(scene) = &g.scene else { return };
         let at = |x: f32, y: f32| Point::<i32, Logical>::from((o.x + x.round() as i32, o.y + y.round() as i32));
         if let (Some((_, x, y)), Some(t)) = (scene.label, g.label()) {
@@ -370,16 +361,18 @@ impl Glove {
             if let Some(t) = self.chrome.extra_bars.iter().find(|b| b.area == area).and_then(|b| b.tex.as_ref()) {
                 out.extend(mem_alpha(renderer, (0, 0).into(), t, sc, self.bar_alpha(Some(area))));
             }
-            if self.grade.alpha <= 0.0 && self.dock_shown_on(Some(area)) {
+            if self.grade.alpha <= 0.0 && self.dock_shown_on(Some(area)) && self.config.monitor.dock_all {
+                // The windows minimized on this monitor: in its Dock, in front of it.
+                self.minimized_elements(renderer, sc, Some(area), &mut out);
                 let alpha = self.dock_alpha(Some(area));
-                match self.still_dock_for(Some(area)) {
-                    Some(l) if self.config.monitor.dock_all => {
-                        let o = self.chrome.dock_pos_layout(l, (area.size.w, area.size.h));
-                        self.dock_elements_at(renderer, sc, o, true, alpha, &mut out);
+                match self.chrome.dock_stills.iter().find(|s| s.area == area) {
+                    Some(s) => {
+                        let o = self.chrome.dock_pos_layout(&s.layout, (area.size.w, area.size.h));
+                        self.dock_elements_at(renderer, sc, o, &s.gpu, alpha, &mut out);
                     }
-                    _ => {
+                    None => {
                         if let Some(o) = self.extra_dock_origin(area) {
-                            self.dock_elements_at(renderer, sc, o - origin, false, alpha, &mut out);
+                            self.dock_elements_at(renderer, sc, o - origin, &self.chrome.dock_gpu, alpha, &mut out);
                         }
                     }
                 }
@@ -550,6 +543,9 @@ impl Glove {
         let g = &self.grade;
         if g.alpha > 0.0 {
             let a = Some(g.alpha);
+            // The Dock stays over All Apps: with the live thumbnails of its minimized
+            // windows (they were left under the grid, leaving empty places in the Dock).
+            self.minimized_elements(renderer, sc, self.primary().and_then(|o| self.space.output_geometry(o)), &mut out);
             self.dock_elements(renderer, sc, &mut out);
             if let Some((_, t)) = &g.field_tex {
                 out.extend(mem_alpha(renderer, self.grade_field_pos(), t, sc, a));
@@ -772,29 +768,10 @@ impl Glove {
             let loc = x.geometry().loc;
             out.extend(w.render_elements::<GloveElement>(renderer, loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
         }
-        // Janelas indo para o Dock ou voltando: por cima de tudo isso.
-        for a in &self.min_anims {
-            if let Some((frame, slot, p)) = self.genie_params(&a.window) {
-                self.push_genie_window(renderer, &a.window, frame, slot, p, sc, &mut out);
-            } else if let Some(r) = self.min_anim_rect(&a.window) {
-                self.push_scaled_window(renderer, &a.window, r, sc, &mut out);
-            }
-        }
-        // Miniaturas vivas das minimizadas, com o ícone do app no canto. Ficam no Dock do
-        // principal: com o Dock que some sozinho revelado em outro monitor, não sobem aqui.
-        let dock_aqui = self.dock_shown_on(self.primary().and_then(|o| self.space.output_geometry(o)));
-        for (w, (x, y), t) in &self.badge_places {
-            if dock_aqui && !self.min_animating(w) {
-                out.extend(mem(renderer, (*x, *y).into(), t, sc));
-            }
-        }
-        for (w, _) in &self.minimized {
-            if !dock_aqui || self.min_animating(w) {
-                continue;
-            }
-            if let Some(r) = self.thumbnail_rect(w) {
-                self.push_scaled_window(renderer, w, r, sc, &mut out);
-            }
+        // Janelas indo para o Dock ou voltando e as miniaturas das minimizadas deste monitor
+        // (com Todos os Apps aberto, já foram desenhadas junto com o Dock, por cima dele).
+        if self.grade.alpha <= 0.0 {
+            self.minimized_elements(renderer, sc, self.primary().and_then(|o| self.space.output_geometry(o)), &mut out);
         }
         if !covered && self.grade.alpha <= 0.0 {
             self.dock_elements(renderer, sc, &mut out);
@@ -927,6 +904,54 @@ impl Glove {
 
     /// Desenha a janela (com a barra de título) encolhida para caber em `r`
     /// (a moldura inteira, na mesma proporção).
+    /// On the monitor `area`: the windows going to its Dock or coming back, and the live
+    /// thumbnails of the windows minimized there (with the app icon in the corner). Drawn
+    /// relative to the monitor (the main one is at the origin of the space).
+    fn minimized_elements(&self, renderer: &mut GlesRenderer, sc: f64, area: Option<Rectangle<i32, Logical>>, out: &mut Vec<GloveElement>) {
+        let Some(area) = area else { return };
+        let main = Some(area) == self.primary().and_then(|o| self.space.output_geometry(o));
+        let shift = if main { Point::<f64, Logical>::from((0.0, 0.0)) } else { area.loc.to_f64() };
+        let move_r = |r: Rectangle<f64, Logical>| Rectangle::new(r.loc - shift, r.size);
+        let here = |r: Rectangle<f64, Logical>| {
+            let mid: Point<f64, Logical> = (r.loc.x + r.size.w / 2.0, r.loc.y + r.size.h / 2.0).into();
+            self.output_rect_at(mid).map_or(main, |a| a == area)
+        };
+        // Going or coming: on the monitor of the window (its Dock is on the same one).
+        for a in &self.min_anims {
+            // By the place in the Dock (the window flies to the Dock of its monitor, or to
+            // the main one when its monitor has none).
+            let slot = self.restore_slots.iter().find(|(x, _)| x == &a.window).map(|(_, r)| *r).or_else(|| self.dock_slot(&a.window));
+            if !slot.map_or(main, here) {
+                continue;
+            }
+            if let Some((frame, slot, p)) = self.genie_params(&a.window) {
+                self.push_genie_window(renderer, &a.window, move_r(frame), move_r(slot), p, sc, out);
+            } else if let Some(r) = self.min_anim_rect(&a.window) {
+                self.push_scaled_window(renderer, &a.window, move_r(r), sc, out);
+            }
+        }
+        // With the auto-hiding Dock revealed on another monitor, they do not show here.
+        if !self.dock_shown_on(Some(area)) {
+            return;
+        }
+        let ox = shift.x.round() as i32;
+        let oy = shift.y.round() as i32;
+        for (w, (x, y), t) in &self.badge_places {
+            let r = Rectangle::new((*x as f64, *y as f64).into(), (1.0, 1.0).into());
+            if !self.min_animating(w) && here(r) {
+                out.extend(mem(renderer, (*x - ox, *y - oy).into(), t, sc));
+            }
+        }
+        for (w, _) in &self.minimized {
+            if self.min_animating(w) {
+                continue;
+            }
+            if let Some(r) = self.thumbnail_rect(w).filter(|r| here(*r)) {
+                self.push_scaled_window(renderer, w, move_r(r), sc, out);
+            }
+        }
+    }
+
     fn push_scaled_window(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, r: Rectangle<f64, Logical>, sc: f64, out: &mut Vec<GloveElement>) {
         use smithay::backend::renderer::element::Kind;
         let frame_w = w.geometry().size.w as f64;

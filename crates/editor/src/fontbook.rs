@@ -19,6 +19,8 @@ pub struct FontBook {
     files: RefCell<HashMap<Face, (std::path::PathBuf, u32)>>,
     /// (face, tamanho) → (subida, descida).
     metrics: RefCell<HashMap<(Face, u32), (f32, f32)>>,
+    /// (face, size) → average width of a letter in running text (layout estimates).
+    avg: RefCell<HashMap<(Face, u32), f32>>,
 }
 
 /// Arquivo e índice da face (fc-match), se houver.
@@ -83,6 +85,19 @@ impl FontBook {
         let m = (a, d);
         self.metrics.borrow_mut().insert(key, m);
         m
+    }
+
+    /// The average width of a letter (with the spaces) in text of this style.
+    pub fn avg_char_width(&self, s: &CharStyle) -> f32 {
+        let size = Self::eff_size(s);
+        let key = ((s.family.clone(), s.bold, s.italic), size.to_bits());
+        if let Some(w) = self.avg.borrow().get(&key) {
+            return *w;
+        }
+        const SAMPLE: &str = "the quick brown fox jumps over a lazy dog ";
+        let w = self.measure(s, SAMPLE) / SAMPLE.len() as f32;
+        self.avg.borrow_mut().insert(key, w);
+        w
     }
 
     /// Arquivo e índice da face do estilo (para embutir no PDF).

@@ -87,12 +87,14 @@ impl Glove {
     }
 
     /// Quadrado do ícone da janela minimizada no Dock (coordenadas da tela).
+    /// In the Dock of the monitor the window was on (each Dock has only its own).
     pub fn dock_slot(&self, w: &Window) -> Option<Rectangle<f64, Logical>> {
         let i = self.minimized.iter().position(|(m, _)| m == w)?;
-        let idx = self.config.dock_apps.len() + self.running_unpinned().len() + i;
-        let l = self.chrome.dock_layout.as_ref()?;
+        let area = self.minimized_area(i)?;
+        let before = (0..i).filter(|&k| self.minimized_area(k) == Some(area)).count();
+        let idx = self.config.dock_apps.len() + self.running_unpinned().len() + before;
+        let (l, d) = self.dock_of(area)?;
         let (x, y, s) = *l.items.get(idx)?;
-        let d = self.chrome.dock_pos();
         Some(Rectangle::new((d.x as f64 + x as f64, d.y as f64 + y as f64).into(), (s as f64, s as f64).into()))
     }
 

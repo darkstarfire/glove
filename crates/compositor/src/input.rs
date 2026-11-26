@@ -836,6 +836,16 @@ impl Glove {
         if self.extras.slider.is_some() {
             self.volume_slider_hover(pos);
         }
+        // The mouse on the Dock of another monitor: that one becomes the live Dock (each
+        // monitor has its own, with the windows minimized there).
+        if let Some(a) = self.dock_area_under(pos) {
+            if Some(a) != self.live_dock_area() {
+                self.chrome.dock_zoom_area = Some(a);
+                self.chrome.dock_hover = None;
+                self.prepare_dock();
+                self.dirty = true;
+            }
+        }
         let hit = self.hit_test(pos);
 
         // Borda de janela que redimensiona: a seta vira a de duas pontas.

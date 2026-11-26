@@ -1699,6 +1699,31 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - Preferências ▸ Som ▸ Saída e Entrada: a lista vira uma tabela com Nome e Tipo, como no 10.4.
   - Barra de menus: o ícone de volume abre um menu com o volume num slider, as saídas (com ✓
     na atual) e "Preferências de Som…", no lugar do slider vertical sozinho.
+  - (v0.15.9, glove-ui 0.2.77) No computador do usuário a troca para os fones não marcava nem
+    funcionava: depois do `set-profile`, a placa (SOF/UCM) continua dizendo o perfil antigo no
+    `Profile`, então o sink novo não era reconhecido e o WirePlumber punha o som no HDMI. Agora
+    a porta que toca vem do `Route` e dos sinks que existem. Conferido no computador do usuário:
+    alto-falantes → fones e de volta, cada troca em menos de 1 s.
+
+- [x] 23.17 (v0.15.9, Jangada 2.1.5) Pedidos de 26/11/2026:
+  - Um Dock por monitor: as janelas minimizadas vão para o Dock do monitor em que estavam (antes
+    iam todas para o do principal, e a cópia no outro monitor mostrava um lugar vazio, porque
+    as miniaturas só eram desenhadas no principal). Todos os Docks têm os mesmos apps; cada um,
+    só as minimizadas dele. O Dock sob o mouse é o "vivo" (amplia, nome, clique); os outros
+    são desenhados parados com os itens deles (`dock_stills`). A animação de minimizar e as
+    miniaturas são desenhadas no monitor delas. Conferido com o monitor falso (`fakeout`):
+    uma calculadora minimizada em cada monitor, cada uma no seu Dock, e restaurar pelo Dock
+    do segundo a devolve a ele.
+  - Todos os Apps: as minimizadas sumiam do Dock (o lugar ficava vazio): o Dock era desenhado
+    por cima da grade, mas as miniaturas ficavam embaixo dela.
+  - Editor de Texto: colar um texto grande demorava (2 MB: um quadro de 463 ms, quase tudo no
+    layout do texto novo inteiro). Agora uma mudança grande (mais de 40 KB) entra com uma
+    estimativa da altura de cada parágrafo (`estimate_para`); os parágrafos perto da tela e do
+    cursor são diagramados na hora e o resto em fatias de 12 ms nos quadros seguintes. 2 MB:
+    o quadro do colar caiu para 88 ms, e o resto termina em quadros de ~22 ms com a janela
+    respondendo. O PDF continua com tudo diagramado (`exact_only`).
+  - Jangada: "Mostrar na Pasta" abre o Arquivos com o arquivo baixado já escolhido
+    (`glove-files --show`); fora do Glove, o pedido padrão (FileManager1 ShowItems).
 
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 

@@ -426,6 +426,7 @@ impl DocView {
 pub fn export_pdf(doc: &Doc, fb: &FontBook, title: &str) -> Vec<u8> {
     let mut v = DocView::new();
     v.page_mode = true;
+    v.exact_only = true;
     v.title = title.to_string();
     let area = doc.page.width + 2.0 * super::GAP;
     v.ensure(doc, fb, area);
