@@ -32,6 +32,12 @@ pub struct Startup {
     launched: bool,
     key: Option<(usize, u32, u64)>,
     pub tex: Option<Tex>,
+    /// The Modern look: the photo, the name and a thin bar over the wallpaper (as on the
+    /// Mac), instead of the panel with the steps.
+    pub modern: bool,
+    login: String,
+    name: String,
+    photo: Option<glove_paint::Pixmap>,
 }
 
 impl Startup {
@@ -60,7 +66,10 @@ impl Startup {
 impl Glove {
     /// Começa a abertura. `commands` abrem no passo "Abrindo os itens de início".
     pub fn start_session_panel(&mut self, commands: Vec<String>) {
-        self.startup = Some(Startup { since: None, commands, launched: false, key: None, tex: None });
+        let modern = self.screen_theme.modern;
+        let login = glove_config::login_wallpaper::current_login().unwrap_or_default();
+        let photo = if modern { crate::lock::user_photo(&login) } else { None };
+        self.startup = Some(Startup { since: None, commands, launched: false, key: None, tex: None, modern, login, name: crate::shell::user_full_name(), photo });
         self.dirty = true;
         self.loop_handle
             .insert_source(Timer::from_duration(Duration::from_millis(33)), |_, _, data| {
@@ -120,7 +129,11 @@ impl Glove {
         let progress = (t / DONE).clamp(0.0, 1.0);
         let key = (step, (progress * 200.0) as u32, tgen);
         if s.key != Some(key) {
-            s.tex = chrome::startup_panel(&self.fonts, &self.screen_theme, &glove_config::tr_dyn(STEPS[step].1), progress, sc).map(to_tex);
+            s.tex = if s.modern {
+                glove_paint::screens::startup_modern(&self.fonts, &s.login, &s.name, s.photo.as_ref(), progress, sc).map(to_tex)
+            } else {
+                chrome::startup_panel(&self.fonts, &self.screen_theme, &glove_config::tr_dyn(STEPS[step].1), progress, sc).map(to_tex)
+            };
             s.key = Some(key);
         }
         if s.since.is_none() && s.tex.is_some() {
@@ -139,6 +152,9 @@ impl Glove {
     /// Canto do painel (sem a sombra).
     pub fn startup_pos(&self) -> (i32, i32) {
         let (w, h) = self.output_size();
+        if self.startup.as_ref().is_some_and(|s| s.modern) {
+            return (((w as f32 - glove_paint::screens::STARTUP_MODERN_W) / 2.0) as i32, (h as f32 * 0.36) as i32);
+        }
         (((w as f32 - chrome::STARTUP_W) / 2.0) as i32, ((h as f32 - chrome::STARTUP_H) / 2.0 - h as f32 * 0.06) as i32)
     }
 }

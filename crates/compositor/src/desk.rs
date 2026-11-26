@@ -118,6 +118,8 @@ struct Press {
 pub struct DeskDrag {
     pub paths: Vec<PathBuf>,
     pub origin: Point<f64, Logical>,
+    /// The thumbnail of a screenshot (drawn under the mouse instead of the desk icons).
+    pub from_shot: bool,
 }
 
 #[derive(Default)]
@@ -718,7 +720,7 @@ impl Glove {
 
     /// Onde cada ícone arrastado está agora (acompanha o mouse).
     pub fn desk_drag_offset(&self) -> Option<Point<i32, Logical>> {
-        let d = self.desk.drag.as_ref().filter(|_| !self.desk.drag_dropped)?;
+        let d = self.desk.drag.as_ref().filter(|d| !self.desk.drag_dropped && !d.from_shot)?;
         let p = self.pointer_pos;
         Some(((p.x - d.origin.x).round() as i32, (p.y - d.origin.y).round() as i32).into())
     }
@@ -881,7 +883,12 @@ impl Glove {
     pub(crate) fn desk_start_drag(&mut self, paths: Vec<PathBuf>, origin: Point<f64, Logical>) {
         use smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction;
         use smithay::wayland::selection::data_device::{start_dnd, SourceMetadata};
-        self.desk.drag = Some(DeskDrag { paths, origin });
+        // One picture (a screenshot): it also goes as an image (a chat takes the picture).
+        let mut mimes = offered_mimes();
+        if paths.len() == 1 && is_png(&paths[0]) {
+            mimes.push(IMAGE_PNG.into());
+        }
+        self.desk.drag = Some(DeskDrag { paths, origin, from_shot: false });
         self.desk.drag_dropped = false;
         // O soltar vai para o arrastar (não pode ser engolido).
         self.chrome.swallow_release = false;
@@ -889,7 +896,7 @@ impl Glove {
         let seat = self.seat.clone();
         let serial = smithay::utils::SERIAL_COUNTER.next_serial();
         let start = smithay::input::pointer::GrabStartData { focus: None, button: 0x110, location: origin };
-        start_dnd(&dh, &seat, self, serial, Some(start), None, SourceMetadata { mime_types: offered_mimes(), dnd_action: DndAction::Copy | DndAction::Move });
+        start_dnd(&dh, &seat, self, serial, Some(start), None, SourceMetadata { mime_types: mimes, dnd_action: DndAction::Copy | DndAction::Move });
         self.dirty = true;
     }
 

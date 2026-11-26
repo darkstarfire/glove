@@ -57,7 +57,7 @@ struct Login {
     moderno: bool,
     /// O papel de parede (da configuração da tela de login) e o fundo pronto, pelo tamanho.
     wallpaper: String,
-    fundo: Option<((u32, u32), Pixmap)>,
+    fundo: Option<((u32, u32, String), Pixmap)>,
 }
 
 impl Login {
@@ -151,7 +151,11 @@ impl App for Login {
         if let Some(rx) = &self.pending {
             match rx.try_recv() {
                 Ok(Ok(())) => {
-                    // Sessão marcada: o greetd a inicia quando este app sair.
+                    // Sessão marcada: o greetd a inicia quando este app sair. Quem entrou
+                    // fica lembrado (o fundo da próxima vez é o papel de parede dele).
+                    if !self.fake {
+                        users::remember(&self.chosen_login());
+                    }
                     ui.close = true;
                     return;
                 }

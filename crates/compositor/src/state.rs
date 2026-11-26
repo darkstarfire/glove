@@ -96,6 +96,8 @@ pub struct Glove {
     pub screenshot_request: Option<std::path::PathBuf>,
     /// Abrir a captura no Visualizador depois de salvar.
     pub open_after_shot: bool,
+    /// The thumbnail of the last screenshot in the corner of the screen.
+    pub shot_thumb: Option<crate::shot_thumb::ShotThumb>,
     /// Cursor pedido pelo app sob o ponteiro (desenhado só na sessão própria).
     pub cursor_status: smithay::input::pointer::CursorImageStatus,
     /// Ícone do que está sendo arrastado entre apps (segue o mouse).
@@ -308,6 +310,7 @@ impl Glove {
             pointer_pos: (0.0, 0.0).into(),
             screenshot_request: None,
             open_after_shot: false,
+            shot_thumb: None,
             cursor_status: smithay::input::pointer::CursorImageStatus::default_named(),
             dnd_icon: None,
             cursor_tex: None,

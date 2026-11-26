@@ -27,6 +27,7 @@ mod minimize;
 mod recent;
 mod render;
 mod shell;
+mod shot_thumb;
 mod search;
 mod region;
 mod gravar;

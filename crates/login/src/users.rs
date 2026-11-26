@@ -10,6 +10,7 @@ pub struct User {
     /// Nome completo (antes da 1ª vírgula do GECOS) ou o login.
     pub name: String,
     pub photo: Option<PathBuf>,
+    pub uid: u32,
 }
 
 fn uid_range(defs: &str) -> (u32, u32) {
@@ -42,11 +43,27 @@ pub fn parse(passwd: &str, defs: &str) -> Vec<User> {
                 return None;
             }
             let full = f[4].split(',').next().unwrap_or("").trim();
-            Some(User { login: f[0].to_string(), name: if full.is_empty() { f[0].to_string() } else { full.to_string() }, photo: None })
+            Some(User { login: f[0].to_string(), name: if full.is_empty() { f[0].to_string() } else { full.to_string() }, photo: None, uid })
         })
         .collect();
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     out
+}
+
+/// The file with the login of the last one who entered, in the cache folder of the login
+/// screen's user (the background shows that one's wallpaper).
+const LAST: &str = "glove-login-user";
+
+pub fn last() -> Option<String> {
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    std::fs::read_to_string(home.join(".cache").join(LAST)).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+pub fn remember(login: &str) {
+    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else { return };
+    let dir = home.join(".cache");
+    let _ = std::fs::create_dir_all(&dir);
+    let _ = std::fs::write(dir.join(LAST), format!("{login}\n"));
 }
 
 pub fn list() -> Vec<User> {

@@ -178,6 +178,13 @@ pub fn parse_bindings(c: &glove_config::Config) -> Vec<Binding> {
             out.push(b);
         }
     }
+    // The Print key keeps taking pictures of the screen (PC keyboards), unless the user
+    // gave it to something else.
+    for (shift, action) in [(false, KeyAction::Screenshot), (true, KeyAction::ScreenshotArea)] {
+        if !out.iter().any(|b| b.key == "print" && b.shift == shift && !b.ctrl && !b.alt && !b.logo) {
+            out.push(Binding { ctrl: false, alt: false, shift, logo: false, key: "print".into(), action });
+        }
+    }
     out
 }
 
@@ -823,6 +830,9 @@ impl Glove {
     }
 
     fn update_hover(&mut self, pos: Point<f64, Logical>) {
+        if self.shot_thumb.is_some() {
+            self.shot_thumb_motion(pos);
+        }
         // Arrastando o controle de volume: segue o mouse mesmo fora dele.
         if self.control.as_ref().is_some_and(|c| c.drag.is_some()) {
             let x = (pos.x - self.control.as_ref().unwrap().origin.x as f64) as f32;
@@ -959,12 +969,36 @@ impl Glove {
             };
             // Revelado na borda de outro monitor: passa para lá (sobe só ali, do zero).
             let reveal = (Some(tela_area) != principal).then_some(tela_area);
-            if at_edge && reveal != self.chrome.dock_reveal {
+            // The hidden Dock comes up after the mouse rests a moment on the edge (as on the
+            // Mac); already up (or coming up) here, the edge keeps it.
+            const REVEAL_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+            let showing = self.chrome.dock_hide_anim.map(|a| a.1).unwrap_or(self.chrome.dock_hide) < 0.5 && reveal == self.chrome.dock_reveal;
+            let edge_ok = if at_edge {
+                let since = *self.chrome.dock_edge_since.get_or_insert_with(std::time::Instant::now);
+                let ok = showing || since.elapsed() >= REVEAL_DELAY;
+                if !ok && !self.chrome.dock_edge_timer {
+                    // The mouse may stay still: check again when the moment is over.
+                    self.chrome.dock_edge_timer = true;
+                    let wait = REVEAL_DELAY.saturating_sub(since.elapsed()) + std::time::Duration::from_millis(5);
+                    let _ = self.loop_handle.insert_source(smithay::reexports::calloop::timer::Timer::from_duration(wait), |_, _, data| {
+                        let st = &mut data.state;
+                        st.chrome.dock_edge_timer = false;
+                        let p = st.pointer_pos;
+                        st.update_hover(p);
+                        smithay::reexports::calloop::timer::TimeoutAction::Drop
+                    });
+                }
+                ok
+            } else {
+                self.chrome.dock_edge_since = None;
+                false
+            };
+            if edge_ok && reveal != self.chrome.dock_reveal {
                 self.chrome.dock_reveal = reveal;
                 self.chrome.dock_hide = 1.0;
                 self.chrome.dock_hide_anim = None;
             }
-            let keep = at_edge || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
+            let keep = edge_ok || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
             self.chrome.animate_dock_hide(if keep { 0.0 } else { 1.0 });
             self.dirty = true;
         }
@@ -1086,6 +1120,13 @@ impl Glove {
         }
         if state == ButtonState::Released && std::mem::take(&mut self.swallow_wake_release) {
             return;
+        }
+        // The thumbnail of a screenshot: a click opens it to draw; a drag carries it.
+        if button == BTN_LEFT && !self.locked() && self.shot_thumb.is_some() {
+            let pos = self.pointer_pos;
+            if self.shot_thumb_button(state == ButtonState::Pressed, pos) {
+                return;
+            }
         }
         // Balões de aviso e a central.
         if button == BTN_LEFT && state == ButtonState::Pressed && !self.locked() {

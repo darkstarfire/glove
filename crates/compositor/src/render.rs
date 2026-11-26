@@ -319,6 +319,11 @@ impl Glove {
         if cursor && area.to_f64().contains(self.pointer_pos) {
             self.cursor_elements_at(renderer, sc, origin, &mut out);
         }
+        if cursor {
+            if let Some((p, t)) = self.shot_thumb_place(area) {
+                out.extend(mem(renderer, p, t, sc));
+            }
+        }
         // Menus (de contexto, do Dock) abertos neste monitor, por cima das janelas.
         if let Some(m) = &self.chrome.menu {
             for lv in m.levels.iter().rev() {
@@ -361,9 +366,12 @@ impl Glove {
             if let Some(t) = self.chrome.extra_bars.iter().find(|b| b.area == area).and_then(|b| b.tex.as_ref()) {
                 out.extend(mem_alpha(renderer, (0, 0).into(), t, sc, self.bar_alpha(Some(area))));
             }
-            if self.grade.alpha <= 0.0 && self.dock_shown_on(Some(area)) && self.config.monitor.dock_all {
-                // The windows minimized on this monitor: in its Dock, in front of it.
+            // The windows minimizing on this monitor (also with the auto-hiding Dock hidden
+            // here) and the thumbnails of its Dock, in front of it.
+            if self.grade.alpha <= 0.0 && self.config.monitor.dock_all {
                 self.minimized_elements(renderer, sc, Some(area), &mut out);
+            }
+            if self.grade.alpha <= 0.0 && self.dock_shown_on(Some(area)) && self.config.monitor.dock_all {
                 let alpha = self.dock_alpha(Some(area));
                 match self.chrome.dock_stills.iter().find(|s| s.area == area) {
                     Some(s) => {
@@ -411,11 +419,24 @@ impl Glove {
                 }
             }
         }
-        // Bloqueada com o mouse nesta tela: o painel de senha aparece aqui.
-        if let Some(t) = self.lock.as_ref().and_then(|l| l.tex.as_ref()).filter(|_| self.lock_output_rect() == area) {
-            let (x, y) = self.lock_panel_pos();
-            let m = glove_paint::chrome::LOCK_SHADOW as i32;
-            out.extend(mem(renderer, (x - m - origin.x, y - m - origin.y).into(), t, sc));
+        // Bloqueada com o mouse nesta tela: o painel de senha aparece aqui (no Moderno,
+        // com o relógio no alto e o papel desfocado atrás).
+        if let Some(l) = self.lock.as_ref().filter(|_| self.lock_output_rect() == area) {
+            if let Some(t) = &l.tex {
+                let (x, y) = self.lock_panel_pos();
+                let m = if l.modern { 0 } else { glove_paint::chrome::LOCK_SHADOW as i32 };
+                out.extend(mem(renderer, (x - m - origin.x, y - m - origin.y).into(), t, sc));
+            }
+            if l.modern {
+                if let Some((_, t)) = &l.clock {
+                    let (x, y) = self.lock_clock_pos(t.px.0 as f32 / sc as f32);
+                    out.extend(mem(renderer, (x - origin.x, y - origin.y).into(), t, sc));
+                }
+                if let Some((t, (w, h))) = &l.bg {
+                    out.extend(mem_scaled_alpha(renderer, (0.0, 0.0), (*w as f64, *h as f64), t, sc, None));
+                    return out;
+                }
+            }
         }
         // O papel desta tela (o dela, o pedaço do panorama ou o da principal esticado).
         let own = self.space.outputs().find(|o| self.space.output_geometry(o) == Some(area)).and_then(|o| self.wallpaper_of(&o.name()));
@@ -537,6 +558,13 @@ impl Glove {
 
         if cursor {
             self.cursor_elements(renderer, sc, &mut out);
+            // The thumbnail of the last screenshot (in the corner, or under the mouse); not
+            // in pictures of the screen.
+            if let Some(area) = self.primary().and_then(|o| self.space.output_geometry(o)) {
+                if let Some((p, t)) = self.shot_thumb_place(area) {
+                    out.extend(mem(renderer, p, t, sc));
+                }
+            }
         }
         // Grade de apps: por cima de tudo (menos do cursor e do Dock), sobre o papel de
         // parede desfocado. Aberta de todo, nada mais aparece embaixo.
@@ -671,8 +699,19 @@ impl Glove {
             let on_primary = self.primary().and_then(|o| self.space.output_geometry(o)).is_none_or(|g| g == self.lock_output_rect());
             if let Some(t) = l.tex.as_ref().filter(|_| on_primary) {
                 let (x, y) = self.lock_panel_pos();
-                let m = glove_paint::chrome::LOCK_SHADOW as i32;
+                let m = if l.modern { 0 } else { glove_paint::chrome::LOCK_SHADOW as i32 };
                 out.extend(mem(renderer, (x - m, y - m).into(), t, sc));
+            }
+            // Modern: the clock on top and the blurred wallpaper behind.
+            if l.modern && on_primary {
+                if let Some((_, t)) = &l.clock {
+                    let (x, y) = self.lock_clock_pos(t.px.0 as f32 / sc as f32);
+                    out.extend(mem(renderer, (x, y).into(), t, sc));
+                }
+                if let Some((t, (w, h))) = &l.bg {
+                    out.extend(mem_scaled_alpha(renderer, (0.0, 0.0), (*w as f64, *h as f64), t, sc, None));
+                    return out;
+                }
             }
             if let Some(b) = &c.wallpaper {
                 out.extend(mem(renderer, (0, 0).into(), b, sc));
@@ -684,7 +723,7 @@ impl Glove {
         if let Some(s) = &self.startup {
             if let Some(t) = &s.tex {
                 let (x, y) = self.startup_pos();
-                let m = glove_paint::chrome::STARTUP_SHADOW as i32;
+                let m = if s.modern { 0 } else { glove_paint::chrome::STARTUP_SHADOW as i32 };
                 out.extend(mem_alpha(renderer, (x - m, y - m).into(), t, sc, Some(s.alpha())));
             }
             if s.covering() {
@@ -912,9 +951,18 @@ impl Glove {
         let main = Some(area) == self.primary().and_then(|o| self.space.output_geometry(o));
         let shift = if main { Point::<f64, Logical>::from((0.0, 0.0)) } else { area.loc.to_f64() };
         let move_r = |r: Rectangle<f64, Logical>| Rectangle::new(r.loc - shift, r.size);
+        // On this monitor: the one nearest to the middle of `r` (the place in an auto-hiding
+        // Dock is just past the edge of the screen, outside every monitor).
+        let outputs: Vec<Rectangle<i32, Logical>> = self.space.outputs().filter_map(|o| self.space.output_geometry(o)).collect();
         let here = |r: Rectangle<f64, Logical>| {
             let mid: Point<f64, Logical> = (r.loc.x + r.size.w / 2.0, r.loc.y + r.size.h / 2.0).into();
-            self.output_rect_at(mid).map_or(main, |a| a == area)
+            let dist = |a: &Rectangle<i32, Logical>| {
+                let a = a.to_f64();
+                let dx = (a.loc.x - mid.x).max(mid.x - (a.loc.x + a.size.w)).max(0.0);
+                let dy = (a.loc.y - mid.y).max(mid.y - (a.loc.y + a.size.h)).max(0.0);
+                dx * dx + dy * dy
+            };
+            outputs.iter().min_by(|a, b| dist(a).total_cmp(&dist(b))).map_or(main, |a| *a == area)
         };
         // Going or coming: on the monitor of the window (its Dock is on the same one).
         for a in &self.min_anims {
@@ -1274,12 +1322,10 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
         match screenshot(state, renderer, &path, crop) {
             Ok(()) => {
                 tracing::info!("captura salva em {}", path.display());
-                // Já vai para a área de transferência: é só colar (Ctrl+V).
-                state.copy_file_to_clipboard(&path);
-                if std::mem::take(&mut state.open_after_shot) {
-                    // Abre pronta para desenhar por cima.
-                    state.spawn(&format!("glove-view --draw '{}'", path.display().to_string().replace('\'', "'\\''")));
-                }
+                // Já vai para a área de transferência (é só colar) e a miniatura aparece no
+                // canto; pedida pelo app Captura com "abrir", abre pronta para desenhar.
+                let open = std::mem::take(&mut state.open_after_shot);
+                state.shot_saved(&path, crop, None, open);
             }
             Err(e) => tracing::warn!("captura falhou: {e}"),
         }

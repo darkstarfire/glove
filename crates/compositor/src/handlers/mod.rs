@@ -118,12 +118,14 @@ impl ServerDndGrabHandler for Glove {
         self.desk.drag = None;
         self.desk.drag_dropped = false;
         self.desk.hot = None;
+        self.shot_thumb_drag_ended();
         self.dirty = true;
     }
     fn finished(&mut self, _seat: Seat<Self>) {
         self.desk.drag = None;
         self.desk.drag_dropped = false;
         self.desk.hot = None;
+        self.shot_thumb_drag_ended();
         self.dirty = true;
     }
 }

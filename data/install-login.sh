@@ -62,6 +62,8 @@ install -m 755 "$dir/../target/release/glove" "$dir/../target/release/glove-logi
 if id _greetd >/dev/null 2>&1; then greeter=_greetd; else greeter=greeter; fi
 
 mkdir -p /etc/greetd /etc/glove/login
+# The wallpaper of each user for the login screen (each session keeps its copy here).
+mkdir -p /var/lib/glove/wallpapers && chmod 1777 /var/lib/glove/wallpapers
 if [ -f "$conf" ] && [ ! -f "$backup" ]; then
     cp "$conf" "$backup"
     say "Configuração anterior guardada em $backup" "Previous configuration saved to $backup"

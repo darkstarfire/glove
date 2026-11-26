@@ -222,6 +222,9 @@ stage() {
 # After installing (packages and "install"): systemd sees the login screen service
 # and the icon theme gets indexed.
 post_install_sh='command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null || true
+# The wallpaper of each user for the login screen (each session keeps its copy here; the
+# sticky bit lets each one replace only their own file, as in /tmp).
+mkdir -p /var/lib/glove/wallpapers && chmod 1777 /var/lib/glove/wallpapers
 # Chromebook battery (the service skips itself on other computers). Up to 0.14 the service
 # was called glove-bateria: what an older install left enabled goes away.
 if command -v systemctl >/dev/null 2>&1; then

@@ -40,6 +40,15 @@ pub struct Lock {
     pub name: String,
     key: Option<(usize, Option<String>, bool, bool, bool, i32, u64)>,
     pub tex: Option<Tex>,
+    /// The Modern look (as on the Mac of today): the blurred wallpaper, the clock on top
+    /// and the photo, the name and the password floating under it.
+    pub modern: bool,
+    login: String,
+    photo: Option<glove_paint::Pixmap>,
+    /// The blurred wallpaper (small: the GPU enlarges it to the screen) and its size.
+    pub bg: Option<(Tex, (i32, i32))>,
+    /// The clock and the time it shows.
+    pub clock: Option<(String, Tex)>,
 }
 
 impl Lock {
@@ -53,6 +62,12 @@ impl Lock {
         let damp = 1.0 - e / SHAKE.as_secs_f32();
         ((e * 40.0).sin() * 14.0 * damp).round() as i32
     }
+}
+
+/// The photo of the user: the one of the accounts (AccountsService), or ~/.face.
+pub(crate) fn user_photo(login: &str) -> Option<glove_paint::Pixmap> {
+    let face = std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".face"));
+    [Some(std::path::PathBuf::from("/var/lib/AccountsService/icons").join(login)), face].into_iter().flatten().find_map(|p| glove_paint::image::decode(&p).ok())
 }
 
 /// O que o logind avisa sobre repouso e hibernação (`watch_sleep`).
@@ -359,7 +374,11 @@ impl Glove {
         // Nenhum app fica com o teclado enquanto está bloqueado.
         self.focus_window(None);
         let name = crate::shell::user_full_name();
-        self.lock = Some(Lock { password: String::new(), busy: false, message: None, shake_since: None, pressed: false, since: Instant::now(), name, key: None, tex: None });
+        let login = glove_config::login_wallpaper::current_login().unwrap_or_default();
+        // The photo: the one of the accounts (AccountsService), or ~/.face.
+        let photo = user_photo(&login);
+        let modern = self.screen_theme.modern;
+        self.lock = Some(Lock { password: String::new(), busy: false, message: None, shake_since: None, pressed: false, since: Instant::now(), name, key: None, tex: None, modern, login, photo, bg: None, clock: None });
         self.dirty = true;
         // Pisca o cursor e anima balanço/giratório só enquanto bloqueado.
         self.loop_handle
@@ -455,11 +474,26 @@ impl Glove {
         let g = self.lock_output_rect();
         let (w, h) = (g.size.w, g.size.h);
         let shake = self.lock.as_ref().map(|l| l.shake_offset()).unwrap_or(0);
+        if self.lock.as_ref().is_some_and(|l| l.modern) {
+            // Modern: under the middle of the screen, as on the Mac.
+            let pw = glove_paint::screens::LOCK_MODERN_W;
+            return (g.loc.x + ((w as f32 - pw) / 2.0) as i32 + shake, g.loc.y + (h as f32 * 0.6) as i32 - 38);
+        }
         (g.loc.x + ((w as f32 - chrome::LOCK_W) / 2.0) as i32 + shake, g.loc.y + ((h as f32 - chrome::LOCK_H) / 2.0 - h as f32 * 0.08) as i32)
+    }
+
+    /// Where the clock of the Modern lock goes (its corner, global points).
+    pub fn lock_clock_pos(&self, w: f32) -> (i32, i32) {
+        let g = self.lock_output_rect();
+        (g.loc.x + ((g.size.w as f32 - w) / 2.0) as i32, g.loc.y + (g.size.h as f32 * 0.09) as i32)
     }
 
     /// O ponto cai no botão Desbloquear?
     pub fn lock_button_at(&self, x: f64, y: f64) -> bool {
+        // The Modern lock has no button (Enter unlocks, as on the Mac).
+        if self.lock.as_ref().is_some_and(|l| l.modern) {
+            return false;
+        }
         let (px, py) = self.lock_panel_pos();
         let (bx, by, bw, bh) = chrome::lock_button_rect();
         let (x, y) = ((x - px as f64) as f32, (y - py as f64) as f32);
@@ -474,9 +508,35 @@ impl Glove {
         let spin = if l.busy { (l.since.elapsed().as_millis() / 83 % 12) as i32 } else { 0 };
         let key = (l.password.chars().count(), l.message.clone(), l.busy, caret, l.pressed, spin, tgen);
         if l.key.as_ref() != Some(&key) {
-            l.tex = chrome::lock_panel(&self.fonts, &self.screen_theme, &l.name, key.0, l.message.as_deref(), l.busy, caret, l.pressed, spin as f32 / 12.0, sc).map(to_tex);
+            l.tex = if l.modern {
+                glove_paint::screens::lock_modern(&self.fonts, &l.login, &l.name, l.photo.as_ref(), key.0, l.message.as_deref(), l.busy, caret, spin as f32 / 12.0, sc).map(to_tex)
+            } else {
+                chrome::lock_panel(&self.fonts, &self.screen_theme, &l.name, key.0, l.message.as_deref(), l.busy, caret, l.pressed, spin as f32 / 12.0, sc).map(to_tex)
+            };
             l.key = Some(key);
         }
+        if l.modern {
+            let (time, date) = glove_paint::screens::clock_now();
+            if l.clock.as_ref().map(|c| &c.0) != Some(&time) {
+                l.clock = glove_paint::screens::lock_clock(&self.fonts, &time, &date, sc).map(|c| (time, to_tex(c)));
+            }
+        }
+        let want_bg = l.modern && l.bg.is_none();
+        if want_bg {
+            // The wallpaper of the screen with the panel, blurred and a little darker.
+            let g = self.lock_output_rect();
+            let style = self.config.wallpaper.clone();
+            let (w, h) = (g.size.w as f32, g.size.h as f32);
+            let bg = glove_paint::screens::blurred_wallpaper(&self.theme, &style, w, h, 5, 0.15).and_then(|pm| {
+                let mut c = glove_paint::draw::Canvas::new(pm.width() as f32, pm.height() as f32, 1.0)?;
+                c.pm = pm;
+                Some((to_tex(c), (g.size.w, g.size.h)))
+            });
+            if let Some(l) = &mut self.lock {
+                l.bg = bg;
+            }
+        }
+        let Some(l) = &mut self.lock else { return };
         if l.shake_since.is_some_and(|t| t.elapsed() >= SHAKE) {
             l.shake_since = None;
         }

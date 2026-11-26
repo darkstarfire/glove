@@ -233,10 +233,13 @@ impl Glove {
 
     /// Where the Dock with the layout `l` sits on the monitor `area` (global coordinates).
     pub fn area_dock_pos(&self, area: Rectangle<i32, Logical>, l: &chrome::DockLayout) -> Point<i32, Logical> {
+        // The auto-hiding Dock not revealed on this monitor: out at the edge.
+        let hidden = !self.dock_shown_on(Some(area));
         if Some(area) == self.primary_rect() {
-            return self.chrome.dock_pos_layout(l, self.chrome.out_size);
+            return if hidden { self.chrome.dock_pos_hidden(l, self.chrome.out_size, 1.0) } else { self.chrome.dock_pos_layout(l, self.chrome.out_size) };
         }
-        area.loc + self.chrome.dock_pos_layout(l, (area.size.w, area.size.h))
+        let size = (area.size.w, area.size.h);
+        area.loc + if hidden { self.chrome.dock_pos_hidden(l, size, 1.0) } else { self.chrome.dock_pos_layout(l, size) }
     }
 
     /// The layout and the position (global) of the Dock of the monitor `area`.

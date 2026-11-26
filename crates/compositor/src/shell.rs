@@ -566,6 +566,10 @@ pub struct Chrome {
     /// Ocultar automaticamente, com o Dock em todos os monitores: o monitor em que ele foi
     /// revelado (só lá ele aparece e responde ao mouse). None = o principal.
     pub dock_reveal: Option<Rectangle<i32, Logical>>,
+    /// Since when the mouse rests on the edge (the hidden Dock comes up after a moment,
+    /// as on the Mac: a click near the edge does not bring it), and the timer to check.
+    pub dock_edge_since: Option<std::time::Instant>,
+    pub dock_edge_timer: bool,
     /// Escala usada no último desenho (mudou → refaz tudo).
     pub last_scale: f64,
 
@@ -602,10 +606,15 @@ impl Chrome {
     }
 
     /// Onde fica um Dock com o desenho `l` numa tela de tamanho (w, h).
-    pub fn dock_pos_layout(&self, l: &DockLayout, (w, h): (i32, i32)) -> Point<i32, Logical> {
+    pub fn dock_pos_layout(&self, l: &DockLayout, size: (i32, i32)) -> Point<i32, Logical> {
         // Escondido: desliza para fora pela borda (sobra só a sombra da prateleira). Em
         // tela cheia, entra e sai junto com a barra de menu.
         let hide = if self.fs { self.dock_hide.max(1.0 - self.peek) } else { self.dock_hide };
+        self.dock_pos_hidden(l, size, hide)
+    }
+
+    /// Where a Dock with the layout `l` sits, `hide` of the way out (0 = shown, 1 = hidden).
+    pub fn dock_pos_hidden(&self, l: &DockLayout, (w, h): (i32, i32), hide: f32) -> Point<i32, Logical> {
         let (lw, lh) = (l.width as i32, l.height as i32);
         match self.dock_side {
             chrome::DockSide::Bottom => {
@@ -2284,7 +2293,11 @@ impl Glove {
             if Some(area) == live {
                 continue;
             }
-            let (its, _) = self.dock_model(Some(area));
+            let (mut its, _) = self.dock_model(Some(area));
+            // The bounce of an app opening shows only on the Dock in use (the live one).
+            for it in &mut its {
+                it.bounce = 0.0;
+            }
             let (b, m) = fit(&its, (area.size.w, area.size.h));
             let l = chrome::dock_layout_on(&its, None, 0.0, b, m, side);
             let mut gpu = old.iter().position(|s| s.area == area).map(|i| old.remove(i).gpu).unwrap_or_default();

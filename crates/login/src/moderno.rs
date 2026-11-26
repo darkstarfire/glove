@@ -4,11 +4,7 @@
 //! painel da época (main.rs).
 
 use super::*;
-use glove_ui::paint::{
-    chrome::user_picture_modern,
-    draw::Canvas,
-    tiny_skia::{FillRule, FilterQuality, Paint, PathBuilder, Pattern, SpreadMode},
-};
+use glove_ui::paint::tiny_skia::{FillRule, FilterQuality, PathBuilder};
 
 /// Foto na lista e na senha.
 const FOTO: f32 = 96.0;
@@ -18,47 +14,6 @@ const PASSO: f32 = 150.0;
 /// Campo da senha.
 const CAMPO_W: f32 = 220.0;
 const CAMPO_H: f32 = 28.0;
-
-/// Desfoque em caixa (horizontal e vertical), três vezes: quase um gaussiano, sobre os
-/// pixels (pré-multiplicados) de uma imagem pequena.
-fn desfocar(pm: &mut Pixmap, raio: usize) {
-    let (w, h) = (pm.width() as usize, pm.height() as usize);
-    if w == 0 || h == 0 || raio == 0 {
-        return;
-    }
-    let data = pm.data_mut();
-    let mut tmp = vec![0u8; data.len()];
-    // Uma passada ao longo de uma direção: `n` linhas de `len` pixels, `passo` entre pixels
-    // vizinhos e `linha` entre linhas (em pixels).
-    let passada = |src: &[u8], dst: &mut [u8], n: usize, len: usize, passo: usize, linha: usize| {
-        let janela = (2 * raio + 1) as u32;
-        for l in 0..n {
-            let base = l * linha;
-            let px = |i: isize| base + (i.clamp(0, len as isize - 1) as usize) * passo;
-            let mut soma = [0u32; 4];
-            for i in -(raio as isize)..=(raio as isize) {
-                let o = px(i) * 4;
-                for c in 0..4 {
-                    soma[c] += src[o + c] as u32;
-                }
-            }
-            for i in 0..len as isize {
-                let o = px(i) * 4;
-                for c in 0..4 {
-                    dst[o + c] = (soma[c] / janela) as u8;
-                }
-                let (sai, entra) = (px(i - raio as isize) * 4, px(i + raio as isize + 1) * 4);
-                for c in 0..4 {
-                    soma[c] = soma[c] + src[entra + c] as u32 - src[sai + c] as u32;
-                }
-            }
-        }
-    };
-    for _ in 0..3 {
-        passada(data, &mut tmp, h, w, 1, w);
-        passada(&tmp, data, w, h, w, 1);
-    }
-}
 
 fn branco(a: u8) -> glove_ui::paint::Color {
     rgba(255, 255, 255, a)
@@ -73,24 +28,7 @@ fn texto(ui: &mut Ui, t: &str, cx: f32, y: f32, px: f32, bold: bool) {
 
 /// A foto (ou o avatar desenhado; ou a figura genérica de "Outro…") num círculo.
 fn foto_redonda(ui: &mut Ui, photo: Option<&Pixmap>, login: Option<&str>, x: f32, y: f32, d: f32) {
-    let sc = ui.c.scale;
-    let Some(mut tmp) = Canvas::new(d, d, sc) else { return };
-    match (photo, login) {
-        (Some(p), _) => {
-            // Preenche o círculo: o lado menor da foto vira o diâmetro.
-            let k = d * sc / p.width().min(p.height()) as f32;
-            let (ox, oy) = ((d * sc - p.width() as f32 * k) / 2.0, (d * sc - p.height() as f32 * k) / 2.0);
-            let t = Transform::from_scale(k, k).post_translate(ox, oy);
-            tmp.draw_pixmap_t(p.as_ref(), &PixmapPaint { quality: FilterQuality::Bicubic, ..Default::default() }, t);
-        }
-        (None, Some(l)) => avatar(&mut tmp, -d * 0.08, -d * 0.08, d * 1.16, avatar_seed(l)),
-        (None, None) => user_picture_modern(&mut tmp, 0.0, 0.0, d, false),
-    }
-    let mut paint = Paint::default();
-    paint.anti_alias = true;
-    paint.shader = Pattern::new(tmp.pm.as_ref(), SpreadMode::Pad, FilterQuality::Bicubic, 1.0, Transform::from_scale(1.0 / sc, 1.0 / sc).post_translate(x, y));
-    ui.c.fill(circle(x + d / 2.0, y + d / 2.0, d / 2.0), &paint);
-    ui.c.stroke(circle(x + d / 2.0, y + d / 2.0, d / 2.0 - 0.5), &solid(branco(110)), 1.0);
+    glove_ui::paint::screens::round_photo(ui.c, photo, login, x, y, d);
 }
 
 /// Lua crescente (o círculo grande menos o pequeno), em contorno fechado.
@@ -127,18 +65,26 @@ fn lua(cx: f32, cy: f32, r: f32) -> Option<glove_ui::paint::tiny_skia::Path> {
 }
 
 impl Login {
-    /// O papel de parede desfocado (pintado em 1/4 do tamanho, desfocado e ampliado) e um
-    /// pouco escurecido.
+    /// The wallpaper behind: the chosen user's (in the list, the last one who entered),
+    /// from the copy their session keeps for the login screen; without one, the login
+    /// screen's own. As the path of a picture or a style of Glove.
+    fn fundo_de(&self) -> String {
+        let user = match self.screen {
+            Screen::Password(Some(i)) => self.users.get(i),
+            _ => users::last().and_then(|l| self.users.iter().find(|u| u.login == l)).or(self.users.first()),
+        };
+        user.and_then(|u| glove_config::login_wallpaper::of(&u.login, u.uid)).map(|p| p.display().to_string()).unwrap_or_else(|| self.wallpaper.clone())
+    }
+
+    /// The wallpaper softly blurred (painted at 1/4 of the size, blurred and enlarged) and a
+    /// little darker, as on the login screen of the Mac.
     fn fundo_moderno(&mut self, ui: &mut Ui) {
         let (w, h) = (ui.c.w, ui.c.h);
-        let key = (w.round() as u32, h.round() as u32);
-        if self.fundo.as_ref().map(|f| f.0) != Some(key) {
+        let fonte = self.fundo_de();
+        let key = (w.round() as u32, h.round() as u32, fonte.clone());
+        if self.fundo.as_ref().map(|f| &f.0) != Some(&key) {
             let theme = ui.theme.clone();
-            self.fundo = glove_ui::paint::wallpaper::render_style(&theme, &self.wallpaper, (w / 4.0).max(8.0), (h / 4.0).max(8.0), 1.0).map(|c| {
-                let mut pm = c.pm;
-                desfocar(&mut pm, 7);
-                (key, pm)
-            });
+            self.fundo = glove_ui::paint::screens::blurred_wallpaper(&theme, &fonte, w, h, 3, 0.12).map(|pm| (key, pm));
         }
         match &self.fundo {
             Some((_, pm)) => {
@@ -148,7 +94,13 @@ impl Login {
             }
             None => ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(46, 70, 110, 255))),
         }
-        ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(0, 0, 0, 40)));
+        // The date and the time on top (as on the lock screen), redrawn every minute.
+        let (time, date) = glove_ui::paint::screens::clock_now();
+        if let Some(c) = glove_ui::paint::screens::lock_clock(ui.fonts, &time, &date, ui.c.scale) {
+            let cw = c.pm.width() as f32 / ui.c.scale;
+            ui.c.draw_canvas(&c, ((w - cw) / 2.0).round(), (h * 0.08).round());
+        }
+        ui.wake_after(Duration::from_secs(20));
     }
 
     pub(crate) fn ui_moderno(&mut self, ui: &mut Ui) {
@@ -167,7 +119,7 @@ impl Login {
         let n = self.users.len() + 1;
         let passo = PASSO.min((w - 40.0) / n as f32);
         let x0 = w / 2.0 - passo * n as f32 / 2.0;
-        let y = (h * 0.5 - FOTO / 2.0).round();
+        let y = (h * 0.62 - FOTO / 2.0).round();
         for i in 0..n {
             let cx = x0 + passo * (i as f32 + 0.5);
             let resp = ui.hit(Rect::new(cx - passo / 2.0 + 6.0, y - 10.0, passo - 12.0, FOTO + 50.0));
@@ -203,7 +155,7 @@ impl Login {
     /// A foto escolhida, o nome, a senha (com a seta de entrar) e Cancelar.
     fn senha_moderna(&mut self, ui: &mut Ui, sel: Option<usize>, w: f32, h: f32, busy: bool) {
         let cx = (w / 2.0 + self.shake_offset()).round();
-        let mut y = (h * 0.42 - FOTO_SENHA / 2.0).round();
+        let mut y = (h * 0.5 - FOTO_SENHA / 2.0).round();
         match sel {
             Some(i) => {
                 let (photo, login) = (self.photos[i].as_ref(), self.users[i].login.clone());

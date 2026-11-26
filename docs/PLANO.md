@@ -1735,6 +1735,44 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     antes de qualquer script da página, sem `<body>`, já com `chrome.runtime`; a regra comum
     rodou depois, como antes.
 
+- [x] 23.18 (v0.15.11, glove-ui 0.2.78) Pedidos de 26/11/2026 (tarde):
+  - Captura como no Mac: Super+Shift+3 (tela) e Super+Shift+4 (área, em qualquer monitor); a
+    tecla Print continua valendo, e as gravações foram para Alt+Shift+Super+3/4 (as
+    configurações antigas com os atalhos de fábrica são atualizadas). Depois da captura a
+    imagem já está copiada e a miniatura (`shot_thumb.rs`) entra pelo canto de baixo à direita
+    do monitor da captura por 6 s (espera com o mouse em cima): o clique abre no Visualizador
+    para desenhar; arrastar leva a imagem para uma janela (lista de arquivos e image/png).
+    Conferido na sessão oculta: o clique abriu o `glove-view --draw` da captura nova e soltar a
+    miniatura numa janela do Arquivos copiou o arquivo para a pasta dela.
+  - Monitor extra com o Dock que se esconde: a animação de minimizar não aparecia (o desenho
+    dela dependia do Dock estar à vista ali, e o lugar no Dock escondido fica fora da tela).
+    Agora vale o monitor mais perto do lugar, e a janela vai para a borda certa. O pulo do
+    ícone ao abrir um app só no Dock em uso.
+  - Seletor de arquivos (o das janelas Abrir/Escolher dos apps, como o "Abrir Pasta" do VS
+    Code): as setas andam pelas colunas como no Finder (↑↓ na coluna, → entra, ← volta).
+  - Tema do Mide: o Arquivos (o Finder), o Todos os Apps (o foguete) e a Jangada ficam com o
+    desenho do Glove no formato dos ícones do Mide (`mide_tile`; o foguete e a Jangada ganharam
+    a variante sem o selo redondo).
+  - O som pelo fone (P2) no Acer funcionou: os apps tinham ficado presos na saída de antes da
+    correção da 0.15.9.
+  - Telas do sistema com o papel de parede do usuário (referências do macOS Ventura/Sonoma):
+    - Bloqueio, no Moderno: o papel desfocado e um pouco escurecido (pequeno, ampliado pela placa
+      de vídeo), a data e a hora grandes no alto, a foto redonda, o nome e a senha numa pílula
+      translúcida flutuando abaixo do meio; sem botão (Enter desbloqueia). No clássico, o painel
+      de sempre.
+    - Início da sessão, no Moderno: a foto, o nome e uma barra fina sobre o papel (no clássico,
+      o painel com os passos).
+    - Tela de login: cada sessão guarda uma cópia do seu papel (1280 px) em
+      /var/lib/glove/wallpapers (criada pela instalação, 1777; a tela de login só aceita a cópia
+      que pertence ao usuário do nome). O login Moderno mostra o papel do usuário escolhido (na
+      lista, o do último que entrou) levemente desfocado, com o relógio no alto e os usuários
+      mais embaixo; o clássico continua com o painel, sobre o papel do último usuário com um
+      leve desfoque (no lugar do azul).
+    - Conferido na sessão oculta: bloqueio, início e a prévia do login Moderno. A tela de login
+      de verdade (greetd) só dá para ver reiniciando.
+  - Dock que se esconde: só sobe depois de 0,5 s com o mouse na borda (como no Mac), para um
+    clique perto da borda não trazer o Dock.
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,

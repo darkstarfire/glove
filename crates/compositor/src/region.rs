@@ -88,10 +88,7 @@ impl Glove {
         match out.save_png(&path) {
             Ok(()) => {
                 tracing::info!("captura salva em {}", path.display());
-                self.copy_file_to_clipboard(&path);
-                if open {
-                    self.spawn(&format!("glove-view --draw '{}'", path.display().to_string().replace('\'', "'\\''")));
-                }
+                self.shot_saved(&path, Some(rect), Some((out, sc)), open);
             }
             Err(e) => tracing::warn!("captura falhou: {e}"),
         }
