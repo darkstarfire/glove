@@ -4,6 +4,7 @@
 //!   (com o Exposé aberto, qualquer um dos dois volta);
 //! - 3 dedos para os lados: a mesa virtual vizinha (o conteúdo acompanha os dedos:
 //!   para a esquerda vai à próxima);
+//! - 4 dedos para cima: Todos os Apps; para baixo: mostrar a mesa; para os lados, como os 3;
 //! - pinçar com 4 dedos: Todos os Apps; abrir os 4 dedos: mostrar a mesa.
 //!
 //! O movimento é somado e decidido quando os dedos saem (Preferências ▸ Trackpad
@@ -47,6 +48,15 @@ pub fn decide(g: &Gesto) -> Option<Acao> {
                 None
             } else if g.dy.abs() > g.dx.abs() {
                 Some(if g.dy < 0.0 { Acao::ExposeAll } else { Acao::ExposeApp })
+            } else {
+                Some(Acao::Desk(if g.dx < 0.0 { 1 } else { -1 }))
+            }
+        }
+        (Kind::Swipe, 4..) => {
+            if g.dx.abs().max(g.dy.abs()) < SWIPE_MIN {
+                None
+            } else if g.dy.abs() > g.dx.abs() {
+                Some(if g.dy < 0.0 { Acao::Grade } else { Acao::ShowDesktop })
             } else {
                 Some(Acao::Desk(if g.dx < 0.0 { 1 } else { -1 }))
             }
@@ -97,6 +107,8 @@ impl Glove {
                 }
             }
             Acao::Grade => self.toggle_grade(),
+            // With All Apps open, the gesture down (or opening the fingers) closes it.
+            Acao::ShowDesktop if self.grade_active() => self.toggle_grade(),
             Acao::ShowDesktop => self.toggle_expose(ExposeMode::Desktop),
         }
         self.dirty = true;
@@ -122,5 +134,8 @@ mod tests {
         assert_eq!(decide(&g(Kind::Pinch, 4, 0.0, 0.0, 0.5)), Some(Acao::Grade));
         assert_eq!(decide(&g(Kind::Pinch, 4, 0.0, 0.0, 1.6)), Some(Acao::ShowDesktop));
         assert_eq!(decide(&g(Kind::Pinch, 4, 0.0, 0.0, 1.0)), None);
+        assert_eq!(decide(&g(Kind::Swipe, 4, 5.0, -200.0, 1.0)), Some(Acao::Grade));
+        assert_eq!(decide(&g(Kind::Swipe, 4, 5.0, 200.0, 1.0)), Some(Acao::ShowDesktop));
+        assert_eq!(decide(&g(Kind::Swipe, 4, -150.0, 10.0, 1.0)), Some(Acao::Desk(1)));
     }
 }

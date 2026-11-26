@@ -78,6 +78,9 @@ pub struct Drm {
     cursor_size: (u32, u32),
     /// Tela apagada (DPMS): o próximo quadro acende de novo.
     blanked: bool,
+    /// A frame without changes on screen while an animation still wants frames: a timer
+    /// draws again (no vblank comes for a frame not sent).
+    retry: bool,
 }
 
 /// Um conector com monitor ligado.
@@ -589,7 +592,7 @@ pub fn init(event_loop: &mut EventLoop<CalloopData>, state: &mut Glove, dh: &Dis
         (w.clamp(32, 512), h.clamp(32, 512))
     };
 
-    let mut backend = Box::new(Drm { session: session.clone(), drm, gbm, renderer, heads: Vec::new(), mirror: false, active: true, devices: Vec::new(), cursor_size, blanked: false });
+    let mut backend = Box::new(Drm { session: session.clone(), drm, gbm, renderer, heads: Vec::new(), mirror: false, active: true, devices: Vec::new(), cursor_size, blanked: false, retry: false });
     backend.configure(state, dh);
     if backend.heads.is_empty() {
         return Err("nenhum monitor pôde ser ligado".into());
@@ -779,7 +782,7 @@ pub fn render_drm(data: &mut CalloopData) {
         }
     }
     let mirror = drm.mirror;
-    let Drm { heads, renderer, .. } = &mut **drm;
+    let Drm { heads, renderer, retry, .. } = &mut **drm;
     for (i, head) in heads.iter_mut().enumerate() {
         if head.pending.is_some() || !head.needs_frame {
             continue;
@@ -814,6 +817,23 @@ pub fn render_drm(data: &mut CalloopData) {
             let output = head.output.clone();
             render::after_frame(state, renderer, &output);
         }
+    }
+    // Something still animates (the Dock coming up: its first frames are still out of the
+    // screen, nothing changes) but no frame went to any screen, so no vblank will come to
+    // ask for the next one: without this the animation stood still until the next event
+    // and then jumped to the end (seen with no window open).
+    let animating = state.chrome.dock_hide_anim.is_some() || state.chrome.dock_zoom_anim.is_some() || state.chrome.peek_anim.is_some() || !state.min_anims.is_empty();
+    if state.dirty && animating && !*retry && heads.iter().all(|h| h.pending.is_none()) {
+        *retry = true;
+        let _ = state.loop_handle.insert_source(Timer::from_duration(Duration::from_millis(16)), |_, _, data| {
+            if let Backend::Drm(drm) = &mut data.backend {
+                drm.retry = false;
+            }
+            if data.state.dirty {
+                render_drm(data);
+            }
+            TimeoutAction::Drop
+        });
     }
 }
 

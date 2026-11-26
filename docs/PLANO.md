@@ -1819,6 +1819,18 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - O "piscar preto" ao clicar no botão da extensão Blur de Contatos não se repetiu na sessão
     oculta (nem com a 2.1.6): falta ver com a placa de vídeo de verdade.
 
+- [x] 23.21 (v0.15.14, glove-ui 0.2.80) Ajustes de 26/11/2026 (noite):
+  - Sem nenhuma janela aberta, o Dock que se esconde subia de uma vez: o primeiro quadro da
+    animação ainda o deixa fora da tela (nada muda na tela, nenhum quadro vai para o monitor),
+    e sem quadro enviado não vem o vblank que pede o próximo; a animação parava até o próximo
+    evento e pulava para o fim. Agora `render_drm` pede outro quadro em 16 ms quando uma
+    animação conhecida (Dock, ampliação, barra em tela cheia, minimizar) ainda está correndo e
+    nenhum quadro ficou na fila.
+  - 4 dedos para cima: Todos os Apps; para baixo: mostrar a mesa (com Todos os Apps aberto,
+    fecha); para os lados, como os 3.
+  - Tema do Mide: a Busca e o Relógio também no formato arredondado (a lupa e o mostrador do
+    Glove); o Dock Moderno com 10 pontos de folga nas pontas (eram 6: o Finder colava na borda).
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
