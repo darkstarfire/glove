@@ -829,9 +829,12 @@ impl Glove {
             self.control_drag(x, false);
         }
         if self.extras.slider.as_ref().is_some_and(|s| s.dragging) {
-            let y = (pos.y - self.extras.slider.as_ref().unwrap().origin.y as f64) as f32;
-            self.volume_slider_drag(y, false);
+            let x = (pos.x - self.extras.slider.as_ref().unwrap().origin.x as f64) as f32;
+            self.volume_slider_drag(x, false);
             return;
+        }
+        if self.extras.slider.is_some() {
+            self.volume_slider_hover(pos);
         }
         let hit = self.hit_test(pos);
 
@@ -1187,12 +1190,7 @@ impl Glove {
         if state == ButtonState::Pressed && !pointer.is_grabbed() && self.extras.slider.is_some() {
             // Controle de volume aberto: clicar nele ajusta; fora, fecha.
             match self.hit_test(pos) {
-                Hit::VolumeSlider(y) => {
-                    if let Some(s) = &mut self.extras.slider {
-                        s.dragging = true;
-                    }
-                    self.volume_slider_drag(y, false);
-                }
+                Hit::VolumeSlider(x, y) => self.volume_slider_press(x, y),
                 Hit::MenuBar { target: Some(t) } if Some(t) != self.volume_extra_index().map(crate::shell::BarTarget::Extra) => {
                     self.open_bar_menu(t);
                 }
@@ -1202,8 +1200,8 @@ impl Glove {
             return;
         }
         if state == ButtonState::Released && self.extras.slider.as_ref().is_some_and(|s| s.dragging) {
-            let y = (pos.y - self.extras.slider.as_ref().unwrap().origin.y as f64) as f32;
-            self.volume_slider_drag(y, true);
+            let x = (pos.x - self.extras.slider.as_ref().unwrap().origin.x as f64) as f32;
+            self.volume_slider_drag(x, true);
             if let Some(s) = &mut self.extras.slider {
                 s.dragging = false;
             }
@@ -1215,7 +1213,7 @@ impl Glove {
                 // Com o menu aberto: clicar no mesmo título fecha, em outro troca;
                 // fora dos menus, só fecha.
                 match hit {
-                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Control(..) | Hit::Search(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(..) | Hit::Control(..) | Hit::Search(_) => {}
                     Hit::Dock(Some(i)) if button == BTN_RIGHT => self.open_dock_menu(i),
                     Hit::MenuBar { target: Some(crate::shell::BarTarget::Extra(k)) } if button == BTN_RIGHT && self.tray_index(k).is_some() => {
                         self.close_menu();
@@ -1332,7 +1330,7 @@ impl Glove {
                         self.focus_window(None);
                         self.desk_press(None, button, pos);
                     }
-                    Hit::Menu(..) | Hit::VolumeSlider(_) | Hit::Control(..) | Hit::Search(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(..) | Hit::Control(..) | Hit::Search(_) => {}
                 }
             }
             self.chrome.swallow_release = swallow;

@@ -634,7 +634,8 @@ pub enum Hit {
     /// Painel Forçar Encerrar.
     ForceQuit(chrome::FqHit),
     /// Controle de volume (y relativo ao conteúdo).
-    VolumeSlider(f32),
+    /// The sound menu (the point relative to its content).
+    VolumeSlider(f32, f32),
     /// Central de controle: a parte sob o mouse (None = o fundo) e o x relativo.
     Control(Option<chrome::ControlPart>, f32),
     /// Lupa da Busca Rápida na barra.
@@ -681,8 +682,8 @@ impl Glove {
         if let Some((part, x)) = self.control_hit(pos) {
             return Hit::Control(part, x);
         }
-        if let Some(y) = self.volume_slider_y(pos) {
-            return Hit::VolumeSlider(y);
+        if let Some((x, y)) = self.volume_slider_y(pos) {
+            return Hit::VolumeSlider(x, y);
         }
         if let Some(r) = self.search_hit(pos) {
             return Hit::Search(r);

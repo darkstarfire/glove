@@ -13,8 +13,12 @@ use std::{
 };
 
 use glove_paint::chrome::{self, Extra, OsdKind};
+use glove_config::audio::{self, Direction, Port};
 use smithay::{
-    reexports::calloop::timer::{TimeoutAction, Timer},
+    reexports::calloop::{
+        channel::{channel, Event as ChannelEvent, Sender},
+        timer::{TimeoutAction, Timer},
+    },
     utils::{Logical, Point},
 };
 
@@ -43,13 +47,24 @@ pub enum ExtraKind {
     Tray(usize),
 }
 
+/// The sound menu under the volume icon: the volume slider, the outputs and the
+/// preferences.
 pub struct VolumeSlider {
     /// Canto do conteúdo (sem a sombra).
     pub origin: Point<i32, Logical>,
     pub dragging: bool,
     last_set: Instant,
-    key: Option<(u32, bool, u64)>,
+    /// The item under the pointer.
+    pub hover: Option<usize>,
+    key: Option<(String, Option<usize>, u64)>,
     pub tex: Option<Tex>,
+}
+
+/// What the audio thread sends back.
+pub enum AudioMsg {
+    Outputs(Option<Vec<Port>>),
+    /// An output was chosen (worked or not): read the volume and outputs again.
+    Selected,
 }
 
 pub struct Osd {
@@ -76,6 +91,10 @@ pub struct Extras {
     undimmed: Option<u32>,
     /// Wi-Fi: (ligado, sinal da rede em uso). None = sem placa Wi-Fi ou sem NetworkManager.
     pub wifi: Option<(bool, Option<u8>)>,
+    /// The sound outputs from the last reading (the sound menu opens with these).
+    pub outputs: Vec<Port>,
+    outputs_reading: bool,
+    audio_tx: Option<Sender<AudioMsg>>,
 }
 
 /// Estado do Wi-Fi para o ícone da barra (lê o NetworkManager).
@@ -317,11 +336,13 @@ impl Glove {
             ExtraKind::Volume => {
                 self.close_menu();
                 self.extras.volume = read_volume().or(self.extras.volume);
+                self.refresh_outputs();
+                let w = chrome::sound_menu_size(&self.fonts, &self.sound_info()).0 as i32;
                 let x = self.chrome.extra_ranges.get(k).map(|r| r.0).unwrap_or(0.0) as i32;
                 let (sw, _) = self.output_size();
-                let x = x.min(sw - chrome::VOLUME_SLIDER_W as i32);
-                let origin = self.shift_point((x, glove_paint::theme::MENUBAR_H).into(), chrome::VOLUME_SLIDER_W as i32);
-                self.extras.slider = Some(VolumeSlider { origin, dragging: false, last_set: Instant::now() - Duration::from_secs(1), key: None, tex: None });
+                let x = x.min(sw - w);
+                let origin = self.shift_point((x, glove_paint::theme::MENUBAR_H).into(), w);
+                self.extras.slider = Some(VolumeSlider { origin, dragging: false, last_set: Instant::now() - Duration::from_secs(1), hover: None, key: None, tex: None });
                 self.dirty = true;
             }
             ExtraKind::Battery => {
@@ -690,16 +711,121 @@ impl Glove {
     // Controle de volume (arrastar)
     // -----------------------------------------------------------------------
 
-    /// Ponto dentro do controle? Devolve o y relativo ao conteúdo.
-    pub fn volume_slider_y(&self, pos: Point<f64, Logical>) -> Option<f32> {
-        let s = self.extras.slider.as_ref()?;
-        let (x, y) = (pos.x - s.origin.x as f64, pos.y - s.origin.y as f64);
-        (x >= 0.0 && y >= 0.0 && x < chrome::VOLUME_SLIDER_W as f64 && y < chrome::VOLUME_SLIDER_H as f64).then_some(y as f32)
+    /// What the sound menu shows.
+    pub fn sound_info(&self) -> chrome::SoundMenuInfo {
+        let (level, muted) = self.extras.volume.unwrap_or((0.0, true));
+        let outputs = self.extras.outputs.iter().map(|p| (p.name.clone(), p.default)).collect();
+        chrome::SoundMenuInfo { level, muted, outputs, loading: self.extras.outputs_reading }
     }
 
-    pub fn volume_slider_drag(&mut self, y: f32, done: bool) {
+    fn audio_sender(&mut self) -> Sender<AudioMsg> {
+        if let Some(tx) = &self.extras.audio_tx {
+            return tx.clone();
+        }
+        let (tx, rx) = channel::<AudioMsg>();
+        let _ = self.loop_handle.insert_source(rx, |ev, _, data| {
+            if let ChannelEvent::Msg(m) = ev {
+                data.state.audio_arrived(m);
+            }
+        });
+        self.extras.audio_tx = Some(tx.clone());
+        tx
+    }
+
+    /// Reads the outputs in another thread (`pw-dump` takes a while); one at a time.
+    pub fn refresh_outputs(&mut self) {
+        if self.extras.outputs_reading {
+            return;
+        }
+        self.extras.outputs_reading = true;
+        let tx = self.audio_sender();
+        std::thread::spawn(move || {
+            let _ = tx.send(AudioMsg::Outputs(audio::snapshot().map(|s| s.outputs)));
+        });
+    }
+
+    fn audio_arrived(&mut self, m: AudioMsg) {
+        match m {
+            AudioMsg::Outputs(o) => {
+                self.extras.outputs_reading = false;
+                self.extras.outputs = o.unwrap_or_default();
+                self.fit_sound_menu();
+            }
+            AudioMsg::Selected => {
+                self.extras.volume = read_volume().or(self.extras.volume);
+                self.refresh_outputs();
+            }
+        }
+        self.dirty = true;
+    }
+
+    /// The menu got wider with the outputs: keep it inside the screen.
+    fn fit_sound_menu(&mut self) {
+        let w = chrome::sound_menu_size(&self.fonts, &self.sound_info()).0 as i32;
+        let screen = self.extras.slider.as_ref().and_then(|s| self.output_rect_at(s.origin.to_f64()));
+        if let (Some(s), Some(r)) = (self.extras.slider.as_mut(), screen) {
+            let right = r.loc.x + r.size.w;
+            if s.origin.x + w > right {
+                s.origin.x = (right - w).max(r.loc.x);
+            }
+        }
+    }
+
+    /// Point inside the sound menu? The point relative to its content.
+    pub fn volume_slider_y(&self, pos: Point<f64, Logical>) -> Option<(f32, f32)> {
+        let s = self.extras.slider.as_ref()?;
+        let (x, y) = ((pos.x - s.origin.x as f64) as f32, (pos.y - s.origin.y as f64) as f32);
+        let (w, h) = chrome::sound_menu_size(&self.fonts, &self.sound_info());
+        (x >= 0.0 && y >= 0.0 && x < w && y < h).then_some((x, y))
+    }
+
+    /// A click in the sound menu: the slider starts dragging, an output is chosen, the
+    /// preferences open.
+    pub fn volume_slider_press(&mut self, x: f32, y: f32) {
+        match chrome::sound_menu_hit(&self.fonts, &self.sound_info(), x, y) {
+            Some(chrome::SoundPart::Volume(_)) => {
+                if let Some(s) = &mut self.extras.slider {
+                    s.dragging = true;
+                }
+                self.volume_slider_drag(x, false);
+            }
+            Some(chrome::SoundPart::Output(k)) => {
+                let Some(port) = self.extras.outputs.get(k).cloned() else { return };
+                for (i, p) in self.extras.outputs.iter_mut().enumerate() {
+                    p.default = i == k;
+                }
+                self.close_volume_slider();
+                let tx = self.audio_sender();
+                std::thread::spawn(move || {
+                    if !audio::select(&port, Direction::Output) {
+                        tracing::warn!("som: não deu para usar a saída {}", port.name);
+                    }
+                    let _ = tx.send(AudioMsg::Selected);
+                });
+            }
+            Some(chrome::SoundPart::Prefs) => {
+                self.close_volume_slider();
+                self.spawn("glove-prefs sound");
+            }
+            None => {}
+        }
+    }
+
+    /// The pointer over the sound menu: highlights the item under it.
+    pub fn volume_slider_hover(&mut self, pos: Point<f64, Logical>) {
+        let hover = self.volume_slider_y(pos).and_then(|(x, y)| chrome::sound_menu_hover(&self.fonts, &self.sound_info(), x, y));
+        if let Some(s) = &mut self.extras.slider {
+            if s.hover != hover {
+                s.hover = hover;
+                self.dirty = true;
+            }
+        }
+    }
+
+    /// Dragging the slider (`x` relative to the content).
+    pub fn volume_slider_drag(&mut self, x: f32, done: bool) {
+        let level = chrome::sound_menu_level(&self.fonts, &self.sound_info(), x);
         let Some(s) = &mut self.extras.slider else { return };
-        let level = chrome::volume_slider_level(y);
         // Não dispara um wpctl a cada movimento: no máximo a cada 40 ms (e sempre no fim).
         if done || s.last_set.elapsed() >= Duration::from_millis(40) {
             s.last_set = Instant::now();
@@ -758,12 +884,14 @@ impl Glove {
                 o.key = Some(key);
             }
         }
-        let (level, muted) = self.extras.volume.unwrap_or((0.0, true));
-        if let Some(s) = &mut self.extras.slider {
-            let key = ((level * 1000.0) as u32, muted, tgen);
-            if s.key != Some(key) {
-                s.tex = chrome::volume_slider(&self.theme, level, muted, sc).map(to_tex);
-                s.key = Some(key);
+        if self.extras.slider.is_some() {
+            let info = self.sound_info();
+            if let Some(s) = &mut self.extras.slider {
+                let key = (format!("{info:?}"), s.hover, tgen);
+                if s.key.as_ref() != Some(&key) {
+                    s.tex = chrome::sound_menu(&self.fonts, &self.theme, &info, s.hover, sc).map(to_tex);
+                    s.key = Some(key);
+                }
             }
         }
     }

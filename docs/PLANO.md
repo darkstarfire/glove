@@ -1684,6 +1684,22 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
   - Fica para medir na máquina do usuário (a sessão oculta não tem placa de vídeo): um
     `jangada --profile` com o tempo de cada quadro e a aceleração de fato ligada.
 
+- [x] 23.16 (v0.15.8, glove-ui 0.2.76) Escolher a saída de som, inclusive o headset (relato do
+  usuário em 26/11/2026: o headset não aparecia nem dava para escolher; "ter só o slider não
+  está bom").
+  - A causa: o painel listava as saídas do `wpctl status`, que só mostra as do perfil em uso
+    da placa. As placas dos notebooks com SOF/UCM põem "Speaker" e "Headphones" em perfis
+    diferentes, então o fone ligado no conector nunca aparecia.
+  - `glove_config::audio` (no kit): lê o `pw-dump` e lista cada porta de cada placa
+    (`EnumRoute`), com nome (alto-falantes internos, fones de ouvido, o nome do monitor no
+    HDMI, o do aparelho USB ou Bluetooth) e tipo. Escolher uma troca o perfil da placa quando
+    precisa (o de maior prioridade que tem a porta), troca a porta do sink quando ele tem mais
+    de uma, espera o sink novo e o torna o padrão. Portas sem nada ligado (HDMI sem monitor)
+    não aparecem; sinks feitos por programas (filtros) aparecem como "Virtual".
+  - Preferências ▸ Som ▸ Saída e Entrada: a lista vira uma tabela com Nome e Tipo, como no 10.4.
+  - Barra de menus: o ícone de volume abre um menu com o volume num slider, as saídas (com ✓
+    na atual) e "Preferências de Som…", no lugar do slider vertical sozinho.
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,

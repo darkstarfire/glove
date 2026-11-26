@@ -1533,8 +1533,8 @@ msgstr "Low"
 msgid "Tocar retorno ao mudar o volume"
 msgstr "Play feedback when volume is changed"
 
-msgid "O PipeWire não respondeu (o comando wpctl não está disponível)."
-msgstr "PipeWire didn’t respond (the wpctl command isn’t available)."
+msgid "O PipeWire não respondeu (o comando pw-dump não está disponível)."
+msgstr "PipeWire didn’t respond (the pw-dump command isn’t available)."
 
 msgid "Escolher um dispositivo para {} de som:"
 msgstr "Choose a device for sound {}:"

@@ -28,7 +28,7 @@ use glove_ui::{
         icons::{Icon, PrefKind},
         Color, Variant,
     },
-    run, App, Glyph, Menu, MenuItem, Rect, Ticks, Ui, WindowOptions, SEGMENT_H, SEGMENT_W,
+    run, App, Column, Glyph, Menu, MenuItem, Rect, TableRow, TableState, TableStyle, Ticks, Ui, WindowOptions, SEGMENT_H, SEGMENT_W,
 };
 
 const W: u32 = 660;
@@ -333,7 +333,12 @@ struct Prefs {
     /// Aba do painel Som e os dispositivos (None = sem PipeWire).
     sound_tab: usize,
     /// Leitura dos dispositivos de som em andamento (numa thread).
-    audio_rx: Option<std::sync::mpsc::Receiver<Option<(Vec<som::Device>, Vec<som::Device>)>>>,
+    audio_rx: Option<std::sync::mpsc::Receiver<Option<som::Snapshot>>>,
+    /// An output or input being switched (the profile of the card may change): the
+    /// readings wait for it, so the list does not jump back.
+    audio_switch: Option<std::sync::mpsc::Receiver<bool>>,
+    /// The list of outputs or inputs (scroll).
+    sound_table: TableState,
     /// Gravação da configuração adiada (arrastando um slider) e a hora da última.
     save_pending: std::cell::Cell<bool>,
     last_save: std::cell::Cell<Instant>,
@@ -358,7 +363,7 @@ struct Prefs {
     inicializacao: outros::Inicializacao,
     fala: outros::Fala,
     impressao: outros::Impressao,
-    audio: Option<(Vec<som::Device>, Vec<som::Device>)>,
+    audio: Option<som::Snapshot>,
     /// Aba do Acesso Universal.
     access_tab: usize,
     /// Aba do painel Mesa e Protetor de Tela.
@@ -509,6 +514,8 @@ impl Prefs {
             fala: Default::default(),
             impressao: Default::default(),
             audio: None,
+            audio_switch: None,
+            sound_table: TableState::default(),
             thumbs: std::collections::HashMap::new(),
             back: Vec::new(),
             forward: Vec::new(),
@@ -2545,37 +2552,45 @@ impl Prefs {
                 });
             }
             n => {
-                let Some((sinks, sources)) = self.audio.clone() else {
-                    ui.small(tr!("O PipeWire não respondeu (o comando wpctl não está disponível)."));
+                let Some(snap) = self.audio.clone() else {
+                    ui.small(tr!("O PipeWire não respondeu (o comando pw-dump não está disponível)."));
                     return;
                 };
-                let (list, what) = if n == 1 { (&sinks, tr!("a saída")) } else { (&sources, tr!("a entrada")) };
+                let dir = if n == 1 { som::Direction::Output } else { som::Direction::Input };
+                let list = snap.ports(dir);
+                let what = if n == 1 { tr!("a saída") } else { tr!("a entrada") };
                 let t = tr!("Escolher um dispositivo para {} de som:", what);
                 ui.label(&t);
-                let rows: Vec<String> = list.iter().map(|d| d.name.clone()).collect();
-                let mut sel = list.iter().position(|d| d.default);
-                if ui.list(&mut sel, &rows, ui.available_width(), 120.0 + grow()) {
-                    if let Some(i) = sel {
-                        som::set_default(list[i].id);
-                        if let Some(a) = self.audio.as_mut() {
-                            let l = if n == 1 { &mut a.0 } else { &mut a.1 };
-                            for (k, d) in l.iter_mut().enumerate() {
-                                d.default = k == i;
-                            }
+                let rows: Vec<TableRow> = list.iter().map(|p| TableRow { cells: vec![p.name.clone(), p.kind.label().to_string()], ..TableRow::default() }).collect();
+                let sel = list.iter().position(|p| p.default);
+                let cols = [Column::new(tr!("Nome"), 0.7).fixed(), Column::new(tr!("Tipo"), 0.3).fixed()];
+                let (lx, ly) = ui.cursor();
+                let area = Rect::new(lx, ly, ui.available_width(), 120.0 + grow());
+                let r = ui.table(area, &cols, &rows, sel, &mut self.sound_table, &TableStyle { row_h: 20.0, ..TableStyle::default() });
+                ui.space(area.h);
+                if let Some(i) = r.pressed.filter(|i| Some(*i) != sel) {
+                    let port = list[i].clone();
+                    if let Some(a) = self.audio.as_mut() {
+                        let l = if n == 1 { &mut a.outputs } else { &mut a.inputs };
+                        for (k, d) in l.iter_mut().enumerate() {
+                            d.default = k == i;
                         }
                     }
+                    self.audio_rx = None;
+                    self.audio_switch = Some(som::select_async(port, dir));
                 }
                 if rows.is_empty() {
                     ui.small(tr!("Nenhum dispositivo encontrado."));
                 }
                 if n == 2 {
                     ui.space(8.0);
-                    let mut v = sources.iter().find(|d| d.default).map_or(0.0, |d| d.volume);
+                    let mut v = snap.inputs.iter().find(|d| d.default).map_or(0.0, |d| d.volume);
+                    let has = snap.inputs.iter().any(|d| d.default && d.node.is_some());
                     ui.form_row(tr!("Volume de entrada"), 150.0, |ui| {
                         let t = Ticks { count: 2, labels: &[(0.0, tr!("Baixo")), (1.0, "Alto")], snap: false };
-                        if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, !sources.is_empty()) {
+                        if ui.slider_ticks(&mut v, 0.0, 1.0, 240.0, &t, has) {
                             som::set_volume(SOURCE, v);
-                            if let Some(d) = self.audio.as_mut().and_then(|a| a.1.iter_mut().find(|d| d.default)) {
+                            if let Some(d) = self.audio.as_mut().and_then(|a| a.inputs.iter_mut().find(|d| d.default)) {
                                 d.volume = v;
                             }
                         }
@@ -2586,7 +2601,7 @@ impl Prefs {
         self.sound_tab = tab;
         ui.space(10.0);
         // Volume de saída e mudo, embaixo de todas as abas (como no 10.4).
-        let out = self.audio.as_ref().and_then(|a| a.0.iter().find(|d| d.default).cloned());
+        let out = self.audio.as_ref().and_then(|a| a.outputs.iter().find(|d| d.default && d.node.is_some()).cloned());
         let has = out.is_some();
         let (mut vol, mut muted) = out.map_or((0.0, false), |d| (d.volume, d.muted));
         ui.form_row(tr!("Volume de saída"), 150.0, |ui| {
@@ -2598,14 +2613,14 @@ impl Prefs {
                         som::set_mute(SINK, false);
                         muted = false;
                     }
-                    if let Some(d) = self.audio.as_mut().and_then(|a| a.0.iter_mut().find(|d| d.default)) {
+                    if let Some(d) = self.audio.as_mut().and_then(|a| a.outputs.iter_mut().find(|d| d.default)) {
                         d.volume = vol;
                         d.muted = muted;
                     }
                 }
                 if ui.checkbox(&mut muted, tr!("Mudo")) && has {
                     som::set_mute(SINK, muted);
-                    if let Some(d) = self.audio.as_mut().and_then(|a| a.0.iter_mut().find(|d| d.default)) {
+                    if let Some(d) = self.audio.as_mut().and_then(|a| a.outputs.iter_mut().find(|d| d.default)) {
                         d.muted = muted;
                     }
                 }
@@ -2781,7 +2796,11 @@ impl App for Prefs {
                 self.audio_rx = None;
             }
         }
-        if self.audio_rx.is_some() {
+        if let Some(Ok(_)) = self.audio_switch.as_ref().map(|rx| rx.try_recv()) {
+            self.audio_switch = None;
+            self.audio_rx = Some(som::status_async());
+        }
+        if self.audio_rx.is_some() || self.audio_switch.is_some() {
             ui.wake_after(Duration::from_millis(80));
         }
         // Com a folha da senha aberta, só ela responde.
@@ -2973,7 +2992,7 @@ impl App for Prefs {
             self.revert();
         }
         self.outputs = OutputsInfo::load();
-        if self.pane == Pane::Som && self.audio_rx.is_none() {
+        if self.pane == Pane::Som && self.audio_rx.is_none() && self.audio_switch.is_none() {
             self.audio_rx = Some(som::status_async());
         }
         if self.pane == Pane::Rede {
