@@ -116,7 +116,8 @@ sudo pacman -Sy glove</pre>
 <p>Vem pelo mesmo repositório: <code>sudo apt install jangada</code>, <code>sudo dnf install jangada</code>
 ou <code>sudo pacman -S jangada</code> (o motor, o WebKitGTK, vem da distribuição). No Slackware
 -current, o pacote está na <a href="https://github.com/fabioaacarneiro/jangada/releases/latest">release
-da Jangada</a> (com o motor junto); no Slackware 15.0, na
+da Jangada</a> e na do Glove (com o motor junto), e a Atualização de Software do Glove a
+atualiza junto; no Slackware 15.0, na
 <a href="https://github.com/fabioaacarneiro/jangada/releases/tag/v1.15.1">1.15.1</a>.</p>
 EOF2
 find "$r" -type f | sort

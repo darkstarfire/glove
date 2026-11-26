@@ -209,7 +209,9 @@ pub fn script_repo_pacman(repo: &str) -> String {
 /// - Fedora: o dnf, com os índices renovados (e a conferência de que a versão mudou).
 /// - Arch: o pacote da versão direto do repositório do Glove, com a assinatura
 ///   conferida, sem renovar os índices do sistema (isso é do `pacman -Syu`).
-/// - Slackware: o pacote da release, conferido pelo SHA256SUMS dela, e o upgradepkg.
+/// - Slackware: o pacote da release, conferido pelo SHA256SUMS dela, e o upgradepkg. A
+///   Jangada vai junto se a release traz o pacote dela e a instalada é a do -current
+///   (2.x em diante; a do 15.0 é a 1.15.1, que não é trocada).
 pub fn script_atualizar(p: Pacote, v: &str, repo: &str) -> Option<String> {
     if !versao_valida(v) {
         return None;
@@ -226,7 +228,11 @@ pub fn script_atualizar(p: Pacote, v: &str, repo: &str) -> Option<String> {
             "set -e\nf=glove-{v}-$(uname -m)-1.tgz\nd=$(mktemp -d)\ncd \"$d\"\n\
              baixar() {{ if command -v curl >/dev/null 2>&1 && curl -fsSL \"$1\" -o \"$2\"; then :; else wget -q -O \"$2\" \"$1\"; fi; }}\n\
              baixar {RELEASES}/v{v}/$f $f\nbaixar {RELEASES}/v{v}/SHA256SUMS SHA256SUMS\n\
-             grep \" $f\\$\" SHA256SUMS | sha256sum -c -\n/sbin/upgradepkg --install-new $f\ncd /\nrm -rf \"$d\"\n"
+             grep \" $f\\$\" SHA256SUMS | sha256sum -c -\n/sbin/upgradepkg --install-new $f\n\
+             j=$(grep -o \"jangada-[0-9.]*-$(uname -m)-1\\.tgz\" SHA256SUMS | head -1 || true)\n\
+             if [ -n \"$j\" ] && ls /var/lib/pkgtools/packages /var/log/packages 2>/dev/null | grep -q '^jangada-[2-9]'; then\n\
+             baixar {RELEASES}/v{v}/$j $j\ngrep \" $j\\$\" SHA256SUMS | sha256sum -c -\n/sbin/upgradepkg --install-new $j\nfi\n\
+             cd /\nrm -rf \"$d\"\n"
         )),
         Pacote::Apt | Pacote::Nenhum => None,
     }
@@ -387,6 +393,12 @@ mod tests {
         let sl = script_atualizar(Pacote::Slackware, "0.12.75", REPO).unwrap();
         assert!(sl.contains("https://github.com/fabioaacarneiro/glove/releases/download/v0.12.75/$f"), "{sl}");
         assert!(sl.contains("sha256sum -c -") && sl.contains("/sbin/upgradepkg --install-new $f"), "{sl}");
+        assert!(sl.contains("grep -q '^jangada-[2-9]'") && sl.contains("/sbin/upgradepkg --install-new $j"), "{sl}");
+        // O script tem de ser shell válido (sh -n só lê, não roda nada).
+        if std::path::Path::new("/bin/sh").exists() {
+            let ok = std::process::Command::new("/bin/sh").args(["-n", "-c", &sl]).status().map(|s| s.success()).unwrap_or(true);
+            assert!(ok, "{sl}");
+        }
         // O apt tem o comando dele (com o andamento); pelo código não há o que rodar.
         assert_eq!(script_atualizar(Pacote::Apt, "0.12.75", REPO), None);
         assert_eq!(script_atualizar(Pacote::Nenhum, "0.12.75", REPO), None);
