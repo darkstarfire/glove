@@ -1804,6 +1804,21 @@ Glove não pode tornar o MideOS desnecessário). Sem nomes nem arte da Apple na 
     Atualização de Software até a 0.15.11); a release do Glove publica a Jangada com o nome novo
     (a da Jangada passa a ter na próxima versão). O atualizador aceita os dois nomes.
 
+- [x] 23.20 (v0.15.13, Jangada 2.1.8) Pedidos de 26/11/2026 (noite):
+  - A peça das extensões abre uma janelinha (como a do Chrome): cada extensão ligada com o
+    ícone e o nome (o clique abre a janelinha dela, ancorada na peça), a engrenagem das opções
+    e o alfinete que fixa o botão dela na barra (pinned.txt; na primeira vez, todas as que têm
+    botão, para a barra não mudar). Conferido na sessão oculta: soltar o alfinete tira o botão
+    da barra, e o nome abre a extensão.
+  - O WhatsApp Web deslogava sozinho (o celular continuava mostrando o aparelho conectado): o
+    ITP do WebKit (ligado junto com o bloqueio de cookies de terceiros) apagou os dados de
+    whatsapp.com (dataRecordsRemoved = 1 no observations.db). O ITP fica desligado; os cookies
+    de terceiros continuam barrados.
+  - A primeira abertura congelava: sem filtros guardados, a conversão das listas dos escudos
+    para as regras do WebKit rodava na linha principal (agora numa linha à parte).
+  - O "piscar preto" ao clicar no botão da extensão Blur de Contatos não se repetiu na sessão
+    oculta (nem com a 2.1.6): falta ver com a placa de vídeo de verdade.
+
 ## Fase 24 — Tudo em inglês (decisão de 24/11/2026)
 
 Decisão do usuário: todo nome do projeto fica em inglês (programas, identificadores das janelas,
