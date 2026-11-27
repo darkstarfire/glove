@@ -1306,6 +1306,10 @@ pub fn render_frame(data: &mut CalloopData) {
     state.dirty = false;
     let t0 = std::time::Instant::now();
     state.prepare_chrome();
+    // The arrow itself is the host desktop's here, but the screen recordings draw it.
+    if state.gravacao.is_some() {
+        state.prepare_cursor();
+    }
     if crate::prof::on() {
         crate::prof::prep(t0.elapsed());
     }
@@ -1362,7 +1366,7 @@ pub fn after_frame(state: &mut Glove, renderer: &mut GlesRenderer, output: &smit
     }
     // Captura de área pedida: congela a tela (sem a película) e começa a seleção.
     if state.region_pending.is_some() {
-        let frozen = grab(state, renderer).ok().and_then(|(pix, sc)| {
+        let frozen = grab(state, renderer, false).ok().and_then(|(pix, sc)| {
             let (lw, lh) = state.output_size();
             let mut c = glove_paint::draw::Canvas::new(lw as f32, lh as f32, sc as f32)?;
             c.pm.draw_pixmap(0, 0, pix.as_ref(), &glove_paint::tiny_skia::PixmapPaint::default(), glove_paint::tiny_skia::Transform::identity(), None);
@@ -1441,13 +1445,14 @@ fn extra_screenshot(state: &Glove, renderer: &mut GlesRenderer, path: &std::path
     Ok(())
 }
 
-/// A tela principal inteira, como está agora (sem o cursor), em pixels reais.
-pub(crate) fn grab(state: &Glove, renderer: &mut GlesRenderer) -> Result<(glove_paint::Pixmap, f64), Box<dyn std::error::Error>> {
+/// A tela principal inteira, como está agora, em pixels reais. `cursor`: com o mouse (as
+/// gravações de tela o mostram; as capturas, como no Mac, não).
+pub(crate) fn grab(state: &Glove, renderer: &mut GlesRenderer, cursor: bool) -> Result<(glove_paint::Pixmap, f64), Box<dyn std::error::Error>> {
     let (lw, lh) = state.output_size();
     let sc = state.scale();
     let (w, h) = ((lw as f64 * sc).round() as i32, (lh as f64 * sc).round() as i32);
     let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (w, h).into())?;
-    let elements = state.build_elements(renderer, false);
+    let elements = state.build_elements(renderer, cursor);
     let mut fb = renderer.bind(&mut tex)?;
     let mut dt = OutputDamageTracker::new((w, h), sc, Transform::Normal);
     dt.render_output(renderer, &mut fb, 0, &elements, [0.0, 0.0, 0.0, 1.0])?;

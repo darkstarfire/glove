@@ -240,7 +240,8 @@ pub fn quadro(state: &mut Glove, renderer: &mut GlesRenderer) {
     }
     g.ultimo = Instant::now();
     let recorte = g.recorte;
-    let Ok((pix, _)) = grab(state, renderer) else { return };
+    // Com o mouse, como no Mac.
+    let Ok((pix, _)) = grab(state, renderer, true) else { return };
     if let (Some(quadro), Some(g)) = (recorta(&pix, recorte), state.gravacao.as_ref()) {
         g.rec.enviar(quadro);
     }
