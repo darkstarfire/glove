@@ -220,6 +220,10 @@ pub struct Glove {
     pub greeter: bool,
     /// Processo do app de login: quando ele termina, o Glove termina.
     pub greeter_child: Option<u32>,
+    /// Login screen: the monitor with the login (the one with the mouse) and, while it
+    /// goes to another, (from, to, since when).
+    pub greeter_area: Option<smithay::utils::Rectangle<i32, smithay::utils::Logical>>,
+    pub greeter_move: Option<(smithay::utils::Rectangle<i32, smithay::utils::Logical>, smithay::utils::Rectangle<i32, smithay::utils::Logical>, std::time::Instant)>,
     /// Apps X11: o gerenciador de janelas do Xwayland e o número do display (:N).
     pub xwm: Option<smithay::xwayland::X11Wm>,
     pub xdisplay: Option<u32>,
@@ -379,6 +383,8 @@ impl Glove {
             dock_press_at: None,
             greeter: false,
             greeter_child: None,
+            greeter_area: None,
+            greeter_move: None,
             vt_request: None,
             menu_clients: Vec::new(),
             menu_seq: 0,
@@ -726,6 +732,10 @@ impl Glove {
             .env("SDL_VIDEODRIVER", "wayland,x11")
             .env("MOZ_ENABLE_WAYLAND", "1")
             .env("GLOVE_MENU_SOCKET", self.menu_socket.clone().unwrap_or_default());
+        // The login app: the wallpaper behind is drawn here, on every monitor.
+        if self.greeter {
+            cmd.env("GLOVE_GREETER", "1");
+        }
         // Apps X11 vão para o Xwayland do Glove (nunca para o X de fora, na janela aninhada).
         match self.xdisplay {
             Some(n) => cmd.env("DISPLAY", format!(":{n}")),

@@ -69,10 +69,7 @@ impl Login {
     /// from the copy their session keeps for the login screen; without one, the login
     /// screen's own. As the path of a picture or a style of Glove.
     fn fundo_de(&self) -> String {
-        let user = match self.screen {
-            Screen::Password(Some(i)) => self.users.get(i),
-            _ => users::last().and_then(|l| self.users.iter().find(|u| u.login == l)).or(self.users.first()),
-        };
+        let user = self.usuario_do_fundo();
         user.and_then(|u| glove_config::login_wallpaper::of(&u.login, u.uid)).map(|p| p.display().to_string()).unwrap_or_else(|| self.wallpaper.clone())
     }
 
@@ -80,6 +77,14 @@ impl Login {
     /// little darker, as on the login screen of the Mac.
     fn fundo_moderno(&mut self, ui: &mut Ui) {
         let (w, h) = (ui.c.w, ui.c.h);
+        // In the login screen of the Glove the wallpaper is drawn by the Glove itself, on
+        // every monitor (this window goes to the monitor with the mouse): only the clock and
+        // the rest go here, over a transparent window.
+        if std::env::var_os("GLOVE_GREETER").is_some() {
+            ui.c.clear(glove_ui::paint::Color::TRANSPARENT);
+            self.relogio(ui, w, h);
+            return;
+        }
         let fonte = self.fundo_de();
         let key = (w.round() as u32, h.round() as u32, fonte.clone());
         if self.fundo.as_ref().map(|f| &f.0) != Some(&key) {
@@ -94,7 +99,11 @@ impl Login {
             }
             None => ui.c.fill_rect(0.0, 0.0, w, h, &solid(rgba(46, 70, 110, 255))),
         }
-        // The date and the time on top (as on the lock screen), redrawn every minute.
+        self.relogio(ui, w, h);
+    }
+
+    /// The date and the time on top (as on the lock screen), redrawn every minute.
+    fn relogio(&self, ui: &mut Ui, w: f32, h: f32) {
         let (time, date) = glove_ui::paint::screens::clock_now();
         if let Some(c) = glove_ui::paint::screens::lock_clock(ui.fonts, &time, &date, ui.c.scale) {
             let cw = c.pm.width() as f32 / ui.c.scale;

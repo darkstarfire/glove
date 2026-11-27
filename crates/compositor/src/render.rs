@@ -306,6 +306,34 @@ impl Glove {
 
     /// Um monitor extra (mesa estendida): o cursor, as janelas que passam por
     /// ele e o papel de parede. Barra de menu e Dock só no principal.
+    /// The windows of the login screen where they are drawn now (going to another monitor:
+    /// sliding or fading), relative to `origin`; what falls outside the monitor is cut.
+    fn greeter_windows(&self, renderer: &mut GlesRenderer, origin: Point<i32, Logical>, sc: f64, out: &mut Vec<GloveElement>) {
+        let ((dx, dy), a) = self.greeter_motion();
+        for w in self.space.elements().rev() {
+            let Some(loc) = self.space.element_location(w) else { continue };
+            let render_loc = loc - w.geometry().loc - origin + Point::from((dx, dy));
+            out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), a));
+        }
+    }
+
+    /// O painel de senha (e, no Moderno, o relógio) onde está agora, relativo a `origin`.
+    fn lock_elements(&self, renderer: &mut GlesRenderer, l: &crate::lock::Lock, origin: Point<i32, Logical>, sc: f64, out: &mut Vec<GloveElement>) {
+        let ((dx, dy), a) = self.lock_motion();
+        let alpha = (a < 1.0).then_some(a);
+        if let Some(t) = &l.tex {
+            let (x, y) = self.lock_panel_pos();
+            let m = if l.modern { 0 } else { glove_paint::chrome::LOCK_SHADOW as i32 };
+            out.extend(mem_alpha(renderer, (x - m + dx - origin.x, y - m + dy - origin.y).into(), t, sc, alpha));
+        }
+        if l.modern {
+            if let Some((_, t)) = &l.clock {
+                let (x, y) = self.lock_clock_pos(t.px.0 as f32 / sc as f32);
+                out.extend(mem_alpha(renderer, (x + dx - origin.x, y + dy - origin.y).into(), t, sc, alpha));
+            }
+        }
+    }
+
     pub fn build_extra_elements(&self, renderer: &mut GlesRenderer, area: Rectangle<i32, Logical>, sc: f64) -> Vec<GloveElement> {
         self.build_area_elements(renderer, area, sc, true)
     }
@@ -421,24 +449,20 @@ impl Glove {
                 }
             }
         }
-        // Bloqueada com o mouse nesta tela: o painel de senha aparece aqui (no Moderno,
-        // com o relógio no alto e o papel desfocado atrás).
-        if let Some(l) = self.lock.as_ref().filter(|_| self.lock_output_rect() == area) {
-            if let Some(t) = &l.tex {
-                let (x, y) = self.lock_panel_pos();
-                let m = if l.modern { 0 } else { glove_paint::chrome::LOCK_SHADOW as i32 };
-                out.extend(mem(renderer, (x - m - origin.x, y - m - origin.y).into(), t, sc));
+        // Bloqueada: o painel de senha vai no monitor do mouse (deslizando ou esvanecendo
+        // quando muda; o que cai fora desta tela não aparece), sobre o papel desta tela
+        // desfocado.
+        if let Some(l) = &self.lock {
+            self.lock_elements(renderer, l, origin, sc, &mut out);
+            let nome = self.space.outputs().find(|o| self.space.output_geometry(o) == Some(area)).map(|o| o.name());
+            if let Some((t, (w, h))) = nome.and_then(|n| l.bg.get(&n)) {
+                out.extend(mem_scaled_alpha(renderer, (0.0, 0.0), (*w as f64, *h as f64), t, sc, None));
+                return out;
             }
-            if l.modern {
-                if let Some((_, t)) = &l.clock {
-                    let (x, y) = self.lock_clock_pos(t.px.0 as f32 / sc as f32);
-                    out.extend(mem(renderer, (x - origin.x, y - origin.y).into(), t, sc));
-                }
-                if let Some((t, (w, h))) = &l.bg {
-                    out.extend(mem_scaled_alpha(renderer, (0.0, 0.0), (*w as f64, *h as f64), t, sc, None));
-                    return out;
-                }
-            }
+        }
+        // Login screen: the login, when it is on this monitor (or passing by).
+        if self.greeter {
+            self.greeter_windows(renderer, origin, sc, &mut out);
         }
         // O papel desta tela (o dela, o pedaço do panorama ou o da principal esticado).
         let own = self.space.outputs().find(|o| self.space.output_geometry(o) == Some(area)).and_then(|o| self.wallpaper_of(&o.name()));
@@ -672,12 +696,11 @@ impl Glove {
         // Tela de login: só as janelas (o app de login) sobre o papel de parede.
         if self.greeter {
             if !self.idle.screen_off {
-                for w in self.space.elements().rev() {
-                    let Some(loc) = self.space.element_location(w) else { continue };
-                    let render_loc = loc - w.geometry().loc;
-                    out.extend(w.render_elements::<GloveElement>(renderer, render_loc.to_physical_precise_round(sc), Scale::from(sc), 1.0));
-                }
-                if let Some(b) = &c.wallpaper {
+                let origin = self.primary().and_then(|o| self.space.output_geometry(o)).map(|g| g.loc).unwrap_or_default();
+                self.greeter_windows(renderer, origin, sc, &mut out);
+                // The wallpaper of this monitor, blurred (the login app's window is clear).
+                let own = self.primary().and_then(|o| self.wallpaper_of(&o.name()));
+                if let Some(b) = own.or(c.wallpaper.as_ref()) {
                     out.extend(mem(renderer, (0, 0).into(), b, sc));
                 }
             }
@@ -706,23 +729,13 @@ impl Glove {
         }
         // Bloqueada: só o painel de senha sobre o papel de parede; nenhuma janela.
         if let Some(l) = &self.lock {
-            // O painel só vai no principal se o mouse estiver nele (senão vai no extra).
-            let on_primary = self.primary().and_then(|o| self.space.output_geometry(o)).is_none_or(|g| g == self.lock_output_rect());
-            if let Some(t) = l.tex.as_ref().filter(|_| on_primary) {
-                let (x, y) = self.lock_panel_pos();
-                let m = if l.modern { 0 } else { glove_paint::chrome::LOCK_SHADOW as i32 };
-                out.extend(mem(renderer, (x - m, y - m).into(), t, sc));
-            }
-            // Modern: the clock on top and the blurred wallpaper behind.
-            if l.modern && on_primary {
-                if let Some((_, t)) = &l.clock {
-                    let (x, y) = self.lock_clock_pos(t.px.0 as f32 / sc as f32);
-                    out.extend(mem(renderer, (x, y).into(), t, sc));
-                }
-                if let Some((t, (w, h))) = &l.bg {
-                    out.extend(mem_scaled_alpha(renderer, (0.0, 0.0), (*w as f64, *h as f64), t, sc, None));
-                    return out;
-                }
+            // O painel (no monitor do mouse; fora desta tela não aparece) e o papel desta
+            // tela desfocado atrás.
+            let origin = self.primary().and_then(|o| self.space.output_geometry(o)).map(|g| g.loc).unwrap_or_default();
+            self.lock_elements(renderer, l, origin, sc, &mut out);
+            if let Some((t, (w, h))) = self.primary().map(|o| o.name()).and_then(|n| l.bg.get(&n)) {
+                out.extend(mem_scaled_alpha(renderer, (0.0, 0.0), (*w as f64, *h as f64), t, sc, None));
+                return out;
             }
             if let Some(b) = &c.wallpaper {
                 out.extend(mem(renderer, (0, 0).into(), b, sc));

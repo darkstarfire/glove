@@ -1124,9 +1124,9 @@ impl Glove {
     /// All Apps shows the Dock even when it hides, and keeps its apps clear of it.
     pub fn work_area_with(&self, dock_shown: bool) -> Rectangle<i32, Logical> {
         let (w, h) = self.output_size();
-        // Tela de login: a tela inteira.
+        // Tela de login: o monitor inteiro onde está o login (o do mouse).
         if self.greeter {
-            return Rectangle::new((0, 0).into(), (w, h).into());
+            return self.greeter_area.unwrap_or_else(|| Rectangle::new((0, 0).into(), (w, h).into()));
         }
         // Espaço reservado para o Dock (tamanho dos ícones + prateleira); escondido, nada.
         // A espessura exata da prateleira: a janela maximizada encosta nela, sem cobrir.
@@ -2053,6 +2053,7 @@ impl Glove {
     }
 
     pub fn prepare_chrome(&mut self) {
+        self.greeter_follow();
         let scale = self.scale();
         if scale != self.chrome.last_scale {
             self.chrome.last_scale = scale;

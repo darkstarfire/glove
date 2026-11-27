@@ -1100,6 +1100,10 @@ impl Glove {
 
     fn on_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
         self.note_input();
+        // Into another monitor with the login or the lock screen: they go there now.
+        if (self.greeter || self.lock.is_some()) && self.output_rect_at(pos) != self.output_rect_at(self.pointer_pos) {
+            self.dirty = true;
+        }
         self.pointer_pos = pos;
         // Escolhendo a área da captura: o mouse só desenha o retângulo.
         if self.region.is_some() {

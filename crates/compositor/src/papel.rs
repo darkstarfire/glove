@@ -80,19 +80,15 @@ pub struct Papel {
     ticking: bool,
     /// The wallpaper whose copy for the login screen was kept last (style and size).
     stored: Option<u64>,
+    /// Login screen: whose wallpaper is shown (the user chosen in the list) and the copy of
+    /// each monitor (checked again when the user changes, or every few seconds).
+    greeter: Option<(String, std::time::Instant, Vec<(String, String)>)>,
 }
 
-/// The copy of the wallpaper of the last one who entered (the login screen keeps their
-/// login in its cache folder), if it is really theirs.
-fn greeter_wallpaper() -> Option<String> {
+/// The last one who entered (the login screen keeps their login in its cache folder).
+fn greeter_last_login() -> Option<String> {
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from)?;
-    let login = std::fs::read_to_string(home.join(".cache/glove-login-user")).ok()?.trim().to_string();
-    let passwd = std::fs::read_to_string("/etc/passwd").ok()?;
-    let uid = passwd.lines().find_map(|l| {
-        let f: Vec<&str> = l.split(':').collect();
-        (f.len() > 2 && f[0] == login).then(|| f[2].parse::<u32>().ok()).flatten()
-    })?;
-    glove_config::login_wallpaper::of(&login, uid).map(|p| p.display().to_string())
+    Some(std::fs::read_to_string(home.join(".cache/glove-login-user")).ok()?.trim().to_string()).filter(|l| !l.is_empty())
 }
 
 /// The wallpaper softly blurred for the login screen, at the full size of the screen.
@@ -264,7 +260,7 @@ impl Glove {
     fn papel_screens(&self) -> Vec<Screen> {
         let primary = self.primary().cloned();
         let mut v: Vec<Screen> = Vec::new();
-        let mirror = self.config.monitor.arrangement == "mirror" || self.nested;
+        let mirror = self.config.monitor.arrangement == "mirror" || (self.nested && std::env::var_os("GLOVE_FAKE_EXTRA").is_none());
         let outs: Vec<smithay::output::Output> = self.space.outputs().cloned().collect();
         for o in outs.iter().filter(|o| Some(*o) == primary.as_ref()).chain(outs.iter().filter(|o| Some(*o) != primary.as_ref())) {
             if mirror && Some(o) != primary.as_ref() {
@@ -274,6 +270,56 @@ impl Glove {
             v.push(Screen { name: o.name(), rect: (g.loc.x, g.loc.y, g.size.w, g.size.h), scale: o.current_scale().fractional_scale() });
         }
         v
+    }
+
+    /// Login screen: the user whose wallpaper goes behind (the one the login app says is
+    /// chosen, in its window title after an invisible separator; before that, the last
+    /// one who entered) and the copy of their wallpaper for each monitor.
+    fn greeter_styles(&mut self, screens: &[Screen]) -> Vec<(String, String)> {
+        let chosen = self
+            .space
+            .elements()
+            .find_map(|w| crate::shell::window_info(w).0.split_once('\u{2063}').map(|(_, l)| l.trim().to_string()))
+            .filter(|l| !l.is_empty())
+            .or_else(greeter_last_login);
+        let Some(login) = chosen else { return Vec::new() };
+        let fresh = self.papel.greeter.as_ref().is_some_and(|(l, t, v)| *l == login && t.elapsed() < std::time::Duration::from_secs(5) && v.len() == screens.len());
+        if !fresh {
+            let uid = glove_config::login_wallpaper::uid_of(&login);
+            let v = screens
+                .iter()
+                .filter_map(|s| uid.and_then(|u| glove_config::login_wallpaper::of_output(&login, u, &s.name)).map(|p| (s.name.clone(), p.display().to_string())))
+                .collect();
+            self.papel.greeter = Some((login, std::time::Instant::now(), v));
+        }
+        self.papel.greeter.as_ref().map(|g| g.2.clone()).unwrap_or_default()
+    }
+
+    /// The wallpaper of the monitor `name` as it is shown there (its own, the same or its
+    /// piece of the panorama), blurred and `dim` darker, small (the GPU enlarges it to the
+    /// monitor), and the size of the monitor: the background of the lock screen.
+    pub fn blurred_of(&self, name: &str, dim: f32) -> Option<(glove_paint::Pixmap, (i32, i32))> {
+        let screens = self.papel_screens();
+        let s = screens.iter().find(|s| s.name == name).or(screens.first())?;
+        // A mirrored monitor shows the main one's, at its own size.
+        let size = self.space.outputs().find(|o| o.name() == name).and_then(|o| self.space.output_geometry(o)).map(|g| (g.size.w, g.size.h)).unwrap_or((s.rect.2, s.rect.3));
+        let fit = Fit::from_id(&self.config.wallpaper_fit);
+        let panorama = self.config.wallpaper_mode == "panorama" && screens.len() > 1;
+        let bb = screens.iter().fold((i32::MAX, i32::MAX, i32::MIN, i32::MIN), |b, s| (b.0.min(s.rect.0), b.1.min(s.rect.1), b.2.max(s.rect.0 + s.rect.2), b.3.max(s.rect.1 + s.rect.3)));
+        let style = if panorama { self.config.wallpaper.clone() } else { self.config.wallpaper_for(&s.name).to_string() };
+        let span = panorama.then(|| Span { total_w: (bb.2 - bb.0).max(1) as f32, total_h: (bb.3 - bb.1).max(1) as f32, x: (s.rect.0 - bb.0) as f32, y: (s.rect.1 - bb.1) as f32 });
+        let c = wallpaper::render_part(&self.theme, &style, size.0 as f32, size.1 as f32, 0.25, fit, span)?;
+        let mut pm = c.pm;
+        glove_paint::screens::blur_box(&mut pm, 5);
+        if dim > 0.0 {
+            let k = 1.0 - dim.clamp(0.0, 1.0);
+            for p in pm.data_mut().chunks_exact_mut(4) {
+                for v in &mut p[..3] {
+                    *v = (*v as f32 * k) as u8;
+                }
+            }
+        }
+        Some((pm, size))
     }
 
     /// O papel animado deve parar agora?
@@ -292,7 +338,8 @@ impl Glove {
         let screens = self.papel_screens();
         let Some(first) = screens.first().cloned() else { return };
         let fit = Fit::from_id(&self.config.wallpaper_fit);
-        let mode = self.config.wallpaper_mode.as_str();
+        let mode_owned = self.config.wallpaper_mode.clone();
+        let mode = mode_owned.as_str();
         let panorama = mode == "panorama" && screens.len() > 1;
         // A área que o panorama cobre: o retângulo de todos os monitores juntos.
         let bb = screens.iter().fold((i32::MAX, i32::MAX, i32::MIN, i32::MIN), |b, s| (b.0.min(s.rect.0), b.1.min(s.rect.1), b.2.max(s.rect.0 + s.rect.2), b.3.max(s.rect.1 + s.rect.3)));
@@ -303,13 +350,13 @@ impl Glove {
 
         // O que cada tela quer.
         let mut wants: Vec<(Screen, Want)> = Vec::new();
-        // The login screen: the wallpaper of the last one who entered (the copy their
-        // session keeps), softly blurred.
-        static GREETER_STYLE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-        let greeter_style = if self.greeter { GREETER_STYLE.get_or_init(greeter_wallpaper).clone() } else { None };
+        // The login screen: the wallpaper of the user chosen in the list (the copy their
+        // session keeps of each monitor), softly blurred.
+        let greeter_styles = if self.greeter { self.greeter_styles(&screens) } else { Vec::new() };
         for s in &screens {
-            let style = match &greeter_style {
-                Some(g) => g.clone(),
+            let style = match greeter_styles.iter().find(|(n, _)| *n == s.name) {
+                Some((_, g)) => g.clone(),
+                None if self.greeter => self.config.wallpaper.clone(),
                 None if panorama => self.config.wallpaper.clone(),
                 None => self.config.wallpaper_for(&s.name).to_string(),
             };
@@ -429,23 +476,29 @@ impl Glove {
         // A copy of the main monitor's wallpaper for the login screen (it cannot read the
         // home folder), when it changes. Not in a test session inside another desktop.
         if !self.nested && !self.greeter {
-            if let Some((_, w)) = wants.first() {
-                let key = hash_of(&(&w.style, first.rect.2, first.rect.3, tgen));
-                if self.papel.stored != Some(key) {
-                    self.papel.stored = Some(key);
-                    let (theme, style) = (self.theme.clone(), w.style.clone());
-                    let (sw, sh) = (first.rect.2.max(1) as f32, first.rect.3.max(1) as f32);
-                    std::thread::spawn(move || {
-                        let Some(login) = glove_config::login_wallpaper::current_login() else { return };
-                        let (w, h) = (1280.0, (1280.0 * sh / sw).round());
-                        let Some(c) = wallpaper::render_style(&theme, &style, w, h, 1.0) else { return };
-                        if let Ok(png) = c.pm.encode_png() {
-                            if let Err(e) = glove_config::login_wallpaper::store(&login, &png) {
-                                tracing::warn!("papel para a tela de login: {e}");
-                            }
+            // One copy for each monitor (in its shape, with the way the wallpaper is shown
+            // there: the same, its own or its piece of the panorama) and the general one
+            // (the main monitor's, for older login screens and other monitors).
+            let todas: Vec<(String, String, Fit, Option<Span>, i32, i32)> = wants.iter().map(|(s, w)| (s.name.clone(), w.style.clone(), w.fit, w.span, s.rect.2.max(1), s.rect.3.max(1))).collect();
+            let key = hash_of(&(todas.iter().map(|t| (&t.0, &t.1, t.2.id(), t.3.map(|p| (p.total_w as i32, p.total_h as i32, p.x as i32, p.y as i32)), t.4, t.5)).collect::<Vec<_>>(), tgen));
+            if self.papel.stored != Some(key) {
+                self.papel.stored = Some(key);
+                let theme = self.theme.clone();
+                std::thread::spawn(move || {
+                    let Some(login) = glove_config::login_wallpaper::current_login() else { return };
+                    for (i, (name, style, fit, span, w, h)) in todas.iter().enumerate() {
+                        // Up to 1600 points across: it is shown blurred.
+                        let k = (1600.0 / *w as f32).min(1.0);
+                        let Some(c) = wallpaper::render_part(&theme, style, *w as f32, *h as f32, k, *fit, *span) else { continue };
+                        let Ok(png) = c.pm.encode_png() else { continue };
+                        if let Err(e) = glove_config::login_wallpaper::store_output(&login, name, &png) {
+                            tracing::warn!("papel para a tela de login: {e}");
                         }
-                    });
-                }
+                        if i == 0 {
+                            let _ = glove_config::login_wallpaper::store(&login, &png);
+                        }
+                    }
+                });
             }
         }
         // Quadros já mostrados (depois de todas as telas daquele vídeo).

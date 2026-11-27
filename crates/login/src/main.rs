@@ -58,9 +58,20 @@ struct Login {
     /// O papel de parede (da configuração da tela de login) e o fundo pronto, pelo tamanho.
     wallpaper: String,
     fundo: Option<((u32, u32, String), Pixmap)>,
+    /// The title last given to the window.
+    titulo: String,
 }
 
 impl Login {
+    /// The user whose wallpaper goes behind: the chosen one (in the list, the last one who
+    /// entered).
+    pub(crate) fn usuario_do_fundo(&self) -> Option<&User> {
+        match self.screen {
+            Screen::Password(Some(i)) => self.users.get(i),
+            _ => users::last().and_then(|l| self.users.iter().find(|u| u.login == l)).or(self.users.first()),
+        }
+    }
+
     fn chosen_login(&self) -> String {
         match self.screen {
             Screen::Password(Some(i)) => self.users[i].login.clone(),
@@ -147,6 +158,13 @@ impl App for Login {
     }
 
     fn ui(&mut self, ui: &mut Ui) {
+        // The Glove of the login screen draws the wallpaper of the chosen user: it reads who
+        // that is in the title, after an invisible separator.
+        let titulo = format!("{}\u{2063}{}", tr!("Entrar"), self.usuario_do_fundo().map(|u| u.login.as_str()).unwrap_or(""));
+        if titulo != self.titulo {
+            ui.set_title(&titulo);
+            self.titulo = titulo;
+        }
         // Resposta do greetd.
         if let Some(rx) = &self.pending {
             match rx.try_recv() {
@@ -415,7 +433,7 @@ pub fn main() {
     let session_idx = sessoes::last().and_then(|(id, x11)| sessions.iter().position(|s| s.id == id && s.x11 == x11)).unwrap_or(0);
     let config = glove_config::Config::load();
     let moderno = glove_ui::paint::theme::Variant::from_config(&config.theme).modern();
-    let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session, sessions, session_idx, moderno, wallpaper: config.wallpaper.clone(), fundo: None };
+    let app = Login { users, photos, host, screen: Screen::List, other_name: String::new(), password: String::new(), message: None, pending: None, shake: None, focus_password: false, fake, session, sessions, session_idx, moderno, wallpaper: config.wallpaper.clone(), fundo: None, titulo: String::new() };
     // Moderno: a janela pode crescer, e o Glove da tela de login a estica na tela toda.
     let opts = if moderno {
         WindowOptions { title: tr!("Entrar").into(), app_id: "glove.Login".into(), size: (1024, 700), fixed: false, min_size: Some((640, 480)) }

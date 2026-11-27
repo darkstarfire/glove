@@ -65,6 +65,9 @@ fn mapear_x(x: f32, de: &ExtraBar, para: (&(f32, f32), &[(f32, f32)], &[(f32, f3
     }
 }
 
+/// The login going to the monitor with the mouse.
+const GREETER_MOVE: std::time::Duration = std::time::Duration::from_millis(450);
+
 impl Glove {
     /// Os monitores extras (mesa estendida): o retângulo e a escala de cada um.
     pub fn extra_areas(&self) -> Vec<(Rectangle<i32, Logical>, f64)> {
@@ -293,6 +296,66 @@ impl Glove {
                     area.to_f64().contains(meio)
                 })
         })
+    }
+
+    /// Login screen: the login goes to the monitor with the mouse (the window of the
+    /// modern login covers that monitor; the panel of the classic one is centered there).
+    pub fn greeter_follow(&mut self) {
+        if !self.greeter {
+            return;
+        }
+        if self.greeter_move.is_some_and(|(_, _, t)| t.elapsed() >= GREETER_MOVE) {
+            self.greeter_move = None;
+        }
+        if self.greeter_move.is_some() {
+            self.dirty = true;
+        }
+        let Some(area) = self.output_rect_at(self.pointer_pos).or_else(|| self.primary_rect()) else { return };
+        let Some(antes) = self.greeter_area else {
+            self.greeter_area = Some(area);
+            return;
+        };
+        if antes == area {
+            return;
+        }
+        self.greeter_area = Some(area);
+        self.greeter_move = Some((antes, area, std::time::Instant::now()));
+        let centro = |r: Rectangle<i32, Logical>| (r.loc.x + r.size.w / 2, r.loc.y + r.size.h / 2);
+        let (a, b) = (centro(antes), centro(area));
+        let janelas: Vec<smithay::desktop::Window> = self.space.elements().cloned().collect();
+        for w in janelas {
+            let Some(loc) = self.space.element_location(&w) else { continue };
+            match w.toplevel().filter(|_| !crate::shell::fixed_size(&w)) {
+                Some(t) => {
+                    t.with_pending_state(|s| {
+                        s.states.set(smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State::Fullscreen);
+                        s.size = Some(area.size);
+                    });
+                    t.send_pending_configure();
+                    self.space.map_element(w.clone(), area.loc, false);
+                }
+                None => self.space.map_element(w.clone(), (loc.x + b.0 - a.0, loc.y + b.1 - a.1), false),
+            }
+        }
+        self.dirty = true;
+    }
+
+    /// Where the login is drawn now, relative to where it is (the offset) and how opaque:
+    /// going to another monitor it slides there (Modern) or fades out and in (Classic).
+    pub fn greeter_motion(&self) -> ((i32, i32), f32) {
+        let Some((antes, agora, t)) = self.greeter_move else { return ((0, 0), 1.0) };
+        let p = (t.elapsed().as_secs_f32() / GREETER_MOVE.as_secs_f32()).clamp(0.0, 1.0);
+        let centro = |r: Rectangle<i32, Logical>| (r.loc.x + r.size.w / 2, r.loc.y + r.size.h / 2);
+        let (a, b) = (centro(antes), centro(agora));
+        let d = ((a.0 - b.0) as f32, (a.1 - b.1) as f32);
+        if self.theme.modern {
+            let k = (1.0 - p).powi(3);
+            (((d.0 * k).round() as i32, (d.1 * k).round() as i32), 1.0)
+        } else if p < 0.5 {
+            ((d.0 as i32, d.1 as i32), 1.0 - p * 2.0)
+        } else {
+            ((0, 0), p * 2.0 - 1.0)
+        }
     }
 
     /// O mouse sobre a barra ou o Dock de um monitor extra: o ponto equivalente na barra

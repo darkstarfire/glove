@@ -41,6 +41,16 @@ pub fn init(
     output.set_preferred(mode);
     state.space.map_output(&output, (0, 0));
     state.nested = true;
+    // Tests: GLOVE_FAKE_EXTRA=1920x1080 puts a monitor that does not exist to the right of
+    // this window (nothing shows it; "shot2" of the debug control takes what it would show).
+    if let Some((w, h)) = std::env::var("GLOVE_FAKE_EXTRA").ok().and_then(|v| v.split_once('x').and_then(|(w, h)| Some((w.parse::<i32>().ok()?, h.parse::<i32>().ok()?)))) {
+        let extra = Output::new("FAKE-1".to_string(), PhysicalProperties { size: (0, 0).into(), subpixel: Subpixel::Unknown, make: "Glove".into(), model: "Teste".into() });
+        let m = Mode { size: (w, h).into(), refresh: 60_000 };
+        extra.change_current_state(Some(m), None, Some(Scale::Fractional(1.0)), None);
+        extra.set_preferred(m);
+        let x = (backend.window_size().w as f64 / scale).round() as i32;
+        state.space.map_output(&extra, (x, 0));
+    }
 
     event_loop.handle().insert_source(winit, move |event, _, data| match event {
         WinitEvent::Resized { size, scale_factor } => {

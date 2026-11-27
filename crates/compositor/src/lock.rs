@@ -45,8 +45,13 @@ pub struct Lock {
     pub modern: bool,
     login: String,
     photo: Option<glove_paint::Pixmap>,
-    /// The blurred wallpaper (small: the GPU enlarges it to the screen) and its size.
-    pub bg: Option<(Tex, (i32, i32))>,
+    /// The blurred wallpaper of each monitor (small: the GPU enlarges it to the monitor)
+    /// and its size.
+    pub bg: std::collections::HashMap<String, (Tex, (i32, i32))>,
+    /// The monitor with the panel (the one with the mouse) and, while it goes to another,
+    /// the one it left and since when.
+    area: Option<smithay::utils::Rectangle<i32, smithay::utils::Logical>>,
+    moving: Option<(smithay::utils::Rectangle<i32, smithay::utils::Logical>, Instant)>,
     /// The clock and the time it shows.
     pub clock: Option<(String, Tex)>,
 }
@@ -79,6 +84,9 @@ pub enum SleepEvent {
     /// O sistema voltou.
     Woke,
 }
+
+/// The panel going to the monitor with the mouse.
+const LOCK_MOVE: Duration = Duration::from_millis(420);
 
 /// Quanto o sistema espera o quadro do bloqueio ir para a tela antes de suspender.
 const SLEEP_HOLD: Duration = Duration::from_millis(300);
@@ -378,7 +386,7 @@ impl Glove {
         // The photo: the one of the accounts (AccountsService), or ~/.face.
         let photo = user_photo(&login);
         let modern = self.screen_theme.modern;
-        self.lock = Some(Lock { password: String::new(), busy: false, message: None, shake_since: None, pressed: false, since: Instant::now(), name, key: None, tex: None, modern, login, photo, bg: None, clock: None });
+        self.lock = Some(Lock { password: String::new(), busy: false, message: None, shake_since: None, pressed: false, since: Instant::now(), name, key: None, tex: None, modern, login, photo, bg: std::collections::HashMap::new(), clock: None, area: None, moving: None });
         self.dirty = true;
         // Pisca o cursor e anima balanço/giratório só enquanto bloqueado.
         self.loop_handle
@@ -469,6 +477,25 @@ impl Glove {
             })
     }
 
+    /// Where the panel is drawn now (global points) and how opaque: while it goes to
+    /// another monitor, on the way there (Modern) or fading (Classic). The clock goes along.
+    pub fn lock_motion(&self) -> ((i32, i32), f32) {
+        let Some(l) = &self.lock else { return ((0, 0), 1.0) };
+        let (Some((antes, t)), Some(agora)) = (l.moving, l.area) else { return ((0, 0), 1.0) };
+        let p = (t.elapsed().as_secs_f32() / LOCK_MOVE.as_secs_f32()).clamp(0.0, 1.0);
+        let centro = |r: smithay::utils::Rectangle<i32, smithay::utils::Logical>| (r.loc.x + r.size.w / 2, r.loc.y + r.size.h / 2);
+        let (a, b) = (centro(antes), centro(agora));
+        let d = ((a.0 - b.0) as f32, (a.1 - b.1) as f32);
+        if l.modern {
+            let k = 1.0 - (1.0 - (1.0 - p).powi(3));
+            (((d.0 * k).round() as i32, (d.1 * k).round() as i32), 1.0)
+        } else if p < 0.5 {
+            ((d.0 as i32, d.1 as i32), 1.0 - p * 2.0)
+        } else {
+            ((0, 0), p * 2.0 - 1.0)
+        }
+    }
+
     /// Canto do painel (sem a sombra, em coordenadas da mesa), já com o balanço.
     pub fn lock_panel_pos(&self) -> (i32, i32) {
         let g = self.lock_output_rect();
@@ -521,19 +548,34 @@ impl Glove {
                 l.clock = glove_paint::screens::lock_clock(&self.fonts, &time, &date, sc).map(|c| (time, to_tex(c)));
             }
         }
-        let want_bg = l.modern && l.bg.is_none();
-        if want_bg {
-            // The wallpaper of the screen with the panel, blurred and a little darker.
-            let g = self.lock_output_rect();
-            let style = self.config.wallpaper.clone();
-            let (w, h) = (g.size.w as f32, g.size.h as f32);
-            let bg = glove_paint::screens::blurred_wallpaper(&self.theme, &style, w, h, 5, 0.15).and_then(|pm| {
+        // The panel goes to the monitor with the mouse: sliding there (Modern) or fading out
+        // here and in there (Classic).
+        let alvo = self.lock_output_rect();
+        let Some(l) = &mut self.lock else { return };
+        if l.area != Some(alvo) {
+            if let Some(antes) = l.area {
+                l.moving = Some((antes, Instant::now()));
+            }
+            l.area = Some(alvo);
+        }
+        if l.moving.is_some_and(|(_, t)| t.elapsed() >= LOCK_MOVE) {
+            l.moving = None;
+        }
+        if l.moving.is_some() {
+            self.dirty = true;
+        }
+        // The wallpaper of every monitor, blurred and a little darker (each one with its
+        // own, as on the desktop).
+        let faltam: Vec<String> = self.space.outputs().map(|o| o.name()).filter(|n| !self.lock.as_ref().is_some_and(|l| l.bg.contains_key(n))).collect();
+        for n in faltam {
+            let dim = if self.lock.as_ref().is_some_and(|l| l.modern) { 0.15 } else { 0.05 };
+            let bg = self.blurred_of(&n, dim).and_then(|(pm, size)| {
                 let mut c = glove_paint::draw::Canvas::new(pm.width() as f32, pm.height() as f32, 1.0)?;
                 c.pm = pm;
-                Some((to_tex(c), (g.size.w, g.size.h)))
+                Some((to_tex(c), size))
             });
-            if let Some(l) = &mut self.lock {
-                l.bg = bg;
+            if let (Some(l), Some(bg)) = (&mut self.lock, bg) {
+                l.bg.insert(n, bg);
             }
         }
         let Some(l) = &mut self.lock else { return };
