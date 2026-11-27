@@ -1975,3 +1975,34 @@ Atenção (decisão do usuário, "corte limpo mesmo"): depois de atualizar para 
 que já estava aberta ainda roda o compositor antigo, que chama os programas pelos nomes de antes.
 Até sair e entrar de novo, o menu Reiniciar / Desligar / Encerrar Sessão não abre e abrir arquivos
 pela mesa não funciona: reinicie pelo terminal (`systemctl reboot`) ou saia com Ctrl+Alt+Backspace.
+
+## Fase 25 — Jangada: gerenciador de Downloads e Torrents (pedido de 26/11/2026; não começado)
+
+Um menu **Downloads** na barra da Jangada com **Downloads…** (⌥⌘L) e **Torrents…**, que abrem a
+mesma janela, cada um na sua aba (seletor no alto). Fechar a janela não para nada.
+
+Ponto de partida: a Jangada já tem uma janela de Downloads (`janela_downloads` em `main.rs`:
+nome, tamanho, estado; Abrir, Mostrar na Pasta, Cancelar, Limpar a Lista) alimentada por
+`motor::DOWNLOADS`, só na memória. Os downloads entram por `novo_download`/`decide_destination`
+em `motor.rs`; as navegações passam por `decide_policy`.
+
+- [ ] 25.1 Aba Downloads:
+  - cada linha com ícone do tipo de arquivo, nome, origem (o site), data e tamanho; baixando,
+    barra de progresso com velocidade e tempo restante;
+  - Abrir, Mostrar na Pasta, Pausar/Continuar, Cancelar, Remover da Lista (o arquivo fica) e
+    Limpar Concluídos;
+  - **+ Adicionar URL…**: cola um link e baixa direto (um "wget" gráfico, pelo motor WebKit);
+  - a lista guardada no disco (o histórico continua ao reabrir a Jangada).
+- [ ] 25.2 Aba Torrents (motor librqbit, em Rust, num processo ajudante separado):
+  - cada linha com nome, tamanho, progresso, velocidade de descida e subida, pares, tempo
+    restante e estado (baixando, compartilhando, pausado, concluído);
+  - Pausar/Continuar, Abrir, Mostrar na Pasta, Parar de Compartilhar, Remover ("só da lista" ou
+    "apagando os arquivos");
+  - **+ Adicionar .torrent…** e **+ Link magnet…**; clicar num `.torrent` ou num `magnet:` no
+    site cai aqui (pelo tipo `application/x-bittorrent` ou pela extensão), não num download comum.
+- [ ] 25.3 Decisões a confirmar com o usuário antes de começar (sugestões dadas em 26/11/2026):
+  - fechando a Jangada inteira: downloads comuns param e retomam ao reabrir; torrents continuam
+    no ajudante em segundo plano (com um jeito visível de encerrar);
+  - compartilhar até a proporção 1:1 e parar, com limite de upload nos Ajustes;
+  - onde salvar torrents: Downloads ou Downloads/Torrents.
+- Ordem: 25.1 primeiro (rápido, melhora o dia a dia), depois 25.2.
