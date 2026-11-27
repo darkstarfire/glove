@@ -99,11 +99,17 @@ impl Glove {
             Acao::ExposeApp => self.toggle_expose(ExposeMode::App),
             Acao::Desk(d) => {
                 // Com o Exposé aberto, troca e continua nele.
-                let in_expose = self.expose.is_some();
-                self.expose = None;
-                self.step_desk(d, false);
-                if in_expose {
-                    self.toggle_expose(ExposeMode::All);
+                // (As janelas deslizam para o lado do gesto.)
+                if self.expose.as_ref().is_some_and(|e| !e.is_leaving()) {
+                    let j = self.mesas.cur as i32 + d;
+                    if j < 0 {
+                        self.show_desk_hud();
+                    } else {
+                        self.expose_go_desk(j as usize);
+                    }
+                } else {
+                    self.expose = None;
+                    self.step_desk(d, false);
                 }
             }
             Acao::Grade => self.toggle_grade(),

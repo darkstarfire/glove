@@ -576,6 +576,8 @@ pub struct Chrome {
     /// as on the Mac: a click near the edge does not bring it), and the timer to check.
     pub dock_edge_since: Option<std::time::Instant>,
     pub dock_edge_timer: bool,
+    /// The mouse keeps the hidden Dock in view (on the edge, on the Dock, its menu).
+    pub dock_keep_pointer: bool,
     /// Escala usada no último desenho (mudou → refaz tudo).
     pub last_scale: f64,
 
@@ -2271,6 +2273,15 @@ impl Glove {
         }
         if !self.config.dock.autohide && self.chrome.dock_hide != 0.0 && self.chrome.dock_hide_anim.is_none() {
             self.chrome.dock_hide = 0.0;
+        }
+        // Intellihide: with no window in its place the Dock stays in view; a window dragged
+        // there, maximized or in full screen hides it (the mouse on the edge still brings it).
+        if self.config.dock.autohide && self.config.dock.smart_hide && !self.greeter {
+            let show = self.chrome.dock_keep_pointer || !self.dock_blocked();
+            self.chrome.animate_dock_hide(if show { 0.0 } else { 1.0 });
+            if self.chrome.dock_hide_anim.is_some() {
+                self.dirty = true;
+            }
         }
         self.chrome.dock_side = chrome::DockSide::from_config(&self.config.dock.position);
         // Muitos ícones: encolhe até caber na borda (como no Mac).

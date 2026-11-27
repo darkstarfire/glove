@@ -6551,3 +6551,6 @@ msgstr "Copied content"
 
 msgid "Mostrar o histórico da área de transferência na barra de menu"
 msgstr "Show clipboard history in menu bar"
+
+msgid "Só quando uma janela ocupar o lugar do Dock"
+msgstr "Only when a window takes the Dock’s place"

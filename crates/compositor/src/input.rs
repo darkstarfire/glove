@@ -838,6 +838,15 @@ impl Glove {
             Some(KeyAction::Grade) => self.toggle_grade(),
             Some(KeyAction::AvisosClose) => self.toggle_avisos_center(),
             Some(KeyAction::Fullscreen) => self.toggle_fullscreen_focused(),
+            // No Exposé, troca de mesa e continua nele (as janelas deslizam).
+            Some(KeyAction::VirtualDesk(d, false)) if self.expose.as_ref().is_some_and(|e| e.mode == crate::expose::ExposeMode::All && !e.is_leaving()) => {
+                let j = self.mesas.cur as i32 + d;
+                if j < 0 {
+                    self.show_desk_hud();
+                } else {
+                    self.expose_go_desk(j as usize);
+                }
+            }
             Some(KeyAction::VirtualDesk(d, carry)) => self.step_desk(d, carry),
             Some(KeyAction::GradeKey(k)) => self.grade_key(k),
             Some(KeyAction::CycleWindows) => self.win_switcher_open_or_next(false),
@@ -1030,7 +1039,10 @@ impl Glove {
                 self.chrome.dock_hide = 1.0;
                 self.chrome.dock_hide_anim = None;
             }
-            let keep = edge_ok || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
+            let pointer_keep = edge_ok || matches!(hit, Hit::Dock(_)) || self.dock_menu_open() || self.chrome.dock_pressed.is_some();
+            self.chrome.dock_keep_pointer = pointer_keep;
+            // Intellihide: with no window in its place, it stays in view.
+            let keep = pointer_keep || (self.config.dock.smart_hide && !self.dock_blocked());
             self.chrome.animate_dock_hide(if keep { 0.0 } else { 1.0 });
             self.dirty = true;
         }

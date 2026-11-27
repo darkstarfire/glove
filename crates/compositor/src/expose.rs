@@ -22,6 +22,20 @@ use crate::{
 fn anim() -> Duration {
     glove_config::anim(Duration::from_millis(280))
 }
+/// Duração do deslize das janelas ao trocar de mesa no Exposé.
+fn slide_anim() -> Duration {
+    glove_config::anim(Duration::from_millis(340))
+}
+/// De 0 a 1 desde `since` em `d`, começando rápido e freando no fim.
+fn ease(since: Instant, d: Duration) -> f64 {
+    let t = (since.elapsed().as_secs_f64() / d.as_secs_f64().max(0.001)).clamp(0.0, 1.0);
+    1.0 - (1.0 - t).powi(3)
+}
+/// O botão de fechar (×) no canto de cima, à esquerda, da janela sob o mouse.
+pub fn close_rect(r: Rectangle<f64, Logical>) -> Rectangle<f64, Logical> {
+    let c = glove_paint::widgets::CLOSE as f64;
+    Rectangle::new((r.loc.x - c / 2.0 + 2.0, r.loc.y - c / 2.0 + 2.0).into(), (c, c).into())
+}
 /// Quanto da janela fica à vista na borda, no modo mesa.
 const PEEK: f64 = 14.0;
 
@@ -48,6 +62,8 @@ pub struct ExposeItem {
     /// Moldura (com a barra de título) antes e no Exposé.
     pub from: Rectangle<f64, Logical>,
     pub to: Rectangle<f64, Logical>,
+    /// Onde estava no Exposé quando as outras se reorganizaram (uma fechou ou saiu).
+    pub was: Rectangle<f64, Logical>,
 }
 
 pub struct Expose {
@@ -65,6 +81,13 @@ pub struct Expose {
     pub desk_hover: Option<usize>,
     /// Molduras e nomes da faixa de mesas: (chave, canto, textura).
     pub strip: Option<(u64, Point<i32, Logical>, Tex)>,
+    /// As janelas indo para os lugares novos (uma fechou ou foi para outra mesa).
+    relayout: Option<Instant>,
+    /// Trocando de mesa: (quanto o conteúdo anda, quando começou, as janelas da mesa
+    /// que ficou para trás e onde estavam). As novas chegam do outro lado.
+    pub slide: Option<(f64, Instant, Vec<(Window, Rectangle<f64, Logical>)>)>,
+    /// O botão de fechar (escala, textura).
+    pub close_tex: Option<(u32, Tex)>,
 }
 
 /// Faixa das mesas virtuais no alto do Exposé: altura das miniaturas e o espaço todo.
@@ -85,9 +108,39 @@ impl Expose {
 
     pub fn current(&self, i: usize) -> Rectangle<f64, Logical> {
         let it = &self.items[i];
-        let p = self.progress();
-        let lerp = |a: f64, b: f64| a + (b - a) * p;
-        Rectangle::new((lerp(it.from.loc.x, it.to.loc.x), lerp(it.from.loc.y, it.to.loc.y)).into(), (lerp(it.from.size.w, it.to.size.w), lerp(it.from.size.h, it.to.size.h)).into())
+        let mut r = lerp_rect(it.from, self.target(i), self.progress());
+        if let Some((dx, since, _)) = &self.slide {
+            // As da mesa nova chegam do lado de onde o conteúdo vem.
+            r.loc.x -= dx * (1.0 - ease(*since, slide_anim()));
+        }
+        r
+    }
+
+    /// O lugar no Exposé (no meio da reorganização, se as outras estão se mexendo).
+    fn target(&self, i: usize) -> Rectangle<f64, Logical> {
+        let it = &self.items[i];
+        match self.relayout {
+            Some(since) if self.leaving.is_none() => lerp_rect(it.was, it.to, ease(since, anim())),
+            _ => it.to,
+        }
+    }
+
+    /// Ainda se mexendo (entrando, reorganizando ou trocando de mesa).
+    fn animating(&self) -> bool {
+        self.start.elapsed() < anim() || self.relayout.is_some_and(|t| t.elapsed() < anim()) || self.slide.as_ref().is_some_and(|s| s.1.elapsed() < slide_anim())
+    }
+
+    /// As janelas da mesa que ficou para trás, onde estão agora.
+    pub fn leaving_desk(&self) -> Vec<(Window, Rectangle<f64, Logical>)> {
+        let Some((dx, since, old)) = &self.slide else { return Vec::new() };
+        let k = ease(*since, slide_anim());
+        old.iter().map(|(w, r)| (w.clone(), Rectangle::new((r.loc.x + dx * k, r.loc.y).into(), r.size))).collect()
+    }
+
+    /// O botão de fechar aparece (na janela sob o mouse, parada no lugar).
+    pub fn close_shown(&self) -> Option<usize> {
+        let i = self.hover?;
+        (self.mode != ExposeMode::Desktop && self.leaving.is_none() && self.drag.is_none_or(|d| !d.3) && !self.animating()).then_some(i)
     }
 
     pub fn is_leaving(&self) -> bool {
@@ -115,6 +168,33 @@ impl Expose {
 
     pub fn item_of(&self, w: &Window) -> Option<usize> {
         self.items.iter().position(|it| &it.window == w)
+    }
+}
+
+fn lerp_rect(a: Rectangle<f64, Logical>, b: Rectangle<f64, Logical>, p: f64) -> Rectangle<f64, Logical> {
+    let lerp = |a: f64, b: f64| a + (b - a) * p;
+    Rectangle::new((lerp(a.loc.x, b.loc.x), lerp(a.loc.y, b.loc.y)).into(), (lerp(a.size.w, b.size.w), lerp(a.size.h, b.size.h)).into())
+}
+
+/// Lado a lado na área, na ordem em que estão (muda o `to` de cada uma).
+fn layout(items: &mut [ExposeItem], area: Rectangle<f64, Logical>) {
+    if items.is_empty() {
+        return;
+    }
+    let pad = 24.0;
+    let (ax, ay, aw, ah) = (area.loc.x + pad, area.loc.y + pad, area.size.w - 2.0 * pad, area.size.h - 2.0 * pad);
+    let sizes: Vec<(f64, f64)> = items.iter().map(|i| (i.from.size.w, i.from.size.h)).collect();
+    let (cols, rows) = grid(&sizes, (aw, ah));
+    let (cw, ch) = (aw / cols as f64, ah / rows as f64);
+    let n = items.len();
+    for (k, it) in items.iter_mut().enumerate() {
+        let (r, c) = (k / cols, k % cols);
+        // Última linha incompleta fica centralizada.
+        let in_row = if r == rows - 1 { n - r * cols } else { cols };
+        let x0 = ax + (aw - in_row as f64 * cw) / 2.0;
+        let s = (cw * 0.88 / it.from.size.w).min(ch * 0.88 / it.from.size.h).min(1.0);
+        let (w, h) = (it.from.size.w * s, it.from.size.h * s);
+        it.to = Rectangle::new((x0 + c as f64 * cw + (cw - w) / 2.0, ay + r as f64 * ch + (ch - h) / 2.0).into(), (w, h).into());
     }
 }
 
@@ -168,12 +248,8 @@ impl Glove {
         if windows.is_empty() && !strip {
             return;
         }
-        let mut items: Vec<ExposeItem> = windows.into_iter().filter_map(|w| self.frame_rect(&w).map(|r| ExposeItem { window: w, from: r, to: r })).collect();
-        let mut area = self.work_area().to_f64();
-        if strip {
-            area.loc.y += STRIP_H;
-            area.size.h -= STRIP_H;
-        }
+        let mut items: Vec<ExposeItem> = windows.into_iter().filter_map(|w| self.frame_rect(&w).map(|r| ExposeItem { window: w, from: r, to: r, was: r })).collect();
+        let area = self.expose_area(strip);
         let (sw, sh) = self.output_size();
         match mode {
             ExposeMode::Desktop => {
@@ -186,25 +262,11 @@ impl Glove {
             _ => {
                 // Ordem pela posição (de cima para baixo, da esquerda para a direita).
                 items.sort_by(|a, b| (a.from.loc.y + a.from.size.h / 2.0).partial_cmp(&(b.from.loc.y + b.from.size.h / 2.0)).unwrap().then(a.from.loc.x.partial_cmp(&b.from.loc.x).unwrap()));
-                let pad = 24.0;
-                let (ax, ay, aw, ah) = (area.loc.x + pad, area.loc.y + pad, area.size.w - 2.0 * pad, area.size.h - 2.0 * pad);
-                let sizes: Vec<(f64, f64)> = items.iter().map(|i| (i.from.size.w, i.from.size.h)).collect();
-                let (cols, rows) = grid(&sizes, (aw, ah));
-                let (cw, ch) = (aw / cols as f64, ah / rows as f64);
-                let n = items.len();
-                for (k, it) in items.iter_mut().enumerate() {
-                    let (r, c) = (k / cols, k % cols);
-                    // Última linha incompleta fica centralizada.
-                    let in_row = if r == rows - 1 { n - r * cols } else { cols };
-                    let x0 = ax + (aw - in_row as f64 * cw) / 2.0;
-                    let s = (cw * 0.88 / it.from.size.w).min(ch * 0.88 / it.from.size.h).min(1.0);
-                    let (w, h) = (it.from.size.w * s, it.from.size.h * s);
-                    it.to = Rectangle::new((x0 + c as f64 * cw + (cw - w) / 2.0, ay + r as f64 * ch + (ch - h) / 2.0).into(), (w, h).into());
-                }
+                layout(&mut items, area);
             }
         }
         let _ = sh;
-        self.expose = Some(Expose { mode, items, start: Instant::now(), leaving: None, hover: None, dim: SolidColorBuffer::new((sw, sh), [0.0, 0.0, 0.0, 0.45]), label: None, drag: None, desk_hover: None, strip: None });
+        self.expose = Some(Expose { mode, items, start: Instant::now(), leaving: None, hover: None, dim: SolidColorBuffer::new((sw, sh), [0.0, 0.0, 0.0, 0.45]), label: None, drag: None, desk_hover: None, strip: None, relayout: None, slide: None, close_tex: None });
         self.dirty = true;
         self.expose_timer();
     }
@@ -224,7 +286,7 @@ impl Glove {
                         }
                         TimeoutAction::Drop
                     }
-                    None if e.start.elapsed() >= anim() => TimeoutAction::Drop,
+                    None if !e.animating() => TimeoutAction::Drop,
                     _ => TimeoutAction::ToDuration(Duration::from_millis(16)),
                 }
             })
@@ -239,6 +301,16 @@ impl Glove {
         }
         // Se ainda estava entrando, volta do ponto em que está.
         let p = e.progress();
+        // Volta de onde estão (mesmo no meio de uma reorganização ou troca de mesa).
+        for i in 0..e.items.len() {
+            let mut t = e.target(i);
+            if let Some((dx, since, _)) = &e.slide {
+                t.loc.x -= dx * (1.0 - ease(*since, slide_anim()));
+            }
+            e.items[i].to = t;
+        }
+        e.relayout = None;
+        e.slide = None;
         let back = Instant::now() - anim().mul_f64(1.0 - p.clamp(0.0, 1.0));
         e.leaving = Some((back, focus.clone()));
         e.label = None;
@@ -247,6 +319,91 @@ impl Glove {
         }
         self.dirty = true;
         self.expose_timer();
+    }
+
+    /// A área onde as janelas ficam lado a lado (abaixo da faixa das mesas, se há).
+    fn expose_area(&self, strip: bool) -> Rectangle<f64, Logical> {
+        let mut area = self.work_area().to_f64();
+        if strip {
+            area.loc.y += STRIP_H;
+            area.size.h -= STRIP_H;
+        }
+        area
+    }
+
+    /// Uma janela saiu do Exposé (fechou ou foi para outra mesa): as outras vão,
+    /// animadas, para os lugares novos.
+    fn expose_relayout(&mut self) {
+        let strip = self.desk_count() > 1;
+        let Some(e) = &self.expose else { return };
+        if e.leaving.is_some() || e.mode == ExposeMode::Desktop {
+            return;
+        }
+        if e.items.is_empty() && !(strip && e.mode == ExposeMode::All) {
+            self.leave_expose(None);
+            return;
+        }
+        let area = self.expose_area(strip && e.mode == ExposeMode::All);
+        let Some(e) = &mut self.expose else { return };
+        for i in 0..e.items.len() {
+            e.items[i].was = e.target(i);
+        }
+        layout(&mut e.items, area);
+        e.relayout = Some(Instant::now());
+        e.hover = None;
+        e.label = None;
+        e.drag = None;
+        self.dirty = true;
+        self.expose_timer();
+    }
+
+    /// As janelas fechadas saem (e as outras se reorganizam); uma janela nova (como o
+    /// "salvar antes de fechar?") encerra o Exposé e fica na frente.
+    fn expose_sync(&mut self) {
+        let Some(e) = &self.expose else { return };
+        if e.leaving.is_some() {
+            return;
+        }
+        let gone: Vec<usize> = (0..e.items.len()).filter(|&i| !self.space.elements().any(|w| w == &e.items[i].window)).collect();
+        let fresh = (e.mode == ExposeMode::All).then(|| self.space.elements().rev().find(|w| e.item_of(w).is_none()).cloned()).flatten();
+        if let Some(w) = fresh {
+            self.leave_expose(Some(w));
+            return;
+        }
+        if gone.is_empty() {
+            return;
+        }
+        if let Some(e) = &mut self.expose {
+            for i in gone.into_iter().rev() {
+                e.items.remove(i);
+            }
+        }
+        self.expose_relayout();
+    }
+
+    /// Vai a outra mesa sem sair do Exposé: as janelas desta deslizam para fora e as
+    /// da outra entram pelo outro lado (indo para a direita, o conteúdo anda para a
+    /// esquerda, como se fosse arrastado).
+    pub fn expose_go_desk(&mut self, j: usize) {
+        let cur = self.mesas.cur;
+        if j >= self.desk_count() || j == cur {
+            self.show_desk_hud();
+            return;
+        }
+        let (sw, _) = self.output_size();
+        let dx = if j > cur { -(sw as f64) } else { sw as f64 };
+        let old: Vec<(Window, Rectangle<f64, Logical>)> = self.expose.as_ref().map(|e| (0..e.items.len()).map(|i| (e.items[i].window.clone(), e.current(i))).collect()).unwrap_or_default();
+        self.expose = None;
+        self.switch_desk(j, None);
+        self.mesas.slide = None;
+        self.hide_desk_hud();
+        self.toggle_expose(ExposeMode::All);
+        if let Some(e) = &mut self.expose {
+            // Já aberto: só o deslize.
+            e.start = Instant::now() - anim();
+            e.slide = Some((dx, Instant::now(), old));
+        }
+        self.dirty = true;
     }
 
     pub fn expose_active(&self) -> bool {
@@ -269,7 +426,9 @@ impl Glove {
     pub fn expose_motion(&mut self, pos: Point<f64, Logical>) {
         let desk = self.expose_desk_at(pos);
         let dragging = self.expose.as_ref().is_some_and(|e| e.drag.is_some());
-        let hit = if dragging { None } else { self.expose_hit(pos) };
+        // Sobre o botão de fechar (que sai um pouco da janela), continua nela.
+        let on_close = self.expose.as_ref().and_then(|e| e.hover.filter(|&i| close_rect(e.shown(i)).contains(pos)));
+        let hit = if dragging { None } else { on_close.or_else(|| self.expose_hit(pos)) };
         if let Some(e) = &mut self.expose {
             if let Some((_, from, to, moved)) = &mut e.drag {
                 *to = pos;
@@ -298,12 +457,14 @@ impl Glove {
         }
         if let Some(d) = self.expose_desk_at(pos) {
             if d != self.mesas.cur {
-                self.expose = None;
-                self.switch_desk(d, None);
-                self.mesas.slide = None;
-                self.hide_desk_hud();
-                self.toggle_expose(ExposeMode::All);
+                self.expose_go_desk(d);
             }
+            return;
+        }
+        // O × fecha a janela; quando ela some, as outras se reorganizam.
+        let close = self.expose.as_ref().and_then(|e| e.close_shown().filter(|&i| close_rect(e.shown(i)).contains(pos)).map(|i| e.items[i].window.clone()));
+        if let Some(w) = close {
+            self.close_window(&w);
             return;
         }
         match self.expose_hit(pos) {
@@ -333,6 +494,7 @@ impl Glove {
                 e.label = None;
             }
             self.send_to_desk(&w, d);
+            self.expose_relayout();
         }
     }
 
@@ -399,10 +561,17 @@ impl Glove {
     }
 
     pub fn prepare_expose(&mut self) {
+        self.expose_sync();
         self.prepare_expose_strip();
         let sc = self.scale() as f32;
         let (sw, sh) = self.output_size();
         let Some(e) = &mut self.expose else { return };
+        if e.slide.as_ref().is_some_and(|s| s.1.elapsed() >= slide_anim()) {
+            e.slide = None;
+        }
+        if e.close_tex.as_ref().is_none_or(|t| t.0 != sc.to_bits()) {
+            e.close_tex = glove_paint::widgets::close_button(sc).map(|c| (sc.to_bits(), to_tex(c)));
+        }
         e.dim.resize((sw, sh));
         // A cor muda com a animação (muda também o "commit", senão a tela não é refeita).
         let a = (0.45 * e.progress()) as f32;

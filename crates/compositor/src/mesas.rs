@@ -204,7 +204,7 @@ impl Glove {
         self.mesas.hud = None;
     }
 
-    fn show_desk_hud(&mut self) {
+    pub(crate) fn show_desk_hud(&mut self) {
         if self.desk_count() < 2 {
             return;
         }

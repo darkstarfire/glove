@@ -205,6 +205,26 @@ impl Glove {
         Some(self.chrome.dock_pos_for((area.size.w, area.size.h)) + area.loc)
     }
 
+    /// Is a window in the place of the Dock (where it shows when up)? For the intellihide:
+    /// the monitor where the Dock shows (the main one, or where it was revealed).
+    pub fn dock_blocked(&self) -> bool {
+        let Some(area) = self.chrome.dock_reveal.or_else(|| self.primary_rect()) else { return false };
+        let Some(l) = self.chrome.dock_layout.as_ref() else { return false };
+        let pos = if Some(area) == self.primary_rect() {
+            self.chrome.dock_pos_hidden(l, self.chrome.out_size, 0.0)
+        } else {
+            area.loc + self.chrome.dock_pos_hidden(l, (area.size.w, area.size.h), 0.0)
+        };
+        let (sx, sy, sw, sh) = l.shelf;
+        let dock = Rectangle::<i32, Logical>::new((pos.x + sx as i32, pos.y + sy as i32).into(), (sw.ceil() as i32, sh.ceil() as i32).into());
+        self.space.elements().any(|w| {
+            self.space.element_geometry(w).is_some_and(|g| {
+                let top = crate::shell::deco_top(w);
+                Rectangle::<i32, Logical>::new((g.loc.x, g.loc.y - top).into(), (g.size.w, g.size.h + top).into()).overlaps(dock)
+            })
+        })
+    }
+
     /// The monitors that have a Dock: the main one and, with the Dock on all monitors,
     /// the extra ones.
     pub fn dock_areas(&self) -> Vec<Rectangle<i32, Logical>> {

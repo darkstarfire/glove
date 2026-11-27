@@ -103,8 +103,8 @@ pub enum Cantos {
 }
 
 /// Uma superfície da janela desenhada com os cantos de baixo dela recortados.
-pub struct Rounded {
-    inner: WaylandSurfaceRenderElement<GlesRenderer>,
+pub struct Rounded<E = WaylandSurfaceRenderElement<GlesRenderer>> {
+    inner: E,
     program: GlesTexProgram,
     /// A janela inteira, em pixels da tela.
     win: Rectangle<i32, Physical>,
@@ -112,16 +112,17 @@ pub struct Rounded {
     cantos: Cantos,
 }
 
-impl Rounded {
+impl<E: Element> Rounded<E> {
     /// Envolve `inner` se ela encosta num canto de baixo de `win` (e fica dentro da
     /// janela: um menu que sai para fora não é recortado). Senão devolve a própria.
-    pub fn wrap(inner: WaylandSurfaceRenderElement<GlesRenderer>, program: &GlesTexProgram, win: Rectangle<i32, Physical>, scale: f64, cantos: Cantos, raio: f64) -> Result<Self, WaylandSurfaceRenderElement<GlesRenderer>> {
+    pub fn wrap(inner: E, program: &GlesTexProgram, win: Rectangle<i32, Physical>, scale: f64, cantos: Cantos, raio: f64) -> Result<Self, E> {
         let g = inner.geometry(Scale::from(scale));
         let radius = (raio * scale).round();
-        let inside = g.loc.x >= win.loc.x - 1 && g.loc.y >= win.loc.y - 1 && g.loc.x + g.size.w <= win.loc.x + win.size.w + 1 && g.loc.y + g.size.h <= win.loc.y + win.size.h + 1;
+        // (Com folga de 2 pixels: encolhida no Exposé, a conta arredonda para os lados.)
+        let inside = g.loc.x >= win.loc.x - 2 && g.loc.y >= win.loc.y - 2 && g.loc.x + g.size.w <= win.loc.x + win.size.w + 2 && g.loc.y + g.size.h <= win.loc.y + win.size.h + 2;
         // A superfície que contém a janela inteira (as do GTK guardam em volta uma margem
         // transparente para redimensionar): os cantos são os da janela, dentro dela.
-        let contains = g.loc.x <= win.loc.x && g.loc.y <= win.loc.y && g.loc.x + g.size.w >= win.loc.x + win.size.w && g.loc.y + g.size.h >= win.loc.y + win.size.h;
+        let contains = g.loc.x <= win.loc.x + 2 && g.loc.y <= win.loc.y + 2 && g.loc.x + g.size.w >= win.loc.x + win.size.w - 2 && g.loc.y + g.size.h >= win.loc.y + win.size.h - 2;
         let corners = quadrados(win.loc.x, win.loc.y, win.size.w, win.size.h, radius as i32, cantos);
         if !(inside || contains) || !corners.iter().any(|c| c.overlaps(g)) {
             return Err(inner);
@@ -151,7 +152,7 @@ fn quadrados(x: i32, y: i32, w: i32, h: i32, r: i32, cantos: Cantos) -> Vec<Rect
     v
 }
 
-impl Element for Rounded {
+impl<E: Element> Element for Rounded<E> {
     fn id(&self) -> &Id {
         self.inner.id()
     }
@@ -186,7 +187,7 @@ impl Element for Rounded {
     }
 }
 
-impl RenderElement<GlesRenderer> for Rounded {
+impl<E: Element + RenderElement<GlesRenderer>> RenderElement<GlesRenderer> for Rounded<E> {
     fn draw(&self, frame: &mut GlesFrame<'_, '_>, src: Rectangle<f64, BufferCoords>, dst: Rectangle<i32, Physical>, damage: &[Rectangle<i32, Physical>], opaque_regions: &[Rectangle<i32, Physical>]) -> Result<(), GlesError> {
         // A janela relativa ao lugar onde a superfície é desenhada.
         let win = [(self.win.loc.x - dst.loc.x) as f32, (self.win.loc.y - dst.loc.y) as f32, self.win.size.w as f32, self.win.size.h as f32];

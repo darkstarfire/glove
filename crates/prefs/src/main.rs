@@ -1547,6 +1547,16 @@ impl Prefs {
                 self.save();
             }
         });
+        // Intellihide: only when a window takes the place of the Dock.
+        let mut smart = self.config.dock.smart_hide;
+        ui.form_row("", LW, |ui| {
+            ui.set_enabled(hide);
+            if ui.checkbox(&mut smart, tr!("Só quando uma janela ocupar o lugar do Dock")) {
+                self.config.dock.smart_hide = smart;
+                self.save();
+            }
+            ui.set_enabled(true);
+        });
     }
 
     fn teclado(&mut self, ui: &mut Ui) {

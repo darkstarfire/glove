@@ -37,6 +37,7 @@ render_elements! {
     Solid=SolidColorRenderElement,
     Shader=TextureShaderElement,
     Rounded=crate::cantos::Rounded,
+    RoundedScaled=crate::cantos::Rounded<RescaleRenderElement<WaylandSurfaceRenderElement<GlesRenderer>>>,
 }
 
 /// Efeitos do Acesso Universal: escala de cinza, contraste e cores invertidas,
@@ -504,17 +505,14 @@ impl Glove {
         Some(GloveElement::Shader(TextureShaderElement::new(el, cache.program.clone()?, uniforms)))
     }
 
-    /// Elementos da cena, da frente para o fundo (sem os efeitos de tela).
-    /// As superfícies de uma janela cuja área (geometria) começa em `loc` (pontos, na
-    /// tela). No Moderno, as que encostam nos cantos de baixo saem arredondadas.
-    fn window_elements(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, loc: Point<i32, Logical>, sc: f64) -> Vec<GloveElement> {
-        let render_loc = (loc - w.geometry().loc).to_physical_precise_round(sc);
+    /// Que cantos da janela arredondar, e com que raio (em pontos).
+    fn corner_mode(&self, w: &smithay::desktop::Window) -> Option<(crate::cantos::Cantos, f64)> {
         // Moderno: os cantos de baixo (os de cima vêm da barra de título) ou os quatro
         // (janela sem barra). Clássico: só as janelas sem barra, nos cantos de cima (como
         // a barra de título clássica; embaixo ela é reta).
         let bare = !self.greeter && self.bare_window(w);
         let cheia = crate::shell::is_fullscreen(w);
-        let modo = if cheia {
+        if cheia {
             None
         } else if self.theme.modern {
             Some((if bare { crate::cantos::Cantos::Todos } else { crate::cantos::Cantos::Baixo }, crate::cantos::RAIO))
@@ -525,13 +523,25 @@ impl Glove {
             Some((crate::cantos::Cantos::Cima, 6.0))
         } else {
             None
-        };
-        let rounder = if modo.is_some() {
-            let mut cache = self.effects.borrow_mut();
-            cache.cantos.get_or_insert_with(|| crate::cantos::compile(renderer)).clone()
-        } else {
-            None
-        };
+        }
+    }
+
+    /// O programa dos cantos arredondados (compilado na primeira vez).
+    fn rounder(&self, renderer: &mut GlesRenderer, want: bool) -> Option<smithay::backend::renderer::gles::GlesTexProgram> {
+        if !want {
+            return None;
+        }
+        let mut cache = self.effects.borrow_mut();
+        cache.cantos.get_or_insert_with(|| crate::cantos::compile(renderer)).clone()
+    }
+
+    /// Elementos da cena, da frente para o fundo (sem os efeitos de tela).
+    /// As superfícies de uma janela cuja área (geometria) começa em `loc` (pontos, na
+    /// tela). No Moderno, as que encostam nos cantos de baixo saem arredondadas.
+    fn window_elements(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, loc: Point<i32, Logical>, sc: f64) -> Vec<GloveElement> {
+        let render_loc = (loc - w.geometry().loc).to_physical_precise_round(sc);
+        let modo = self.corner_mode(w);
+        let rounder = self.rounder(renderer, modo.is_some());
         let (Some(program), Some((cantos, raio))) = (rounder, modo) else {
             return w.render_elements::<GloveElement>(renderer, render_loc, Scale::from(sc), 1.0);
         };
@@ -869,6 +879,11 @@ impl Glove {
     fn expose_elements(&self, renderer: &mut GlesRenderer, sc: f64, out: &mut Vec<GloveElement>) {
         use smithay::backend::renderer::element::Kind;
         let Some(e) = &self.expose else { return };
+        // O × de fechar, no canto da janela sob o mouse (na frente de tudo).
+        if let (Some(i), Some((_, t))) = (e.close_shown(), &e.close_tex) {
+            let r = crate::expose::close_rect(e.shown(i));
+            out.extend(mem(renderer, (r.loc.x.round() as i32, r.loc.y.round() as i32).into(), t, sc));
+        }
         // Título da janela sob o mouse, no meio dela.
         if let (Some((i, t)), Some(_)) = (&e.label, e.hover) {
             let r = e.current(*i);
@@ -907,6 +922,10 @@ impl Glove {
                 continue;
             }
             self.push_scaled_window(renderer, w, e.current(i), sc, out);
+        }
+        // Trocando de mesa: as da mesa que ficou saem pelo outro lado.
+        for (w, r) in e.leaving_desk() {
+            self.push_scaled_window(renderer, &w, r, sc, out);
         }
         // Fundo escurecido (menos no modo mesa); no modo app, as outras janelas ficam embaixo dele.
         if e.mode != crate::expose::ExposeMode::Desktop {
@@ -1014,7 +1033,20 @@ impl Glove {
         let py = r.loc.y + top * s - geo.y * s;
         let origin = Point::<f64, Logical>::from((px, py)).to_physical(sc).to_i32_round();
         let surf = w.render_elements::<WaylandSurfaceRenderElement<GlesRenderer>>(renderer, origin, Scale::from(sc), 1.0);
-        out.extend(surf.into_iter().map(|el| GloveElement::Scaled(RescaleRenderElement::from_element(el, origin, s))));
+        // Os cantos arredondados de sempre, encolhidos junto com a janela.
+        let modo = self.corner_mode(w);
+        let rounder = self.rounder(renderer, modo.is_some());
+        let win = Rectangle::<f64, Logical>::new((r.loc.x, r.loc.y + top * s).into(), (frame_w * s, w.geometry().size.h as f64 * s).into()).to_physical(sc).to_i32_round();
+        out.extend(surf.into_iter().map(|el| {
+            let el = RescaleRenderElement::from_element(el, origin, s);
+            match (&rounder, modo) {
+                (Some(p), Some((cantos, raio))) => match crate::cantos::Rounded::wrap(el, p, win, sc, cantos, raio * s) {
+                    Ok(r) => GloveElement::RoundedScaled(r),
+                    Err(e) => GloveElement::Scaled(e),
+                },
+                _ => GloveElement::Scaled(el),
+            }
+        }));
         if let Some(deco) = w.user_data().get::<RefCell<Deco>>() {
             if let Some(t) = &deco.borrow().title {
                 let o = Point::<f64, Logical>::from((r.loc.x, r.loc.y)).to_physical(sc).to_i32_round();
