@@ -172,12 +172,6 @@ pub fn bare_dialog(w: &Window) -> bool {
 /// número da vez em que se conferiu, o resultado).
 pub struct MolduraGlove(pub std::cell::Cell<Option<(u64, bool)>>);
 
-/// A janela dona de um diálogo (a do mesmo app que o abriu).
-pub fn parent_of<'a>(space: &'a smithay::desktop::Space<Window>, w: &Window) -> Option<&'a Window> {
-    let parent = w.toplevel()?.parent()?;
-    space.elements().find(|o| o.toplevel().is_some_and(|t| *t.wl_surface() == parent))
-}
-
 pub fn deco_top(w: &Window) -> i32 {
     if is_ssd(w) { TITLE_H } else { 0 }
 }
@@ -1335,28 +1329,10 @@ impl Glove {
         }
     }
 
-    /// The useful area of the monitor where a new window of `w`'s app belongs: everything an
-    /// app opens (windows, dialogs, alerts) shows on the monitor of the app that opened it.
-    /// A dialog or alert: its owner's monitor. Another window of an app already open: the
-    /// monitor of its window in front. An app just opened: the monitor with the mouse (where
-    /// it was clicked to open).
-    pub fn origin_area(&self, w: &Window) -> Rectangle<i32, Logical> {
-        let monitor_of = |o: &Window| {
-            let g = self.space.element_geometry(o)?;
-            self.output_rect_at(((g.loc.x + g.size.w / 2) as f64, (g.loc.y + g.size.h / 2) as f64).into())
-        };
-        let x11_owner = w.x11_surface().and_then(|x| x.is_transient_for()).and_then(|id| self.space.elements().find(|o| o.x11_surface().is_some_and(|x| x.window_id() == id)));
-        let owner = parent_of(&self.space, w).or(x11_owner);
-        let same_app = || {
-            let pid = self.window_pid(w);
-            let app = window_info(w).1;
-            self.space.elements().rev().filter(|o| *o != w).find(|o| (pid.is_some() && self.window_pid(o) == pid) || (!app.is_empty() && window_info(o).1 == app)).and_then(monitor_of)
-        };
-        let monitor = owner.and_then(monitor_of).or_else(same_app).or_else(|| self.output_rect_at(self.pointer_pos));
-        match monitor {
-            Some(r) => self.work_area_of(r),
-            None => self.work_area(),
-        }
+    /// The useful area of the monitor where a new window opens: everything floating
+    /// (windows, dialogs, alerts, confirmations) opens on the monitor with the mouse.
+    pub fn origin_area(&self, _w: &Window) -> Rectangle<i32, Logical> {
+        self.work_area_of(self.pointer_area())
     }
 
     /// The area for placing `w`: where it already is (placed a moment ago and being
@@ -1382,13 +1358,8 @@ impl Glove {
         let center = centered(size, top, area);
         // Diálogos (janelas com dona) ficam sempre no centro.
         let child = w.toplevel().is_some_and(|t| t.parent().is_some()) || w.x11_surface().is_some_and(|x| x.is_transient_for().is_some());
-        // Diálogo de um app (alerta, confirmação): centrado sobre a janela dona, perto do
-        // alto dela, como as folhas do Mac; sem dona à vista, no centro da tela.
-        if let Some(p) = parent_of(&self.space, w).and_then(|p| self.space.element_geometry(p)) {
-            let x = (p.loc.x + (p.size.w - size.w) / 2).clamp(area.loc.x, (area.loc.x + area.size.w - size.w).max(area.loc.x));
-            let y = (p.loc.y + 24).clamp(area.loc.y + top, (area.loc.y + area.size.h - size.h).max(area.loc.y + top));
-            return (x, y).into();
-        }
+        // Diálogo de um app (alerta, confirmação, Abrir/Salvar): uma janela própria no
+        // centro da tela do mouse, não grudada na dona.
         if child {
             return center;
         }

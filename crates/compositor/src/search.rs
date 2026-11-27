@@ -325,8 +325,8 @@ impl Glove {
         self.close_control();
         self.close_grade();
         self.search.open = true;
-        // Pela lupa da barra de um monitor extra: abre nele.
-        self.search.tela = self.chrome_translate(self.pointer_pos).and_then(|_| self.output_rect_at(self.pointer_pos));
+        // No monitor do mouse (pelo atalho ou pela lupa da barra dele).
+        self.search.tela = Some(self.pointer_area());
         self.search.query.clear();
         self.search.results.clear();
         self.search.selected = None;

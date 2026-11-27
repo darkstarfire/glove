@@ -49,6 +49,8 @@ pub struct ForceQuit {
     pub title_hover: bool,
     /// Canto do conteúdo (sem a sombra).
     pub origin: Point<i32, Logical>,
+    /// The monitor it opened on (the one with the mouse).
+    pub area: smithay::utils::Rectangle<i32, Logical>,
     pub size: (i32, i32),
     pub rows: Vec<(u32, ForceQuitRow)>,
     key: Option<(Vec<(u32, ForceQuitRow)>, Option<u32>, bool, Option<FqHit>, bool, u64)>,
@@ -184,7 +186,7 @@ impl Glove {
     pub fn open_force_quit(&mut self) {
         self.close_menu();
         let selected = self.focused_pid();
-        self.force_quit = Some(ForceQuit { selected, confirm: false, pressed: None, title_hover: false, origin: (0, 0).into(), size: (0, 0), rows: Vec::new(), key: None, tex: None });
+        self.force_quit = Some(ForceQuit { selected, confirm: false, pressed: None, title_hover: false, origin: (0, 0).into(), area: self.pointer_area(), size: (0, 0), rows: Vec::new(), key: None, tex: None });
         for w in self.all_windows() {
             self.ping_window(&w);
         }
@@ -233,9 +235,9 @@ impl Glove {
         }
         let question = self.fq_question(&fq);
         let (w, h) = chrome::force_quit_size(&self.fonts, fq.rows.len(), question.as_deref());
-        let (sw, sh) = self.output_size();
+        let (sw, sh) = (fq.area.size.w, fq.area.size.h);
         fq.size = (w as i32, h as i32);
-        fq.origin = (((sw as f32 - w) / 2.0) as i32, (glove_paint::theme::MENUBAR_H as f32 + (sh as f32 - h) / 4.0) as i32).into();
+        fq.origin = fq.area.loc + Point::from((((sw as f32 - w) / 2.0) as i32, (glove_paint::theme::MENUBAR_H as f32 + (sh as f32 - h) / 4.0) as i32));
         let key = (fq.rows.clone(), fq.selected, fq.confirm, fq.pressed, fq.title_hover, self.theme_gen);
         if fq.key.as_ref() != Some(&key) {
             let sel = fq.selected.and_then(|s| fq.rows.iter().position(|(p, _)| *p == s));

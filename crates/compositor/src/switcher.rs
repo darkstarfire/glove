@@ -24,6 +24,8 @@ pub struct WinSwitcher {
     pub slots: Vec<[f32; 4]>,
     key: Option<(usize, usize, u64, String)>,
     pub tex: Option<Tex>,
+    /// The monitor it opened on (the one with the mouse).
+    pub area: smithay::utils::Rectangle<i32, smithay::utils::Logical>,
 }
 
 pub struct Switcher {
@@ -32,6 +34,8 @@ pub struct Switcher {
     pub selected: usize,
     key: Option<(Vec<u32>, usize, u64)>,
     pub tex: Option<Tex>,
+    /// The monitor it opened on (the one with the mouse).
+    pub area: smithay::utils::Rectangle<i32, smithay::utils::Logical>,
 }
 
 /// O que fazer com uma tecla enquanto a faixa está aberta.
@@ -88,7 +92,7 @@ impl Glove {
         self.close_menu();
         let n = apps.len();
         let selected = if n > 1 { if back { n - 1 } else { 1 } } else { 0 };
-        self.switcher = Some(Switcher { apps, selected, key: None, tex: None });
+        self.switcher = Some(Switcher { apps, selected, key: None, tex: None, area: self.pointer_area() });
         self.dirty = true;
     }
 
@@ -199,7 +203,7 @@ impl Glove {
         self.close_menu();
         let n = windows.len();
         let selected = if back { n - 1 } else { 1 };
-        self.win_switcher = Some(WinSwitcher { windows, selected, slots: Vec::new(), key: None, tex: None });
+        self.win_switcher = Some(WinSwitcher { windows, selected, slots: Vec::new(), key: None, tex: None, area: self.pointer_area() });
         self.dirty = true;
     }
 
@@ -269,15 +273,18 @@ impl Glove {
         }
     }
 
+    /// In the middle of the monitor it opened on (global points).
     pub fn win_switcher_pos(&self) -> Option<(i32, i32)> {
-        let t = self.win_switcher.as_ref()?.tex.as_ref()?;
-        let (w, h) = self.output_size();
-        Some(((w - t.size.w) / 2, (h - t.size.h) / 2))
+        let s = self.win_switcher.as_ref()?;
+        let t = s.tex.as_ref()?;
+        let a = s.area;
+        Some((a.loc.x + (a.size.w - t.size.w) / 2, a.loc.y + (a.size.h - t.size.h) / 2))
     }
 
     pub fn switcher_pos(&self) -> Option<(i32, i32)> {
-        let t = self.switcher.as_ref()?.tex.as_ref()?;
-        let (w, h) = self.output_size();
-        Some(((w - t.size.w) / 2, (h - t.size.h) / 2))
+        let s = self.switcher.as_ref()?;
+        let t = s.tex.as_ref()?;
+        let a = s.area;
+        Some((a.loc.x + (a.size.w - t.size.w) / 2, a.loc.y + (a.size.h - t.size.h) / 2))
     }
 }

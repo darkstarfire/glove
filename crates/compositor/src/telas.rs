@@ -298,6 +298,14 @@ impl Glove {
         })
     }
 
+    /// The monitor with the mouse (without one, the main monitor): where floating things
+    /// open (Quick Search, Force Quit, the app and window switchers, new windows).
+    pub fn pointer_area(&self) -> Rectangle<i32, Logical> {
+        self.output_rect_at(self.pointer_pos)
+            .or_else(|| self.primary_rect())
+            .unwrap_or_else(|| Rectangle::from_size(self.output_size().into()))
+    }
+
     /// Login screen: the login goes to the monitor with the mouse (the window of the
     /// modern login covers that monitor; the panel of the classic one is centered there).
     pub fn greeter_follow(&mut self) {

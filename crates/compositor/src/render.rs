@@ -354,6 +354,28 @@ impl Glove {
                 out.extend(mem(renderer, p, t, sc));
             }
         }
+        // Forçar Encerrar e as trocas de apps e de janelas abertas neste monitor (o do
+        // mouse quando abriram).
+        if let Some(fq) = self.force_quit.as_ref().filter(|f| f.area == area) {
+            if let Some(t) = &fq.tex {
+                let m = glove_paint::chrome::FQ_SHADOW as i32;
+                out.extend(mem(renderer, (fq.origin.x - m - origin.x, fq.origin.y - m - origin.y).into(), t, sc));
+            }
+        }
+        if let (Some(s), Some((x, y))) = (self.switcher.as_ref().filter(|s| s.area == area), self.switcher_pos()) {
+            if let Some(t) = &s.tex {
+                out.extend(mem(renderer, (x - origin.x, y - origin.y).into(), t, sc));
+            }
+        }
+        if let (Some(s), Some((x, y))) = (self.win_switcher.as_ref().filter(|s| s.area == area), self.win_switcher_pos()) {
+            for (w, sl) in s.windows.iter().zip(&s.slots) {
+                let r = Rectangle::new(((x - origin.x) as f64 + sl[0] as f64, (y - origin.y) as f64 + sl[1] as f64).into(), (sl[2] as f64, sl[3] as f64).into());
+                self.push_scaled_window(renderer, w, r, sc, &mut out);
+            }
+            if let Some(t) = &s.tex {
+                out.extend(mem(renderer, (x - origin.x, y - origin.y).into(), t, sc));
+            }
+        }
         // A pilha de Downloads aberta pelo Dock deste monitor (por baixo dos menus).
         let pilha = self.pilha_tex_pos().filter(|(p, t)| Rectangle::<i32, Logical>::new(*p, ((t.px.0 as f64 / sc) as i32, (t.px.1 as f64 / sc) as i32).into()).overlaps(area));
         // Menus (de contexto, do Dock) abertos neste monitor, por cima das janelas.
