@@ -1557,6 +1557,14 @@ impl Prefs {
             }
             ui.set_enabled(true);
         });
+        // The Downloads stack next to the Trash.
+        let mut stack = self.config.dock.downloads_stack;
+        ui.form_row("", LW, |ui| {
+            if ui.checkbox(&mut stack, tr!("Mostrar a pasta Downloads no Dock")) {
+                self.config.dock.downloads_stack = stack;
+                self.save();
+            }
+        });
     }
 
     fn teclado(&mut self, ui: &mut Ui) {

@@ -205,10 +205,10 @@ fn tenta(cfg: &EncoderConfig, req: &RecordingRequest) -> Result<ActiveRecording,
     inicia(cfg, req, caminho)
 }
 
-/// Pasta padrão das gravações: `~/Videos/Gravações de tela` (sem acento, o padrão do sistema).
+/// Pasta padrão das gravações: `Vídeos/Gravações de tela`, na pasta Vídeos do sistema
+/// (a do user-dirs, como as capturas vão para a pasta Imagens).
 pub fn pasta_padrao() -> PathBuf {
-    let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into()));
-    home.join("Videos").join(tr!("Gravações de tela"))
+    glove_config::arquivos::screen_recordings_dir()
 }
 
 /// Componentes de data e hora locais: (ano, mês, dia, hora, minuto, segundo).

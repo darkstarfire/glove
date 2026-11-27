@@ -4,6 +4,7 @@ mod prof;
 mod grabs;
 mod handlers;
 mod input;
+mod pilha;
 mod appmenu;
 mod dashboard;
 mod desk;

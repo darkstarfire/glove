@@ -26,6 +26,8 @@ const BTN_RIGHT: u32 = 0x111;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum KeyAction {
+    /// Esc com a pilha de Downloads aberta.
+    StackClose,
     Terminal,
     Close,
     Minimize,
@@ -687,6 +689,11 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(k);
             }
+            // Pilha de Downloads aberta (sem menu por cima): Esc fecha.
+            if st.pilha.is_some() && st.chrome.menu.is_none() && name == "escape" {
+                st.suppressed_keys.push(code);
+                return FilterResult::Intercept(Some(KeyAction::StackClose));
+            }
             // Menu aberto: as teclas são dele (setas, Enter, Esc).
             if st.chrome.menu.is_some() {
                 let k = match name.as_str() {
@@ -833,6 +840,7 @@ impl Glove {
             Some(KeyAction::ExposeDesktop) => self.toggle_expose(crate::expose::ExposeMode::Desktop),
             Some(KeyAction::ExposeEsc) => self.leave_expose(None),
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
+            Some(KeyAction::StackClose) => self.close_pilha(),
             Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
             Some(KeyAction::Grade) => self.toggle_grade(),
@@ -929,6 +937,12 @@ impl Glove {
                     }
                 }
             }
+        }
+
+        // Pilha de Downloads: o item sob o mouse acende.
+        if self.pilha.is_some() {
+            let part = if let Hit::Stack(p) = hit { p } else { None };
+            self.pilha_motion(part);
         }
 
         // Busca Rápida: o mouse escolhe a linha.
@@ -1262,6 +1276,29 @@ impl Glove {
             self.chrome.swallow_release = true;
             return;
         }
+        // Pilha de Downloads aberta (sem menu por cima): clicar nela age; fora, fecha
+        // (no próprio ícone dela, só fecha).
+        if state == ButtonState::Pressed && !pointer.is_grabbed() && self.pilha.is_some() && self.chrome.menu.is_none() {
+            match self.hit_test(pos) {
+                Hit::Stack(part) => self.pilha_press(part, button == BTN_RIGHT, pos),
+                Hit::Dock(Some(i)) if self.chrome.dock_actions.get(i) == Some(&crate::shell::DockAction::Stack) => self.close_pilha(),
+                // A confirmação de Apagar Imediatamente: o clique vai para ela e a pilha fica.
+                Hit::Client(w) if self.pilha_keeps_for(&w) => {
+                    let keep = self.pilha.take();
+                    self.on_button(button, state, time);
+                    self.pilha = keep;
+                    return;
+                }
+                _ => {
+                    self.close_pilha();
+                    // O clique continua valendo para o que está embaixo (outro ícone do
+                    // Dock, uma janela).
+                    return self.on_button(button, state, time);
+                }
+            }
+            self.chrome.swallow_release = true;
+            return;
+        }
         // Central de controle aberta: clicar nela age; fora (menos noutro título), fecha.
         if state == ButtonState::Pressed && !pointer.is_grabbed() && self.control.is_some() {
             match self.hit_test(pos) {
@@ -1308,7 +1345,7 @@ impl Glove {
                 // Com o menu aberto: clicar no mesmo título fecha, em outro troca;
                 // fora dos menus, só fecha.
                 match hit {
-                    Hit::Menu(..) | Hit::VolumeSlider(..) | Hit::Control(..) | Hit::Search(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(..) | Hit::Control(..) | Hit::Search(_) | Hit::Stack(_) => {}
                     Hit::Dock(Some(i)) if button == BTN_RIGHT => self.open_dock_menu(i),
                     Hit::MenuBar { target: Some(crate::shell::BarTarget::Extra(k)) } if button == BTN_RIGHT && self.tray_index(k).is_some() => {
                         self.close_menu();
@@ -1425,7 +1462,7 @@ impl Glove {
                         self.focus_window(None);
                         self.desk_press(None, button, pos);
                     }
-                    Hit::Menu(..) | Hit::VolumeSlider(..) | Hit::Control(..) | Hit::Search(_) => {}
+                    Hit::Menu(..) | Hit::VolumeSlider(..) | Hit::Control(..) | Hit::Search(_) | Hit::Stack(_) => {}
                 }
             }
             self.chrome.swallow_release = swallow;

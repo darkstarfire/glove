@@ -346,6 +346,14 @@ pub enum MenuAction {
     NewInstance(String, String),
     /// Esvaziar a Lixeira (com confirmação, no Arquivos).
     EmptyTrash,
+    /// Pilha de Downloads: abrir o item, mostrá-lo no Arquivos, mandar para o Lixo ou
+    /// apagar (com confirmação, no Arquivos).
+    StackOpen(std::path::PathBuf),
+    StackReveal(std::path::PathBuf),
+    StackTrash(std::path::PathBuf),
+    StackDelete(std::path::PathBuf),
+    /// Tira a pilha de Downloads do Dock.
+    RemoveStack,
     /// Menu do monitor: (saída, "LxA@Hz").
     SetMode(String, String),
     ToggleBatteryPercent,
@@ -462,6 +470,8 @@ pub enum DockAction {
     /// App aberto que não está fixo no Dock (pelo app_id).
     Running(String),
     Restore(usize),
+    /// A pilha de Downloads (a pasta em grade, acima do ícone).
+    Stack,
     Trash,
 }
 
@@ -669,6 +679,8 @@ pub enum Hit {
     Search(Option<usize>),
     MenuBar { target: Option<BarTarget> },
     Dock(Option<usize>),
+    /// A pilha de Downloads aberta (a parte sob o mouse).
+    Stack(Option<chrome::StackPart>),
     Title { window: Window, button: Option<TitleButton>, group: bool, pill: bool, proxy: Option<std::path::PathBuf> },
     Resize(Window, ResizeEdge),
     Client(Window),
@@ -712,6 +724,9 @@ impl Glove {
         }
         if let Some(r) = self.search_hit(pos) {
             return Hit::Search(r);
+        }
+        if let Some(r) = self.pilha_hit(pos) {
+            return Hit::Stack(r);
         }
         if let Some(h) = self.force_quit_hit(pos) {
             return Hit::ForceQuit(h);
@@ -1587,7 +1602,7 @@ impl Glove {
         ];
         let logout = if self.nested { tr!("Sair do Glove…").to_string() } else { tr!("Encerrar Sessão de {}…", user_full_name()) };
         let nodes = vec![
-            item(tr!("Sobre o Glove"), MenuAction::About),
+            item(tr!("Sobre Este Computador"), MenuAction::About),
             item(tr!("Ajuda do Glove"), MenuAction::Help),
             MenuNode::sep(),
             MenuNode::new(MenuItem::item(tr!("Preferências…")).with_shortcut(self.binding("preferences")), Some(MenuAction::Preferences)),
@@ -1851,6 +1866,13 @@ impl Glove {
             MenuAction::ToggleKeepInDock(id, pid) => self.toggle_keep_in_dock(&id, pid),
             MenuAction::ShowInFiles(cmd) => self.show_in_files(&cmd),
             MenuAction::DockRun(a) => self.run_dock_action(a),
+            a @ (MenuAction::StackOpen(_) | MenuAction::StackReveal(_) | MenuAction::StackTrash(_) | MenuAction::StackDelete(_)) => self.pilha_action(&a),
+            MenuAction::RemoveStack => {
+                self.config.dock.downloads_stack = false;
+                let _ = self.config.save();
+                self.close_pilha();
+                self.dirty = true;
+            }
             MenuAction::EmptyTrash => {
                 self.spawn("glove-files --empty-trash");
                 self.chrome.trash_full.1 = None;
@@ -2007,6 +2029,11 @@ impl Glove {
                     self.activate_app(pid);
                 }
             }
+            DockAction::Stack => {
+                if let Some(i) = self.chrome.dock_actions.iter().position(|x| *x == DockAction::Stack) {
+                    self.toggle_pilha(i);
+                }
+            }
             DockAction::Trash => {
                 let c = self.config.trash_command.clone();
                 self.spawn(&c);
@@ -2141,6 +2168,7 @@ impl Glove {
         self.prepare_startup();
         self.prepare_search();
         self.prepare_expose();
+        self.prepare_pilha();
         self.prepare_switcher();
         self.prepare_win_switcher();
         self.prepare_lock();
@@ -2212,6 +2240,12 @@ impl Glove {
                 thumbnail: true,
             });
             actions.push(DockAction::Restore(i));
+            any_min = true;
+        }
+        // A pilha de Downloads: do outro lado do separador, antes da Lixeira.
+        if self.config.dock.downloads_stack {
+            items.push(DockItem { icon: Icon::SpecialFolder(glove_paint::icons::FolderKind::Downloads), label: tr!("Downloads").into(), letter: None, running: false, separator_before: !any_min, bounce: 0.0, thumbnail: false });
+            actions.push(DockAction::Stack);
             any_min = true;
         }
         // Lixeira sempre no fim, do outro lado do separador.

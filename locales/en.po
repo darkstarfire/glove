@@ -6287,7 +6287,7 @@ msgstr "Stop Recording"
 msgid "VAAPI exige um nó de render da GPU."
 msgstr "VAAPI needs a GPU render node."
 
-msgid "salva em Videos e avisa quando terminar."
+msgid "salva em Vídeos e avisa quando terminar."
 msgstr "saves it in Videos and tells you when it is done."
 
 msgid "Áudio do sistema"
@@ -6554,3 +6554,48 @@ msgstr "Show clipboard history in menu bar"
 
 msgid "Só quando uma janela ocupar o lugar do Dock"
 msgstr "Only when a window takes the Dock’s place"
+
+msgid "Não foi possível apagar."
+msgstr "Could not delete."
+
+msgid "Tem certeza de que deseja apagar “{}” para sempre?"
+msgstr "Are you sure you want to delete “{}” permanently?"
+
+msgid "Tem certeza de que deseja apagar estes {} itens para sempre?"
+msgstr "Are you sure you want to delete these {} items permanently?"
+
+msgid "Esta ação não pode ser desfeita."
+msgstr "You can’t undo this action."
+
+msgid "Apagar Imediatamente"
+msgstr "Delete Immediately"
+
+msgid "Mover para o Lixo"
+msgstr "Move to Trash"
+
+msgid "Apagar Imediatamente…"
+msgstr "Delete Immediately…"
+
+msgid "Remover do Dock"
+msgstr "Remove from Dock"
+
+msgid "Mostrar a pasta Downloads no Dock"
+msgstr "Show the Downloads folder in the Dock"
+
+msgid "Notebook"
+msgstr "Laptop"
+
+msgid "Computador de mesa"
+msgstr "Desktop Computer"
+
+msgid "Computador tudo-em-um"
+msgstr "All-in-One Computer"
+
+msgid "Mini PC"
+msgstr "Mini PC"
+
+msgid "Mais Informações…"
+msgstr "More Info…"
+
+msgid "Sobre Este Computador"
+msgstr "About This Computer"

@@ -174,6 +174,8 @@ pub struct Glove {
     pub bar_peek: bool,
     /// A central de controle aberta.
     pub control: Option<crate::controle::ControlPanel>,
+    /// A pilha de Downloads do Dock, aberta.
+    pub pilha: Option<crate::pilha::Pilha>,
     /// O que a central viu na última leitura (Wi-Fi, Bluetooth) e a leitura em curso.
     pub control_seen: crate::controle::ControlSeen,
     /// Gesto do touchpad em andamento.
@@ -352,6 +354,7 @@ impl Glove {
             papel: Default::default(),
             bar_peek: false,
             control: None,
+            pilha: None,
             control_seen: Default::default(),
             gesto: None,
             avisos: Default::default(),

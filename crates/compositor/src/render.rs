@@ -798,6 +798,10 @@ impl Glove {
                 }
             }
         }
+        // A pilha de Downloads, acima do Dock (e embaixo do menu de um item dela).
+        if let Some((p, t)) = self.pilha_tex_pos() {
+            out.extend(mem(renderer, p, t, sc));
+        }
         if let Some(fq) = &self.force_quit {
             if let Some(t) = &fq.tex {
                 let m = glove_paint::chrome::FQ_SHADOW as i32;

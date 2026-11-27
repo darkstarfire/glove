@@ -1,14 +1,188 @@
-//! "Sobre o Glove": logotipo, versão, memória e processador, como o "Sobre este computador"
-//! do 10.2/10.3. "Mais informações…" abre o Monitor.
+//! "Sobre Este Computador", como nos Macs de hoje: a imagem do aparelho (notebook,
+//! computador de mesa, tudo-em-um ou mini PC, pelo que o sistema diz do gabinete), o nome
+//! do modelo, o processador, os gráficos, a memória e o sistema. "Mais Informações…" abre
+//! o Monitor.
 
 use glove_config::tr;
 use glove_ui::{paint::draw::*, run, ui::Key, App, Rect, Ui, WindowOptions};
 
-const W: f32 = 300.0;
+const W: f32 = 340.0;
+const H: f32 = 470.0;
+
+/// O tipo de aparelho (decide a imagem).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Kind {
+    Notebook,
+    Desktop,
+    AllInOne,
+    Mini,
+}
+
+impl Kind {
+    /// Pelo tipo de gabinete do SMBIOS (/sys/class/dmi/id/chassis_type); sem ele, um
+    /// aparelho com bateria é notebook.
+    fn detect() -> Self {
+        let chassis = std::fs::read_to_string("/sys/class/dmi/id/chassis_type").ok().and_then(|s| s.trim().parse::<u32>().ok());
+        match chassis {
+            Some(c) => Self::from_chassis(c),
+            None if has_battery() => Self::Notebook,
+            None => Self::Desktop,
+        }
+    }
+
+    fn from_chassis(c: u32) -> Self {
+        match c {
+            // Portátil, notebook, laptop, subnotebook, conversível, destacável, tablet.
+            8 | 9 | 10 | 14 | 30 | 31 | 32 => Self::Notebook,
+            13 => Self::AllInOne,
+            // Mini PC e computadores de mão / embarcados.
+            35 | 36 | 33 | 34 => Self::Mini,
+            _ => Self::Desktop,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Notebook => tr!("Notebook"),
+            Self::Desktop => tr!("Computador de mesa"),
+            Self::AllInOne => tr!("Computador tudo-em-um"),
+            Self::Mini => tr!("Mini PC"),
+        }
+    }
+
+    fn image(self) -> &'static [u8] {
+        match self {
+            Self::Notebook => include_bytes!("../assets/notebook.png"),
+            Self::Desktop => include_bytes!("../assets/desktop.png"),
+            Self::AllInOne => include_bytes!("../assets/allinone.png"),
+            Self::Mini => include_bytes!("../assets/mini.png"),
+        }
+    }
+}
+
+fn has_battery() -> bool {
+    std::fs::read_dir("/sys/class/power_supply").map(|d| d.flatten().any(|e| std::fs::read_to_string(e.path().join("type")).is_ok_and(|t| t.trim() == "Battery"))).unwrap_or(false)
+}
+
+fn dmi(field: &str) -> Option<String> {
+    let v = std::fs::read_to_string(format!("/sys/class/dmi/id/{field}")).ok()?;
+    let v = v.trim();
+    // Valores de fábrica que não dizem nada.
+    let vazio = ["", "To Be Filled By O.E.M.", "To be filled by O.E.M.", "Default string", "System Product Name", "System manufacturer", "Not Applicable", "None", "Type1ProductConfigId", "O.E.M."];
+    (!vazio.contains(&v)).then(|| v.to_string())
+}
+
+/// O nome do modelo ("Aspire 5", "ThinkPad T14"): a família, ou o produto.
+fn model_name() -> Option<String> {
+    let vendor = dmi("sys_vendor");
+    let name = dmi("product_family").filter(|f| f.chars().any(|c| c.is_ascii_digit()) || f.contains(' ')).or_else(|| dmi("product_name"))?;
+    // Máquinas virtuais: o nome do programa já diz.
+    if let Some(v) = &vendor {
+        if ["QEMU", "innotek GmbH", "VMware, Inc.", "Xen", "Microsoft Corporation", "Parallels"].iter().any(|x| v.starts_with(x)) && !name.contains(' ') {
+            return Some(name);
+        }
+    }
+    Some(name)
+}
+
+/// O fabricante sem "Inc.", "Corporation" etc.
+fn vendor_name() -> Option<String> {
+    let v = dmi("sys_vendor")?;
+    let v = v.replace(" Inc.", "").replace(", Inc.", "").replace(" Corporation", "").replace(" Co., Ltd.", "").replace(" Computer", "").replace(" COMPUTER", "");
+    Some(match v.as_str() {
+        "LENOVO" => "Lenovo".into(),
+        "ASUSTeK" | "ASUSTeK INC." => "ASUS".into(),
+        "Hewlett-Packard" | "HP" => "HP".into(),
+        "Dell" => "Dell".into(),
+        _ => v.trim_end_matches(',').to_string(),
+    })
+}
+
+/// As placas de vídeo pelo banco de dados do PCI ("Intel UHD Graphics").
+fn graphics() -> String {
+    let ids = std::fs::read_to_string("/usr/share/misc/pci.ids").or_else(|_| std::fs::read_to_string("/usr/share/hwdata/pci.ids")).unwrap_or_default();
+    let mut out: Vec<String> = Vec::new();
+    let Ok(rd) = std::fs::read_dir("/sys/class/drm") else { return "—".into() };
+    let mut cards: Vec<_> = rd.flatten().map(|e| e.path()).filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("card") && !n.to_string_lossy().contains('-'))).collect();
+    cards.sort();
+    for c in cards {
+        let read = |f: &str| std::fs::read_to_string(c.join("device").join(f)).ok().map(|s| s.trim().trim_start_matches("0x").to_lowercase());
+        let (Some(v), Some(d)) = (read("vendor"), read("device")) else { continue };
+        let name = gpu_name(&ids, &v, &d);
+        if !name.is_empty() && !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    if out.is_empty() { "—".into() } else { out.join(", ") }
+}
+
+/// O nome da placa no pci.ids: o fabricante curto e o modelo (o que está entre
+/// colchetes, se houver: "Alder Lake-P GT1 [UHD Graphics]" → "UHD Graphics").
+fn gpu_name(ids: &str, vendor: &str, device: &str) -> String {
+    let mut vname = String::new();
+    let mut dname = String::new();
+    let mut in_vendor = false;
+    for l in ids.lines() {
+        if l.starts_with('#') || l.is_empty() {
+            continue;
+        }
+        if !l.starts_with('\t') {
+            if in_vendor {
+                break;
+            }
+            if l.len() > 6 && l[..4].eq_ignore_ascii_case(vendor) {
+                in_vendor = true;
+                vname = l[4..].trim().to_string();
+            }
+        } else if in_vendor && !l.starts_with("\t\t") {
+            let t = l.trim_start();
+            if t.len() > 6 && t[..4].eq_ignore_ascii_case(device) {
+                dname = t[4..].trim().to_string();
+                break;
+            }
+        }
+    }
+    let short = match vendor {
+        "8086" => "Intel".to_string(),
+        "1002" | "1022" => "AMD".to_string(),
+        "10de" => "NVIDIA".to_string(),
+        "1af4" | "1234" => "Virtual".to_string(),
+        _ => vname.split([' ', ',']).next().unwrap_or("").to_string(),
+    };
+    let model = match (dname.find('['), dname.rfind(']')) {
+        (Some(a), Some(b)) if b > a => dname[a + 1..b].to_string(),
+        _ => dname,
+    };
+    let model = model.split(" / ").next().unwrap_or("").to_string();
+    if model.is_empty() {
+        short
+    } else if model.starts_with(&short) {
+        model
+    } else {
+        format!("{short} {model}")
+    }
+}
+
+/// O sistema: "Glove OS 0.15.15" (ou o nome da distro e o Glove, em outra distro).
+fn system_name() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    if glove_os() {
+        return format!("Glove OS {version}");
+    }
+    let text = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    let pretty = text.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=")).map(|v| v.trim_matches('"').to_string());
+    match pretty {
+        Some(p) => format!("{p} · Glove {version}"),
+        None => format!("Glove {version}"),
+    }
+}
 
 struct About {
-    memory: String,
-    processor: String,
+    kind: Kind,
+    image: Option<glove_ui::paint::Pixmap>,
+    title: String,
+    subtitle: String,
+    rows: Vec<(&'static str, String)>,
 }
 
 /// O sistema é o Glove OS (`NAME="Glove OS"` no os-release)?
@@ -20,33 +194,51 @@ fn glove_os() -> bool {
 impl App for About {
     fn ui(&mut self, ui: &mut Ui) {
         let w = ui.c.w;
-        let accent = ui.theme.accent;
-        glove_ui::paint::icons::logo(ui.c, w / 2.0 - 48.0, 18.0, 96.0, accent);
+        let dark = glove_ui::paint::theme::dark();
+        let (ink, dim) = if dark { (rgba(240, 240, 242, 255), rgba(160, 160, 166, 255)) } else { (rgba(20, 20, 22, 255), rgba(110, 110, 116, 255)) };
+        // A imagem do aparelho, no alto.
+        if let Some(img) = &self.image {
+            let (bw, bh) = (w - 40.0, 190.0);
+            let k = (bw / img.width() as f32).min(bh / img.height() as f32);
+            let (dw, dh) = (img.width() as f32 * k, img.height() as f32 * k);
+            let (x, y) = ((w - dw) / 2.0, 20.0 + (bh - dh) / 2.0);
+            let s = ui.c.scale;
+            let paint = glove_ui::paint::tiny_skia::PixmapPaint { quality: glove_ui::paint::tiny_skia::FilterQuality::Bicubic, ..Default::default() };
+            ui.c.draw_pixmap_t(img.as_ref(), &paint, glove_ui::paint::tiny_skia::Transform::from_row(k * s, 0.0, 0.0, k * s, (x * s).round(), (y * s).round()));
+        }
         let center = |ui: &mut Ui, t: &str, y: f32, px: f32, bold: bool, c| {
-            // Encolhe a fonte se o texto não couber (nomes de processador longos).
             let mut px = px;
-            while px > 9.0 && ui.text_width(t, px, bold) > w - 24.0 {
+            while px > 9.0 && ui.text_width(t, px, bold) > w - 28.0 {
                 px -= 0.5;
             }
             let tw = ui.text_width(t, px, bold);
-            ui.fonts.draw(ui.c, t, (w - tw) / 2.0, y, px, bold, c);
+            ui.fonts.draw(ui.c, t, ((w - tw) / 2.0).round(), y, px, bold, c);
         };
-        // No Glove OS, o nome da distro; em outra distro, o da área de trabalho.
-        let name = if glove_os() { "Glove OS" } else { "Glove" };
-        let version = tr!("Versão {}", env!("CARGO_PKG_VERSION"));
-        center(ui, name, 150.0, 30.0, true, rgba(20, 20, 20, 255));
-        center(ui, &version, 170.0, 11.0, false, rgba(60, 60, 60, 255));
-        center(ui, &tr!("Memória: {}", self.memory), 202.0, 13.0, false, rgba(20, 20, 20, 255));
-        center(ui, &tr!("Processador: {}", self.processor), 221.0, 13.0, false, rgba(20, 20, 20, 255));
-
-        let label = tr!("Mais informações…");
+        center(ui, &self.title.clone(), 244.0, 22.0, true, ink);
+        center(ui, &self.subtitle.clone(), 264.0, 12.0, false, dim);
+        // As linhas: o rótulo à direita do meio, o valor à esquerda dele.
+        let mid = (w * 0.36).round();
+        let mut y = 300.0;
+        for (label, value) in self.rows.clone() {
+            let lw = ui.text_width(label, 12.0, true);
+            ui.fonts.draw(ui.c, label, mid - 6.0 - lw, y, 12.0, true, ink);
+            let max = w - mid - 6.0 - 16.0;
+            let lines = glove_ui::paint::chrome::wrap_two_lines(ui.fonts, &value, 12.0, false, max);
+            for (k, l) in lines.iter().take(2).enumerate() {
+                let l = ui.fonts.ellipsize(l, 12.0, false, max);
+                ui.fonts.draw(ui.c, &l, mid + 6.0, y + k as f32 * 15.0, 12.0, false, dim);
+            }
+            y += 19.0 + 15.0 * (lines.len().min(2) as f32 - 1.0);
+        }
+        let label = tr!("Mais Informações…");
         let bw = (ui.text_width(label, 13.0, false) + 32.0).ceil();
-        ui.area(Rect::new(((w - bw) / 2.0).round(), 240.0, bw, 24.0), |ui| {
+        ui.area(Rect::new(((w - bw) / 2.0).round(), (y + 8.0).round(), bw, 24.0), |ui| {
             if ui.button(label) {
                 let _ = std::process::Command::new(sibling("glove-monitor")).spawn();
             }
         });
-        center(ui, tr!("Software livre · GPL-3.0 ou posterior"), 292.0, 10.0, false, rgba(70, 70, 70, 255));
+        center(ui, tr!("Software livre · GPL-3.0 ou posterior"), H - 14.0, 10.0, false, dim);
+        let _ = self.kind;
         if ui.keys().iter().any(|k| matches!(k.key, Key::Escape | Key::Enter)) {
             ui.close = true;
         }
@@ -171,8 +363,23 @@ pub fn main() {
         }
         return;
     }
-    let about = About { memory: memory_mib().map(format_memory).unwrap_or_else(|| "—".into()), processor: processor() };
-    let opts = WindowOptions { title: tr!("Sobre o Glove").into(), app_id: "glove.About".into(), size: (W as u32, 310), fixed: true, min_size: None };
+    let kind = Kind::detect();
+    let model = model_name();
+    let vendor = vendor_name();
+    let title = model.clone().unwrap_or_else(|| kind.label().to_string());
+    let subtitle = match (&vendor, &model) {
+        (Some(v), Some(_)) => format!("{} {v}", kind.label()),
+        _ => kind.label().to_string(),
+    };
+    let rows = vec![
+        (tr!("Processador"), processor()),
+        (tr!("Gráficos"), graphics()),
+        (tr!("Memória"), memory_mib().map(format_memory).unwrap_or_else(|| "—".into())),
+        (tr!("Sistema"), system_name()),
+    ];
+    let image = glove_ui::paint::image::decode_bytes(kind.image()).ok();
+    let about = About { kind, image, title, subtitle, rows };
+    let opts = WindowOptions { title: tr!("Sobre Este Computador").into(), app_id: "glove.About".into(), size: (W as u32, H as u32), fixed: true, min_size: None };
     if let Err(e) = run(opts, about) {
         eprintln!("glove-about: {e}");
     }
@@ -189,6 +396,25 @@ mod tests {
         assert_eq!(format_memory(7820), "8 GB");
         assert_eq!(format_memory(1536), format!("1{}5 GB", glove_config::virgula()));
         assert_eq!(format_memory(480), "512 MB");
+    }
+
+    #[test]
+    fn aparelho() {
+        assert_eq!(Kind::from_chassis(10), Kind::Notebook);
+        assert_eq!(Kind::from_chassis(3), Kind::Desktop);
+        assert_eq!(Kind::from_chassis(13), Kind::AllInOne);
+        assert_eq!(Kind::from_chassis(35), Kind::Mini);
+        for k in [Kind::Notebook, Kind::Desktop, Kind::AllInOne, Kind::Mini] {
+            assert!(glove_ui::paint::image::decode_bytes(k.image()).is_ok());
+        }
+    }
+
+    #[test]
+    fn placa_de_video() {
+        let ids = "8086  Intel Corporation\n\t46a3  Alder Lake-P GT1 [UHD Graphics]\n\t\t1025 1234  sub\n10de  NVIDIA Corporation\n\t25a2  GA107M [GeForce RTX 3050 Mobile]\n1002  Advanced Micro Devices, Inc. [AMD/ATI]\n\t1638  Cezanne [Radeon Vega Series / Radeon Vega Mobile Series]\n";
+        assert_eq!(gpu_name(ids, "8086", "46a3"), "Intel UHD Graphics");
+        assert_eq!(gpu_name(ids, "10de", "25a2"), "NVIDIA GeForce RTX 3050 Mobile");
+        assert_eq!(gpu_name(ids, "1002", "1638"), "AMD Radeon Vega Series");
     }
 
     #[test]

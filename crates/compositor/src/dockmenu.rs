@@ -68,6 +68,11 @@ impl Glove {
                     Some(MenuAction::EmptyTrash),
                 ),
             ],
+            DockAction::Stack => vec![
+                MenuNode::new(MenuItem::item(tr!("Abrir “{}”", crate::pilha::downloads_dir().file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())), Some(MenuAction::StackReveal(crate::pilha::downloads_dir()))),
+                MenuNode::sep(),
+                MenuNode::new(MenuItem::item(tr!("Remover do Dock")), Some(MenuAction::RemoveStack)),
+            ],
             DockAction::Restore(_) => return,
         };
         // Bico apontando para o meio do ícone; o menu fica logo acima dele.

@@ -485,6 +485,42 @@ impl App for EmptyTrash {
     }
 }
 
+/// Apagar Imediatamente (da pilha de Downloads do Dock): pergunta antes, como no Mac.
+struct DeleteNow {
+    paths: Vec<PathBuf>,
+    error: Option<String>,
+}
+
+impl App for DeleteNow {
+    fn ui(&mut self, ui: &mut Ui) {
+        use glove_ui::AlertKind;
+        if let Some(e) = self.error.clone() {
+            if ui.alert_window(AlertKind::Stop, tr!("Não foi possível apagar."), &e, &["OK"]).is_some() {
+                ui.close = true;
+            }
+            return;
+        }
+        let title = match self.paths.as_slice() {
+            [p] => tr!("Tem certeza de que deseja apagar “{}” para sempre?", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            _ => tr!("Tem certeza de que deseja apagar estes {} itens para sempre?", self.paths.len()),
+        };
+        match ui.alert_window(AlertKind::Caution, &title, tr!("Esta ação não pode ser desfeita."), &[tr!("Cancelar"), tr!("Apagar")]) {
+            Some(1) => {
+                for p in &self.paths {
+                    let r = if p.is_dir() && !p.is_symlink() { std::fs::remove_dir_all(p) } else { std::fs::remove_file(p) };
+                    if let Err(e) = r {
+                        self.error = Some(format!("{}: {e}", p.display()));
+                        return;
+                    }
+                }
+                ui.close = true;
+            }
+            Some(_) => ui.close = true,
+            None => {}
+        }
+    }
+}
+
 /// Abre um programa sem ficar esperando por ele; uma thread recolhe o
 /// processo quando ele termina (sem zumbis).
 fn launch(cmd: &mut std::process::Command) -> std::io::Result<()> {
@@ -2920,6 +2956,17 @@ pub fn main() {
                 if let Err(e) = move_to_trash(Path::new(p)) {
                     eprintln!("glove-files: {p}: {e}");
                 }
+            }
+            return;
+        }
+        Some("--delete") if args.len() > 2 => {
+            let paths: Vec<PathBuf> = args[2..].iter().map(PathBuf::from).filter(|p| p.symlink_metadata().is_ok()).collect();
+            if paths.is_empty() {
+                return;
+            }
+            let opts = WindowOptions { title: tr!("Apagar Imediatamente").into(), app_id: "glove.Files".into(), size: (440, 130), fixed: true, min_size: None };
+            if let Err(e) = run(opts, DeleteNow { paths, error: None }) {
+                eprintln!("glove-files: {e}");
             }
             return;
         }

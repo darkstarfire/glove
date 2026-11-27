@@ -47,7 +47,7 @@ impl App for Painel {
         icons::draw(ui.c, ui.fonts, Icon::Video, 20.0, 18.0, 64.0, None);
         ui.fonts.draw(ui.c, tr!("Gravação de tela"), 100.0, 38.0, 15.0, true, rgba(20, 20, 20, 255));
         ui.fonts.draw(ui.c, tr!("Grava a tela, uma área ou uma janela,"), 100.0, 58.0, 12.0, false, rgba(70, 70, 70, 255));
-        ui.fonts.draw(ui.c, tr!("salva em Videos e avisa quando terminar."), 100.0, 74.0, 12.0, false, rgba(70, 70, 70, 255));
+        ui.fonts.draw(ui.c, tr!("salva em Vídeos e avisa quando terminar."), 100.0, 74.0, 12.0, false, rgba(70, 70, 70, 255));
 
         ui.area(Rect::new(24.0, 100.0, w - 48.0, 110.0), |ui| {
             ui.horizontal(|ui| {
