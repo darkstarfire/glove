@@ -1293,11 +1293,9 @@ impl Glove {
             return;
         }
         let Some(loc) = self.space.element_location(w) else { return };
-        let area = self.work_area();
-        // Só na tela principal (onde estão a barra e o Dock).
-        if loc.x + size.w / 2 < area.loc.x || loc.x + size.w / 2 > area.loc.x + area.size.w {
-            return;
-        }
+        // The useful area of the monitor it is on.
+        let Some(monitor) = self.output_rect_at(((loc.x + size.w / 2) as f64, (loc.y + size.h / 2) as f64).into()) else { return };
+        let area = self.work_area_of(monitor);
         let bottom = area.loc.y + area.size.h;
         if loc.y + size.h > bottom {
             let ny = (bottom - size.h).max(area.loc.y + deco_top(w));
@@ -1337,9 +1335,45 @@ impl Glove {
         }
     }
 
-    /// Onde uma janela nova aparece: no centro da área útil (entre a barra de menu e o Dock).
+    /// The useful area of the monitor where a new window of `w`'s app belongs: everything an
+    /// app opens (windows, dialogs, alerts) shows on the monitor of the app that opened it.
+    /// A dialog or alert: its owner's monitor. Another window of an app already open: the
+    /// monitor of its window in front. An app just opened: the monitor with the mouse (where
+    /// it was clicked to open).
+    pub fn origin_area(&self, w: &Window) -> Rectangle<i32, Logical> {
+        let monitor_of = |o: &Window| {
+            let g = self.space.element_geometry(o)?;
+            self.output_rect_at(((g.loc.x + g.size.w / 2) as f64, (g.loc.y + g.size.h / 2) as f64).into())
+        };
+        let x11_owner = w.x11_surface().and_then(|x| x.is_transient_for()).and_then(|id| self.space.elements().find(|o| o.x11_surface().is_some_and(|x| x.window_id() == id)));
+        let owner = parent_of(&self.space, w).or(x11_owner);
+        let same_app = || {
+            let pid = self.window_pid(w);
+            let app = window_info(w).1;
+            self.space.elements().rev().filter(|o| *o != w).find(|o| (pid.is_some() && self.window_pid(o) == pid) || (!app.is_empty() && window_info(o).1 == app)).and_then(monitor_of)
+        };
+        let monitor = owner.and_then(monitor_of).or_else(same_app).or_else(|| self.output_rect_at(self.pointer_pos));
+        match monitor {
+            Some(r) => self.work_area_of(r),
+            None => self.work_area(),
+        }
+    }
+
+    /// The area for placing `w`: where it already is (placed a moment ago and being
+    /// centered again) or where it belongs (`origin_area`).
+    fn placement_area(&self, w: &Window, size: Size<i32, Logical>) -> Rectangle<i32, Logical> {
+        if let Some((_, at)) = w.user_data().get::<Placed>().and_then(|p| p.0.get()) {
+            if let Some(r) = self.output_rect_at(((at.x + size.w / 2) as f64, (at.y + size.h / 2) as f64).into()) {
+                return self.work_area_of(r);
+            }
+        }
+        self.origin_area(w)
+    }
+
+    /// Onde uma janela nova aparece: no centro da área útil (entre a barra de menu e o Dock)
+    /// do monitor do app que a abriu.
     fn new_window_loc(&self, w: &Window, size: Size<i32, Logical>) -> Point<i32, Logical> {
-        let area = self.work_area();
+        let area = if self.greeter { self.work_area() } else { self.placement_area(w, size) };
         if self.greeter {
             // Tela de login: o painel no centro, um pouco acima do meio.
             return (area.loc.x + (area.size.w - size.w) / 2, area.loc.y + ((area.size.h - size.h) as f32 * 0.42) as i32).into();
@@ -1424,7 +1458,8 @@ impl Glove {
         if let Some(restore) = w.user_data().get::<RefCell<Restore>>() {
             let saved = restore.borrow().0;
             if let Some(r) = saved {
-                let zarea = self.zoom_area(w);
+                // On the monitor of the app that opened it.
+                let zarea = self.origin_area(w);
                 if r.size.w <= 0 || r.size.h <= 0 {
                     let (rw, rh) = (zarea.size.w * 2 / 3, (zarea.size.h - top) * 2 / 3);
                     let loc = (zarea.loc.x + (zarea.size.w - rw) / 2, zarea.loc.y + top + (zarea.size.h - top - rh) / 3);
