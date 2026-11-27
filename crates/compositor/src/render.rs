@@ -354,6 +354,8 @@ impl Glove {
                 out.extend(mem(renderer, p, t, sc));
             }
         }
+        // A pilha de Downloads aberta pelo Dock deste monitor (por baixo dos menus).
+        let pilha = self.pilha_tex_pos().filter(|(p, t)| Rectangle::<i32, Logical>::new(*p, ((t.px.0 as f64 / sc) as i32, (t.px.1 as f64 / sc) as i32).into()).overlaps(area));
         // Menus (de contexto, do Dock) abertos neste monitor, por cima das janelas.
         if let Some(m) = &self.chrome.menu {
             for lv in m.levels.iter().rev() {
@@ -362,6 +364,9 @@ impl Glove {
                     out.extend(mem(renderer, lv.buffer_pos() - origin, b, sc));
                 }
             }
+        }
+        if let Some((p, t)) = pilha {
+            out.extend(mem(renderer, p - origin, t, sc));
         }
         if cursor {
             self.region_elements_at(sc, origin, (area.size.w, area.size.h), &mut out);

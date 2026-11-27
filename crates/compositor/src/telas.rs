@@ -83,7 +83,7 @@ impl Glove {
     }
 
     /// O retângulo do monitor principal.
-    fn primary_rect(&self) -> Option<Rectangle<i32, Logical>> {
+    pub(crate) fn primary_rect(&self) -> Option<Rectangle<i32, Logical>> {
         self.primary().and_then(|o| self.space.output_geometry(o))
     }
 

@@ -54,8 +54,10 @@ pub struct Pilha {
     pub asking: Option<Instant>,
     /// Em leque (senão, em grade).
     pub fan: bool,
-    /// O ícone da pilha no Dock (x, y, lado, na tela).
+    /// O ícone da pilha no Dock (x, y, lado, na tela) e o monitor desse Dock (cada
+    /// monitor tem o seu: a pilha abre no do clique).
     icon: (f32, f32, f32),
+    area: smithay::utils::Rectangle<i32, Logical>,
     /// Leque: os lugares, o primeiro item à vista (com fração enquanto desliza) e para
     /// onde ele vai.
     slots: usize,
@@ -169,7 +171,10 @@ impl Glove {
         self.close_search();
         let Some(l) = &self.chrome.dock_layout else { return };
         let Some(&(x, y, s)) = l.items.get(i) else { return };
-        let d = self.chrome.dock_pos();
+        // O Dock do clique: o do monitor com o mouse (o vivo), não o do principal.
+        let principal = self.primary_rect().unwrap_or_else(|| smithay::utils::Rectangle::from_size(self.output_size().into()));
+        let area = self.live_dock_area().unwrap_or(principal);
+        let d = if area == principal { self.chrome.dock_pos() } else { self.extra_dock_origin(area).unwrap_or_else(|| self.chrome.dock_pos()) };
         let icon = (d.x as f32 + x, d.y as f32 + y, s);
         // No Dock da lateral o leque não cabe: grade, como no Mac.
         let fan = self.config.dock.stack_view != "grid" && !self.chrome.dock_side.vertical();
@@ -191,6 +196,7 @@ impl Glove {
             asking: None,
             fan,
             icon,
+            area,
             slots: 0,
             bend: chrome::FAN_BEND,
             off: 0.0,
@@ -235,9 +241,12 @@ impl Glove {
     /// O tamanho e o lugar do painel: o leque cresce do ícone para cima; a grade fica
     /// acima do ícone, com o bico no meio dele (no Dock da lateral, ao lado dele).
     fn pilha_place(&self, p: &mut Pilha) {
-        let (sw, sh) = self.output_size();
+        // Os limites: o monitor do Dock do clique.
+        let a = p.area;
+        let (ax, ay) = (a.loc.x as f32, a.loc.y as f32);
+        let (sw, sh) = (a.loc.x + a.size.w, a.loc.y + a.size.h);
         let (ix, iy, s) = p.icon;
-        let menubar = glove_paint::theme::MENUBAR_H as f32 + 6.0;
+        let menubar = ay + glove_paint::theme::MENUBAR_H as f32 + 6.0;
         if p.fan {
             p.slots = chrome::fan_slots(p.items.len(), iy - menubar);
             // A curva vai para a direita: perto da borda da tela, ela se curva menos.
@@ -256,7 +265,7 @@ impl Glove {
             (ox, (iy + s / 2.0 - ph / 2.0).clamp(menubar, (sh as f32 - ph - 6.0).max(0.0)))
         } else {
             let cx = ix + s / 2.0;
-            ((cx - pw / 2.0).clamp(8.0, (sw as f32 - pw - 8.0).max(8.0)), (iy - ph - chrome::STACK_ARROW - 4.0).max(menubar))
+            ((cx - pw / 2.0).clamp(ax + 8.0, (sw as f32 - pw - 8.0).max(ax + 8.0)), (iy - ph - chrome::STACK_ARROW - 4.0).max(menubar))
         };
         p.origin = (ox.round() as i32, oy.round() as i32).into();
         p.arrow_x = if self.chrome.dock_side.vertical() { -1000.0 } else { ix + s / 2.0 - ox.round() };
