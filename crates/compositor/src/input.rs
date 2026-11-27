@@ -28,6 +28,7 @@ const BTN_RIGHT: u32 = 0x111;
 enum KeyAction {
     /// Esc com a pilha de Downloads aberta.
     StackClose,
+    StackKey(crate::lock::LockKey),
     Terminal,
     Close,
     Minimize,
@@ -418,8 +419,11 @@ impl Glove {
             Some("scroll") => {
                 // ex.: "scroll 30" (para baixo) ou "scroll -30"
                 let v: f64 = it.next().and_then(|n| n.parse().ok()).unwrap_or(15.0);
+                let over_stack = self.seat.get_pointer().is_some_and(|p| self.pilha_over(p.current_location()));
                 if self.grade_active() {
                     self.grade_scroll(v);
+                } else if over_stack {
+                    self.pilha_scroll(v);
                 } else {
                     let pointer = self.seat.get_pointer().unwrap();
                     pointer.axis(self, AxisFrame::new(t).source(AxisSource::Wheel).value(Axis::Vertical, v));
@@ -488,6 +492,14 @@ impl Glove {
                 // os "cliques" da roda continuam sendo um clique cada).
                 let speed = self.config.pointer.scroll_speed.clamp(0.25, 4.0);
                 let amount = |a| sign * speed * event.amount(a).unwrap_or_else(|| event.amount_v120(a).unwrap_or(0.0) * 15.0 / 120.0);
+                // A pilha de Downloads sob o mouse: a rolagem é dela.
+                if self.pilha.is_some() {
+                    let pos = self.seat.get_pointer().map(|p| p.current_location());
+                    if pos.is_some_and(|pos| self.pilha_over(pos)) {
+                        self.pilha_scroll(amount(Axis::Vertical) + amount(Axis::Horizontal));
+                        return;
+                    }
+                }
                 // Central de avisos aberta: a rolagem é dela.
                 if self.avisos.center.is_some() {
                     self.avisos_scroll(amount(Axis::Vertical));
@@ -689,7 +701,20 @@ impl Glove {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(k);
             }
-            // Pilha de Downloads aberta (sem menu por cima): Esc fecha.
+            // Pilha de Downloads aberta (sem menu por cima): em grade, o texto vai para a
+            // busca dela (atalhos com Super/Ctrl seguem); Esc fecha.
+            if st.pilha_grid() && st.chrome.menu.is_none() && !mods.logo && !mods.ctrl && !(st.nested && mods.alt) {
+                let k = match name.as_str() {
+                    "backspace" => Some(KeyAction::StackKey(crate::lock::LockKey::Backspace)),
+                    "return" | "kp_enter" => Some(KeyAction::StackKey(crate::lock::LockKey::Enter)),
+                    "escape" => Some(KeyAction::StackKey(crate::lock::LockKey::Escape)),
+                    _ => handle.modified_sym().key_char().filter(|c| !c.is_control()).map(|c| KeyAction::StackKey(crate::lock::LockKey::Char(c))),
+                };
+                if k.is_some() {
+                    st.suppressed_keys.push(code);
+                    return FilterResult::Intercept(k);
+                }
+            }
             if st.pilha.is_some() && st.chrome.menu.is_none() && name == "escape" {
                 st.suppressed_keys.push(code);
                 return FilterResult::Intercept(Some(KeyAction::StackClose));
@@ -841,6 +866,7 @@ impl Glove {
             Some(KeyAction::ExposeEsc) => self.leave_expose(None),
             Some(KeyAction::SearchKey(k)) => self.search_key(k),
             Some(KeyAction::StackClose) => self.close_pilha(),
+            Some(KeyAction::StackKey(k)) => self.pilha_key(k),
             Some(KeyAction::Desk(k)) => self.desk_key(k),
             Some(KeyAction::Dashboard) => self.toggle_dashboard(),
             Some(KeyAction::Grade) => self.toggle_grade(),

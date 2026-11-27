@@ -71,6 +71,10 @@ impl Glove {
             DockAction::Stack => vec![
                 MenuNode::new(MenuItem::item(tr!("Abrir “{}”", crate::pilha::downloads_dir().file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())), Some(MenuAction::StackReveal(crate::pilha::downloads_dir()))),
                 MenuNode::sep(),
+                MenuNode::new(MenuItem::item(tr!("Ver como")).disabled(), None),
+                MenuNode::new(MenuItem::check(tr!("Leque"), self.config.dock.stack_view != "grid"), Some(MenuAction::StackView(true))),
+                MenuNode::new(MenuItem::check(tr!("Grade"), self.config.dock.stack_view == "grid"), Some(MenuAction::StackView(false))),
+                MenuNode::sep(),
                 MenuNode::new(MenuItem::item(tr!("Remover do Dock")), Some(MenuAction::RemoveStack)),
             ],
             DockAction::Restore(_) => return,

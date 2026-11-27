@@ -6599,3 +6599,27 @@ msgstr "More Info…"
 
 msgid "Sobre Este Computador"
 msgstr "About This Computer"
+
+msgid "Tem certeza de que deseja mudar a extensão de “{}” para “{}”?"
+msgstr "Are you sure you want to change the extension from “{}” to “{}”?"
+
+msgid "Se fizer essa mudança, o documento pode abrir com outro programa."
+msgstr "If you make this change, your document may open in a different application."
+
+msgid "Manter {}"
+msgstr "Keep {}"
+
+msgid "Usar {}"
+msgstr "Use {}"
+
+msgid "nenhuma"
+msgstr "none"
+
+msgid "Ver como"
+msgstr "View as"
+
+msgid "Leque"
+msgstr "Fan"
+
+msgid "Grade"
+msgstr "Grid"

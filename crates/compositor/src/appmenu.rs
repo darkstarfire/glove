@@ -51,7 +51,13 @@ impl Glove {
         if w.toplevel().is_none() || crate::shell::is_ssd(w) || crate::shell::is_fullscreen(w) {
             return false;
         }
-        let pedidos = self.menu_clients.iter().filter(|c| c.moldura_glove).count() as u64;
+        // Who asked (their pids), not only how many: closing a Jangada and opening another
+        // keeps the count, and the new window kept the answer of the old list (it got the
+        // corners of a window with the Glove title bar: only the bottom ones rounded).
+        let mut pedidos = 0u64;
+        for c in self.menu_clients.iter().filter(|c| c.moldura_glove) {
+            pedidos = pedidos.wrapping_mul(1_000_003).wrapping_add(c.pid as u64 + 1);
+        }
         if pedidos == 0 {
             return false;
         }

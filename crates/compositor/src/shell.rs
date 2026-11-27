@@ -352,6 +352,8 @@ pub enum MenuAction {
     StackReveal(std::path::PathBuf),
     StackTrash(std::path::PathBuf),
     StackDelete(std::path::PathBuf),
+    /// Como a pilha abre: em leque (true) ou em grade.
+    StackView(bool),
     /// Tira a pilha de Downloads do Dock.
     RemoveStack,
     /// Menu do monitor: (saída, "LxA@Hz").
@@ -1866,7 +1868,7 @@ impl Glove {
             MenuAction::ToggleKeepInDock(id, pid) => self.toggle_keep_in_dock(&id, pid),
             MenuAction::ShowInFiles(cmd) => self.show_in_files(&cmd),
             MenuAction::DockRun(a) => self.run_dock_action(a),
-            a @ (MenuAction::StackOpen(_) | MenuAction::StackReveal(_) | MenuAction::StackTrash(_) | MenuAction::StackDelete(_)) => self.pilha_action(&a),
+            a @ (MenuAction::StackOpen(_) | MenuAction::StackReveal(_) | MenuAction::StackTrash(_) | MenuAction::StackDelete(_) | MenuAction::StackView(_)) => self.pilha_action(&a),
             MenuAction::RemoveStack => {
                 self.config.dock.downloads_stack = false;
                 let _ = self.config.save();

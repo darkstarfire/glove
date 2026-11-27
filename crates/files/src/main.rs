@@ -617,6 +617,9 @@ struct Files {
     paste_wait: bool,
     /// Nomes repetidos: a pergunta antes de copiar (itens, nomes, mover).
     ask: Option<(Vec<ops::Item>, Vec<String>, bool)>,
+    /// Renaming changed the extension: the item, the name typed, the old and new
+    /// extension (asked, as in the Finder).
+    ext_ask: Option<(PathBuf, String, String, String)>,
     /// Cópia em andamento: progresso, verbo ("Copiando"/"Movendo") e quantos itens.
     job: Option<(Arc<ops::Progress>, &'static str, usize)>,
     /// Arrastar: item, onde começou e se já virou arraste.
@@ -633,8 +636,6 @@ struct Files {
     rename: Option<(PathBuf, String, bool)>,
     /// O campo de renomear apareceu neste quadro.
     rename_shown: bool,
-    /// O nome está todo selecionado: a primeira tecla substitui (como no Mac).
-    rename_pristine: bool,
     /// Pastas visitadas por último.
     recent: Vec<PathBuf>,
     /// "Ir para a pasta…": o texto e se a folha acabou de abrir.
@@ -702,7 +703,7 @@ impl Files {
             ctx: None,
             rename: None,
             rename_shown: false,
-            rename_pristine: false,
+            ext_ask: None,
             recent: Vec::new(),
             goto: None,
             list_sort: (0, true),
@@ -1598,25 +1599,16 @@ impl Files {
             return;
         }
         self.rename_shown = true;
-        // Nome todo selecionado: digitar substitui, Backspace apaga, setas tiram a seleção.
-        let mut focus_now = first;
-        if self.rename_pristine {
-            let typed = !ui.typed().is_empty();
-            let back = ui.keys().iter().any(|k| matches!(k.key, Key::Backspace | Key::Delete));
-            let moved = ui.keys().iter().any(|k| matches!(k.key, Key::Left | Key::Right | Key::Home | Key::End));
-            if typed || back {
-                text.clear();
-                focus_now = true;
-                self.rename_pristine = false;
-            } else if moved {
-                self.rename_pristine = false;
-            }
+        // The Return that started the rename must not reach the new field (it would take
+        // it as "done" and close it at once): the field comes in the next pass.
+        if first && ui.keys().iter().any(|k| k.key == Key::Enter) {
+            ui.redraw = true;
+            return;
         }
-        let (_, enter) = ui.text_field_in(r, &mut text, focus_now);
-        if self.rename_pristine {
-            let tw = ui.text_width(&text, (r.h * 0.62).min(13.0), false);
-            ui.c.fill_rect(r.x + 3.0, r.y + 1.0, tw + 2.0, r.h - 2.0, &solid(with_alpha(ui.theme.accent, 0.35)));
-        }
+        // As in the Finder: the name comes selected without the extension (a real
+        // selection: typing replaces it, Copy copies it, the arrows move the cursor).
+        let sel = 0..name_without_extension(&text, path.is_dir());
+        let (_, enter) = ui.text_field_in_selected(r, &mut text, first, sel);
         let esc = ui.keys().iter().any(|k| k.key == Key::Escape);
         if esc {
             self.rename = None;
@@ -1633,6 +1625,41 @@ impl Files {
         if name.is_empty() || name == old {
             return;
         }
+        // The extension changed: asked first (the file may open in another program).
+        if !path.is_dir() {
+            let ext = |n: &str| n[name_without_extension(n, false)..].to_string();
+            let (a, b) = (ext(&old), ext(name));
+            if !a.is_empty() && a != b {
+                self.ext_ask = Some((path.to_path_buf(), name.to_string(), a, b));
+                return;
+            }
+        }
+        self.do_rename(path, name);
+    }
+
+    /// The sheet that asks about a changed extension.
+    fn ext_sheet(&mut self, ui: &mut Ui) {
+        let Some((path, name, old, new)) = self.ext_ask.clone() else { return };
+        let novo = if new.is_empty() { tr!("nenhuma").to_string() } else { new.clone() };
+        let title = tr!("Tem certeza de que deseja mudar a extensão de “{}” para “{}”?", old, novo);
+        let text = tr!("Se fizer essa mudança, o documento pode abrir com outro programa.");
+        let keep = tr!("Manter {}", old);
+        let use_new = if new.is_empty() { tr!("Remover").to_string() } else { tr!("Usar {}", new) };
+        match ui.alert(glove_ui::AlertKind::Caution, &title, text, &[&keep, &use_new]) {
+            Some(0) => {
+                self.ext_ask = None;
+                let stem = &name[..name_without_extension(&name, false)];
+                self.finish_rename(&path, &format!("{stem}{old}"));
+            }
+            Some(_) => {
+                self.ext_ask = None;
+                self.do_rename(&path, &name);
+            }
+            None => {}
+        }
+    }
+
+    fn do_rename(&mut self, path: &Path, name: &str) {
         if name.contains('/') || name == "." || name == ".." {
             self.message = Some(tr!("O nome não pode ter “/”.").into());
             return;
@@ -2418,6 +2445,7 @@ impl Files {
                 "Ctrl+bracketleft" => act.push("back"),
                 "Ctrl+bracketright" => act.push("forward"),
                 "Ctrl+Up" => act.push("up"),
+                "Ctrl+Down" => act.push("open"),
                 "Ctrl+Shift+C" => act.push("go-computer"),
                 "Ctrl+Shift+H" => act.push("go-home"),
                 "Ctrl+Shift+D" => act.push("go-desktop"),
@@ -2435,7 +2463,9 @@ impl Files {
                     Key::Down => act.push("sel-down"),
                     Key::Right => act.push("sel-right"),
                     Key::Left => act.push("sel-left"),
-                    Key::Enter => act.push("open"),
+                    // Return renames, as in the Finder (open is Ctrl+O, Ctrl+Down or a
+                    // double click).
+                    Key::Enter => act.push("rename"),
                     _ => {}
                 },
             }
@@ -2488,7 +2518,6 @@ impl Files {
                 if let Some(p) = self.selected.clone() {
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                     self.rename = Some((p, name, true));
-                    self.rename_pristine = true;
                 }
             }
             "duplicate" => {
@@ -2812,8 +2841,9 @@ impl App for Files {
         if let Some((paths, _)) = dropped {
             self.handle_drop(paths);
         }
-        ui.set_enabled(self.ask.is_none());
+        ui.set_enabled(self.ask.is_none() && self.ext_ask.is_none());
         self.ask_sheet(ui);
+        self.ext_sheet(ui);
         self.quicklook_follow(ui);
         // Janela de metal do Tiger: cantos de baixo arredondados também.
         ui.c.clip_bottom_corners(6.0);
@@ -3013,6 +3043,33 @@ pub fn main() {
 fn sub_x_in(w: f32, mr: Rect) -> f32 {
     let mw = 220.0;
     if mr.x + mr.w - 4.0 + mw <= w - 4.0 || mr.x - mw + 4.0 < 0.0 { mr.x + mr.w - 4.0 } else { mr.x - mw + 4.0 }
+}
+
+/// Where the name ends and the extension starts (in bytes), for the rename selection:
+/// "foto.final.png" → "foto.final"; folders, hidden files without another dot and names
+/// without an extension are selected whole.
+fn name_without_extension(name: &str, folder: bool) -> usize {
+    if folder {
+        return name.len();
+    }
+    match name.rfind('.') {
+        Some(i) if i > 0 && i + 1 < name.len() => i,
+        _ => name.len(),
+    }
+}
+
+#[cfg(test)]
+mod rename_tests {
+    #[test]
+    fn selecao_sem_extensao() {
+        use super::name_without_extension as n;
+        assert_eq!(n("foto.final.png", false), 10);
+        assert_eq!(n("LEIAME", false), 6);
+        assert_eq!(n(".bashrc", false), 7);
+        assert_eq!(n("ponto.", false), 6);
+        assert_eq!(n("pasta.app", true), 9);
+        assert_eq!(n("vídeo.mp4", false), "vídeo".len());
+    }
 }
 
 #[cfg(test)]

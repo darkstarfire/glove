@@ -286,7 +286,8 @@ impl Glove {
     fn dock_elements_at(&self, renderer: &mut GlesRenderer, sc: f64, o: Point<i32, Logical>, g: &crate::shell::DockGpu, alpha: Option<f32>, out: &mut Vec<GloveElement>) {
         let Some(scene) = &g.scene else { return };
         let at = |x: f32, y: f32| Point::<i32, Logical>::from((o.x + x.round() as i32, o.y + y.round() as i32));
-        if let (Some((_, x, y)), Some(t)) = (scene.label, g.label()) {
+        // With the Downloads stack open its name is not shown (as on the Mac).
+        if let (Some((_, x, y)), Some(t), false) = (scene.label, g.label(), self.pilha.is_some()) {
             out.extend(mem_alpha(renderer, at(x, y), t, sc, alpha));
         }
         for (&(x, y), t) in scene.indicators.iter().zip(g.inds()) {
