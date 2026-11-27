@@ -2006,3 +2006,32 @@ em `motor.rs`; as navegações passam por `decide_policy`.
   - compartilhar até a proporção 1:1 e parar, com limite de upload nos Ajustes;
   - onde salvar torrents: Downloads ou Downloads/Torrents.
 - Ordem: 25.1 primeiro (rápido, melhora o dia a dia), depois 25.2.
+
+## Fase 26 — Atalhos de teclado como no Mac, para todos os programas (pedido de 26/11/2026; não começado)
+
+Objetivo: a tecla Super (a ⌘ do Mac) passa a ser a tecla dos atalhos em todo o sistema, e
+qualquer programa (os do Glove, GTK, Qt, Electron/Chromium, Firefox, apps X11 pelo Xwayland, o
+Terminal) entende os atalhos como num Mac, sem configurar app por app.
+
+- [ ] 26.1 Levantamento: todos os atalhos do compositor, do kit (glove-ui) e dos apps do Glove
+  hoje; a tabela de atalhos do macOS (sistema, texto, Finder, apps) como referência.
+- [ ] 26.2 Tradução no compositor, antes de a tecla chegar ao app: ⌘+tecla vira o atalho que o
+  app conhece (⌘C → Ctrl+C, ⌘V, ⌘X, ⌘Z, ⌘⇧Z, ⌘A, ⌘S, ⌘O, ⌘N, ⌘T, ⌘W, ⌘F, ⌘P, ⌘L, ⌘R…), e o
+  Ctrl de verdade continua Ctrl (no Terminal, Ctrl+C interrompe, como no Mac).
+  - Navegação de texto do Mac: ⌘←/→ início e fim da linha, ⌘↑/↓ início e fim do documento,
+    ⌥←/→ de palavra em palavra, ⌥⌫ apaga a palavra, ⌘⌫ apaga até o início da linha (com ⇧ para
+    selecionar).
+  - Exceções por tipo de app: no Terminal, ⌘C/⌘V viram Ctrl+Shift+C/V; apps que já entendem a
+    Super (os do Glove) recebem a tecla como está.
+  - Uma tabela de exceções por app (identificada pelo app_id/classe), editável.
+- [ ] 26.3 Atalhos do sistema no padrão do Mac: ⌘Tab (apps), ⌘` (janelas do app), ⌘Q, ⌘H
+  (ocultar), ⌘⌥H (ocultar os outros), ⌘M (minimizar), ⌘, (preferências do app), ⌘Espaço
+  (Busca), ⌘⌥Esc (Forçar Encerrar), ⌘⇧3/4/5 (capturas), ⌃⌘Q (bloquear), ⌘⇧. (arquivos ocultos
+  no Arquivos) — conferindo conflitos com os atalhos atuais (Ctrl+Super+setas das mesas etc.).
+- [ ] 26.4 glove-ui e apps do Glove: os atalhos dos menus mostrados com os símbolos do Mac
+  (⌘ ⌥ ⇧ ⌃) e todos os apps usando a mesma tabela.
+- [ ] 26.5 Preferências ▸ Teclado: ligar/desligar o "modo Mac" (para quem vem do Linux/Windows),
+  trocar ⌘ e ⌥ de lugar (teclado de PC: a tecla Alt fica onde o Mac tem a ⌘) e ver/editar as
+  exceções.
+- [ ] 26.6 Teste: conferir em GTK, Qt, Electron, Firefox, um app X11 e o Terminal, na sessão
+  oculta.
