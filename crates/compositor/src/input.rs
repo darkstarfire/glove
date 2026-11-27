@@ -439,6 +439,19 @@ impl Glove {
                 self.on_button(0x112, ButtonState::Pressed, t);
                 self.on_button(0x112, ButtonState::Released, t + 1);
             }
+            // "keydown ctrl" / "keyup ctrl": a modifier held (for a click with it).
+            Some(cmd @ ("keydown" | "keyup")) => {
+                let code = match it.next().unwrap_or("") {
+                    "ctrl" => 29,
+                    "shift" => 42,
+                    "alt" => 56,
+                    "super" => 125,
+                    _ => 0,
+                };
+                if code != 0 {
+                    self.on_key(code + 8, if cmd == "keydown" { KeyState::Pressed } else { KeyState::Released }, t);
+                }
+            }
             Some("rclick") => {
                 self.on_button(BTN_RIGHT, ButtonState::Pressed, t);
                 self.on_button(BTN_RIGHT, ButtonState::Released, t + 1);

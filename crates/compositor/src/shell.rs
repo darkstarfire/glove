@@ -2223,7 +2223,9 @@ impl Glove {
             // O mesmo ícone da troca de apps e do Forçar Encerrar (inclui os dos utilitários
             // do Glove sem atalho, como a janela de senha com o chaveiro).
             let icon = Icon::from_name(&glove_config::app_icon_name(&[], &app_id));
-            items.push(DockItem { icon, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce: 0.0, thumbnail: false });
+            // A new window asked with Ctrl+click bounces here too.
+            let bounce = self.dock_bounce(&app_id, self.config.dock.size.clamp(24, 128) as f32);
+            items.push(DockItem { icon, letter: name.chars().next(), label: name, running: true, separator_before: false, bounce, thumbnail: false });
             actions.push(DockAction::Running(id));
         }
         let mut any_min = false;
