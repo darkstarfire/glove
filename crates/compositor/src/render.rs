@@ -1066,14 +1066,18 @@ impl Glove {
 
     fn push_scaled_window(&self, renderer: &mut GlesRenderer, w: &smithay::desktop::Window, r: Rectangle<f64, Logical>, sc: f64, out: &mut Vec<GloveElement>) {
         use smithay::backend::renderer::element::Kind;
-        let frame_w = w.geometry().size.w as f64;
+        // The size the window says it has; when what it draws is much bigger (Chromium and
+        // Electron apps, like VS Code, after a monitor with another scale), what it draws:
+        // the picture always fits the place (it covered the next icons of the Dock).
+        let declared = w.geometry();
+        let drawn = w.bbox();
+        let (frame_w, geo) = if drawn.size.w as f64 > declared.size.w as f64 * 1.25 { (drawn.size.w as f64, drawn.loc.to_f64()) } else { (declared.size.w as f64, declared.loc.to_f64()) };
         if frame_w <= 0.0 {
             return;
         }
         let s = (r.size.w / frame_w).max(0.01);
         let top = crate::shell::deco_top(w) as f64;
         // Conteúdo: desenhado num ponto P e encolhido em volta dele.
-        let geo = w.geometry().loc.to_f64();
         let px = r.loc.x - geo.x * s;
         let py = r.loc.y + top * s - geo.y * s;
         let origin = Point::<f64, Logical>::from((px, py)).to_physical(sc).to_i32_round();
